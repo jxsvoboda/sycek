@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <charcls.h>
 #include <file_input.h>
+#include <input_buf.h>
 #include <lexer.h>
 #include <pathname.h>
 #include <preproc.h>
@@ -177,19 +178,26 @@ static preproc_condition_t *preproc_top_condition(preproc_t *preproc)
 static int preproc_push_input(preproc_t *preproc, const char *fname, FILE *file,
     file_input_t *finput, lexer_input_ops_t *input_ops, void *input_arg)
 {
-	preproc_input_t *input;
+	preproc_input_t *input = NULL;
+	int rc;
 
 	input = calloc(1, sizeof(preproc_input_t));
-	if (input == NULL)
-		return ENOMEM;
+	if (input == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
 
 	if (fname != NULL) {
 		input->in_fname = strdup(fname);
 		if (input->in_fname == NULL) {
-			free(input);
-			return ENOMEM;
+			rc = ENOMEM;
+			goto error;
 		}
 	}
+
+	rc = input_buf_create(input_ops, input_arg, &input->inbuf);
+	if (rc != EOK)
+		goto error;
 
 	input->in_file = file;
 	input->finput = finput;
@@ -200,6 +208,12 @@ static int preproc_push_input(preproc_t *preproc, const char *fname, FILE *file,
 
 	preproc->cur = input;
 	return EOK;
+error:
+	if (input != NULL && input->in_fname != NULL)
+		free(input->in_fname);
+	if (input != NULL)
+		free(input);
+	return rc;
 }
 
 /** Pop entry from preprocessor input stack.
@@ -220,6 +234,8 @@ static void preproc_pop_input(preproc_t *preproc)
 
 		condition = preproc_top_condition(preproc);
 	}
+
+	input_buf_destroy(preproc->cur->inbuf);
 
 	list_remove(&preproc->cur->linputs);
 	if (preproc->cur->finput != NULL)
@@ -386,60 +402,7 @@ static void preproc_macro_remove(preproc_macro_t *macro)
  */
 static char *preproc_chars(preproc_t *preproc)
 {
-	int rc;
-	size_t nread;
-	size_t i;
-	src_pos_t rpos;
-
-	while (!preproc->cur->in_eof && preproc->cur->buf_used -
-	    preproc->cur->buf_pos < preproc_buf_low_watermark) {
-		/* Move data to beginning of buffer */
-		memmove(preproc->cur->buf,
-		    preproc->cur->buf + preproc->cur->buf_pos,
-		    preproc->cur->buf_used - preproc->cur->buf_pos);
-		memmove(preproc->cur->posbuf, preproc->cur->posbuf +
-		    preproc->cur->buf_pos,
-		    (preproc->cur->buf_used - preproc->cur->buf_pos) *
-		    sizeof(src_pos_t));
-		preproc->cur->buf_used -= preproc->cur->buf_pos;
-		preproc->cur->buf_pos = 0;
-		/* XX Advance preproc->buf_bpos */
-
-		rc = preproc->cur->input_ops->read(preproc->cur->input_arg,
-		    preproc->cur->buf + preproc->cur->buf_used,
-		    preproc_buf_size - preproc->cur->buf_used, &nread, &rpos);
-		if (rc != EOK) {
-			preproc->cur->in_error = true;
-			nread = 0;
-			rpos = preproc->cur->pos;
-		}
-
-		if (nread == 0)
-			preproc->cur->in_eof = true;
-		if (preproc->cur->buf_used == 0) {
-			preproc->buf_bpos = rpos;
-			preproc->cur->pos = rpos;
-		}
-
-		for (i = 0; i < nread; i++) {
-			preproc->cur->posbuf[preproc->cur->buf_used + i] = rpos;
-			src_pos_fwd_char(&rpos,
-			    preproc->cur->buf[preproc->cur->buf_used + i]);
-		}
-
-		preproc->cur->buf_used += nread;
-		if (preproc->cur->buf_used < preproc_buf_size)
-			preproc->cur->buf[preproc->cur->buf_used] = '\0';
-	}
-
-	assert(preproc->cur->buf_pos < preproc_buf_size);
-
-	if (preproc->cur->buf_pos < preproc->cur->buf_used) {
-		preproc->cur->pos =
-		    preproc->cur->posbuf[preproc->cur->buf_pos];
-	}
-
-	return preproc->cur->buf + preproc->cur->buf_pos;
+	return input_buf_chars(preproc->cur->inbuf, &preproc->cur->pos);
 }
 
 /** Determine if preprocessor is at end of file.
@@ -449,13 +412,7 @@ static char *preproc_chars(preproc_t *preproc)
  */
 static bool preproc_is_eof(preproc_t *preproc)
 {
-	char *lc;
-
-	/* Make sure buffer is filled, if possible */
-	lc = preproc_chars(preproc);
-	(void) lc;
-
-	return preproc->cur->buf_pos == preproc->cur->buf_used;
+	return input_buf_is_eof(preproc->cur->inbuf);
 }
 
 /** Determine if preprocessor hit an error.
@@ -465,7 +422,7 @@ static bool preproc_is_eof(preproc_t *preproc)
  */
 static bool preproc_is_error(preproc_t *preproc)
 {
-	return preproc->cur->in_error;
+	return input_buf_is_error(preproc->cur->inbuf);
 }
 
 /** Advance preprocessor read position.
@@ -477,17 +434,7 @@ static bool preproc_is_error(preproc_t *preproc)
  */
 static void preproc_advance(preproc_t *preproc, size_t nchars)
 {
-	char *p;
-
-	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc) &&
-	    nchars > 0) {
-		p = preproc_chars(preproc);
-		(void)p;
-
-		++preproc->cur->buf_pos;
-		assert(preproc->cur->buf_pos <= preproc_buf_size);
-		--nchars;
-	}
+	input_buf_advance(preproc->cur->inbuf, nchars, &preproc->cur->pos);
 }
 
 /** Determine if output buffer has available space.

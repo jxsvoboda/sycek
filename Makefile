@@ -66,6 +66,7 @@ sources_syc_common = \
     src/cgrec.c \
     src/cgtype.c \
     src/comp.c \
+    src/input_buf.c \
     src/ir.c \
     src/irlexer.c \
     src/irparser.c \

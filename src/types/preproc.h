@@ -31,14 +31,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <types/file_input.h>
+#include <types/input_buf.h>
 #include <types/linput.h>
 #include <types/preproc.h>
 #include <types/src_pos.h>
 
 enum {
-	preproc_buf_size = 32,
 	preproc_xbuf_size = 32,
-	preproc_buf_low_watermark = 16,
 	preproc_xbuf_low_watermark = 16,
 	preproc_out_buf_size = 32
 };
@@ -111,22 +110,12 @@ typedef struct preproc_input {
 	lexer_input_ops_t *input_ops;
 	/** Argument to input ops */
 	void *input_arg;
-	/** EOF hit in input */
-	bool in_eof;
-	/** Done processing this file */
-	bool out_eof;
-	/** Error hit in input */
-	bool in_error;
 	/** Input buffer */
-	char buf[preproc_buf_size];
-	/** Input position buffer */
-	src_pos_t posbuf[preproc_buf_size];
-	/** Input buffer position */
-	size_t buf_pos;
-	/** Number of used bytes in buf */
-	size_t buf_used;
+	input_buf_t *inbuf;
 	/** Current position */
 	src_pos_t pos;
+	/** Done processing this file */
+	bool out_eof;
 	/** Condition stack (list of preproc_condition_t) */
 	list_t conditions;
 } preproc_input_t;
