@@ -1,0 +1,1 @@
+<test/syc/bad/ppunmatchelif.c:5:2-6:1>: Unmatched #elif.

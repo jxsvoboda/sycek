@@ -552,6 +552,17 @@ static void preproc_error_macro_name(preproc_t *preproc)
 	(void)fprintf(stderr, ": Expected macro name.\n");
 }
 
+/** Print error expected condition.
+ *
+ * @param preproc Preprocessor
+ */
+static void preproc_error_condition(preproc_t *preproc)
+{
+	(void)preproc_dprint_range(&preproc->cur->pos, &preproc->cur->pos,
+	    stderr);
+	(void)fprintf(stderr, ": Expected condition.\n");
+}
+
 /** Process whitespace.
  *
  * @param preproc Preprocessor
@@ -605,6 +616,36 @@ static int preproc_process_ws_eol(preproc_t *preproc)
 	preproc_advance(preproc, 1);
 	return EOK;
 }
+
+/** Process condition expression.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_condition(preproc_t *preproc, bool *rresult)
+{
+	char *p;
+
+	if (preproc_is_eof(preproc) || preproc_is_error(preproc))
+		return EINVAL;
+
+	p = preproc_chars(preproc);
+	if (p[0] == '0') {
+		preproc_advance(preproc, 1);
+		*rresult = false;
+		return EOK;
+	}
+
+	if (p[0] == '1') {
+		preproc_advance(preproc, 1);
+		*rresult = true;
+		return EOK;
+	}
+
+	fprintf(stderr, "Invalid conditional expression.\n");
+	return EINVAL;
+}
+
 
 /** Process invalid directive and print diagnostics.
  *
@@ -928,6 +969,89 @@ error:
 	return rc;
 }
 
+/** Process elif directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_elif(preproc_t *preproc)
+{
+	preproc_condition_t *old_cond;
+	preproc_condition_t *cond;
+	src_pos_t bpos;
+	bool cond_result = false;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 4);
+
+	if (preproc->skipping) {
+		rc = preproc_skip_to_end_of_line(preproc);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = preproc_process_ws(preproc);
+		if (rc != EOK)
+			goto error;
+
+		if (preproc_is_eof(preproc)) {
+			preproc_error_condition(preproc);
+			rc = EINVAL;
+			goto error;
+		}
+
+		if (preproc_is_error(preproc)) {
+			rc = EIO;
+			goto error;
+		}
+
+		rc = preproc_process_condition(preproc, &cond_result);
+		if (rc != EOK)
+			goto error;
+
+		rc = preproc_process_ws_eol(preproc);
+		if (rc != EOK)
+			goto error;
+	}
+
+	old_cond = preproc_top_condition(preproc);
+	if (old_cond == NULL) {
+		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
+		(void)fprintf(stderr, ": Unmatched #elif.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (old_cond->has_else) {
+		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
+		(void)fprintf(stderr, ": #elif after #else for condition "
+		    "starting at ");
+		(void)preproc_dprint_range(&old_cond->bpos, &old_cond->epos,
+		    stderr);
+		(void)fprintf(stderr, ".\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	preproc_pop_condition(preproc);
+
+	cond = preproc_push_condition(preproc, &bpos, &preproc->cur->pos,
+	    preproc->skipping);
+	if (cond == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	if (!preproc->skipping)
+		preproc->skipping = !cond_result;
+
+	preproc->state = pps_line_begin;
+	return EOK;
+error:
+	return rc;
+}
+
+
 /** Process else directive.
  *
  * @param preproc Preprocessor
@@ -1047,6 +1171,75 @@ static int preproc_process_error(preproc_t *preproc)
 		rc = EINVAL;
 		goto error;
 	}
+
+	preproc->state = pps_line_begin;
+	return EOK;
+error:
+	return rc;
+}
+
+/** Process if directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_if(preproc_t *preproc)
+{
+	preproc_condition_t *cond;
+	src_pos_t bpos;
+	bool cond_result;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 2);
+
+	if (preproc->skipping) {
+		rc = preproc_skip_to_end_of_line(preproc);
+		if (rc != EOK)
+			return rc;
+
+		cond = preproc_push_condition(preproc, &bpos,
+		    &preproc->cur->pos, preproc->skipping);
+		if (cond == NULL) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		preproc->state = pps_line_begin;
+		return EOK;
+	}
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (preproc_is_eof(preproc)) {
+		preproc_error_condition(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	rc = preproc_process_condition(preproc, &cond_result);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	cond = preproc_push_condition(preproc, &bpos, &preproc->cur->pos,
+	    preproc->skipping);
+	if (cond == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	preproc->skipping = !cond_result;
 
 	preproc->state = pps_line_begin;
 	return EOK;
@@ -1424,6 +1617,10 @@ static int preproc_process_directive(preproc_t *preproc)
 		}
 		break;
 	case 'e':
+		if (p[1] == 'l' && p[2] == 'i' && p[3] == 'f' &&
+		    !is_idcnt(p[4])) {
+			return preproc_process_elif(preproc);
+		}
 		if (p[1] == 'l' && p[2] == 's' && p[3] == 'e' &&
 		    !is_idcnt(p[4])) {
 			return preproc_process_else(preproc);
@@ -1438,6 +1635,9 @@ static int preproc_process_directive(preproc_t *preproc)
 		}
 		break;
 	case 'i':
+		if (p[1] == 'f' && !is_idcnt(p[2])) {
+			return preproc_process_if(preproc);
+		}
 		if (p[1] == 'f' && p[2] == 'd' && p[3] == 'e' &&
 		    p[4] == 'f' && !is_idcnt(p[5])) {
 			return preproc_process_ifdef(preproc);

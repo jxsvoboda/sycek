@@ -1,0 +1,1 @@
+<test/syc/bad/ppelifafterelse.c:7:2-8:1>: #elif after #else for condition starting at <test/syc/bad/ppelifafterelse.c:5:2-6:1>.
