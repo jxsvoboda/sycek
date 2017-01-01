@@ -32,6 +32,9 @@ $(binary): $(objects)
 
 $(objects): $(headers)
 
+cstyle: $(binary)
+	./selfcheck.sh
+
 clean:
 	rm -f $(objects) $(binary)
 
