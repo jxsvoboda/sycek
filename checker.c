@@ -54,6 +54,10 @@ static parser_input_ops_t checker_parser_input = {
 	.tok_data = checker_parser_tok_data
 };
 
+enum {
+	line_length_limit = 80
+};
+
 /** Create checker module.
  *
  * @param input_ops Input ops
@@ -1158,6 +1162,14 @@ static int checker_module_lines(checker_module_t *mod)
 		}
 
 		/* Skip newline */
+		tok = checker_reader_cur_tok(&cread);
+		if (tok->tok.bpos.col > 1 + line_length_limit) {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Line too long (%zu characters above %u "
+			    "character limit)\n", tok->tok.bpos.col -
+			    line_length_limit - 1, line_length_limit);
+		}
+
 		if (!checker_reader_eof(&cread))
 			checker_reader_next_char(&cread);
 	}
