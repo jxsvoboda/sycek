@@ -28,6 +28,7 @@
 #define TYPES_CHECKER_H
 
 #include <adt/list.h>
+#include <stdbool.h>
 #include <types/ast.h>
 #include <types/lexer.h>
 
@@ -41,6 +42,8 @@ typedef struct {
 	lexer_tok_t tok;
 	/** Indentation level */
 	unsigned indlvl;
+	/** Token is supposed to begin a new line */
+	bool lbegin;
 } checker_tok_t;
 
 /** Checker module */

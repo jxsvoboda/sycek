@@ -33,7 +33,9 @@
 #include <stdlib.h>
 
 static int ast_block_print(ast_block_t *, FILE *);
+static ast_tok_t *ast_block_last_tok(ast_block_t *);
 static int ast_dlist_print(ast_dlist_t *, FILE *);
+static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *);
 
 /** Create AST module.
  *
@@ -102,6 +104,42 @@ ast_node_t *ast_module_next(ast_node_t *node)
 	return list_get_instance(link, ast_node_t, llist);
 }
 
+/** Return last declaration in module.
+ *
+ * @param module Module
+ * @return Last declaration or @c NULL
+ */
+ast_node_t *ast_module_last(ast_module_t *module)
+{
+	link_t *link;
+
+	link = list_last(&module->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return previous declaration in module.
+ *
+ * @param module Module
+ * @return Previous declaration or @c NULL
+ */
+ast_node_t *ast_module_prev(ast_node_t *node)
+{
+	link_t *link;
+	ast_module_t *module;
+
+	assert(node->lnode->ntype == ant_module);
+	module = (ast_module_t *) node->lnode->ext;
+
+	link = list_prev(&node->llist, &module->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
 /** Print AST module.
  *
  * @param module Module
@@ -125,6 +163,38 @@ static int ast_module_print(ast_module_t *module, FILE *f)
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Get first token of AST module.
+ *
+ * @param module Module
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_module_first_tok(ast_module_t *module)
+{
+	ast_node_t *decl;
+
+	decl = ast_module_first(module);
+	if (decl == NULL)
+		return NULL;
+
+	return ast_tree_first_tok(decl);
+}
+
+/** Get last token of AST module.
+ *
+ * @param module Module
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_module_last_tok(ast_module_t *module)
+{
+	ast_node_t *decl;
+
+	decl = ast_module_last(module);
+	if (decl == NULL)
+		return NULL;
+
+	return ast_tree_last_tok(decl);
 }
 
 /** Create AST storage-class specifier.
@@ -189,6 +259,26 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST storage-class specifier.
+ *
+ * @param sclass Storage-class specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_sclass_first_tok(ast_sclass_t *sclass)
+{
+	return &sclass->tsclass;
+}
+
+/** Get last token of AST storage-class specifier.
+ *
+ * @param sclass Storage-class specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_sclass_last_tok(ast_sclass_t *sclass)
+{
+	return &sclass->tsclass;
 }
 
 /** Create AST function definition.
@@ -257,6 +347,29 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST function definition.
+ *
+ * @param fundef Function definition
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_fundef_first_tok(ast_fundef_t *fundef)
+{
+	return ast_dspecs_first_tok(fundef->dspecs);
+}
+
+/** Get last token of AST function definition.
+ *
+ * @param fundef Function definition
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_fundef_last_tok(ast_fundef_t *fundef)
+{
+	if (fundef->have_scolon)
+		return &fundef->tscolon;
+	else
+		return ast_block_last_tok(fundef->body);
 }
 
 /** Create AST block.
@@ -331,6 +444,42 @@ ast_node_t *ast_block_next(ast_node_t *node)
 	return list_get_instance(link, ast_node_t, llist);
 }
 
+/** Return last statement in block.
+ *
+ * @param block Block
+ * @return Last statement or @c NULL
+ */
+ast_node_t *ast_block_last(ast_block_t *block)
+{
+	link_t *link;
+
+	link = list_last(&block->stmts);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return previous statement in block.
+ *
+ * @param node Current statement
+ * @return Previous statement or @c NULL
+ */
+ast_node_t *ast_block_prev(ast_node_t *node)
+{
+	link_t *link;
+	ast_block_t *block;
+
+	assert(node->lnode->ntype == ant_block);
+	block = (ast_block_t *) node->lnode->ext;
+
+	link = list_prev(&node->llist, &block->stmts);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
 /** Print AST block.
  *
  * @param block Block
@@ -359,6 +508,44 @@ static int ast_block_print(ast_block_t *block, FILE *f)
 	return EOK;
 }
 
+/** Get first token of AST block.
+ *
+ * @param block Block
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_block_first_tok(ast_block_t *block)
+{
+	ast_node_t *stmt;
+
+	if (block->braces) {
+		return &block->topen;
+	} else {
+		stmt = ast_block_first(block);
+		if (stmt == NULL)
+			return NULL;
+		return ast_tree_first_tok(stmt);
+	}
+}
+
+/** Get last token of AST block.
+ *
+ * @param block Block
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_block_last_tok(ast_block_t *block)
+{
+	ast_node_t *stmt;
+
+	if (block->braces) {
+		return &block->tclose;
+	} else {
+		stmt = ast_block_last(block);
+		if (stmt == NULL)
+			return NULL;
+		return ast_tree_last_tok(stmt);
+	}
+}
+
 /** Create AST type qualifier.
  *
  * @param qtype Qualifier type
@@ -382,7 +569,7 @@ int ast_tqual_create(ast_qtype_t qtype, ast_tqual_t **rtqual)
 	return EOK;
 }
 
-/** Print AST type qualifier.
+/** Print AST .
  *
  * @param tqual Type qualifier
  * @param f Output file
@@ -409,6 +596,26 @@ static int ast_tqual_print(ast_tqual_t *tqual, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST type qualifier.
+ *
+ * @param tqual Type qualifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tqual_first_tok(ast_tqual_t *tqual)
+{
+	return &tqual->tqual;
+}
+
+/** Get last token of AST type qualifier.
+ *
+ * @param tqual Type qualifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tqual_last_tok(ast_tqual_t *tqual)
+{
+	return &tqual->tqual;
 }
 
 /** Create AST basic type specifier.
@@ -449,6 +656,26 @@ static int ast_tsbasic_print(ast_tsbasic_t *tsbasic, FILE *f)
 	return EOK;
 }
 
+/** Get first token of AST basic type specifier.
+ *
+ * @param tsbasic Basic type specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tsbasic_first_tok(ast_tsbasic_t *tsbasic)
+{
+	return &tsbasic->tbasic;
+}
+
+/** Get last token of AST basic type specifier.
+ *
+ * @param tsbasic Basic type specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tsbasic_last_tok(ast_tsbasic_t *tsbasic)
+{
+	return &tsbasic->tbasic;
+}
+
 /** Create AST identifier type specifier.
  *
  * @param rtsident Place to store pointer to new identifier type specifier
@@ -485,6 +712,26 @@ static int ast_tsident_print(ast_tsident_t *atsident, FILE *f)
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Get first token of AST identifier type specifier.
+ *
+ * @param tsident Identifier type specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tsident_first_tok(ast_tsident_t *tsident)
+{
+	return &tsident->tident;
+}
+
+/** Get last token of AST identifier type specifier.
+ *
+ * @param tsident Identifier type specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tsident_last_tok(ast_tsident_t *tsident)
+{
+	return &tsident->tident;
 }
 
 /** Create AST record type specifier.
@@ -572,7 +819,7 @@ ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *elem)
 
 /** Print AST record type specifier.
  *
- * @param block Block
+ * @param tsrecord Record type specifier
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
@@ -599,6 +846,31 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tsrecord_first_tok(ast_tsrecord_t *tsrecord)
+{
+	return &tsrecord->tsu;
+}
+
+/** Get last token of AST record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tsrecord_last_tok(ast_tsrecord_t *tsrecord)
+{
+	if (tsrecord->have_def)
+		return &tsrecord->trbrace;
+	else if (tsrecord->have_ident)
+		return &tsrecord->tident;
+	else
+		return &tsrecord->tsu;
 }
 
 /** Create AST enum type specifier.
@@ -717,9 +989,34 @@ static int ast_tsenum_print(ast_tsenum_t *tsenum, FILE *f)
 	return EOK;
 }
 
-/** Create AST basic type specifier.
+/** Get first token of AST enum type specifier.
  *
- * @param rtsbasic Place to store pointer to new basic type specifier
+ * @param tsenum enum type specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tsenum_first_tok(ast_tsenum_t *tsenum)
+{
+	return &tsenum->tenum;
+}
+
+/** Get last token of AST enum type specifier.
+ *
+ * @param tsenum enum type specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tsenum_last_tok(ast_tsenum_t *tsenum)
+{
+	if (tsenum->have_def)
+		return &tsenum->trbrace;
+	else if (tsenum->have_ident)
+		return &tsenum->tident;
+	else
+		return &tsenum->tenum;
+}
+
+/** Create AST function specifier.
+ *
+ * @param rtsbasic Place to store pointer to new function specifier
  *
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -738,9 +1035,9 @@ int ast_fspec_create(ast_fspec_t **rfspec)
 	return EOK;
 }
 
-/** Print AST basic type specifier.
+/** Print AST function specifier.
  *
- * @param fspec Basic type specifier
+ * @param fspec Function specifier
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
@@ -752,6 +1049,27 @@ static int ast_fspec_print(ast_fspec_t *fspec, FILE *f)
 		return EIO;
 	return EOK;
 }
+
+/** Get first token of AST function specifier.
+ *
+ * @param fspec Function specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_fspec_first_tok(ast_fspec_t *fspec)
+{
+	return &fspec->tfspec;
+}
+
+/** Get last token of AST function specifier.
+ *
+ * @param fspec Function specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_fspec_last_tok(ast_fspec_t *fspec)
+{
+	return &fspec->tfspec;
+}
+
 /** Create AST specifier-qualifier list.
  *
  * @param rsqlist Place to store pointer to new specifier-qualifier list
@@ -789,7 +1107,7 @@ void ast_sqlist_append(ast_sqlist_t *sqlist, ast_node_t *elem)
 /** Return first element in specifier-qualifier list.
  *
  * @param sqlist Specifier-qualifier list
- * @return First statement or @c NULL
+ * @return First element or @c NULL
  */
 ast_node_t *ast_sqlist_first(ast_sqlist_t *sqlist)
 {
@@ -816,6 +1134,42 @@ ast_node_t *ast_sqlist_next(ast_node_t *node)
 	sqlist = (ast_sqlist_t *) node->lnode->ext;
 
 	link = list_next(&node->llist, &sqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return last element in specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @return Last element or @c NULL
+ */
+ast_node_t *ast_sqlist_last(ast_sqlist_t *sqlist)
+{
+	link_t *link;
+
+	link = list_last(&sqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return previous element in specifier-qualifier list.
+ *
+ * @param node Current element
+ * @return Previous element or @c NULL
+ */
+ast_node_t *ast_sqlist_prev(ast_node_t *node)
+{
+	link_t *link;
+	ast_sqlist_t *sqlist;
+
+	assert(node->lnode->ntype == ant_sqlist);
+	sqlist = (ast_sqlist_t *) node->lnode->ext;
+
+	link = list_prev(&node->llist, &sqlist->elems);
 	if (link == NULL)
 		return NULL;
 
@@ -850,6 +1204,26 @@ static int ast_sqlist_print(ast_sqlist_t *sqlist, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_sqlist_first_tok(ast_sqlist_t *sqlist)
+{
+	return ast_tree_first_tok(ast_sqlist_first(sqlist));
+}
+
+/** Get last token of AST specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_sqlist_last_tok(ast_sqlist_t *sqlist)
+{
+	return ast_tree_last_tok(ast_sqlist_last(sqlist));
 }
 
 /** Create AST declaration specifiers.
@@ -889,7 +1263,7 @@ void ast_dspecs_append(ast_dspecs_t *dspecs, ast_node_t *dspec)
 /** Return first element in declaration specifiers.
  *
  * @param dspecs Declaration specifiers
- * @return First statement or @c NULL
+ * @return First element or @c NULL
  */
 ast_node_t *ast_dspecs_first(ast_dspecs_t *dspecs)
 {
@@ -916,6 +1290,42 @@ ast_node_t *ast_dspecs_next(ast_node_t *node)
 	dspecs = (ast_dspecs_t *) node->lnode->ext;
 
 	link = list_next(&node->llist, &dspecs->dspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return last element in declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ * @return Last element or @c NULL
+ */
+ast_node_t *ast_dspecs_last(ast_dspecs_t *dspecs)
+{
+	link_t *link;
+
+	link = list_last(&dspecs->dspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return previous element in declaration specifiers.
+ *
+ * @param node Current element
+ * @return Previous element or @c NULL
+ */
+ast_node_t *ast_dspecs_prev(ast_node_t *node)
+{
+	link_t *link;
+	ast_dspecs_t *dspecs;
+
+	assert(node->lnode->ntype == ant_dspecs);
+	dspecs = (ast_dspecs_t *) node->lnode->ext;
+
+	link = list_prev(&node->llist, &dspecs->dspecs);
 	if (link == NULL)
 		return NULL;
 
@@ -950,6 +1360,26 @@ static int ast_dspecs_print(ast_dspecs_t *dspecs, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *dspecs)
+{
+	return ast_tree_first_tok(ast_dspecs_first(dspecs));
+}
+
+/** Get last token of AST declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dspecs_last_tok(ast_dspecs_t *dspecs)
+{
+	return ast_tree_last_tok(ast_dspecs_last(dspecs));
 }
 
 
@@ -991,9 +1421,29 @@ static int ast_dident_print(ast_dident_t *adident, FILE *f)
 	return EOK;
 }
 
-/** Create AST no-identifier declartor.
+/** Get first token of AST identifier declarator.
  *
- * @param rdnoident Place to store pointer to new no-identifier declartor
+ * @param dident Identifier declarator
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dident_first_tok(ast_dident_t *dident)
+{
+	return &dident->tident;
+}
+
+/** Get last token of AST identifier declarator.
+ *
+ * @param dident Identifier declarator
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dident_last_tok(ast_dident_t *dident)
+{
+	return &dident->tident;
+}
+
+/** Create AST no-identifier declarator.
+ *
+ * @param rdnoident Place to store pointer to new no-identifier declarator
  *
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -1012,7 +1462,7 @@ int ast_dnoident_create(ast_dnoident_t **rdnoident)
 	return EOK;
 }
 
-/** Print AST no-identifier declartor.
+/** Print AST no-identifier declarator.
  *
  * @param adnoident Identifier specifier
  * @param f Output file
@@ -1027,6 +1477,28 @@ static int ast_dnoident_print(ast_dnoident_t *adnoident, FILE *f)
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Get first token of AST no-identifier declarator.
+ *
+ * @param dnoident No-identifier declarator
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dnoident_first_tok(ast_dnoident_t *dnoident)
+{
+	(void) dnoident;
+	return NULL;
+}
+
+/** Get last token of AST no-identifier declarator.
+ *
+ * @param dnoident No-identifier declarator
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dnoident_last_tok(ast_dnoident_t *dnoident)
+{
+	(void) dnoident;
+	return NULL;
 }
 
 /** Create AST parenthesized declarator.
@@ -1067,6 +1539,26 @@ static int ast_dparen_print(ast_dparen_t *adparen, FILE *f)
 	return EOK;
 }
 
+/** Get first token of AST parenthesized declarator.
+ *
+ * @param dparen Parenthesized declarator
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dparen_first_tok(ast_dparen_t *dparen)
+{
+	return &dparen->tlparen;
+}
+
+/** Get last token of AST parenthesized declarator.
+ *
+ * @param dparen Parenthesized declarator
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dparen_last_tok(ast_dparen_t *dparen)
+{
+	return &dparen->trparen;
+}
+
 /** Create AST pointer declarator.
  *
  * @param rdptr Place to store pointer to new pointer declarator
@@ -1103,6 +1595,32 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Get first token of AST pointer declarator.
+ *
+ * @param dptr Pointer declarator
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dptr_first_tok(ast_dptr_t *dptr)
+{
+	return &dptr->tasterisk;
+}
+
+/** Get last token of AST pointer declarator.
+ *
+ * @param dptr Pointer declarator
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dptr_last_tok(ast_dptr_t *dptr)
+{
+	ast_tok_t *tok;
+
+	tok = ast_tree_last_tok(dptr->bdecl);
+	if (tok != NULL)
+		return tok;
+
+	return &dptr->tasterisk;
 }
 
 /** Create AST function declarator.
@@ -1219,6 +1737,32 @@ static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 	return EOK;
 }
 
+/** Get first token of AST function declarator.
+ *
+ * @param dfun Function declarator
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dfun_first_tok(ast_dfun_t *dfun)
+{
+	ast_tok_t *tok;
+
+	tok = ast_tree_first_tok(dfun->bdecl);
+	if (tok != NULL)
+		return tok;
+
+	return &dfun->tlparen;
+}
+
+/** Get last token of AST function declarator.
+ *
+ * @param dfun Function declarator
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dfun_last_tok(ast_dfun_t *dfun)
+{
+	return &dfun->trparen;
+}
+
 /** Create AST array declarator.
  *
  * @param rdarray Place to store pointer to new array declarator
@@ -1240,7 +1784,7 @@ int ast_darray_create(ast_darray_t **rdarray)
 	return EOK;
 }
 
-/** Print AST function declarator.
+/** Print AST array declarator.
  *
  * @param block Block
  * @param f Output file
@@ -1258,6 +1802,32 @@ static int ast_darray_print(ast_darray_t *darray, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST array declarator.
+ *
+ * @param darray Array declarator
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_darray_first_tok(ast_darray_t *darray)
+{
+	ast_tok_t *tok;
+
+	tok = ast_tree_first_tok(darray->bdecl);
+	if (tok != NULL)
+		return tok;
+
+	return &darray->tlbracket;
+}
+
+/** Get last token of AST array declarator.
+ *
+ * @param darray Array declarator
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_darray_last_tok(ast_darray_t *darray)
+{
+	return &darray->trbracket;
 }
 
 /** Create AST declarator list.
@@ -1338,6 +1908,38 @@ ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *arg)
 	return list_get_instance(link, ast_dlist_entry_t, ldlist);
 }
 
+/** Return last declarator list entry.
+ *
+ * @param dlist Declarator list
+ * @return Last entry or @c NULL
+ */
+ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *dlist)
+{
+	link_t *link;
+
+	link = list_last(&dlist->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_dlist_entry_t, ldlist);
+}
+
+/** Return previous declarator list entry.
+ *
+ * @param arg Current entry
+ * @return Previous entry or @c NULL
+ */
+ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *arg)
+{
+	link_t *link;
+
+	link = list_prev(&arg->ldlist, &arg->dlist->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_dlist_entry_t, ldlist);
+}
+
 /** Print AST declarator list.
  *
  * @param block Block
@@ -1369,6 +1971,55 @@ static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get first token of AST declarator list.
+ *
+ * @param dlist Declarator list
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_dlist_first_tok(ast_dlist_t *dlist)
+{
+	ast_dlist_entry_t *entry;
+	ast_tok_t *tok;
+
+	/* Try first token of first entry */
+	entry = ast_dlist_first(dlist);
+	tok = ast_tree_first_tok(entry->decl);
+	if (tok != NULL)
+		return tok;
+
+	/* See if there are at least two entries */
+	entry = ast_dlist_next(entry);
+	if (entry == NULL)
+		return NULL;
+
+	/* Return separating comma */
+	return &entry->tcomma;
+}
+
+/** Get last token of AST declarator list.
+ *
+ * @param dlist Declarator list
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_dlist_last_tok(ast_dlist_t *dlist)
+{
+	ast_dlist_entry_t *entry;
+	ast_tok_t *tok;
+
+	/* Try last token of last entry */
+	entry = ast_dlist_last(dlist);
+	tok = ast_tree_last_tok(entry->decl);
+	if (tok != NULL)
+		return tok;
+
+	/* See if there are at least two entries */
+	if (ast_dlist_prev(entry) == NULL)
+		return NULL;
+
+	/* Return separating comma */
+	return &entry->tcomma;
 }
 
 /** Create AST return.
@@ -1407,6 +2058,26 @@ static int ast_return_print(ast_return_t *areturn, FILE *f)
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Get first token of AST return.
+ *
+ * @param areturn Return
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_return_first_tok(ast_return_t *areturn)
+{
+	return &areturn->treturn;
+}
+
+/** Get last token of AST return.
+ *
+ * @param areturn Return
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_return_last_tok(ast_return_t *areturn)
+{
+	return &areturn->tscolon;
 }
 
 /** Print AST tree.
@@ -1471,4 +2142,102 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 void ast_tree_destroy(ast_node_t *node)
 {
 	free(node->ext);
+}
+
+ast_tok_t *ast_tree_first_tok(ast_node_t *node)
+{
+	switch (node->ntype) {
+	case ant_block:
+		return ast_block_first_tok((ast_block_t *)node->ext);
+	case ant_fundef:
+		return ast_fundef_first_tok((ast_fundef_t *)node->ext);
+	case ant_module:
+		return ast_module_first_tok((ast_module_t *)node->ext);
+	case ant_sclass:
+		return ast_sclass_first_tok((ast_sclass_t *)node->ext);
+	case ant_tqual:
+		return ast_tqual_first_tok((ast_tqual_t *)node->ext);
+	case ant_tsbasic:
+		return ast_tsbasic_first_tok((ast_tsbasic_t *)node->ext);
+	case ant_tsident:
+		return ast_tsident_first_tok((ast_tsident_t *)node->ext);
+	case ant_tsrecord:
+		return ast_tsrecord_first_tok((ast_tsrecord_t *)node->ext);
+	case ant_tsenum:
+		return ast_tsenum_first_tok((ast_tsenum_t *)node->ext);
+	case ant_fspec:
+		return ast_fspec_first_tok((ast_fspec_t *)node->ext);
+	case ant_sqlist:
+		return ast_sqlist_first_tok((ast_sqlist_t *)node->ext);
+	case ant_dspecs:
+		return ast_dspecs_first_tok((ast_dspecs_t *)node->ext);
+	case ant_dident:
+		return ast_dident_first_tok((ast_dident_t *)node->ext);
+	case ant_dnoident:
+		return ast_dnoident_first_tok((ast_dnoident_t *)node->ext);
+	case ant_dparen:
+		return ast_dparen_first_tok((ast_dparen_t *)node->ext);
+	case ant_dptr:
+		return ast_dptr_first_tok((ast_dptr_t *)node->ext);
+	case ant_dfun:
+		return ast_dfun_first_tok((ast_dfun_t *)node->ext);
+	case ant_darray:
+		return ast_darray_first_tok((ast_darray_t *)node->ext);
+	case ant_dlist:
+		return ast_dlist_first_tok((ast_dlist_t *)node->ext);
+	case ant_return:
+		return ast_return_first_tok((ast_return_t *)node->ext);
+	}
+
+	assert(false);
+	return NULL;
+}
+
+ast_tok_t *ast_tree_last_tok(ast_node_t *node)
+{
+	switch (node->ntype) {
+	case ant_block:
+		return ast_block_last_tok((ast_block_t *)node->ext);
+	case ant_fundef:
+		return ast_fundef_last_tok((ast_fundef_t *)node->ext);
+	case ant_module:
+		return ast_module_last_tok((ast_module_t *)node->ext);
+	case ant_sclass:
+		return ast_sclass_last_tok((ast_sclass_t *)node->ext);
+	case ant_tqual:
+		return ast_tqual_last_tok((ast_tqual_t *)node->ext);
+	case ant_tsbasic:
+		return ast_tsbasic_last_tok((ast_tsbasic_t *)node->ext);
+	case ant_tsident:
+		return ast_tsident_last_tok((ast_tsident_t *)node->ext);
+	case ant_tsrecord:
+		return ast_tsrecord_last_tok((ast_tsrecord_t *)node->ext);
+	case ant_tsenum:
+		return ast_tsenum_last_tok((ast_tsenum_t *)node->ext);
+	case ant_fspec:
+		return ast_fspec_last_tok((ast_fspec_t *)node->ext);
+	case ant_sqlist:
+		return ast_sqlist_last_tok((ast_sqlist_t *)node->ext);
+	case ant_dspecs:
+		return ast_dspecs_last_tok((ast_dspecs_t *)node->ext);
+	case ant_dident:
+		return ast_dident_last_tok((ast_dident_t *)node->ext);
+	case ant_dnoident:
+		return ast_dnoident_last_tok((ast_dnoident_t *)node->ext);
+	case ant_dparen:
+		return ast_dparen_last_tok((ast_dparen_t *)node->ext);
+	case ant_dptr:
+		return ast_dptr_last_tok((ast_dptr_t *)node->ext);
+	case ant_dfun:
+		return ast_dfun_last_tok((ast_dfun_t *)node->ext);
+	case ant_darray:
+		return ast_darray_last_tok((ast_darray_t *)node->ext);
+	case ant_dlist:
+		return ast_dlist_last_tok((ast_dlist_t *)node->ext);
+	case ant_return:
+		return ast_return_last_tok((ast_return_t *)node->ext);
+	}
+
+	assert(false);
+	return NULL;
 }

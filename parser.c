@@ -468,11 +468,13 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_ident) {
 		parser_skip(parser, &dident);
+		precord->have_ident = true;
 		precord->tident.data = dident;
 	}
 
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_lbrace) {
+		precord->have_def = true;
 		parser_skip(parser, &dlbrace);
 
 		precord->tlbrace.data = dlbrace;
@@ -547,13 +549,15 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_ident) {
 		parser_skip(parser, &dident);
+		penum->have_ident = true;
 		penum->tident.data = dident;
 	}
 
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_lbrace) {
-		parser_skip(parser, &dlbrace);
+		penum->have_def = true;
 
+		parser_skip(parser, &dlbrace);
 		penum->tlbrace.data = dlbrace;
 
 		ltt = parser_next_ttype(parser);
@@ -1225,8 +1229,10 @@ static int parser_process_fundef(parser_t *parser, ast_dspecs_t *dspecs,
 		return rc;
 	}
 
-	if (body == NULL)
+	if (body == NULL) {
+		fundef->have_scolon = true;
 		fundef->tscolon.data = dscolon;
+	}
 
 	*rfundef = fundef;
 	return EOK;

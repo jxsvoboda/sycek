@@ -55,7 +55,10 @@ static parser_input_ops_t checker_parser_input = {
 };
 
 enum {
-	line_length_limit = 80
+	/** Maximum number of characters on a line */
+	line_length_limit = 80,
+	/** Number of spaces used to indent a continuation line */
+	cont_indent_spaces = 4
 };
 
 /** Create checker module.
@@ -266,7 +269,10 @@ static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 
 /** Check a token that must be at the beginning of the line.
  *
- * The token must be at the beginning of the line and indented appropriately
+ * The token must be at the beginning of the line and indented appropriately.
+ * This flags the token as having to begin on a new line so that we will
+ * verify it later. That also signals the line begun by this token is
+ * not a contination line.
  */
 static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
     const char *msg)
@@ -274,6 +280,7 @@ static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 	checker_tok_t *p;
 
 	checker_check_any(scope, tok);
+	tok->lbegin = true;
 
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
@@ -771,6 +778,7 @@ static int checker_check_tsident(checker_scope_t *scope,
 static int checker_check_tsrecord(checker_scope_t *scope,
     ast_tsrecord_t *tsrecord)
 {
+	ast_tok_t *asqlist;
 	checker_tok_t *tlbrace;
 	ast_tsrecord_elem_t *elem;
 	checker_tok_t *tsu;
@@ -799,6 +807,10 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
+		asqlist = ast_tree_first_tok(&elem->sqlist->node);
+		checker_check_lbegin(scope, (checker_tok_t *)asqlist->data,
+		    "Record element declaration must start on a new line.");
+
 		rc = checker_check_sqlist(escope, elem->sqlist);
 		if (rc != EOK)
 			goto error;
@@ -1008,14 +1020,21 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 {
 	int rc;
+	ast_tok_t *adecl;
 	ast_node_t *stmt;
 	ast_fundef_t *fundef;
+	checker_tok_t *tlbrace;
+	checker_tok_t *trbrace;
 	checker_tok_t *tscolon;
 	checker_scope_t *bscope = NULL;
 
 	if (0) printf("Check function declaration\n");
 	assert(decl->ntype == ant_fundef);
 	fundef = (ast_fundef_t *)decl->ext;
+
+	adecl = ast_tree_first_tok(&fundef->dspecs->node);
+	checker_check_lbegin(scope, (checker_tok_t *)adecl->data,
+	    "Declaration must start on a new line.");
 
 	rc = checker_check_dspecs(scope, fundef->dspecs);
 	if (rc != EOK)
@@ -1027,6 +1046,11 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 		    "Unexpected whitespace before ';'.");
 		return EOK;
 	}
+
+	assert(fundef->body->braces);
+	tlbrace = (checker_tok_t *)fundef->body->topen.data;
+	checker_check_lbegin(scope, tlbrace,
+	    "Function opening brace must start on a new line.");
 
 	bscope = checker_scope_nested(scope);
 	if (bscope == NULL)
@@ -1040,6 +1064,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 
 		stmt = ast_block_next(stmt);
 	}
+
+	trbrace = (checker_tok_t *)fundef->body->tclose.data;
+	checker_check_lbegin(scope, trbrace,
+	    "Function closing brace must start on a new line.");
 
 	checker_scope_destroy(bscope);
 	return EOK;
@@ -1126,9 +1154,18 @@ static int checker_module_lines(checker_module_t *mod)
 		tok = checker_reader_cur_tok(&cread);
 		if (tok->tok.ttype != ltt_wspace && tok->tok.ttype != ltt_comment &&
 		    tok->tok.ttype != ltt_dscomment && tok->tok.ttype != ltt_preproc) {
-			if (spaces != 0 && spaces != 4) {
+			if (tok->lbegin && spaces != 0) {
 				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Wrong number of spaces: %u\n", spaces);
+				printf(": Non-continuation line should not "
+				    "have any spaces for indentation "
+				    "(found %u)\n", spaces);
+			}
+
+			if (!tok->lbegin && spaces != cont_indent_spaces) {
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Continuation is indented by %u "
+				    "spaces (should be %u)\n",
+				    spaces, cont_indent_spaces);
 			}
 
 			if (tok->indlvl != tabs) {

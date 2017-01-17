@@ -153,8 +153,12 @@ typedef struct {
 	ast_rtype_t rtype;
 	/** Struct or union token */
 	ast_tok_t tsu;
+	/** @c true if we have an identifier */
+	bool have_ident;
 	/** Record type identifier */
 	ast_tok_t tident;
+	/** @c true if we have the definition (braces and elements) */
+	bool have_def;
 	/** Left brace token */
 	ast_tok_t tlbrace;
 	/** Elements */
@@ -183,8 +187,12 @@ typedef struct {
 	ast_node_t node;
 	/** Enum token */
 	ast_tok_t tenum;
+	/** @c true if we have an identifier */
+	bool have_ident;
 	/** Enum identifier token */
 	ast_tok_t tident;
+	/** @c true if we have the definition (braces and elements) */
+	bool have_def;
 	/** Left brace token */
 	ast_tok_t tlbrace;
 	/** Elements */
@@ -398,7 +406,9 @@ typedef struct {
 	ast_node_t *fdecl;
 	/** Function body */
 	ast_block_t *body;
-	/** Trailing ';' token (if function declaration) */
+	/** @c true if we have a trailing semicolon */
+	bool have_scolon;
+	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_fundef_t;
 
