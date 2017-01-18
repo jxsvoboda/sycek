@@ -2022,6 +2022,27 @@ static ast_tok_t *ast_dlist_last_tok(ast_dlist_t *dlist)
 	return &entry->tcomma;
 }
 
+bool ast_decl_is_abstract(ast_node_t *node)
+{
+	switch (node->ntype) {
+	case ant_dident:
+		return false;
+	case ant_dnoident:
+		return true;
+	case ant_dparen:
+		return ast_decl_is_abstract(((ast_dparen_t *)node->ext)->bdecl);
+	case ant_dptr:
+		return ast_decl_is_abstract(((ast_dptr_t *)node->ext)->bdecl);
+	case ant_dfun:
+		return ast_decl_is_abstract(((ast_dfun_t *)node->ext)->bdecl);
+	case ant_darray:
+		return ast_decl_is_abstract(((ast_darray_t *)node->ext)->bdecl);
+	default:
+		assert(false);
+		return false;
+	}
+}
+
 /** Create AST return.
  *
  * @param rreturn Place to store pointer to new return

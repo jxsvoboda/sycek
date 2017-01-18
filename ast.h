@@ -86,6 +86,7 @@ extern ast_dlist_entry_t *ast_dlist_first(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *);
 extern ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *);
+extern bool ast_decl_is_abstract(ast_node_t *);
 extern int ast_return_create(ast_return_t **);
 extern int ast_tree_print(ast_node_t *, FILE *);
 extern void ast_tree_destroy(ast_node_t *);

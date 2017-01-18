@@ -786,6 +786,8 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	checker_tok_t *trbrace;
 	checker_tok_t *tscolon;
 	checker_scope_t *escope;
+	ast_tok_t *adecl;
+	checker_tok_t *tdecl;
 	int rc;
 
 	escope = checker_scope_nested(scope);
@@ -814,6 +816,13 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 		rc = checker_check_sqlist(escope, elem->sqlist);
 		if (rc != EOK)
 			goto error;
+
+		adecl = ast_tree_first_tok(&elem->dlist->node);
+		if (adecl != NULL) {
+			tdecl = (checker_tok_t *)adecl->data;
+			checker_check_nbspace_before(escope, tdecl,
+			    "Expected space before declarator.");
+		}
 
 		rc = checker_check_dlist(escope, elem->dlist);
 		if (rc != EOK)

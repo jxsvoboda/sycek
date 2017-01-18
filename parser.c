@@ -673,33 +673,33 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 	ast_sqlist_t *sqlist;
 	ast_tqual_t *tqual;
 	ast_node_t *elem;
-	bool have_ident;
+	bool have_tspec;
 	int rc;
 
 	rc = ast_sqlist_create(&sqlist);
 	if (rc != EOK)
 		return rc;
 
-	have_ident = false;
+	have_tspec = false;
 
 	ltt = parser_next_ttype(parser);
 	while (parser_ttype_tspec(ltt) || parser_ttype_tqual(ltt)) {
 		if (parser_ttype_tspec(ltt)) {
-			/* Stop before second identifier */
-			if (ltt == ltt_ident && have_ident)
+			/* Stop before identifier if we already have a specifier */
+			if (ltt == ltt_ident && have_tspec)
 				break;
+
 			rc = parser_process_tspec(parser, &elem);
 			if (rc != EOK)
 				return rc;
+
+			have_tspec = true;
 		} else {
 			rc = parser_process_tqual(parser, &tqual);
 			if (rc != EOK)
 				return rc;
 			elem = &tqual->node;
 		}
-
-		if (ltt == ltt_ident)
-			have_ident = true;
 
 		ast_sqlist_append(sqlist, elem);
 		ltt = parser_next_ttype(parser);
@@ -967,6 +967,7 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 
 			rc = parser_process_decl(parser, &decl);
 			if (rc != EOK) {
+		
 				ast_tree_destroy(&dspecs->node);
 				goto error;
 			}
@@ -1075,6 +1076,23 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 	if (rc != EOK)
 		goto error;
 
+	if (ast_decl_is_abstract(decl)) {
+		fprintf(stderr, "Error: ");
+		fprintf(stderr, "Unexpected abstract declarator.\n");
+		return EINVAL;
+	}
+
+	/*
+	 * XXX Hack so as not to produce false warnings for macro declarators
+	 * at the cost of treating declarators that are totally enclosed
+	 * in parentheses as not valid C code even if they are.
+	 */
+	if (decl->ntype == ant_dparen) {
+		fprintf(stderr, "Error: ");
+		fprintf(stderr, "Parenthesized declarator (cough).\n");
+		return EINVAL;
+	}
+
 	rc = ast_dlist_append(dlist, NULL, decl);
 	if (rc != EOK)
 		goto error;
@@ -1088,6 +1106,12 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 		rc = parser_process_decl(parser, &decl);
 		if (rc != EOK)
 			goto error;
+
+		if (ast_decl_is_abstract(decl)) {
+			fprintf(stderr, "Error: ");
+			fprintf(stderr, " Abstract declarator.\n");
+			return EINVAL;
+		}
 
 		rc = ast_dlist_append(dlist, dcomma, decl);
 		if (rc != EOK)
