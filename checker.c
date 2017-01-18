@@ -267,6 +267,36 @@ static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 	tok->indlvl = scope->indlvl;
 }
 
+/** Determine if token is the first non-whitespace token on a line
+ *
+ * @param tok Checker token
+ * @return @c true if token is the first non-whitespace token on a line
+ */
+static bool checker_is_tok_lbegin(checker_tok_t *tok)
+{
+	checker_tok_t *p;
+	const char *c;
+
+	p = checker_prev_tok(tok);
+	if (p == NULL)
+		return true;
+
+	while (p->tok.ttype == ltt_wspace) {
+		c = p->tok.text;
+		while (*c != '\0') {
+			if (*c == '\n')
+				return true;
+			++c;
+		}
+
+		p = checker_prev_tok(p);
+		if (p == NULL)
+			return true;
+	}
+
+	return false;
+}
+
 /** Check a token that must be at the beginning of the line.
  *
  * The token must be at the beginning of the line and indented appropriately.
@@ -277,15 +307,10 @@ static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
     const char *msg)
 {
-	checker_tok_t *p;
-
 	checker_check_any(scope, tok);
 	tok->lbegin = true;
 
-	p = checker_prev_tok(tok);
-	assert(p != NULL);
-
-	if (p->tok.ttype != ltt_wspace) {
+	if (!checker_is_tok_lbegin(tok)) {
 		lexer_dprint_tok(&tok->tok, stdout);
 		printf(": %s\n", msg);
 	}
@@ -374,7 +399,7 @@ static void checker_check_nbspace_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (p->tok.ttype != ltt_wspace) {
+	if (p->tok.ttype != ltt_wspace || checker_is_tok_lbegin(tok)) {
 		lexer_dprint_tok(&p->tok, stdout);
 		printf(": %s\n", msg);
 	}
