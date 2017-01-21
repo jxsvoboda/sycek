@@ -36,6 +36,10 @@ static int ast_block_print(ast_block_t *, FILE *);
 static ast_tok_t *ast_block_last_tok(ast_block_t *);
 static int ast_dlist_print(ast_dlist_t *, FILE *);
 static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *);
+static void ast_dspecs_destroy(ast_dspecs_t *);
+static void ast_block_destroy(ast_block_t *);
+static void ast_sqlist_destroy(ast_sqlist_t *);
+static void ast_dlist_destroy(ast_dlist_t *);
 
 /** Create AST module.
  *
@@ -165,6 +169,24 @@ static int ast_module_print(ast_module_t *module, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST module.
+ *
+ * @param module Module
+ */
+static void ast_module_destroy(ast_module_t *module)
+{
+	ast_node_t *decl;
+
+	decl = ast_module_first(module);
+	while (decl != NULL) {
+		list_remove(&decl->llist);
+		ast_tree_destroy(decl);
+		decl = ast_module_first(module);
+	}
+
+	free(module);
+}
+
 /** Get first token of AST module.
  *
  * @param module Module
@@ -224,7 +246,7 @@ int ast_sclass_create(ast_sclass_type_t sctype,
 
 /** Print AST storage-class specifier.
  *
- * @param fundef Function definition
+ * @param sclass Storage-class specifier
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
@@ -259,6 +281,15 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy AST storage-class specifier.
+ *
+ * @param sclass Storage-class specifier
+ */
+static void ast_sclass_destroy(ast_sclass_t *sclass)
+{
+	free(sclass);
 }
 
 /** Get first token of AST storage-class specifier.
@@ -347,6 +378,21 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy AST function definition.
+ *
+ * @param fundef Function definition
+ */
+static void ast_fundef_destroy(ast_fundef_t *fundef)
+{
+	ast_dspecs_destroy(fundef->dspecs);
+	ast_tree_destroy(fundef->fdecl);
+
+	if (fundef->body != NULL)
+		ast_block_destroy(fundef->body);
+
+	free(fundef);
 }
 
 /** Get first token of AST function definition.
@@ -508,6 +554,24 @@ static int ast_block_print(ast_block_t *block, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST block.
+ *
+ * @param block Block
+ */
+static void ast_block_destroy(ast_block_t *block)
+{
+	ast_node_t *stmt;
+
+	stmt = ast_block_first(block);
+	while (stmt != NULL) {
+		list_remove(&stmt->llist);
+		ast_tree_destroy(stmt);
+		stmt = ast_block_first(block);
+	}
+
+	free(block);
+}
+
 /** Get first token of AST block.
  *
  * @param block Block
@@ -569,7 +633,7 @@ int ast_tqual_create(ast_qtype_t qtype, ast_tqual_t **rtqual)
 	return EOK;
 }
 
-/** Print AST .
+/** Print AST type qualifier.
  *
  * @param tqual Type qualifier
  * @param f Output file
@@ -596,6 +660,15 @@ static int ast_tqual_print(ast_tqual_t *tqual, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy AST type qualifier.
+ *
+ * @param tqual Type qualifier
+ */
+static void ast_tqual_destroy(ast_tqual_t *tqual)
+{
+	free(tqual);
 }
 
 /** Get first token of AST type qualifier.
@@ -648,12 +721,21 @@ int ast_tsbasic_create(ast_tsbasic_t **rtsbasic)
  */
 static int ast_tsbasic_print(ast_tsbasic_t *tsbasic, FILE *f)
 {
-	(void)tsbasic;/* XXX */
+	(void)tsbasic;
 	if (fprintf(f, "tsbasic(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Destroy AST basic type specifier.
+ *
+ * @param tsbasic Basic type specifier
+ */
+static void ast_tsbasic_destroy(ast_tsbasic_t *tsbasic)
+{
+	free(tsbasic);
 }
 
 /** Get first token of AST basic type specifier.
@@ -706,12 +788,21 @@ int ast_tsident_create(ast_tsident_t **rtsident)
  */
 static int ast_tsident_print(ast_tsident_t *atsident, FILE *f)
 {
-	(void)atsident;/* XXX */
+	(void)atsident;
 	if (fprintf(f, "tsident(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Destroy AST identifier type specifier.
+ *
+ * @param atsident Identifier specifier
+ */
+static void ast_tsident_destroy(ast_tsident_t *atsident)
+{
+	free(atsident);
 }
 
 /** Get first token of AST identifier type specifier.
@@ -846,6 +937,26 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy AST record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ */
+static void ast_tsrecord_destroy(ast_tsrecord_t *tsrecord)
+{
+	ast_tsrecord_elem_t *elem;
+
+	elem = ast_tsrecord_first(tsrecord);
+	while (elem != NULL) {
+		list_remove(&elem->ltsrecord);
+		ast_sqlist_destroy(elem->sqlist);
+		ast_dlist_destroy(elem->dlist);
+		free(elem);
+		elem = ast_tsrecord_first(tsrecord);
+	}
+
+	free(tsrecord);
 }
 
 /** Get first token of AST record type specifier.
@@ -989,6 +1100,24 @@ static int ast_tsenum_print(ast_tsenum_t *tsenum, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST enum type specifier.
+ *
+ * @param block Block
+ */
+static void ast_tsenum_destroy(ast_tsenum_t *tsenum)
+{
+	ast_tsenum_elem_t *elem;
+
+	elem = ast_tsenum_first(tsenum);
+	while (elem != NULL) {
+		list_remove(&elem->ltsenum);
+		free(elem);
+		elem = ast_tsenum_first(tsenum);
+	}
+
+	free(tsenum);
+}
+
 /** Get first token of AST enum type specifier.
  *
  * @param tsenum enum type specifier
@@ -1048,6 +1177,15 @@ static int ast_fspec_print(ast_fspec_t *fspec, FILE *f)
 	if (fprintf(f, "fspec") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Destroy AST function specifier.
+ *
+ * @param fspec Function specifier
+ */
+static void ast_fspec_destroy(ast_fspec_t *fspec)
+{
+	free(fspec);
 }
 
 /** Get first token of AST function specifier.
@@ -1206,6 +1344,24 @@ static int ast_sqlist_print(ast_sqlist_t *sqlist, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ */
+static void ast_sqlist_destroy(ast_sqlist_t *sqlist)
+{
+	ast_node_t *elem;
+
+	elem = ast_sqlist_first(sqlist);
+	while (elem != NULL) {
+		list_remove(&elem->llist);
+		ast_tree_destroy(elem);
+		elem = ast_sqlist_first(sqlist);
+	}
+
+	free(sqlist);
+}
+
 /** Get first token of AST specifier-qualifier list.
  *
  * @param sqlist Specifier-qualifier list
@@ -1362,6 +1518,24 @@ static int ast_dspecs_print(ast_dspecs_t *dspecs, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ */
+static void ast_dspecs_destroy(ast_dspecs_t *dspecs)
+{
+	ast_node_t *elem;
+
+	elem = ast_dspecs_first(dspecs);
+	while (elem != NULL) {
+		list_remove(&elem->llist);
+		ast_tree_destroy(elem);
+		elem = ast_dspecs_first(dspecs);
+	}
+
+	free(dspecs);
+}
+
 /** Get first token of AST declaration specifiers.
  *
  * @param dspecs Declaration specifiers
@@ -1413,12 +1587,21 @@ int ast_dident_create(ast_dident_t **rdident)
  */
 static int ast_dident_print(ast_dident_t *adident, FILE *f)
 {
-	(void)adident;/* XXX */
+	(void)adident;
 	if (fprintf(f, "dident(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Destroy AST identifier declarator.
+ *
+ * @param adident Identifier specifier
+ */
+static void ast_dident_destroy(ast_dident_t *adident)
+{
+	free(adident);
 }
 
 /** Get first token of AST identifier declarator.
@@ -1471,12 +1654,21 @@ int ast_dnoident_create(ast_dnoident_t **rdnoident)
  */
 static int ast_dnoident_print(ast_dnoident_t *adnoident, FILE *f)
 {
-	(void)adnoident;/* XXX */
+	(void)adnoident;
 	if (fprintf(f, "dnoident(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Destroy AST no-identifier declarator.
+ *
+ * @param adnoident Identifier specifier
+ */
+static void ast_dnoident_destroy(ast_dnoident_t *adnoident)
+{
+	free(adnoident);
 }
 
 /** Get first token of AST no-identifier declarator.
@@ -1539,6 +1731,17 @@ static int ast_dparen_print(ast_dparen_t *adparen, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST parenthesized declarator.
+ *
+ * @param adparen Identifier specifier
+ */
+static void ast_dparen_destroy(ast_dparen_t *adparen)
+{
+	if (adparen->bdecl != NULL)
+		ast_tree_destroy(adparen->bdecl);
+	free(adparen);
+}
+
 /** Get first token of AST parenthesized declarator.
  *
  * @param dparen Parenthesized declarator
@@ -1595,6 +1798,17 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Destroy AST pointer declarator.
+ *
+ * @param adptr pointer declarator
+ */
+static void ast_dptr_destroy(ast_dptr_t *adptr)
+{
+	if (adptr->bdecl != NULL)
+		ast_tree_destroy(adptr->bdecl);
+	free(adptr);
 }
 
 /** Get first token of AST pointer declarator.
@@ -1713,19 +1927,19 @@ ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *arg)
  */
 static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 {
-	ast_dfun_arg_t *elem;
+	ast_dfun_arg_t *arg;
 
 	if (fprintf(f, "dfun(") < 0)
 		return EIO;
 
-	elem = ast_dfun_first(dfun);
-	while (elem != NULL) {
-		if (fprintf(f, "elem") < 0)
+	arg = ast_dfun_first(dfun);
+	while (arg != NULL) {
+		if (fprintf(f, "arg") < 0)
 			return EIO;
 
-		elem = ast_dfun_next(elem);
+		arg = ast_dfun_next(arg);
 
-		if (elem != NULL) {
+		if (arg != NULL) {
 			if (fprintf(f, ", ") < 0)
 				return EIO;
 		}
@@ -1735,6 +1949,30 @@ static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy AST function declarator.
+ *
+ * @param block Block
+ */
+static void ast_dfun_destroy(ast_dfun_t *dfun)
+{
+	ast_dfun_arg_t *arg;
+
+	if (dfun->bdecl != NULL)
+		ast_tree_destroy(dfun->bdecl);
+
+	arg = ast_dfun_first(dfun);
+	while (arg != NULL) {
+		list_remove(&arg->ldfun);
+		ast_dspecs_destroy(arg->dspecs);
+		ast_tree_destroy(arg->decl);
+		free(arg);
+
+		arg = ast_dfun_first(dfun);
+	}
+
+	free(dfun);
 }
 
 /** Get first token of AST function declarator.
@@ -1793,15 +2031,30 @@ int ast_darray_create(ast_darray_t **rdarray)
  */
 static int ast_darray_print(ast_darray_t *darray, FILE *f)
 {
-	(void) darray;
+	int rc;
 
 	if (fprintf(f, "darray(") < 0)
 		return EIO;
+
+	rc = ast_tree_print(darray->bdecl, f);
+	if (rc != EOK)
+		return rc;
 
 	if (fprintf(f, ")") < 0)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy AST array declarator.
+ *
+ * @param block Block
+ */
+static void ast_darray_destroy(ast_darray_t *darray)
+{
+	if (darray->bdecl != NULL)
+		ast_tree_destroy(darray->bdecl);
+	free(darray);
 }
 
 /** Get first token of AST array declarator.
@@ -1973,6 +2226,26 @@ static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST declarator list.
+ *
+ * @param block Block
+ */
+static void ast_dlist_destroy(ast_dlist_t *dlist)
+{
+	ast_dlist_entry_t *entry;
+
+	entry = ast_dlist_first(dlist);
+	while (entry != NULL) {
+		list_remove(&entry->ldlist);
+		ast_tree_destroy(entry->decl);
+		free(entry);
+
+		entry = ast_dlist_first(dlist);
+	}
+
+	free(dlist);
+}
+
 /** Get first token of AST declarator list.
  *
  * @param dlist Declarator list
@@ -2081,6 +2354,15 @@ static int ast_return_print(ast_return_t *areturn, FILE *f)
 	return EOK;
 }
 
+/** Destroy AST return.
+ *
+ * @param areturn Return statement
+ */
+static void ast_return_destroy(ast_return_t *areturn)
+{
+	free(areturn);
+}
+
 /** Get first token of AST return.
  *
  * @param areturn Return
@@ -2162,7 +2444,68 @@ int ast_tree_print(ast_node_t *node, FILE *f)
  */
 void ast_tree_destroy(ast_node_t *node)
 {
-	free(node->ext);
+	switch (node->ntype) {
+	case ant_block:
+		ast_block_destroy((ast_block_t *)node->ext);
+		break;
+	case ant_fundef:
+		ast_fundef_destroy((ast_fundef_t *)node->ext);
+		break;
+	case ant_module:
+		ast_module_destroy((ast_module_t *)node->ext);
+		break;
+	case ant_sclass:
+		ast_sclass_destroy((ast_sclass_t *)node->ext);
+		break;
+	case ant_tqual:
+		ast_tqual_destroy((ast_tqual_t *)node->ext);
+		break;
+	case ant_tsbasic:
+		ast_tsbasic_destroy((ast_tsbasic_t *)node->ext);
+		break;
+	case ant_tsident:
+		ast_tsident_destroy((ast_tsident_t *)node->ext);
+		break;
+	case ant_tsrecord:
+		ast_tsrecord_destroy((ast_tsrecord_t *)node->ext);
+		break;
+	case ant_tsenum:
+		ast_tsenum_destroy((ast_tsenum_t *)node->ext);
+		break;
+	case ant_fspec:
+		ast_fspec_destroy((ast_fspec_t *)node->ext);
+		break;
+	case ant_sqlist:
+		ast_sqlist_destroy((ast_sqlist_t *)node->ext);
+		break;
+	case ant_dspecs:
+		ast_dspecs_destroy((ast_dspecs_t *)node->ext);
+		break;
+	case ant_dident:
+		ast_dident_destroy((ast_dident_t *)node->ext);
+		break;
+	case ant_dnoident:
+		ast_dnoident_destroy((ast_dnoident_t *)node->ext);
+		break;
+	case ant_dparen:
+		ast_dparen_destroy((ast_dparen_t *)node->ext);
+		break;
+	case ant_dptr:
+		ast_dptr_destroy((ast_dptr_t *)node->ext);
+		break;
+	case ant_dfun:
+		ast_dfun_destroy((ast_dfun_t *)node->ext);
+		break;
+	case ant_darray:
+		ast_darray_destroy((ast_darray_t *)node->ext);
+		break;
+	case ant_dlist:
+		ast_dlist_destroy((ast_dlist_t *)node->ext);
+		break;
+	case ant_return:
+		ast_return_destroy((ast_return_t *)node->ext);
+		break;
+	}
 }
 
 ast_tok_t *ast_tree_first_tok(ast_node_t *node)

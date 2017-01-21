@@ -41,6 +41,8 @@ static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
+static checker_tok_t *checker_module_first_tok(checker_module_t *);
+static void checker_remove_token(checker_tok_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.get_tok = checker_parser_get_tok,
@@ -82,6 +84,17 @@ static int checker_module_create(checker_module_t **rmodule)
  */
 static void checker_module_destroy(checker_module_t *module)
 {
+	checker_tok_t *tok;
+
+	if (module->ast != NULL)
+		ast_tree_destroy(&module->ast->node);
+
+	tok = checker_module_first_tok(module);
+	while (tok != NULL) {
+		checker_remove_token(tok);
+		tok = checker_module_first_tok(module);
+	}
+
 	free(module);
 }
 
@@ -659,22 +672,23 @@ static int checker_module_parse(checker_module_t *mod)
 
 	rc = parser_process_module(parser, &amod);
 	if (rc != EOK)
-		return rc;
-
+		goto error;
 
 	if (0) {
 		putchar('\n');
 		rc = ast_tree_print(&amod->node, stdout);
 		if (rc != EOK)
-			return rc;
+			goto error;
 		putchar('\n');
 	}
-
 
 	mod->ast = amod;
 	parser_destroy(parser);
 
 	return EOK;
+error:
+	parser_destroy(parser);
+	return rc;
 }
 
 /** Run checks on a statement.

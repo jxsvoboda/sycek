@@ -292,7 +292,7 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 		while (parser_next_ttype(parser) != ltt_rbrace) {
 			rc = parser_process_stmt(parser, &stmt);
 			if (rc != EOK)
-				return rc;
+				goto error;
 
 			ast_block_append(block, stmt);
 		}
@@ -305,13 +305,16 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 		/* Single statement */
 		rc = parser_process_stmt(parser, &stmt);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		ast_block_append(block, stmt);
 	}
 
 	*rblock = block;
 	return EOK;
+error:
+	ast_tree_destroy(&block->node);
+	return rc;
 }
 
 /** Parse type qualifier.
@@ -543,7 +546,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 
 	rc = parser_match(parser, ltt_enum, &denum);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	penum->tenum.data = denum;
 
@@ -653,7 +656,7 @@ static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
 			fprintf(stderr, "Error: ");
 			lexer_dprint_tok(&parser->tok[0], stderr);
 			fprintf(stderr, " unexpected, expected type specifier.\n");
-		return EINVAL;
+			return EINVAL;
 		}
 		break;
 	}
@@ -692,13 +695,13 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 			rc = parser_process_tspec(parser, &elem);
 			if (rc != EOK)
-				return rc;
+				goto error;
 
 			have_tspec = true;
 		} else {
 			rc = parser_process_tqual(parser, &tqual);
 			if (rc != EOK)
-				return rc;
+				goto error;
 			elem = &tqual->node;
 		}
 
@@ -708,6 +711,9 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 	*rsqlist = sqlist;
 	return EOK;
+error:
+	ast_tree_destroy(&sqlist->node);
+	return rc;
 }
 
 /** Parse declaration specifiers.
@@ -876,21 +882,21 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 	void *drbracket;
 	int rc;
 
-	rc = ast_darray_create(&darray);
-	if (rc != EOK)
-		goto error;
-
 	rc = parser_process_dparen(parser, &bdecl);
 	if (rc != EOK)
 		goto error;
-
-	darray->bdecl = bdecl;
 
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_lbracket) {
 		*rdecl = bdecl;
 		return EOK;
 	}
+
+	rc = ast_darray_create(&darray);
+	if (rc != EOK)
+		goto error;
+
+	darray->bdecl = bdecl;
 
 	parser_skip(parser, &dlbracket);
 	darray->tlbracket.data = dlbracket;
@@ -900,7 +906,8 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 		fprintf(stderr, "Error: ");
 		lexer_dprint_tok(&parser->tok[0], stderr);
 		fprintf(stderr, " unexpected, expected number or identifier.\n");
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	parser_skip(parser, &dsize);
@@ -939,21 +946,21 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	void *drparen;
 	int rc;
 
-	rc = ast_dfun_create(&dfun);
-	if (rc != EOK)
-		goto error;
-
 	rc = parser_process_darray(parser, &bdecl);
 	if (rc != EOK)
 		goto error;
-
-	dfun->bdecl = bdecl;
 
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_lparen) {
 		*rdecl = bdecl;
 		return EOK;
 	}
+
+	rc = ast_dfun_create(&dfun);
+	if (rc != EOK)
+		goto error;
+
+	dfun->bdecl = bdecl;
 
 	parser_skip(parser, &dlparen);
 	dfun->tlparen.data = dlparen;
@@ -968,7 +975,6 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 
 			rc = parser_process_decl(parser, &decl);
 			if (rc != EOK) {
-		
 				ast_tree_destroy(&dspecs->node);
 				goto error;
 			}
@@ -1034,12 +1040,14 @@ static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 	rc = parser_process_decl(parser, &bdecl);
 	if (rc != EOK) {
 		ast_tree_destroy(&dptr->node);
-		return rc;
+		goto error;
 	}
 
 	dptr->bdecl = bdecl;
 	*rdecl = &dptr->node;
 	return EOK;
+error:
+	return rc;
 }
 
 /** Parse declarator.
@@ -1080,7 +1088,8 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 	if (ast_decl_is_abstract(decl)) {
 		fprintf(stderr, "Error: ");
 		fprintf(stderr, "Unexpected abstract declarator.\n");
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	/*
@@ -1091,7 +1100,8 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 	if (decl->ntype == ant_dparen) {
 		fprintf(stderr, "Error: ");
 		fprintf(stderr, "Parenthesized declarator (cough).\n");
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	rc = ast_dlist_append(dlist, NULL, decl);
@@ -1111,7 +1121,8 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 		if (ast_decl_is_abstract(decl)) {
 			fprintf(stderr, "Error: ");
 			fprintf(stderr, " Abstract declarator.\n");
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
 
 		rc = ast_dlist_append(dlist, dcomma, decl);
@@ -1326,7 +1337,7 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 	while (ltt != ltt_eof) {
 		rc = parser_process_gdecln(parser, &decln);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		ast_module_append(module, decln);
 		ltt = parser_next_ttype(parser);
@@ -1334,4 +1345,7 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 
 	*rmodule = module;
 	return EOK;
+error:
+	ast_tree_destroy(&module->node);
+	return rc;
 }
