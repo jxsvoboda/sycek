@@ -414,15 +414,14 @@ static void checker_line_remove_ws_before(checker_tok_t *tok)
  */
 static void checker_remove_ws_after(checker_tok_t *tok)
 {
-	checker_tok_t *p, *next;
+	checker_tok_t *p;
 
 	assert(tok != NULL);
-	p = checker_next_tok(tok);
 
+	p = checker_next_tok(tok);
 	while (p != NULL && lexer_is_wspace(p->tok.ttype)) {
-		next = checker_next_tok(p);
 		checker_remove_token(p);
-		p = next;
+		p = checker_next_tok(tok);
 	}
 }
 
@@ -1576,8 +1575,12 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 
 		/* Check for trailing whitespace */
 		if (nonws && trailws) {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Whitespace at end of line\n");
+			if (fix) {
+				checker_line_remove_ws_before(tok);
+			} else {
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Whitespace at end of line\n");
+			}
 		}
 
 		/* Skip newline */
