@@ -36,7 +36,7 @@
 static int test_ast_module(void)
 {
 	ast_module_t *module;
-	ast_fundef_t *fundef;
+	ast_gdecln_t *gdecln;
 	ast_dspecs_t *dspecs;
 	ast_dident_t *fdecl;
 	int rc;
@@ -53,11 +53,11 @@ static int test_ast_module(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_fundef_create(dspecs, &fdecl->node, NULL, &fundef);
+	rc = ast_gdecln_create(dspecs, &fdecl->node, NULL, &gdecln);
 	if (rc != EOK)
 		return rc;
 
-	ast_module_append(module, &fundef->node);
+	ast_module_append(module, &gdecln->node);
 
 	ast_tree_print(&module->node, stdout);
 	putchar('\n');
@@ -66,13 +66,13 @@ static int test_ast_module(void)
 	return EOK;
 }
 
-/** Test AST function definition.
+/** Test AST global declaration.
  *
  * @return EOK on success or non-zero error code
  */
-static int test_ast_fundef(void)
+static int test_ast_gdecln(void)
 {
-	ast_fundef_t *fundef;
+	ast_gdecln_t *gdecln;
 	ast_dspecs_t *dspecs;
 	ast_dident_t *fdecl;
 	int rc;
@@ -85,14 +85,14 @@ static int test_ast_fundef(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_fundef_create(dspecs, &fdecl->node, NULL, &fundef);
+	rc = ast_gdecln_create(dspecs, &fdecl->node, NULL, &gdecln);
 	if (rc != EOK)
 		return rc;
 
-	ast_tree_print(&fundef->node, stdout);
+	ast_tree_print(&gdecln->node, stdout);
 	putchar('\n');
 
-	ast_tree_destroy(&fundef->node);
+	ast_tree_destroy(&gdecln->node);
 	return EOK;
 }
 
@@ -173,7 +173,7 @@ int test_ast(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = test_ast_fundef();
+	rc = test_ast_gdecln();
 	if (rc != EOK)
 		return rc;
 

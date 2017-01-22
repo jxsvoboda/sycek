@@ -52,7 +52,7 @@ typedef enum {
 */
 	ant_return,
 	ant_block,
-	ant_fundef,
+	ant_gdecln,
 	ant_module,
 	ant_sclass
 } ast_node_type_t;
@@ -396,25 +396,25 @@ typedef struct {
 	ast_tok_t tsclass;
 } ast_sclass_t;
 
-/** Function definition */
+/** Global declaration */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
 	/** Declaration specifiers */
 	ast_dspecs_t *dspecs;
-	/** Function declarator */
+	/** Declarator */
 	ast_node_t *fdecl;
-	/** Function body */
+	/** Function body (if function definition) */
 	ast_block_t *body;
 	/** @c true if we have a trailing semicolon */
 	bool have_scolon;
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
-} ast_fundef_t;
+} ast_gdecln_t;
 
 /** Module.
  *
- * decls must be one of ast_var_t, ast_fundecl_t, ast_fundef_t
+ * decls must be ast_gdecln_t
  */
 typedef struct {
 	/** Base object */

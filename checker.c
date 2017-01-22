@@ -1299,7 +1299,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	ast_tok_t *adecln;
 	ast_tok_t *adecl;
 	ast_node_t *stmt;
-	ast_fundef_t *fundef;
+	ast_gdecln_t *gdecln;
 	checker_tok_t *tdecl;
 	checker_tok_t *tlbrace;
 	checker_tok_t *trbrace;
@@ -1307,20 +1307,20 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	checker_scope_t *bscope = NULL;
 
 	if (0) printf("Check function declaration\n");
-	assert(decl->ntype == ant_fundef);
-	fundef = (ast_fundef_t *)decl->ext;
+	assert(decl->ntype == ant_gdecln);
+	gdecln = (ast_gdecln_t *)decl->ext;
 
-	adecln = ast_tree_first_tok(&fundef->dspecs->node);
+	adecln = ast_tree_first_tok(&gdecln->dspecs->node);
 	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,
 	    "Declaration must start on a new line.");
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_check_dspecs(scope, fundef->dspecs);
+	rc = checker_check_dspecs(scope, gdecln->dspecs);
 	if (rc != EOK)
 		goto error;
 
-	adecl = ast_tree_first_tok(fundef->fdecl);
+	adecl = ast_tree_first_tok(gdecln->fdecl);
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_nbspace_before(scope, tdecl,
@@ -1329,19 +1329,19 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 			goto error;
 	}
 
-	rc = checker_check_decl(scope, fundef->fdecl);
+	rc = checker_check_decl(scope, gdecln->fdecl);
 	if (rc != EOK)
 		goto error;
 
-	if (fundef->body == NULL) {
-		tscolon = (checker_tok_t *)fundef->tscolon.data;
+	if (gdecln->body == NULL) {
+		tscolon = (checker_tok_t *)gdecln->tscolon.data;
 		checker_check_nows_before(scope, tscolon,
 		    "Unexpected whitespace before ';'.");
 		return EOK;
 	}
 
-	assert(fundef->body->braces);
-	tlbrace = (checker_tok_t *)fundef->body->topen.data;
+	assert(gdecln->body->braces);
+	tlbrace = (checker_tok_t *)gdecln->body->topen.data;
 	rc = checker_check_lbegin(scope, tlbrace,
 	    "Function opening brace must start on a new line.");
 	if (rc != EOK)
@@ -1351,7 +1351,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	if (bscope == NULL)
 		return ENOMEM;
 
-	stmt = ast_block_first(fundef->body);
+	stmt = ast_block_first(gdecln->body);
 	while (stmt != NULL) {
 		rc = checker_check_stmt(bscope, stmt);
 		if (rc != EOK)
@@ -1360,7 +1360,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 		stmt = ast_block_next(stmt);
 	}
 
-	trbrace = (checker_tok_t *)fundef->body->tclose.data;
+	trbrace = (checker_tok_t *)gdecln->body->tclose.data;
 	rc = checker_check_lbegin(scope, trbrace,
 	    "Function closing brace must start on a new line.");
 	if (rc != EOK)
@@ -1393,7 +1393,7 @@ static int checker_module_check(checker_module_t *mod, bool fix)
 	decl = ast_module_first(mod->ast);
 	while (decl != NULL) {
 		switch (decl->ntype) {
-		case ant_fundef:
+		case ant_gdecln:
 			rc = checker_check_gdecln(scope, decl);
 			break;
 		default:

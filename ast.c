@@ -312,64 +312,64 @@ static ast_tok_t *ast_sclass_last_tok(ast_sclass_t *sclass)
 	return &sclass->tsclass;
 }
 
-/** Create AST function definition.
+/** Create AST global declaration.
  *
  * @param dspecs Declaration specifiers
- * @param fdecl Function declarator
+ * @param fdecl Declarator
  * @param body Body or @c NULL
- * @param rfundef Place to store pointer to new function definition
+ * @param rgdecln Place to store pointer to new function definition
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_fundef_create(ast_dspecs_t *dspecs, ast_node_t *fdecl,
-    ast_block_t *body, ast_fundef_t **rfundef)
+int ast_gdecln_create(ast_dspecs_t *dspecs, ast_node_t *fdecl,
+    ast_block_t *body, ast_gdecln_t **rgdecln)
 {
-	ast_fundef_t *fundef;
+	ast_gdecln_t *gdecln;
 
-	fundef = calloc(1, sizeof(ast_fundef_t));
-	if (fundef == NULL)
+	gdecln = calloc(1, sizeof(ast_gdecln_t));
+	if (gdecln == NULL)
 		return ENOMEM;
 
-	fundef->dspecs = dspecs;
-	fundef->fdecl = fdecl;
-	fundef->body = body;
+	gdecln->dspecs = dspecs;
+	gdecln->fdecl = fdecl;
+	gdecln->body = body;
 
-	fundef->node.ext = fundef;
-	fundef->node.ntype = ant_fundef;
+	gdecln->node.ext = gdecln;
+	gdecln->node.ntype = ant_gdecln;
 
-	*rfundef = fundef;
+	*rgdecln = gdecln;
 	return EOK;
 }
 
-/** Print AST function definition.
+/** Print AST global declaration.
  *
- * @param fundef Function definition
+ * @param gdecln Global declaration
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
  */
-static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
+static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 {
 	int rc;
 
-	if (fprintf(f, "fundef(") < 0)
+	if (fprintf(f, "gdecln(") < 0)
 		return EIO;
 
-	rc = ast_tree_print(&fundef->dspecs->node, f);
+	rc = ast_tree_print(&gdecln->dspecs->node, f);
 	if (rc != EOK)
 		return rc;
 
 	if (fprintf(f, ", ") < 0)
 		return EIO;
 
-	rc = ast_tree_print(fundef->fdecl, f);
+	rc = ast_tree_print(gdecln->fdecl, f);
 	if (rc != EOK)
 		return rc;
 
-	if (fundef->body != NULL) {
+	if (gdecln->body != NULL) {
 		if (fprintf(f, ", ") < 0)
 			return EIO;
-		rc = ast_block_print(fundef->body, f);
+		rc = ast_block_print(gdecln->body, f);
 		if (rc != EOK)
 			return rc;
 	}
@@ -382,40 +382,40 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 
 /** Destroy AST function definition.
  *
- * @param fundef Function definition
+ * @param gdecln Function definition
  */
-static void ast_fundef_destroy(ast_fundef_t *fundef)
+static void ast_gdecln_destroy(ast_gdecln_t *gdecln)
 {
-	ast_dspecs_destroy(fundef->dspecs);
-	ast_tree_destroy(fundef->fdecl);
+	ast_dspecs_destroy(gdecln->dspecs);
+	ast_tree_destroy(gdecln->fdecl);
 
-	if (fundef->body != NULL)
-		ast_block_destroy(fundef->body);
+	if (gdecln->body != NULL)
+		ast_block_destroy(gdecln->body);
 
-	free(fundef);
+	free(gdecln);
 }
 
-/** Get first token of AST function definition.
+/** Get first token of AST global declaration.
  *
- * @param fundef Function definition
+ * @param gdecln Global declaration
  * @return First token or @c NULL
  */
-static ast_tok_t *ast_fundef_first_tok(ast_fundef_t *fundef)
+static ast_tok_t *ast_gdecln_first_tok(ast_gdecln_t *gdecln)
 {
-	return ast_dspecs_first_tok(fundef->dspecs);
+	return ast_dspecs_first_tok(gdecln->dspecs);
 }
 
-/** Get last token of AST function definition.
+/** Get last token of AST global declaration.
  *
- * @param fundef Function definition
+ * @param gdecln Global declaration
  * @return Last token or @c NULL
  */
-static ast_tok_t *ast_fundef_last_tok(ast_fundef_t *fundef)
+static ast_tok_t *ast_gdecln_last_tok(ast_gdecln_t *gdecln)
 {
-	if (fundef->have_scolon)
-		return &fundef->tscolon;
+	if (gdecln->have_scolon)
+		return &gdecln->tscolon;
 	else
-		return ast_block_last_tok(fundef->body);
+		return ast_block_last_tok(gdecln->body);
 }
 
 /** Create AST block.
@@ -2395,8 +2395,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 	switch (node->ntype) {
 	case ant_block:
 		return ast_block_print((ast_block_t *)node->ext, f);
-	case ant_fundef:
-		return ast_fundef_print((ast_fundef_t *)node->ext, f);
+	case ant_gdecln:
+		return ast_gdecln_print((ast_gdecln_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
 	case ant_sclass:
@@ -2448,8 +2448,8 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_block:
 		ast_block_destroy((ast_block_t *)node->ext);
 		break;
-	case ant_fundef:
-		ast_fundef_destroy((ast_fundef_t *)node->ext);
+	case ant_gdecln:
+		ast_gdecln_destroy((ast_gdecln_t *)node->ext);
 		break;
 	case ant_module:
 		ast_module_destroy((ast_module_t *)node->ext);
@@ -2513,8 +2513,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 	switch (node->ntype) {
 	case ant_block:
 		return ast_block_first_tok((ast_block_t *)node->ext);
-	case ant_fundef:
-		return ast_fundef_first_tok((ast_fundef_t *)node->ext);
+	case ant_gdecln:
+		return ast_gdecln_first_tok((ast_gdecln_t *)node->ext);
 	case ant_module:
 		return ast_module_first_tok((ast_module_t *)node->ext);
 	case ant_sclass:
@@ -2562,8 +2562,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 	switch (node->ntype) {
 	case ant_block:
 		return ast_block_last_tok((ast_block_t *)node->ext);
-	case ant_fundef:
-		return ast_fundef_last_tok((ast_fundef_t *)node->ext);
+	case ant_gdecln:
+		return ast_gdecln_last_tok((ast_gdecln_t *)node->ext);
 	case ant_module:
 		return ast_module_last_tok((ast_module_t *)node->ext);
 	case ant_sclass:

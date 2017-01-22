@@ -1225,58 +1225,6 @@ static int parser_process_fspec(parser_t *parser, ast_fspec_t **rfspec)
 	return EOK;
 }
 
-/** Parse function definition.
- *
- * @param parser Parser
- * @param dspecs Declaration specifiers
- * @param fdecl  Function declarator
- * @param rnode Place to store pointer to new function definition
- *
- * @return EOK on success or non-zero error code
- */
-static int parser_process_fundef(parser_t *parser, ast_dspecs_t *dspecs,
-    ast_node_t *fdecl, ast_fundef_t **rfundef)
-{
-	lexer_toktype_t ltt;
-	ast_fundef_t *fundef;
-	ast_block_t *body;
-	void *dscolon;
-	int rc;
-
-	ltt = parser_next_ttype(parser);
-	switch (ltt) {
-	case ltt_scolon:
-		body = NULL;
-		parser_skip(parser, &dscolon);
-		break;
-	case ltt_lbrace:
-		rc = parser_process_block(parser, &body);
-		if (rc != EOK)
-			return rc;
-		dscolon = NULL;
-		break;
-	default:
-		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
-		fprintf(stderr, " unexpected, expected '{' or ';'.\n");
-		return EINVAL;
-	}
-
-	rc = ast_fundef_create(dspecs, fdecl, body, &fundef);
-	if (rc != EOK) {
-		ast_tree_destroy(&body->node);
-		return rc;
-	}
-
-	if (body == NULL) {
-		fundef->have_scolon = true;
-		fundef->tscolon.data = dscolon;
-	}
-
-	*rfundef = fundef;
-	return EOK;
-}
-
 /** Parse global declaration.
  *
  * @param parser Parser
@@ -1286,9 +1234,12 @@ static int parser_process_fundef(parser_t *parser, ast_dspecs_t *dspecs,
  */
 static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 {
-	ast_fundef_t *fundef;
+	lexer_toktype_t ltt;
+	ast_gdecln_t *gdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
 	ast_node_t *fdecl = NULL;
+	ast_block_t *body = NULL;
+	void *dscolon;
 	int rc;
 
 	rc = parser_process_dspecs(parser, &dspecs);
@@ -1299,17 +1250,46 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_fundef(parser, dspecs, fdecl, &fundef);
-	if (rc != EOK)
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_scolon:
+		body = NULL;
+		parser_skip(parser, &dscolon);
+		break;
+	case ltt_lbrace:
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+		dscolon = NULL;
+		break;
+	default:
+		fprintf(stderr, "Error: ");
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ast_gdecln_create(dspecs, fdecl, body, &gdecln);
+	if (rc != EOK) 
 		goto error;
 
-	*rnode = &fundef->node;
+	if (body == NULL) {
+		gdecln->have_scolon = true;
+		gdecln->tscolon.data = dscolon;
+	}
+
+	*rnode = &gdecln->node;
 	return EOK;
 error:
+	if (gdecln != NULL)
+		ast_tree_destroy(&gdecln->node);
 	if (dspecs != NULL)
 		ast_tree_destroy(&dspecs->node);
 	if (fdecl != NULL)
 		ast_tree_destroy(fdecl);
+	if (body != NULL)
+		ast_tree_destroy(&body->node);
 	return rc;
 }
 
