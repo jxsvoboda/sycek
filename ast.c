@@ -315,13 +315,13 @@ static ast_tok_t *ast_sclass_last_tok(ast_sclass_t *sclass)
 /** Create AST global declaration.
  *
  * @param dspecs Declaration specifiers
- * @param fdecl Declarator
+ * @param dlist Declarator list
  * @param body Body or @c NULL
  * @param rgdecln Place to store pointer to new function definition
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_gdecln_create(ast_dspecs_t *dspecs, ast_node_t *fdecl,
+int ast_gdecln_create(ast_dspecs_t *dspecs, ast_dlist_t *dlist,
     ast_block_t *body, ast_gdecln_t **rgdecln)
 {
 	ast_gdecln_t *gdecln;
@@ -331,7 +331,7 @@ int ast_gdecln_create(ast_dspecs_t *dspecs, ast_node_t *fdecl,
 		return ENOMEM;
 
 	gdecln->dspecs = dspecs;
-	gdecln->fdecl = fdecl;
+	gdecln->dlist = dlist;
 	gdecln->body = body;
 
 	gdecln->node.ext = gdecln;
@@ -362,7 +362,7 @@ static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 	if (fprintf(f, ", ") < 0)
 		return EIO;
 
-	rc = ast_tree_print(gdecln->fdecl, f);
+	rc = ast_dlist_print(gdecln->dlist, f);
 	if (rc != EOK)
 		return rc;
 
@@ -387,7 +387,7 @@ static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 static void ast_gdecln_destroy(ast_gdecln_t *gdecln)
 {
 	ast_dspecs_destroy(gdecln->dspecs);
-	ast_tree_destroy(gdecln->fdecl);
+	ast_dlist_destroy(gdecln->dlist);
 
 	if (gdecln->body != NULL)
 		ast_block_destroy(gdecln->body);

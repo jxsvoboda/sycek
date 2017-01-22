@@ -1320,7 +1320,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	if (rc != EOK)
 		goto error;
 
-	adecl = ast_tree_first_tok(gdecln->fdecl);
+	adecl = ast_tree_first_tok(&gdecln->dlist->node);
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_nbspace_before(scope, tdecl,
@@ -1329,7 +1329,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 			goto error;
 	}
 
-	rc = checker_check_decl(scope, gdecln->fdecl);
+	rc = checker_check_dlist(scope, gdecln->dlist);
 	if (rc != EOK)
 		goto error;
 

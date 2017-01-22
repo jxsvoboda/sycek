@@ -36,7 +36,7 @@ static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
-static int parser_process_dlist(parser_t *, ast_dlist_t **);
+static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
 
 /** Create parser.
@@ -114,6 +114,28 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
 	return parser->tok[0].ttype;
 }
 
+/** Return pointer to next token.
+ *
+ * This may be only used for printing out tokens for debugging purposes.
+ * All decisions are based only on token type (see parser_next_ttype).
+ * The token data must be copied if they are to be used after advancing
+ * the parser's read head.
+ *
+ * @param parser Parser
+ * @return Pointer to the next token at the read head
+ */
+static lexer_tok_t *parser_next_tok(parser_t *parser)
+{
+	parser_look_ahead(parser, 1);
+	return &parser->tok[0];
+}
+
+/** Get user data that should be stored into the AST for a token.
+ *
+ * @param parser Parser
+ * @param tok Token
+ * @return User data for token @a tok
+ */
 static void *parser_get_tok_data(parser_t *parser, lexer_tok_t *tok)
 {
 	return parser->input_ops->tok_data(parser->input_arg, tok);
@@ -489,7 +511,8 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			rc = parser_process_dlist(parser, &dlist);
+			rc = parser_process_dlist(parser, ast_abs_disallow,
+			    &dlist);
 			if (rc != EOK)
 				goto error;
 
@@ -1065,13 +1088,17 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rdecl)
 /** Parse declarator list.
  *
  * @param parser Parser
+ * @param aallow @c ast_abs_allow to allow abstract declarators,
+ *        ast_abs_disallow to disallow them
  * @param rdlist Place to store pointer to new declarator list
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
+static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
+    ast_dlist_t **rdlist)
 {
 	lexer_toktype_t ltt;
+	lexer_tok_t dtok;
 	ast_dlist_t *dlist;
 	ast_node_t *decl = NULL;
 	void *dcomma;
@@ -1081,13 +1108,16 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 	if (rc != EOK)
 		goto error;
 
+	dtok = *parser_next_tok(parser);
+
 	rc = parser_process_decl(parser, &decl);
 	if (rc != EOK)
 		goto error;
 
-	if (ast_decl_is_abstract(decl)) {
+	if (ast_decl_is_abstract(decl) && aallow != ast_abs_allow) {
 		fprintf(stderr, "Error: ");
-		fprintf(stderr, "Unexpected abstract declarator.\n");
+		lexer_dprint_tok(&dtok, stderr);
+		fprintf(stderr, " unexpected abstract declarator.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1099,7 +1129,8 @@ static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
 	 */
 	if (decl->ntype == ant_dparen) {
 		fprintf(stderr, "Error: ");
-		fprintf(stderr, "Parenthesized declarator (cough).\n");
+		lexer_dprint_tok(&dtok, stderr);
+		fprintf(stderr, " parenthesized declarator (cough).\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1237,7 +1268,9 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	lexer_toktype_t ltt;
 	ast_gdecln_t *gdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
-	ast_node_t *fdecl = NULL;
+	ast_dlist_t *dlist = NULL;
+	ast_dlist_entry_t *entry;
+	bool more_decls;
 	ast_block_t *body = NULL;
 	void *dscolon;
 	int rc;
@@ -1246,9 +1279,14 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_decl(parser, &fdecl);
+	rc = parser_process_dlist(parser, ast_abs_allow, &dlist);
 	if (rc != EOK)
 		goto error;
+
+	/* See if we have more than one declarator */
+	entry = ast_dlist_first(dlist);
+	assert(entry != NULL);
+	more_decls = ast_dlist_next(entry) != NULL;
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
@@ -1257,6 +1295,14 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		parser_skip(parser, &dscolon);
 		break;
 	case ltt_lbrace:
+		if (more_decls) {
+			fprintf(stderr, "Error: ");
+			lexer_dprint_tok(&parser->tok[0], stderr);
+			fprintf(stderr, " '{' unexpected, expected ';'.\n");
+			rc = EINVAL;
+			goto error;
+		}
+
 		rc = parser_process_block(parser, &body);
 		if (rc != EOK)
 			goto error;
@@ -1270,7 +1316,7 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		goto error;
 	}
 
-	rc = ast_gdecln_create(dspecs, fdecl, body, &gdecln);
+	rc = ast_gdecln_create(dspecs, dlist, body, &gdecln);
 	if (rc != EOK) 
 		goto error;
 
@@ -1286,8 +1332,8 @@ error:
 		ast_tree_destroy(&gdecln->node);
 	if (dspecs != NULL)
 		ast_tree_destroy(&dspecs->node);
-	if (fdecl != NULL)
-		ast_tree_destroy(fdecl);
+	if (dlist != NULL)
+		ast_tree_destroy(&dlist->node);
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
 	return rc;

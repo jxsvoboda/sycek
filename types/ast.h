@@ -327,6 +327,13 @@ typedef struct ast_dlist {
 	list_t decls; /* of ast_decllist_entry_t */
 } ast_dlist_t;
 
+typedef enum {
+	/** Allow abstract declarators */
+	ast_abs_allow,
+	/** Disallow abstract declarators */
+	ast_abs_disallow
+} ast_abs_allow_t;
+
 /** Declarator list entry */
 typedef struct {
 	/** Containing type definition */
@@ -402,8 +409,8 @@ typedef struct {
 	ast_node_t node;
 	/** Declaration specifiers */
 	ast_dspecs_t *dspecs;
-	/** Declarator */
-	ast_node_t *fdecl;
+	/** Declarator list */
+	ast_dlist_t *dlist;
 	/** Function body (if function definition) */
 	ast_block_t *body;
 	/** @c true if we have a trailing semicolon */
