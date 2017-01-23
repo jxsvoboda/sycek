@@ -545,10 +545,40 @@ static void checker_check_nsbrk_after(checker_scope_t *scope,
 	}
 }
 
+/** Breakable space before token.
+ *
+ * There should be either a single space or a line break before the token.
+ * If there is a line break, the token must be indented appropriately.
+ */
+static int checker_check_brkspace_before(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
+{
+	checker_tok_t *p;
+	int rc;
+
+	checker_check_any(scope, tok);
+
+	assert(tok != NULL);
+	p = checker_prev_tok(tok);
+	assert(p != NULL);
+
+	if (!lexer_is_wspace(p->tok.ttype)) {
+		if (scope->fix) {
+			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
+	}
+
+	return EOK;
+}
+
 /** Breakable space after token.
  *
  * There should be either a single space or a line break after the token.
- * If there is a line break, the token must be indented appropriately.
  */
 static int checker_check_brkspace_after(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
@@ -819,7 +849,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 		adecl = ast_tree_first_tok(arg->decl);
 		if (adecl != NULL) {
 			tdecl = (checker_tok_t *)adecl->data;
-			rc = checker_check_nbspace_before(scope, tdecl,
+			rc = checker_check_brkspace_before(scope, tdecl,
 			    "Expected space before declarator.");
 			if (rc != EOK)
 				return rc;
@@ -1082,7 +1112,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 		adecl = ast_tree_first_tok(&elem->dlist->node);
 		if (adecl != NULL) {
 			tdecl = (checker_tok_t *)adecl->data;
-			rc = checker_check_nbspace_before(escope, tdecl,
+			rc = checker_check_brkspace_before(escope, tdecl,
 			    "Expected space before declarator.");
 			if (rc != EOK)
 				goto error;
@@ -1336,7 +1366,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	adecl = ast_tree_first_tok(&gdecln->dlist->node);
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
-		rc = checker_check_nbspace_before(scope, tdecl,
+		rc = checker_check_brkspace_before(scope, tdecl,
 		    "Expected space before declarator.");
 		if (rc != EOK)
 			goto error;
