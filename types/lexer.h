@@ -56,6 +56,7 @@ typedef enum {
 	ltt_slash,
 	ltt_equals,
 
+	ltt_attribute,
 	ltt_auto,
 	ltt_char,
 	ltt_const,

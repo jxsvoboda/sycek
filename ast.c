@@ -255,7 +255,11 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
 {
 	const char *s;
 
+	s = "<invalid>";
 	switch (sclass->sctype) {
+	case asc_typedef:
+		s = "typedef";
+		break;
 	case asc_extern:
 		s = "extern";
 		break;
@@ -270,10 +274,6 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
 		break;
 	case asc_none:
 		s = "none";
-		break;
-	default:
-		assert(false);
-		s = "<invalid>";
 		break;
 	}
 
@@ -920,7 +920,7 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 	ast_tsrecord_elem_t *elem;
 	int rc;
 
-	if (fprintf(f, "tsrecord(%s", tsrecord->rtype == ar_struct ? "struct" :
+	if (fprintf(f, "tsrecord(%s ", tsrecord->rtype == ar_struct ? "struct" :
 	    "union") < 0)
 		return EIO;
 
@@ -1928,14 +1928,23 @@ ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *arg)
 static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 {
 	ast_dfun_arg_t *arg;
+	int rc;
 
 	if (fprintf(f, "dfun(") < 0)
 		return EIO;
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		if (fprintf(f, "arg") < 0)
+		rc = ast_dspecs_print(arg->dspecs, f);
+		if (rc != EOK)
+			return rc;
+
+		if (fprintf(f, " ") < 0)
 			return EIO;
+
+		rc = ast_tree_print(arg->decl, f);
+		if (rc != EOK)
+			return rc;
 
 		arg = ast_dfun_next(arg);
 
@@ -2203,13 +2212,15 @@ ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *arg)
 static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
 {
 	ast_dlist_entry_t *entry;
+	int rc;
 
 	if (fprintf(f, "dlist(") < 0)
 		return EIO;
 
 	entry = ast_dlist_first(dlist);
 	while (entry != NULL) {
-		if (fprintf(f, "decl") < 0)
+		rc = ast_tree_print(entry->decl, f);
+		if (rc != EOK)
 			return EIO;
 
 		entry = ast_dlist_next(entry);
