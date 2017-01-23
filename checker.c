@@ -520,17 +520,30 @@ static void checker_check_nows_after(checker_scope_t *scope,
 	}
 }
 
-/** Check non-spacing break bfore.
+/** Check non-spacing break after.
  *
- * There should be either non-whitespace or a line break before the token. */
-#if 0
-static void checker_check_nsbrk_before(checker_scope_t *scope,
+ * There should be either non-whitespace or a line break after the token.
+ */
+static void checker_check_nsbrk_after(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
-	checker_ckeck_any(scope, tok);
-	(void)msg;
+	checker_tok_t *p;
+
+	checker_check_any(scope, tok);
+
+	assert(tok != NULL);
+	p = checker_next_tok(tok);
+	assert(p != NULL);
+
+	if (lexer_is_wspace(p->tok.ttype) && p->tok.ttype != ltt_newline) {
+		if (scope->fix) {
+			checker_remove_ws_after(tok);
+		} else {
+			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
+	}
 }
-#endif
 
 /** Breakable space after token.
  *
@@ -794,8 +807,8 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 		return rc;
 
 	tlparen = (checker_tok_t *)dfun->tlparen.data;
-	checker_check_nows_after(scope, tlparen,
-	    "Unexpected whitespace after '('.");
+	checker_check_nsbrk_after(scope, tlparen,
+	    "Unexpected space or tab after '('.");
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
