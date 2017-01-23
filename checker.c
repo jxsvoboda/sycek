@@ -1431,6 +1431,11 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 
 	need_fix = false;
 
+	if (!need_fix && (lexer_is_wspace(tok->tok.ttype) ||
+	    tok->tok.ttype == ltt_comment || tok->tok.ttype == ltt_dscomment ||
+	    tok->tok.ttype == ltt_preproc))
+		return EOK;
+
 	if (extra != 0) {
 		if (fix) {
 			need_fix = true;
@@ -1439,11 +1444,6 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 			printf(": Mixing tabs and spaces in indentation.\n");
 		}
 	}
-
-	if (!need_fix && (lexer_is_wspace(tok->tok.ttype) ||
-	    tok->tok.ttype == ltt_comment || tok->tok.ttype == ltt_dscomment ||
-	    tok->tok.ttype == ltt_preproc))
-		return EOK;
 
 	if (tok->lbegin && spaces != 0) {
 		if (fix) {
