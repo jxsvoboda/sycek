@@ -1475,9 +1475,15 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	need_fix = false;
 
 	if (!need_fix && (lexer_is_wspace(tok->tok.ttype) ||
-	    tok->tok.ttype == ltt_comment || tok->tok.ttype == ltt_dscomment ||
-	    tok->tok.ttype == ltt_preproc))
+	    tok->tok.ttype == ltt_comment || tok->tok.ttype == ltt_dscomment))
 		return EOK;
+
+	/*
+	 * Preprocessor directives start at the beginning of a line
+	 * (not a continuation)
+	 */
+	if (tok->tok.ttype == ltt_preproc)
+		tok->lbegin = true;
 
 	if (extra != 0) {
 		if (fix) {
