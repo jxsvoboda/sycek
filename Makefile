@@ -1,12 +1,13 @@
 CC     = gcc
-CFLAGS = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -I.
+CFLAGS = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -Werror -I.
 LIBS   =
 
 bkqual = $$(date '+%Y-%m-%d')
 
 sources = \
     lexer.c \
-    main.c
+    main.c \
+    test/lexer.c
 
 binary = cstyle
 
