@@ -9,7 +9,7 @@ sources = \
     main.c \
     test/lexer.c
 
-binary = cstyle
+binary = ccheck
 
 objects = $(sources:.c=.o)
 headers = $(wildcard *.h */*.h */*/*.h)
@@ -25,5 +25,5 @@ clean:
 	rm -f $(objects) $(binary)
 
 backup: clean
-	cd .. && tar czf cstyle-$(bkqual).tar.gz trunk
-	cd .. && rm -f cstyle-latest.tar.gz && ln -s cstyle-$(bkqual).tar.gz cstyle-latest.tar.gz
+	cd .. && tar czf ccheck-$(bkqual).tar.gz trunk
+	cd .. && rm -f ccheck-latest.tar.gz && ln -s ccheck-$(bkqual).tar.gz ccheck-latest.tar.gz
