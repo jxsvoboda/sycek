@@ -5,8 +5,23 @@
 #include <types/src_pos.h>
 
 enum {
-	lexer_lbuf_size = 128
+	lexer_buf_size = 128
 };
+
+/** Token type */
+typedef enum {
+	ltt_wspace,
+	ltt_lparen,
+	ltt_rparen,
+	ltt_lbrace,
+	ltt_rbrace,
+	ltt_scolon,
+	ltt_int,
+	ltt_ident,
+	ltt_number,
+	ltt_invalid,
+	ltt_eof
+} lexer_toktype_t;
 
 /** Lexer token */
 typedef struct {
@@ -14,24 +29,33 @@ typedef struct {
 	src_pos_t bpos;
 	/** Position of end of token */
 	src_pos_t epos;
-	int dummy;
+	/** Token type */
+	lexer_toktype_t ttype;
+	/** Token full text */
+	char *text;
+	/** Text size not including null terminator */
+	size_t text_size;
 } lexer_tok_t;
 
 /** Lexer input ops */
 typedef struct {
-	int (*read)(void *, char *, size_t, size_t *);
+	int (*read)(void *, char *, size_t, size_t *, src_pos_t *);
 } lexer_input_ops_t;
 
 /** Lexer */
 typedef struct {
-	/** Line input buffer */
-	char line_buf[lexer_lbuf_size];
-	/** Number of used bytes in line_buf */
-	size_t lb_used;
+	/** Input buffer */
+	char buf[lexer_buf_size];
+	/** Buffer position */
+	size_t buf_pos;
+	/** Number of used bytes in buf */
+	size_t buf_used;
 	/** Position of start of input buffer */
-	src_pos_t lb_pos;
+	src_pos_t buf_bpos;
+	/** Current position */
+	src_pos_t pos;
 	/** Input ops */
-	lexer_input_ops_t input_ops;
+	lexer_input_ops_t *input_ops;
 	/** Input argument */
 	void *input_arg;
 } lexer_t;

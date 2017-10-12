@@ -7,6 +7,7 @@ bkqual = $$(date '+%Y-%m-%d')
 sources = \
     lexer.c \
     main.c \
+    src_pos.c \
     test/lexer.c
 
 binary = ccheck
