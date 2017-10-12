@@ -9,5 +9,6 @@ extern void lexer_destroy(lexer_t *);
 extern int lexer_get_tok(lexer_t *, lexer_tok_t *);
 extern void lexer_free_tok(lexer_tok_t *);
 extern int lexer_dprint_tok(lexer_tok_t *, FILE *);
+extern int lexer_print_tok(lexer_tok_t *, FILE *);
 
 #endif

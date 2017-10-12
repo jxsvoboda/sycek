@@ -15,11 +15,11 @@ int test_lexer(void)
 {
 	int rc;
 	lexer_t *lexer;
-	char *sp;
+	char *str, *sp;
 	bool done;
 	lexer_tok_t tok;
 
-	sp = "int main(void) {\nreturn 0;\n}\n";
+	sp = str = "int main(void) {\nreturn 0;\n}\n";
 
 	rc = lexer_create(&lexer_str_input, &sp, &lexer);
 	if (rc != EOK)
@@ -34,6 +34,28 @@ int test_lexer(void)
 		lexer_dprint_tok(&tok, stdout);
 		if (tok.ttype == ltt_eof)
 			done = true;
+		lexer_free_tok(&tok);
+	}
+
+	lexer_destroy(lexer);
+	printf("\n");
+
+	sp = str;
+
+	rc = lexer_create(&lexer_str_input, &sp, &lexer);
+	if (rc != EOK)
+		return rc;
+
+	done = false;
+	while (!done) {
+		rc = lexer_get_tok(lexer, &tok);
+		if (rc != EOK)
+			return rc;
+
+		if (tok.ttype == ltt_eof)
+			done = true;
+		else
+			lexer_print_tok(&tok, stdout);
 		lexer_free_tok(&tok);
 	}
 
