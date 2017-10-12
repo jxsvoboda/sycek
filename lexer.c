@@ -60,14 +60,32 @@ static bool is_idcnt(char c)
 static char *lexer_chars(lexer_t *lexer)
 {
 	int rc;
+	size_t nread;
+	src_pos_t rpos;
 
-	if (lexer->buf_used == 0/*XXX*/) {
+	if (!lexer->in_eof && lexer->buf_used - lexer->buf_pos <
+	    lexer_buf_low_watermark) {
+		/* Move data to beginning of buffer */
+		memmove(lexer->buf, lexer->buf + lexer->buf_pos,
+		    lexer->buf_used - lexer->buf_pos);
+		lexer->buf_used -= lexer->buf_pos;
+		lexer->buf_pos = 0;
+		/* XX Advance lexer->buf_bpos */
+
 //		printf("Read input\n");
-		rc = lexer->input_ops->read(lexer->input_arg, lexer->buf,
-		    lexer_buf_size, &lexer->buf_used, &lexer->buf_bpos);
+		rc = lexer->input_ops->read(lexer->input_arg, lexer->buf +
+		    lexer->buf_used, lexer_buf_size - lexer->buf_used,
+		    &nread, &rpos);
 		if (rc != EOK) {
 			printf("read error\n");
 		}
+		if (nread < lexer_buf_size - lexer->buf_used)
+			lexer->in_eof = true;
+		if (lexer->buf_used == 0)
+			lexer->buf_bpos = rpos;
+		lexer->buf_used += nread;
+		if (lexer->buf_used < lexer_buf_size)
+			lexer->buf[lexer->buf_used] = '\0';
 		lexer->pos = lexer->buf_bpos;
 //		printf("Read input done\n");
 	}
@@ -367,7 +385,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case 'w':
 		if (p[1] == 'h' && p[2] == 'i' && p[3] == 'l' && p[4] == 'e' &&
 		    !is_idcnt(p[5])) {
-			return lexer_keyword(lexer, ltt_while, 4, tok);
+			return lexer_keyword(lexer, ltt_while, 5, tok);
 		}
 		return lexer_ident(lexer, tok);
 	default:

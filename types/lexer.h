@@ -1,11 +1,13 @@
 #ifndef TYPES_LEXER_H
 #define TYPES_LEXER_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <types/src_pos.h>
 
 enum {
-	lexer_buf_size = 128
+	lexer_buf_size = 32,
+	lexer_buf_low_watermark = 16
 };
 
 /** Token type */
@@ -81,6 +83,8 @@ typedef struct {
 	src_pos_t buf_bpos;
 	/** Current position */
 	src_pos_t pos;
+	/** EOF hit in input */
+	bool in_eof;
 	/** Input ops */
 	lexer_input_ops_t *input_ops;
 	/** Input argument */

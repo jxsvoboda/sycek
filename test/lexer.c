@@ -11,15 +11,23 @@ static lexer_input_ops_t lexer_str_input = {
 	.read = lexer_str_read
 };
 
-int test_lexer(void)
+const char *str_hello = 
+	"int main(void) {\nreturn 0;\n}\n";
+
+const char *str_keywords = 
+	"char do double enum extern float for goto if inline int long "
+	"register return short signed sizeof static struct typedef union "
+	"unsigned void volatile while";
+
+static int test_lex_string(const char *str)
 {
 	int rc;
 	lexer_t *lexer;
-	char *str, *sp;
+	const char *sp;
 	bool done;
 	lexer_tok_t tok;
 
-	sp = str = "int main(void) {\nreturn 0;\n}\n";
+	sp = str;
 
 	rc = lexer_create(&lexer_str_input, &sp, &lexer);
 	if (rc != EOK)
@@ -65,15 +73,30 @@ int test_lexer(void)
 	return EOK;
 }
 
+int test_lexer(void)
+{
+	int rc;
+
+	rc = test_lex_string(str_hello);
+	if (rc != EOK)
+		return rc;
+
+	rc = test_lex_string(str_keywords);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 static int lexer_str_read(void *arg, char *buf, size_t bsize, size_t *nread,
     src_pos_t *bpos)
 {
 	char **sp = (char **)arg;
 	size_t len;
 
-	printf("lexer_str_read\n");
+//	printf("lexer_str_read\n");
 	len = strlen(*sp);
-	printf("lexer_str_read: bsize=%zu len=%zu\n", bsize, len);
+//	printf("lexer_str_read: bsize=%zu len=%zu\n", bsize, len);
 	if (bsize < len)
 		len = bsize;
 
