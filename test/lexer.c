@@ -11,10 +11,10 @@ static lexer_input_ops_t lexer_str_input = {
 	.read = lexer_str_read
 };
 
-const char *str_hello = 
+static const char *str_hello =
 	"int main(void) {\nreturn 0;\n}\n";
 
-const char *str_keywords = 
+static const char *str_keywords =
 	"char do double enum extern float for goto if inline int long "
 	"register return short signed sizeof static struct typedef union "
 	"unsigned void volatile while";

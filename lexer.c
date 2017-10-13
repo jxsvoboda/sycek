@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -9,10 +8,6 @@
 int lexer_create(lexer_input_ops_t *ops, void *arg, lexer_t **rlexer)
 {
 	lexer_t *lexer;
-
-	(void) ops;
-	(void) arg;
-	(void) rlexer;
 
 	lexer = calloc(1, sizeof(lexer_t));
 	if (lexer == NULL)
