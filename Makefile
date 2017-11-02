@@ -11,6 +11,7 @@ sources = \
     main.c \
     parser.c \
     src_pos.c \
+    test/ast.c \
     test/lexer.c \
     test/parser.c
 

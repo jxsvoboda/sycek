@@ -1,5 +1,6 @@
 #include <lexer.h>
 #include <parser.h>
+#include <test/ast.h>
 #include <test/lexer.h>
 #include <test/parser.h>
 
@@ -12,6 +13,9 @@ int main(int argc, char *argv[])
 
 	rc = test_lexer();
 	printf("test_lexer -> %d\n", rc);
+
+	rc = test_ast();
+	printf("test_ast -> %d\n", rc);
 
 	rc = test_parser();
 	printf("test_parser -> %d\n", rc);
