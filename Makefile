@@ -1,5 +1,6 @@
 CC     = gcc
-CFLAGS = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -Werror -I.
+CFLAGS = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -Wmissing-prototypes \
+         -Werror -I. 
 LIBS   =
 
 bkqual = $$(date '+%Y-%m-%d')
