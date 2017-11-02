@@ -5,6 +5,8 @@ LIBS   =
 bkqual = $$(date '+%Y-%m-%d')
 
 sources = \
+    adt/list.c \
+    ast.c \
     lexer.c \
     main.c \
     parser.c \

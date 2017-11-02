@@ -1,3 +1,4 @@
+#include <ast.h>
 #include <merrno.h>
 #include <parser.h>
 #include <test/parser.h>
@@ -31,17 +32,24 @@ int test_parser(void)
 	parser_t *parser;
 	int rc;
 	size_t idx;
-	ast_node_t *mod;
+	ast_module_t *module;
 
 	idx = 0;
 	rc = parser_create(&parser_test_input, &idx, &parser);
 	if (rc != EOK)
 		return rc;
 
-	rc = parser_process_module(parser, &mod);
+	rc = parser_process_module(parser, &module);
 	if (rc != EOK)
 		return rc;
 
+	rc = ast_tree_print(&module->node, stdout);
+	if (rc != EOK)
+		return rc;
+
+	putchar('\n');
+
+	ast_tree_destroy(&module->node);
 	parser_destroy(parser);
 
 	return EOK;

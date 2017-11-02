@@ -1,3 +1,4 @@
+#include <ast.h>
 #include <parser.h>
 #include <merrno.h>
 #include <stdlib.h>
@@ -21,9 +22,17 @@ void parser_destroy(parser_t *parser)
 	free(parser);
 }
 
-int parser_process_module(parser_t *parser, ast_node_t **rnode)
+int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 {
+	ast_module_t *module;
+	int rc;
+
 	(void)parser;
-	(void)rnode;
-	return ENOTSUP;
+
+	rc = ast_module_create(&module);
+	if (rc != EOK)
+		return rc;
+
+	*rmodule = module;
+	return EOK;
 }
