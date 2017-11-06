@@ -1,7 +1,15 @@
+/*
+ * Test AST
+ */
+
 #include <ast.h>
 #include <merrno.h>
 #include <stdio.h>
 
+/** Test AST module.
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int test_ast_module(void)
 {
 	ast_module_t *module;
@@ -17,6 +25,10 @@ static int test_ast_module(void)
 	return EOK;
 }
 
+/** Test AST function definition.
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int test_ast_fundef(void)
 {
 	ast_fundef_t *fundef;
@@ -32,6 +44,10 @@ static int test_ast_fundef(void)
 	return EOK;
 }
 
+/** Run AST tests.
+ *
+ * @return EOK on success or non-zero error code
+ */
 int test_ast(void)
 {
 	int rc;

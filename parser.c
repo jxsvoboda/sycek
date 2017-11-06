@@ -1,8 +1,20 @@
+/*
+ * Parser
+ */
+
 #include <ast.h>
 #include <parser.h>
 #include <merrno.h>
 #include <stdlib.h>
 
+/** Create parser.
+ *
+ * @param ops Parser input ops
+ * @param arg Argument to input ops
+ * @param rparser Place to store pointer to new parser
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
 int parser_create(parser_input_ops_t *ops, void *arg, parser_t **rparser)
 {
 	parser_t *parser;
@@ -17,11 +29,22 @@ int parser_create(parser_input_ops_t *ops, void *arg, parser_t **rparser)
 	return EOK;
 }
 
+/** Destroy parser.
+ *
+ * @param parser Parser
+ */
 void parser_destroy(parser_t *parser)
 {
 	free(parser);
 }
 
+/** Parse declaration.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new declaration node
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 {
 	ast_fundef_t *fundef;
@@ -37,6 +60,13 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	return EOK;
 }
 
+/** Parse module.
+ *
+ * @param parser Parser
+ * @param rmodule Place to store pointer to new module
+ *
+ * @return EOK on success or non-zero error code
+ */
 int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 {
 	ast_module_t *module;
@@ -56,7 +86,6 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 
 		ast_module_append(module, decl);
 		break;
-		
 	}
 
 	*rmodule = module;

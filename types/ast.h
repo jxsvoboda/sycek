@@ -1,3 +1,7 @@
+/*
+ * Abstract syntax tree
+ */
+
 #ifndef TYPES_AST_H
 #define TYPES_AST_H
 
@@ -23,10 +27,12 @@ typedef struct {
 	ast_node_type_t ntype;
 } ast_node_t;
 
+/** Type expression */
 typedef struct {
 	ast_node_t node;
 } ast_type_t;
 
+/** Identifier */
 typedef struct {
 	ast_node_t node;
 } ast_ident_t;

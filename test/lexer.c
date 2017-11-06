@@ -1,3 +1,7 @@
+/*
+ * Test lexer
+ */
+
 #include <lexer.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -19,6 +23,11 @@ static const char *str_keywords =
 	"register return short signed sizeof static struct typedef union "
 	"unsigned void volatile while";
 
+/** Run lexer tests on a code fragment.
+ *
+ * @param str Code fragment
+ * @return EOK on success or non-zero error code
+ */
 static int test_lex_string(const char *str)
 {
 	int rc;
@@ -73,6 +82,10 @@ static int test_lex_string(const char *str)
 	return EOK;
 }
 
+/** Run lexer tests.
+ *
+ * @return EOK on success or non-zero error code
+ */
 int test_lexer(void)
 {
 	int rc;
@@ -88,6 +101,7 @@ int test_lexer(void)
 	return EOK;
 }
 
+/** Lexer input form a string constant. */
 static int lexer_str_read(void *arg, char *buf, size_t bsize, size_t *nread,
     src_pos_t *bpos)
 {

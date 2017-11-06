@@ -1,9 +1,18 @@
+/*
+ * Abstract syntax tree
+ */
+
 #include <adt/list.h>
 #include <ast.h>
 #include <merrno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+/** Create AST module.
+ *
+ * @param rmodule Place to store pointer to new module
+ * @return EOK on success, ENOMEM if out of memory
+ */
 int ast_module_create(ast_module_t **rmodule)
 {
 	ast_module_t *module;
@@ -19,11 +28,23 @@ int ast_module_create(ast_module_t **rmodule)
 	return EOK;
 }
 
+/** Append declaration to module.
+ *
+ * @param module Module
+ * @param decl Declaration
+ */
 void ast_module_append(ast_module_t *module, ast_node_t *decl)
 {
 	list_append(&decl->llist, &module->decls);
 }
 
+/** Print AST module.
+ *
+ * @param module Module
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
 static int ast_module_print(ast_module_t *module, FILE *f)
 {
 	(void)module;
@@ -34,6 +55,14 @@ static int ast_module_print(ast_module_t *module, FILE *f)
 	return EOK;
 }
 
+/** Create AST function definition.
+ *
+ * @param ftype Function type
+ * @param fident Function identifier
+ * @param rfundef Place to store pointer to new function definition
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
 int ast_fundef_create(ast_type_t *ftype, ast_ident_t *fident,
     ast_fundef_t **rfundef)
 {
@@ -52,6 +81,13 @@ int ast_fundef_create(ast_type_t *ftype, ast_ident_t *fident,
 	return EOK;
 }
 
+/** Print AST function definition.
+ *
+ * @param fundef Function definition
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
 static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 {
 	(void)fundef;
@@ -62,7 +98,13 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 	return EOK;
 }
 
-
+/** Print AST tree.
+ *
+ * @param node Root node
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
 int ast_tree_print(ast_node_t *node, FILE *f)
 {
 	switch (node->ntype) {
@@ -77,6 +119,10 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 	return EINVAL;
 }
 
+/** Destroy AST tree.
+ *
+ * @param node Root node
+ */
 void ast_tree_destroy(ast_node_t *node)
 {
 	free(node->ext);

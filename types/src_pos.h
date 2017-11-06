@@ -1,3 +1,7 @@
+/*
+ * Source code position
+ */
+
 #ifndef TYPES_SRC_POS_H
 #define TYPES_SRC_POS_H
 
@@ -7,6 +11,7 @@ enum {
 	src_pos_fname_max = 16
 };
 
+/** Source code position */
 typedef struct {
 	char file[src_pos_fname_max];
 	size_t line;

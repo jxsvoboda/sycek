@@ -1,3 +1,7 @@
+/*
+ * Source code position
+ */
+
 #ifndef SRC_POS_H
 #define SRC_POS_H
 

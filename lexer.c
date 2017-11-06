@@ -1,3 +1,7 @@
+/*
+ * Lexer (lexical analyzer)
+ */
+
 #include <lexer.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -5,6 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/** Create lexer.
+ *
+ * @param ops Input ops
+ * @param arg Argument to input
+ * @param rlexer Place to store pointer to new lexer
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
 int lexer_create(lexer_input_ops_t *ops, void *arg, lexer_t **rlexer)
 {
 	lexer_t *lexer;
@@ -19,6 +31,10 @@ int lexer_create(lexer_input_ops_t *ops, void *arg, lexer_t **rlexer)
 	return EOK;
 }
 
+/** Destroy lexer.
+ *
+ * @param lexer Lexer
+ */
 void lexer_destroy(lexer_t *lexer)
 {
 	if (lexer == NULL)
@@ -27,31 +43,68 @@ void lexer_destroy(lexer_t *lexer)
 	free(lexer);
 }
 
+/** Determine if character is a letter (C language)
+ *
+ * @param c Character
+ *
+ * @return @c true if c is a letter (C language), @c false otherwise
+ */
 static bool is_alpha(char c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
+/** Determine if character is a number (C language)
+ *
+ * @param c Character
+ *
+ * @return @c true if @a c is a number (C language), @c false otherwise
+ */
 static bool is_num(char c)
 {
 	return (c >= '0' && c <= '9');
 }
 
+/** Determine if character is alphanumeric (C language)
+ *
+ * @param c Character
+ *
+ * @return @c true if @a c is alphanumeric (C language), @c false otherwise
+ */
 static bool is_alnum(char c)
 {
 	return is_alpha(c) || is_num(c);
 }
 
+/** Determine if character can begin a C identifier
+ *
+ * @param c Character
+ *
+ * @return @c true if @a c can begin a C identifier, @c false otherwise
+ */
 static bool is_idbegin(char c)
 {
 	return is_alpha(c) || (c == '_');
 }
 
+/** Determine if character can continue a C identifier
+ *
+ * @param c Character
+ *
+ * @return @c true if @a c can continue a C identifier, @c false otherwise
+ */
 static bool is_idcnt(char c)
 {
 	return is_alnum(c) || (c == '_');
 }
 
+/** Get valid pointer to characters in input buffer.
+ *
+ * Returns a pointer into the input buffer, ensuring it contains
+ * at least lexer_buf_low_watermark valid characters (unless at EOF).
+ *
+ * @return Pointer to characters in input buffer.
+ */
 static char *lexer_chars(lexer_t *lexer)
 {
 	int rc;
@@ -88,11 +141,28 @@ static char *lexer_chars(lexer_t *lexer)
 	return lexer->buf + lexer->buf_pos;
 }
 
+/** Get current lexer position in source code.
+ *
+ * @param lexer Lexer
+ * @param pos Place to store position
+ */
 static void lexer_get_pos(lexer_t *lexer, src_pos_t *pos)
 {
 	*pos = lexer->pos;
 }
 
+/** Advance lexer read position.
+ *
+ * Advance read position by a certain amount of characters. Since all
+ * input characters must be part of a token, the characters are added
+ * to token @a tok.
+ *
+ * @param lexer Lexer
+ * @param nchars Number of characters to advance
+ * @param tok Token to which the characters should 
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 {
 	char *p;
@@ -114,6 +184,13 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex whitespace.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_whitespace(lexer_t *lexer, lexer_tok_t *tok)
 {
 	lexer_get_pos(lexer, &tok->bpos);
@@ -122,6 +199,14 @@ static int lexer_whitespace(lexer_t *lexer, lexer_tok_t *tok)
 	return lexer_advance(lexer, 1, tok);
 }
 
+/** Lex single-character token.
+ *
+ * @param lexer Lexer
+ * @param ttype Token type
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_onechar(lexer_t *lexer, lexer_toktype_t ttype,
     lexer_tok_t *tok)
 {
@@ -139,6 +224,15 @@ static int lexer_onechar(lexer_t *lexer, lexer_toktype_t ttype,
 	return lexer_advance(lexer, 1, tok);
 }
 
+/** Lex keyword.
+ *
+ * @param lexer Lexer
+ * @param ttype Token type
+ * @param nchars Number of characters in the keyword
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_keyword(lexer_t *lexer, lexer_toktype_t ttype,
     size_t nchars, lexer_tok_t *tok)
 {
@@ -168,6 +262,13 @@ static int lexer_keyword(lexer_t *lexer, lexer_toktype_t ttype,
 	return EOK;
 }
 
+/** Lex identifier.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_ident(lexer_t *lexer, lexer_tok_t *tok)
 {
 	char *p;
@@ -193,6 +294,13 @@ static int lexer_ident(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex number.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 {
 	char *p;
@@ -220,15 +328,29 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex invalid character.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_invalid(lexer_t *lexer, lexer_tok_t *tok)
 {
 	lexer_get_pos(lexer, &tok->bpos);
 	lexer_get_pos(lexer, &tok->epos);
-	
+
 	tok->ttype = ltt_invalid;
 	return lexer_advance(lexer, 1, tok);
 }
 
+/** Lex End of File.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
 static int lexer_eof(lexer_t *lexer, lexer_tok_t *tok)
 {
 	lexer_get_pos(lexer, &tok->bpos);
@@ -237,6 +359,13 @@ static int lexer_eof(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex next token.
+ *
+ * @param lexer Lexer
+ * @param tok Place to store token (must be freed using lexer_free_tok())
+ *
+ * @return EOK on success or non-zero error code
+ */
 int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 {
 	char *p;
@@ -394,6 +523,12 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Free token.
+ *
+ * Free/finalize token obtained via lex_get_tok().
+ *
+ * @param tok Token
+ */
 void lexer_free_tok(lexer_tok_t *tok)
 {
 	if (tok->text != NULL)
@@ -401,6 +536,13 @@ void lexer_free_tok(lexer_tok_t *tok)
 	tok->text = NULL;
 }
 
+/** Print token structurally (for debugging).
+ *
+ * @param tok Token
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
 int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
 {
 	int rc;
@@ -563,6 +705,13 @@ int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
 	return EOK;
 }
 
+/** Print token (in original C form).
+ *
+ * @param tok Token
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
 int lexer_print_tok(lexer_tok_t *tok, FILE *f)
 {
 	if (fprintf(f, "%s", tok->text) < 0)

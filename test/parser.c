@@ -1,3 +1,7 @@
+/*
+ * Test parser
+ */
+
 #include <ast.h>
 #include <merrno.h>
 #include <parser.h>
@@ -27,6 +31,10 @@ lexer_toktype_t toks[] = {
 	ltt_eof
 };
 
+/** Run parser tests.
+ *
+ * @return EOK on success or non-zero error code
+ */
 int test_parser(void)
 {
 	parser_t *parser;
@@ -55,6 +63,7 @@ int test_parser(void)
 	return EOK;
 }
 
+/** Parser input from a global array */
 static int parser_test_get_tok(void *arg, lexer_tok_t *tok)
 {
 	size_t *idx = (size_t *)arg;

@@ -1,3 +1,7 @@
+/*
+ * Lexer (lexical analyzer)
+ */
+
 #ifndef LEXER_H
 #define LEXER_H
 
