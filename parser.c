@@ -2,9 +2,12 @@
  * Parser
  */
 
+#include <assert.h>
 #include <ast.h>
 #include <parser.h>
+#include <lexer.h>
 #include <merrno.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /** Create parser.
@@ -38,6 +41,55 @@ void parser_destroy(parser_t *parser)
 	free(parser);
 }
 
+/** Fill lookahead buffer up to the specified number of tokens. */
+static void parser_look_ahead(parser_t *parser, size_t i)
+{
+	while (parser->tokcnt < i) {
+		/* Need to skip whitespace */
+		do {
+			parser->input_ops->get_tok(parser->input_arg,
+			    &parser->tok[parser->tokcnt]);
+		} while (parser->tok[parser->tokcnt].ttype == ltt_wspace);
+
+		++parser->tokcnt;
+	}
+}
+
+static lexer_toktype_t parser_next_ttype(parser_t *parser)
+{
+	parser_look_ahead(parser, 1);
+	return parser->tok[0].ttype;
+}
+
+static void parser_skip(parser_t *parser)
+{
+	size_t i;
+
+	/* We should not skip a token without looking at it */
+	assert(parser->tokcnt > 0);
+
+	for (i = 1; i < parser->tokcnt; i++)
+		parser->tok[i - 1] = parser->tok[i];
+
+	--parser->tokcnt;
+}
+
+static int parser_match(parser_t *parser, lexer_toktype_t mtype)
+{
+	lexer_toktype_t ltype;
+
+	ltype = parser_next_ttype(parser);
+	if (ltype != mtype) {
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected '%s'.\n",
+		    lexer_str_ttype(mtype));
+		return EINVAL;
+	}
+
+	parser_skip(parser);
+	return EOK;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -50,7 +102,17 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	ast_return_t *areturn;
 	int rc;
 
-	(void)parser;
+	rc = parser_match(parser, ltt_return);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_number);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_scolon);
+	if (rc != EOK)
+		return rc;
 
 	rc = ast_return_create(&areturn);
 	if (rc != EOK)
@@ -64,29 +126,47 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 /** Parse block.
  *
  * @param parser Parser
- * @param braces Whether there should be braces around the block
  * @param rblock Place to store pointer to new AST block
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_block(parser_t *parser, ast_braces_t braces,
-    ast_block_t **rblock)
+static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 {
 	ast_block_t *block;
+	ast_braces_t braces;
 	ast_node_t *stmt;
 	int rc;
+
+	if (parser_next_ttype(parser) == ltt_lbrace) {
+		braces = ast_braces;
+		parser_skip(parser);
+	} else {
+		braces = ast_nobraces;
+	}
 
 	rc = ast_block_create(braces, &block);
 	if (rc != EOK)
 		return rc;
 
-	while (1 /*not end of block*/) {
+	if (braces == ast_braces) {
+		/* Brace-enclosed block */
+		while (parser_next_ttype(parser) != ltt_rbrace) {
+			rc = parser_process_stmt(parser, &stmt);
+			if (rc != EOK)
+				return rc;
+
+			ast_block_append(block, stmt);
+		}
+
+		/* Skip closing brace */
+		parser_skip(parser);
+	} else {
+		/* Single statement */
 		rc = parser_process_stmt(parser, &stmt);
 		if (rc != EOK)
 			return rc;
 
 		ast_block_append(block, stmt);
-		break;
 	}
 
 	*rblock = block;
@@ -103,9 +183,20 @@ static int parser_process_block(parser_t *parser, ast_braces_t braces,
 static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 {
 	ast_type_t *ptype;
+	lexer_toktype_t ltt;
 	int rc;
 
-	(void)parser;
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_void:
+	case ltt_int:
+		break;
+	default:
+		printf("Unexpected %d, expected type.\n", ltt);
+		return EINVAL;
+	}
+
+	parser_skip(parser);
 
 	rc = ast_type_create(&ptype);
 	if (rc != EOK)
@@ -132,7 +223,7 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
 
 	(void)parser;
 
-	rc = parser_process_block(parser, ast_braces, &body);
+	rc = parser_process_block(parser, &body);
 	if (rc != EOK)
 		return rc;
 
@@ -156,24 +247,41 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
 static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 {
 	ast_fundef_t *fundef;
-	ast_type_t *ftype = NULL;
+	ast_type_t *rtype = NULL;
+	ast_type_t *atype = NULL;
 	int rc;
 
 	(void)parser;
 
-	rc = parser_process_type(parser, &ftype);
+	rc = parser_process_type(parser, &rtype);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_fundef(parser, ftype, &fundef);
+	rc = parser_match(parser, ltt_ident);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_type(parser, &atype);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_fundef(parser, rtype/*XXX*/, &fundef);
 	if (rc != EOK)
 		goto error;
 
 	*rnode = &fundef->node;
 	return EOK;
 error:
-	if (ftype != NULL)
-		ast_tree_destroy(&ftype->node);
+	if (rtype != NULL)
+		ast_tree_destroy(&rtype->node);
 	return rc;
 }
 
@@ -196,7 +304,7 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 	if (rc != EOK)
 		return rc;
 
-	while (1 /*not end of module*/) {
+	while (parser_next_ttype(parser) != ltt_eof) {
 		rc = parser_process_decl(parser, &decl);
 		if (rc != EOK)
 			return rc;

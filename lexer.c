@@ -536,6 +536,106 @@ void lexer_free_tok(lexer_tok_t *tok)
 	tok->text = NULL;
 }
 
+/** Return string representation of token type.
+ *
+ * @param ttype Token type
+ * @return Constant string representing token type
+ */
+const char *lexer_str_ttype(lexer_toktype_t ttype)
+{
+	switch (ttype) {
+	case ltt_wspace:
+		return "ws";
+	case ltt_lparen:
+		return "(";
+	case ltt_rparen:
+		return ")";
+	case ltt_lbrace:
+		return "{";
+	case ltt_rbrace:
+		return "}";
+	case ltt_scolon:
+		return ";";
+	case ltt_char:
+		return "char";
+	case ltt_do:
+		return "do";
+	case ltt_double:
+		return "double";
+	case ltt_enum:
+		return "enum";
+	case ltt_extern:
+		return "extern";
+	case ltt_float:
+		return "float";
+	case ltt_for:
+		return "for";
+	case ltt_goto:
+		return "goto";
+	case ltt_if:
+		return "if";
+	case ltt_inline:
+		return "inline";
+	case ltt_int:
+		return "int";
+	case ltt_long:
+		return "long";
+	case ltt_register:
+		return "register";
+	case ltt_return:
+		return "return";
+	case ltt_signed:
+		return "signed";
+	case ltt_sizeof:
+		return "sizeof";
+	case ltt_short:
+		return "short";
+	case ltt_static:
+		return "static";
+	case ltt_struct:
+		return "struct";
+	case ltt_typedef:
+		return "typedef";
+	case ltt_union:
+		return "union";
+	case ltt_unsigned:
+		return "unsigned";
+	case ltt_void:
+		return "void";
+	case ltt_volatile:
+		return "volatile";
+	case ltt_while:
+		return "while";
+	case ltt_ident:
+		return "id";
+	case ltt_number:
+		return "num";
+	case ltt_eof:
+		return "eof";
+	case ltt_invalid:
+		return "invalid";
+	case ltt_error:
+		return "error";
+	}
+
+	return EOK;
+}
+
+/** Print token type.
+ *
+ * @param ttype Token type
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+int lexer_print_ttype(lexer_toktype_t ttype, FILE *f)
+{
+	if (fputs(lexer_str_ttype(ttype), f) < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Print token structurally (for debugging).
  *
  * @param tok Token
@@ -553,149 +653,19 @@ int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
 	if (rc != EOK)
 		return rc;
 
-	if (fprintf(f, ":") < 0)
+	if (fprintf(f, ":%s", lexer_str_ttype(tok->ttype)) < 0)
 		return EIO;
 
 	switch (tok->ttype) {
-	case ltt_wspace:
-		if (fprintf(f, "ws") < 0)
-			return EIO;
-		break;
-	case ltt_lparen:
-		if (fprintf(f, "(") < 0)
-			return EIO;
-		break;
-	case ltt_rparen:
-		if (fprintf(f, ")") < 0)
-			return EIO;
-		break;
-	case ltt_lbrace:
-		if (fprintf(f, "{") < 0)
-			return EIO;
-		break;
-	case ltt_rbrace:
-		if (fprintf(f, "}") < 0)
-			return EIO;
-		break;
-	case ltt_scolon:
-		if (fprintf(f, ";") < 0)
-			return EIO;
-		break;
-	case ltt_char:
-		if (fprintf(f, "char") < 0)
-			return EIO;
-		break;
-	case ltt_do:
-		if (fprintf(f, "do") < 0)
-			return EIO;
-		break;
-	case ltt_double:
-		if (fprintf(f, "double") < 0)
-			return EIO;
-		break;
-	case ltt_enum:
-		if (fprintf(f, "enum") < 0)
-			return EIO;
-		break;
-	case ltt_extern:
-		if (fprintf(f, "extern") < 0)
-			return EIO;
-		break;
-	case ltt_float:
-		if (fprintf(f, "float") < 0)
-			return EIO;
-		break;
-	case ltt_for:
-		if (fprintf(f, "for") < 0)
-			return EIO;
-		break;
-	case ltt_goto:
-		if (fprintf(f, "goto") < 0)
-			return EIO;
-		break;
-	case ltt_if:
-		if (fprintf(f, "if") < 0)
-			return EIO;
-		break;
-	case ltt_inline:
-		if (fprintf(f, "inline") < 0)
-			return EIO;
-		break;
-	case ltt_int:
-		if (fprintf(f, "int") < 0)
-			return EIO;
-		break;
-	case ltt_long:
-		if (fprintf(f, "long") < 0)
-			return EIO;
-		break;
-	case ltt_register:
-		if (fprintf(f, "register") < 0)
-			return EIO;
-		break;
-	case ltt_return:
-		if (fprintf(f, "return") < 0)
-			return EIO;
-		break;
-	case ltt_signed:
-		if (fprintf(f, "signed") < 0)
-			return EIO;
-		break;
-	case ltt_sizeof:
-		if (fprintf(f, "sizeof") < 0)
-			return EIO;
-		break;
-	case ltt_short:
-		if (fprintf(f, "short") < 0)
-			return EIO;
-		break;
-	case ltt_static:
-		if (fprintf(f, "static") < 0)
-			return EIO;
-		break;
-	case ltt_struct:
-		if (fprintf(f, "struct") < 0)
-			return EIO;
-		break;
-	case ltt_typedef:
-		if (fprintf(f, "typedef") < 0)
-			return EIO;
-		break;
-	case ltt_union:
-		if (fprintf(f, "union") < 0)
-			return EIO;
-		break;
-	case ltt_unsigned:
-		if (fprintf(f, "unsigned") < 0)
-			return EIO;
-		break;
-	case ltt_void:
-		if (fprintf(f, "void") < 0)
-			return EIO;
-		break;
-	case ltt_volatile:
-		if (fprintf(f, "volatile") < 0)
-			return EIO;
-		break;
-	case ltt_while:
-		if (fprintf(f, "while") < 0)
-			return EIO;
-		break;
 	case ltt_ident:
-		if (fprintf(f, "id:%s", tok->text) < 0)
+		if (fprintf(f, ":%s", tok->text) < 0)
 			return EIO;
 		break;
 	case ltt_number:
-		if (fprintf(f, "num:%s", tok->text) < 0)
+		if (fprintf(f, ":%s", tok->text) < 0)
 			return EIO;
 		break;
-	case ltt_eof:
-		if (fprintf(f, "eof") < 0)
-			return EIO;
-		break;
-	case ltt_invalid:
-		if (fprintf(f, "invalid") < 0)
-			return EIO;
+	default:
 		break;
 	}
 

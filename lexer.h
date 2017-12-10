@@ -14,5 +14,7 @@ extern int lexer_get_tok(lexer_t *, lexer_tok_t *);
 extern void lexer_free_tok(lexer_tok_t *);
 extern int lexer_dprint_tok(lexer_tok_t *, FILE *);
 extern int lexer_print_tok(lexer_tok_t *, FILE *);
+extern const char *lexer_str_ttype(lexer_toktype_t);
+extern int lexer_print_ttype(lexer_toktype_t, FILE *);
 
 #endif

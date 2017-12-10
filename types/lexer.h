@@ -53,7 +53,8 @@ typedef enum {
 	ltt_number,
 
 	ltt_invalid,
-	ltt_eof
+	ltt_eof,
+	ltt_error
 } lexer_toktype_t;
 
 /** Lexer token */

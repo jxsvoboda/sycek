@@ -7,7 +7,7 @@
 #include <parser.h>
 #include <test/parser.h>
 
-static int parser_test_get_tok(void *, lexer_tok_t *);
+static void parser_test_get_tok(void *, lexer_tok_t *);
 
 static parser_input_ops_t parser_test_input = {
 	.get_tok = parser_test_get_tok
@@ -64,13 +64,13 @@ int test_parser(void)
 }
 
 /** Parser input from a global array */
-static int parser_test_get_tok(void *arg, lexer_tok_t *tok)
+static void parser_test_get_tok(void *arg, lexer_tok_t *tok)
 {
 	size_t *idx = (size_t *)arg;
 
 	tok->ttype = toks[*idx];
+	tok->bpos.col = *idx;
+	tok->epos.col = *idx;
 	if (tok->ttype != ltt_eof)
 		++(*idx);
-
-	return EOK;
 }
