@@ -8,11 +8,13 @@ bkqual = $$(date '+%Y-%m-%d')
 sources = \
     adt/list.c \
     ast.c \
+    checker.c \
     lexer.c \
     main.c \
     parser.c \
     src_pos.c \
     test/ast.c \
+    test/checker.c \
     test/lexer.c \
     test/parser.c
 

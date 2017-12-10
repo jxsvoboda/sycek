@@ -1,6 +1,7 @@
 #include <lexer.h>
 #include <parser.h>
 #include <test/ast.h>
+#include <test/checker.h>
 #include <test/lexer.h>
 #include <test/parser.h>
 
@@ -19,5 +20,8 @@ int main(int argc, char *argv[])
 
 	rc = test_parser();
 	printf("test_parser -> %d\n", rc);
+
+	rc = test_checker();
+	printf("test_checker -> %d\n", rc);
 	return 0;
 }
