@@ -41,9 +41,16 @@ void parser_destroy(parser_t *parser)
 	free(parser);
 }
 
-/** Fill lookahead buffer up to the specified number of tokens. */
+/** Fill lookahead buffer up to the specified number of tokens.
+ *
+ * @param parser Parser
+ * @param i Number of tokens required in lookahead buffer
+ *          (not greater than @c parser_lookahead)
+ */
 static void parser_look_ahead(parser_t *parser, size_t i)
 {
+	assert(i <= parser_lookahead);
+
 	while (parser->tokcnt < i) {
 		/* Need to skip whitespace */
 		do {
@@ -55,17 +62,26 @@ static void parser_look_ahead(parser_t *parser, size_t i)
 	}
 }
 
+/** Return type of next token.
+ *
+ * @param parser Parser
+ * @return Type of next token being parsed
+ */
 static lexer_toktype_t parser_next_ttype(parser_t *parser)
 {
 	parser_look_ahead(parser, 1);
 	return parser->tok[0].ttype;
 }
 
+/** Skip over current token.
+ *
+ * @param parser Parser
+ */
 static void parser_skip(parser_t *parser)
 {
 	size_t i;
 
-	/* We should not skip a token without looking at it */
+	/* We should never skip a token without looking at it */
 	assert(parser->tokcnt > 0);
 
 	for (i = 1; i < parser->tokcnt; i++)
@@ -74,6 +90,16 @@ static void parser_skip(parser_t *parser)
 	--parser->tokcnt;
 }
 
+/** Match a particular token type.
+ *
+ * If the type of the next token is @a mtype, skip over it. Otherwise
+ * generate an error.
+ *
+ * @param parser Parser
+ * @param mtype Expected token type
+ *
+ * @return EOK on sucecss, EINVAL if token does not have expected type
+ */
 static int parser_match(parser_t *parser, lexer_toktype_t mtype)
 {
 	lexer_toktype_t ltype;
