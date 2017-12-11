@@ -24,6 +24,16 @@ typedef enum {
 	ast_braces
 } ast_braces_t;
 
+/** AST token data.
+ *
+ * Used to allow the user to store information related to each token
+ * the AST corresponds to.
+ */
+typedef struct {
+	/** User data related to token */
+	void *data;
+} ast_tok_t;
+
 /** AST node */
 typedef struct ast_node {
 	/** Pointer to entire/specific node structure */
@@ -37,12 +47,16 @@ typedef struct ast_node {
 
 /** Type expression */
 typedef struct {
+	/** Base object */
 	ast_node_t node;
 } ast_type_t;
 
 /** Identifier */
 typedef struct {
+	/** Base object */
 	ast_node_t node;
+	/** Ideintifier token */
+	ast_tok_t tident;
 } ast_ident_t;
 
 /** Arithmetic expression */
@@ -51,22 +65,36 @@ typedef struct {
 
 /** Return statement. */
 typedef struct {
+	/** Base object */
 	ast_node_t node;
+	/** 'return' token */
+	ast_tok_t treturn;
+	/** Argument */
 	ast_expr_t arg;
+	/** ';' token */
+	ast_tok_t tscolon;
 } ast_return_t;
 
 /** Statement block. */
 typedef struct {
+	/** Base object */
 	ast_node_t node;
+	/** Block having braces or not */
 	ast_braces_t braces;
+	/** Opening brace token */
+	ast_tok_t topen;
 	list_t stmts; /* of ast_node_t */
+	/** Closing brace token */
+	ast_tok_t tclose;
 } ast_block_t;
 
 /** Function definition */
 typedef struct {
+	/** Base object */
 	ast_node_t node;
 	/** Function type expression, including the function identifier */
 	ast_type_t *ftype;
+	/** Function body */
 	ast_block_t *body;
 } ast_fundef_t;
 
@@ -75,7 +103,9 @@ typedef struct {
  * decls must be one of ast_var_t, ast_typedef_t, ast_fundecl_t, ast_fundef_t
  */
 typedef struct {
+	/** Base object */
 	ast_node_t node;
+	/** Declarations */
 	list_t decls; /* of ast_node_t */
 } ast_module_t;
 

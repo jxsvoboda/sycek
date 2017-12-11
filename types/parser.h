@@ -13,7 +13,10 @@ enum {
 
 /** Parser input ops */
 typedef struct {
+	/** Get next input token */
 	void (*get_tok)(void *, lexer_tok_t *);
+	/** Get data that should be stored into AST for a token */
+	void *(*tok_data)(void *, lexer_tok_t *);
 } parser_input_ops_t;
 
 /** Parser */

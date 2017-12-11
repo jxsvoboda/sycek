@@ -73,16 +73,25 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
 	return parser->tok[0].ttype;
 }
 
+static void *parser_get_tok_data(parser_t *parser, lexer_tok_t *tok)
+{
+	return parser->input_ops->tok_data(parser->input_arg, tok);
+}
+
 /** Skip over current token.
  *
  * @param parser Parser
+ * @param rdata Place to store user data for token or @c NULL if not interested
  */
-static void parser_skip(parser_t *parser)
+static void parser_skip(parser_t *parser, void **rdata)
 {
 	size_t i;
 
-	/* We should never skip a token without looking at it */
+	/* We should never skip a token without looking at it first */
 	assert(parser->tokcnt > 0);
+
+	if (rdata != NULL)
+		*rdata = parser_get_tok_data(parser, &parser->tok[0]);
 
 	for (i = 1; i < parser->tokcnt; i++)
 		parser->tok[i - 1] = parser->tok[i];
@@ -97,10 +106,11 @@ static void parser_skip(parser_t *parser)
  *
  * @param parser Parser
  * @param mtype Expected token type
+ * @param rdata Place to store user data for token or @c NULL if not interested
  *
  * @return EOK on sucecss, EINVAL if token does not have expected type
  */
-static int parser_match(parser_t *parser, lexer_toktype_t mtype)
+static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 {
 	lexer_toktype_t ltype;
 
@@ -112,7 +122,7 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype)
 		return EINVAL;
 	}
 
-	parser_skip(parser);
+	parser_skip(parser, rdata);
 	return EOK;
 }
 
@@ -126,17 +136,19 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype)
 static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 {
 	ast_return_t *areturn;
+	void *dreturn;
+	void *dscolon;
 	int rc;
 
-	rc = parser_match(parser, ltt_return);
+	rc = parser_match(parser, ltt_return, &dreturn);
 	if (rc != EOK)
 		return rc;
 
-	rc = parser_match(parser, ltt_number);
+	rc = parser_match(parser, ltt_number, NULL);
 	if (rc != EOK)
 		return rc;
 
-	rc = parser_match(parser, ltt_scolon);
+	rc = parser_match(parser, ltt_scolon, &dscolon);
 	if (rc != EOK)
 		return rc;
 
@@ -144,6 +156,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		return rc;
 
+	areturn->treturn.data = dreturn;
+	areturn->tscolon.data = dscolon;
 	*rstmt = &areturn->node;
 	return EOK;
 }
@@ -161,11 +175,13 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 	ast_block_t *block;
 	ast_braces_t braces;
 	ast_node_t *stmt;
+	void *dopen;
+	void *dclose;
 	int rc;
 
 	if (parser_next_ttype(parser) == ltt_lbrace) {
 		braces = ast_braces;
-		parser_skip(parser);
+		parser_skip(parser, &dopen);
 	} else {
 		braces = ast_nobraces;
 	}
@@ -185,7 +201,9 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 		}
 
 		/* Skip closing brace */
-		parser_skip(parser);
+		parser_skip(parser, &dclose);
+		block->topen.data = dopen;
+		block->tclose.data = dclose;
 	} else {
 		/* Single statement */
 		rc = parser_process_stmt(parser, &stmt);
@@ -222,7 +240,7 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 		return EINVAL;
 	}
 
-	parser_skip(parser);
+	parser_skip(parser, NULL);
 
 	rc = ast_type_create(&ptype);
 	if (rc != EOK)
@@ -283,11 +301,11 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_ident);
+	rc = parser_match(parser, ltt_ident, NULL);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_lparen);
+	rc = parser_match(parser, ltt_lparen, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -295,7 +313,7 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_rparen);
+	rc = parser_match(parser, ltt_rparen, NULL);
 	if (rc != EOK)
 		goto error;
 

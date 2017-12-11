@@ -13,9 +13,11 @@
 #include <stdlib.h>
 
 static void checker_parser_get_tok(void *, lexer_tok_t *);
+static void *checker_parser_tok_data(void *, lexer_tok_t *);
 
 static parser_input_ops_t checker_parser_input = {
-	.get_tok = checker_parser_get_tok
+	.get_tok = checker_parser_get_tok,
+	.tok_data = checker_parser_tok_data
 };
 
 /** Create checker module.
@@ -265,4 +267,18 @@ static void checker_parser_get_tok(void *arg, lexer_tok_t *tok)
 	*tok = pinput->tok->tok;
 	if (tok->ttype != ltt_eof)
 		pinput->tok = checker_module_next_tok(pinput->tok);
+}
+
+/** Get user data for a token.
+ *
+ * Return a pointer to the token. We can do this since we keep the
+ * tokens in memory all the time.
+ *
+ * @param arg Checker parser input (checker_parser_input_t)
+ * @param tok Place to store token
+ */
+static void *checker_parser_tok_data(void *arg, lexer_tok_t *tok)
+{
+	(void)arg;
+	return tok;
 }
