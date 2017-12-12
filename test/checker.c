@@ -16,7 +16,7 @@ static lexer_input_ops_t lexer_str_input = {
 };
 
 static const char *str_hello =
-	"int main(void) {\nreturn 0;\n}\n";
+	"int main(void) {\nreturn 0;return 0;return 0;return 0;\n}\n";
 
 /** Run lexer tests on a code fragment.
  *

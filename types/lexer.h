@@ -69,6 +69,8 @@ typedef struct {
 	char *text;
 	/** Text size not including null terminator */
 	size_t text_size;
+	/** User data that can be piggybacked on the token */
+	void *udata;
 } lexer_tok_t;
 
 /** Lexer input ops */

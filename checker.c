@@ -202,7 +202,7 @@ static checker_tok_t *checker_module_next_tok(checker_tok_t *tok)
 /** Parse a module.
  *
  * @param mod Checker module
- * @return EOK on sucecss or error code
+ * @return EOK on success or error code
  */
 static int checker_module_parse(checker_module_t *mod)
 {
@@ -234,6 +234,82 @@ static int checker_module_parse(checker_module_t *mod)
 	return EOK;
 }
 
+/** Run checks on a statement.
+ *
+ * @param mod Checker module
+ * @param stmt AST statement
+ * @return EOK on success or error code
+ */
+static int checker_module_check_stmt(checker_module_t *mod, ast_node_t *stmt)
+{
+//	int rc;
+	checker_tok_t *treturn;
+	ast_return_t *areturn;
+
+	(void)mod;
+	(void)stmt;
+
+	printf("Check stmt\n");
+	assert(stmt->ntype == ant_return);
+	areturn = (ast_return_t *)stmt->ext;
+	treturn = (checker_tok_t *)areturn->treturn.data;
+
+	(void) lexer_dprint_tok(&treturn->tok, stdout);
+	return EOK;
+}
+
+/** Run checks on a declaration.
+ *
+ * @param mod Checker module
+ * @param decl AST declaration
+ * @return EOK on success or error code
+ */
+static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
+{
+	int rc;
+	ast_node_t *stmt;
+	ast_fundef_t *fundef;
+
+	(void)mod;
+
+	printf("Check function declaration\n");
+	assert(decl->ntype == ant_fundef);
+	fundef = (ast_fundef_t *)decl->ext;
+
+	stmt = ast_block_first(fundef->body);
+	while (stmt != NULL) {
+		rc = checker_module_check_stmt(mod, stmt);
+		if (rc != EOK)
+			return rc;
+
+		stmt = ast_block_next(stmt);
+	}
+
+	return EOK;
+}
+
+/** Run checks on a module.
+ *
+ * @param mod Checker module
+ * @return EOK on success or error code
+ */
+static int checker_module_check(checker_module_t *mod)
+{
+	int rc;
+	ast_node_t *decl;
+
+	printf("Check module\n");
+	decl = ast_module_first(mod->ast);
+	while (decl != NULL) {
+		rc = checker_module_check_decl(mod, decl);
+		if (rc != EOK)
+			return rc;
+		decl = ast_module_next(decl);
+	}
+
+	return EOK;
+}
+
 /** Run checker.
  *
  * @param checker Checker
@@ -248,6 +324,10 @@ int checker_run(checker_t *checker)
 			return rc;
 
 		rc = checker_module_parse(checker->mod);
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_module_check(checker->mod);
 		if (rc != EOK)
 			return rc;
 	}
@@ -265,6 +345,9 @@ static void checker_parser_get_tok(void *arg, lexer_tok_t *tok)
 	checker_parser_input_t *pinput = (checker_parser_input_t *)arg;
 
 	*tok = pinput->tok->tok;
+	/* Pass pointer to checker token down to checker_parser_tok_data */
+	tok->udata = pinput->tok;
+
 	if (tok->ttype != ltt_eof)
 		pinput->tok = checker_module_next_tok(pinput->tok);
 }
@@ -279,6 +362,13 @@ static void checker_parser_get_tok(void *arg, lexer_tok_t *tok)
  */
 static void *checker_parser_tok_data(void *arg, lexer_tok_t *tok)
 {
+	checker_tok_t *ctok;
+
 	(void)arg;
-	return tok;
+
+	/* Pointer to checker_tok_t sent by checker_parser_get_tok. */
+	ctok = (checker_tok_t *)tok->udata;
+
+	/* Set this as user data for the AST token */
+	return ctok;
 }
