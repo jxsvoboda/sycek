@@ -11,9 +11,9 @@
 #include <test/checker.h>
 
 static const char *str_hello =
-	"int main(void) {\nreturn 0;return 0;return 0;return 0;\n"
-	"return 0;\nreturn 0;return 0;return 0;\n"
-	"return 0;return 0;}\n";
+	"int main(void) {\nreturn 0; return 0; return 0; return 0;\n"
+	"return 0;\nreturn 0;\nreturn 0 ; return 0;\n"
+	"return 0; return 0;}\n";
 
 /** Run lexer tests on a code fragment.
  *

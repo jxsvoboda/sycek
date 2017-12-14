@@ -199,6 +199,84 @@ static checker_tok_t *checker_module_next_tok(checker_tok_t *tok)
 	return list_get_instance(link, checker_tok_t, ltoks);
 }
 
+/** Get previous token in a checker module
+ *
+ * @param tok Current token or @c NULL
+ * @return Previous token or @c NULL
+ */
+static checker_tok_t *checker_module_prev_tok(checker_tok_t *tok)
+{
+	link_t *link;
+
+	if (tok == NULL)
+		return NULL;
+
+	link = list_prev(&tok->ltoks, &tok->mod->toks);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, checker_tok_t, ltoks);
+}
+
+/** Check that a token is at the beginning of the line.
+ *
+ * The token must be at the beginning of the line and indented appropriately
+ */
+static void checker_module_check_lbegin(checker_tok_t *tok, const char *msg)
+{
+	checker_tok_t *p;
+
+	p = checker_module_prev_tok(tok);
+	assert(p != NULL);
+
+	if (p->tok.ttype != ltt_wspace) {
+		lexer_dprint_tok(&tok->tok, stdout);
+		printf(": %s\n", msg);
+	}
+}
+
+/** Non-whitespace.
+ *
+ * There should be non-whitespace before the token
+ */
+static void checker_module_check_nows_before(checker_tok_t *tok,
+    const char *msg)
+{
+	checker_tok_t *p;
+
+	p = checker_module_prev_tok(tok);
+	assert(p != NULL);
+
+	if (p->tok.ttype == ltt_wspace) {
+		lexer_dprint_tok(&p->tok, stdout);
+		printf(": %s\n", msg);
+	}
+}
+
+/** Non-spacing break.
+ *
+ * There should be either non-whitespace or a line break before the token. */
+#if 0
+static void checker_module_check_nsbrk_before(checker_tok_t *tok,
+    const char *msg)
+{
+	(void)tok; (void)msg;
+}
+#endif
+
+/** Breakable space.
+ *
+ * There should be either a single space or a line break before the token.
+ * If there is a line break, the token must be indented appropriately.
+ */
+#if 0
+static void checker_module_check_brkspace_before(checker_tok_t *tok,
+    const char *msg)
+{
+	(void)tok; (void)msg;
+}
+#endif
+
 /** Parse a module.
  *
  * @param mod Checker module
@@ -242,19 +320,22 @@ static int checker_module_parse(checker_module_t *mod)
  */
 static int checker_module_check_stmt(checker_module_t *mod, ast_node_t *stmt)
 {
-//	int rc;
 	checker_tok_t *treturn;
+	checker_tok_t *tscolon;
 	ast_return_t *areturn;
 
 	(void)mod;
-	(void)stmt;
 
-	printf("Check stmt\n");
 	assert(stmt->ntype == ant_return);
 	areturn = (ast_return_t *)stmt->ext;
 	treturn = (checker_tok_t *)areturn->treturn.data;
+	tscolon = (checker_tok_t *)areturn->tscolon.data;
 
-	(void) lexer_dprint_tok(&treturn->tok, stdout);
+	checker_module_check_lbegin(treturn,
+	    "Statement must start on a new line.");
+	checker_module_check_nows_before(tscolon,
+	    "Unexpected whitespace before ';'.");
+
 	return EOK;
 }
 
