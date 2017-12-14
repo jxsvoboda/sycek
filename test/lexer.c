@@ -6,14 +6,9 @@
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdbool.h>
+#include <str_input.h>
 #include <string.h>
 #include <test/lexer.h>
-
-static int lexer_str_read(void *, char *, size_t, size_t *, src_pos_t *);
-
-static lexer_input_ops_t lexer_str_input = {
-	.read = lexer_str_read
-};
 
 static const char *str_hello =
 	"int main(void) {\nreturn 0;\n}\n";
@@ -32,13 +27,13 @@ static int test_lex_string(const char *str)
 {
 	int rc;
 	lexer_t *lexer;
-	const char *sp;
+	str_input_t sinput;
 	bool done;
 	lexer_tok_t tok;
 
-	sp = str;
+	str_input_init(&sinput, str);
 
-	rc = lexer_create(&lexer_str_input, &sp, &lexer);
+	rc = lexer_create(&lexer_str_input, &sinput, &lexer);
 	if (rc != EOK)
 		return rc;
 
@@ -57,9 +52,9 @@ static int test_lex_string(const char *str)
 	lexer_destroy(lexer);
 	printf("\n");
 
-	sp = str;
+	str_input_init(&sinput, str);
 
-	rc = lexer_create(&lexer_str_input, &sp, &lexer);
+	rc = lexer_create(&lexer_str_input, &sinput, &lexer);
 	if (rc != EOK)
 		return rc;
 
@@ -97,29 +92,6 @@ int test_lexer(void)
 	rc = test_lex_string(str_keywords);
 	if (rc != EOK)
 		return rc;
-
-	return EOK;
-}
-
-/** Lexer input form a string constant. */
-static int lexer_str_read(void *arg, char *buf, size_t bsize, size_t *nread,
-    src_pos_t *bpos)
-{
-	char **sp = (char **)arg;
-	size_t len;
-
-//	printf("lexer_str_read\n");
-	len = strlen(*sp);
-//	printf("lexer_str_read: bsize=%zu len=%zu\n", bsize, len);
-	if (bsize < len)
-		len = bsize;
-
-	memcpy(buf, *sp, len);
-	*nread = len;
-	*sp += len;
-	snprintf(bpos->file, src_pos_fname_max, "none");
-	bpos->line = 1;
-	bpos->col = 1;
 
 	return EOK;
 }

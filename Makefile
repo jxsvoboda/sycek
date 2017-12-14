@@ -13,6 +13,7 @@ sources = \
     main.c \
     parser.c \
     src_pos.c \
+    str_input.c \
     test/ast.c \
     test/checker.c \
     test/lexer.c \

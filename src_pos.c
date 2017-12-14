@@ -6,6 +6,10 @@
 #include <src_pos.h>
 #include <stdio.h>
 
+enum {
+	tab_width = 8
+};
+
 /** Print position range.
  *
  * @param bpos Position of the beginning of range
@@ -30,4 +34,39 @@ int src_pos_print_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
 	}
 
 	return EOK;
+}
+
+/** Set source position.
+ *
+ * @param pos Position structure to initialize
+ * @param fname File name
+ * @param line Line number (starting from 1)
+ * @param col Column number (starting from 1)
+ */
+void src_pos_set(src_pos_t *pos, const char *fname, size_t line, size_t col)
+{
+	snprintf(pos->file, src_pos_fname_max, fname);
+	pos->line = line;
+	pos->col = col;
+}
+
+/** Move position one character forward based on character.
+ *
+ * @param pos Current position to be modified
+ * @param c Character at current position
+ */
+void src_pos_fwd_char(src_pos_t *pos, char c)
+{
+	switch (c) {
+	case '\n':
+		++pos->line;
+		pos->col = 1;
+		break;
+	case '\t':
+		/* Move to the next multiple of tab width */
+		pos->col += tab_width - (pos->col - 1) % tab_width;
+		break;
+	default:
+		++pos->col;
+	}
 }

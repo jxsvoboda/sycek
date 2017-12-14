@@ -6,17 +6,14 @@
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdbool.h>
+#include <str_input.h>
 #include <string.h>
 #include <test/checker.h>
 
-static int lexer_str_read(void *, char *, size_t, size_t *, src_pos_t *);
-
-static lexer_input_ops_t lexer_str_input = {
-	.read = lexer_str_read
-};
-
 static const char *str_hello =
-	"int main(void) {\nreturn 0;return 0;return 0;return 0;\n}\n";
+	"int main(void) {\nreturn 0;return 0;return 0;return 0;\n"
+	"return 0;\nreturn 0;return 0;return 0;\n"
+	"return 0;return 0;}\n";
 
 /** Run lexer tests on a code fragment.
  *
@@ -27,11 +24,11 @@ static int test_check_string(const char *str)
 {
 	int rc;
 	checker_t *checker;
-	const char *sp;
+	str_input_t sinput;
 
-	sp = str;
+	str_input_init(&sinput, str);
 
-	rc = checker_create(&lexer_str_input, &sp, &checker);
+	rc = checker_create(&lexer_str_input, &sinput, &checker);
 	if (rc != EOK)
 		return rc;
 
@@ -55,29 +52,6 @@ int test_checker(void)
 	rc = test_check_string(str_hello);
 	if (rc != EOK)
 		return rc;
-
-	return EOK;
-}
-
-/** Lexer input form a string constant. */
-static int lexer_str_read(void *arg, char *buf, size_t bsize, size_t *nread,
-    src_pos_t *bpos)
-{
-	char **sp = (char **)arg;
-	size_t len;
-
-//	printf("lexer_str_read\n");
-	len = strlen(*sp);
-//	printf("lexer_str_read: bsize=%zu len=%zu\n", bsize, len);
-	if (bsize < len)
-		len = bsize;
-
-	memcpy(buf, *sp, len);
-	*nread = len;
-	*sp += len;
-	snprintf(bpos->file, src_pos_fname_max, "none");
-	bpos->line = 1;
-	bpos->col = 1;
 
 	return EOK;
 }
