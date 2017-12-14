@@ -66,8 +66,6 @@ static int checker_module_append(checker_module_t *module, lexer_tok_t *tok)
 	if (ctok == NULL)
 		return ENOMEM;
 
-	printf("\nappending: ");
-	(void) lexer_dprint_tok(tok, stdout);
 	ctok->mod = module;
 	ctok->tok = *tok;
 	list_append(&ctok->ltoks, &module->toks);
@@ -298,13 +296,15 @@ static int checker_module_parse(checker_module_t *mod)
 	if (rc != EOK)
 		return rc;
 
-	putchar('\n');
 
-	rc = ast_tree_print(&amod->node, stdout);
-	if (rc != EOK)
-		return rc;
+	if (0) {
+		putchar('\n');
+		rc = ast_tree_print(&amod->node, stdout);
+		if (rc != EOK)
+			return rc;
+		putchar('\n');
+	}
 
-	putchar('\n');
 
 	mod->ast = amod;
 	parser_destroy(parser);
@@ -353,7 +353,7 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 
 	(void)mod;
 
-	printf("Check function declaration\n");
+	if (0) printf("Check function declaration\n");
 	assert(decl->ntype == ant_fundef);
 	fundef = (ast_fundef_t *)decl->ext;
 
@@ -379,7 +379,7 @@ static int checker_module_check(checker_module_t *mod)
 	int rc;
 	ast_node_t *decl;
 
-	printf("Check module\n");
+	if (0) printf("Check module\n");
 	decl = ast_module_first(mod->ast);
 	while (decl != NULL) {
 		rc = checker_module_check_decl(mod, decl);

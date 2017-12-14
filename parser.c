@@ -236,7 +236,8 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 	case ltt_int:
 		break;
 	default:
-		printf("Unexpected %d, expected type.\n", ltt);
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected type.\n");
 		return EINVAL;
 	}
 

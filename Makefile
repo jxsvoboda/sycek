@@ -9,6 +9,7 @@ sources = \
     adt/list.c \
     ast.c \
     checker.c \
+    file_input.c \
     lexer.c \
     main.c \
     parser.c \

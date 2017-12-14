@@ -6,7 +6,7 @@
 #define TYPES_STR_INPUT_H
 
 #include <stddef.h>
-#include <types/lexer.h>
+#include <types/src_pos.h>
 
 /** Lexer input from string */
 typedef struct {

@@ -659,10 +659,8 @@ int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
 
 	switch (tok->ttype) {
 	case ltt_ident:
-		if (fprintf(f, ":%s", tok->text) < 0)
-			return EIO;
-		break;
 	case ltt_number:
+	case ltt_invalid:
 		if (fprintf(f, ":%s", tok->text) < 0)
 			return EIO;
 		break;
