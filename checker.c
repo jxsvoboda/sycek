@@ -242,6 +242,7 @@ static void checker_module_check_nows_before(checker_tok_t *tok,
 {
 	checker_tok_t *p;
 
+	assert(tok != NULL);
 	p = checker_module_prev_tok(tok);
 	assert(p != NULL);
 
@@ -350,6 +351,7 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	int rc;
 	ast_node_t *stmt;
 	ast_fundef_t *fundef;
+	checker_tok_t *tscolon;
 
 	(void)mod;
 
@@ -357,8 +359,12 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	assert(decl->ntype == ant_fundef);
 	fundef = (ast_fundef_t *)decl->ext;
 
-	if (fundef->body == NULL)
+	if (fundef->body == NULL) {
+		tscolon = (checker_tok_t *)fundef->tscolon.data;
+		checker_module_check_nows_before(tscolon,
+		    "Unexpected whitespace before ';'.");
 		return EOK;
+	}
 
 	stmt = ast_block_first(fundef->body);
 	while (stmt != NULL) {

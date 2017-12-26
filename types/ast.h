@@ -124,6 +124,8 @@ typedef struct {
 	ast_type_t *ftype;
 	/** Function body */
 	ast_block_t *body;
+	/** Trailing ';' token (if function declaration) */
+	ast_tok_t tscolon;
 } ast_fundef_t;
 
 /** Module.

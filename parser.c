@@ -329,12 +329,14 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
 	lexer_toktype_t ltt;
 	ast_fundef_t *fundef;
 	ast_block_t *body;
+	void *dscolon;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
 	case ltt_scolon:
 		body = NULL;
+		parser_skip(parser, &dscolon);
 		break;
 	case ltt_lbrace:
 		rc = parser_process_block(parser, &body);
@@ -353,6 +355,9 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
 		ast_tree_destroy(&body->node);
 		return rc;
 	}
+
+	if (body == NULL)
+		fundef->tscolon.data = dscolon;
 
 	*rfundef = fundef;
 	return EOK;
@@ -436,7 +441,6 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 			return rc;
 
 		ast_module_append(module, decl);
-		break;
 	}
 
 	*rmodule = module;
