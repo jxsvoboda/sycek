@@ -243,6 +243,10 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 	int rc;
 
 	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_const)
+		parser_skip(parser, NULL);
+
+	ltt = parser_next_ttype(parser);
 	switch (ltt) {
 	case ltt_char:
 	case ltt_void:
@@ -259,6 +263,10 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 	}
 
 	parser_skip(parser, NULL);
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_asterisk)
+		parser_skip(parser, NULL);
 
 	rc = ast_type_create(&ptype);
 	if (rc != EOK)
@@ -372,13 +380,12 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
  */
 static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 {
+	lexer_toktype_t ltt;
 	ast_fundef_t *fundef;
 	ast_type_t *rtype = NULL;
 	ast_type_t *atype = NULL;
 	ast_sclass_t *sclass;
 	int rc;
-
-	(void)parser;
 
 	rc = parser_process_sclass(parser, &sclass);
 	if (rc != EOK)
@@ -396,9 +403,28 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_type(parser, &atype);
+	rc = parser_process_type(parser, &rtype);
 	if (rc != EOK)
 		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_ident)
+		parser_skip(parser, NULL);
+
+	ltt = parser_next_ttype(parser);
+	while (ltt == ltt_comma) {
+		parser_skip(parser, NULL);
+
+		rc = parser_process_type(parser, &atype);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_ident)
+			parser_skip(parser, NULL);
+
+		ltt = parser_next_ttype(parser);
+	}
 
 	rc = parser_match(parser, ltt_rparen, NULL);
 	if (rc != EOK)

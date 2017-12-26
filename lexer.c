@@ -470,6 +470,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case '\t':
 	case '\n':
 		return lexer_whitespace(lexer, tok);
+	case '*':
+		return lexer_onechar(lexer, ltt_asterisk, tok);
 	case '/':
 		if (p[1] == '*')
 			return lexer_comment(lexer, tok);
@@ -485,6 +487,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_lbrace, tok);
 	case '}':
 		return lexer_onechar(lexer, ltt_rbrace, tok);
+	case ',':
+		return lexer_onechar(lexer, ltt_comma, tok);
 	case ';':
 		return lexer_onechar(lexer, ltt_scolon, tok);
 	case 'a':
@@ -497,6 +501,10 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		if (p[1] == 'h' && p[2] == 'a' && p[3] == 'r' &&
 		    !is_idcnt(p[4])) {
 			return lexer_keyword(lexer, ltt_char, 4, tok);
+		}
+		if (p[1] == 'o' && p[2] == 'n' && p[3] == 's' &&
+		    p[4] == 't' && !is_idcnt(p[5])) {
+			return lexer_keyword(lexer, ltt_const, 5, tok);
 		}
 		return lexer_ident(lexer, tok);
 	case 'd':
@@ -660,14 +668,20 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "{";
 	case ltt_rbrace:
 		return "}";
+	case ltt_comma:
+		return ",";
 	case ltt_scolon:
 		return ";";
+	case ltt_asterisk:
+		return "*";
 	case ltt_slash:
 		return "/";
 	case ltt_auto:
 		return "auto";
 	case ltt_char:
 		return "char";
+	case ltt_const:
+		return "const";
 	case ltt_do:
 		return "do";
 	case ltt_double:
