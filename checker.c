@@ -357,6 +357,9 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	assert(decl->ntype == ant_fundef);
 	fundef = (ast_fundef_t *)decl->ext;
 
+	if (fundef->body == NULL)
+		return EOK;
+
 	stmt = ast_block_first(fundef->body);
 	while (stmt != NULL) {
 		rc = checker_module_check_stmt(mod, stmt);

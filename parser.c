@@ -325,15 +325,27 @@ static int parser_process_sclass(parser_t *parser, ast_sclass_t **rsclass)
 static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
     ast_fundef_t **rfundef)
 {
+	lexer_toktype_t ltt;
 	ast_fundef_t *fundef;
 	ast_block_t *body;
 	int rc;
 
-	(void)parser;
-
-	rc = parser_process_block(parser, &body);
-	if (rc != EOK)
-		return rc;
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_scolon:
+		body = NULL;
+		break;
+	case ltt_lbrace:
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			return rc;
+		break;
+	default:
+		fprintf(stderr, "Error: ");
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+		return EINVAL;
+	}
 
 	rc = ast_fundef_create(ftype, body, &fundef);
 	if (rc != EOK) {
