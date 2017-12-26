@@ -5,6 +5,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <types/lexer.h>
 

@@ -200,6 +200,55 @@ static int lexer_whitespace(lexer_t *lexer, lexer_tok_t *tok)
 	return lexer_advance(lexer, 1, tok);
 }
 
+/** Lex comment.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_comment(lexer_t *lexer, lexer_tok_t *tok)
+{
+	char *p;
+	int rc;
+
+	lexer_get_pos(lexer, &tok->bpos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	p = lexer_chars(lexer);
+	while (p[0] != '*' || p[1] != '/') {
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+
+		p = lexer_chars(lexer);
+	}
+
+	/* Skip trailing '*' */
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	/* Final '/' */
+	lexer_get_pos(lexer, &tok->epos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	tok->ttype = ltt_comment;
+	return EOK;
+}
+
 /** Lex single-character token.
  *
  * @param lexer Lexer
@@ -283,14 +332,17 @@ static int lexer_ident(lexer_t *lexer, lexer_tok_t *tok)
 			lexer_free_tok(tok);
 			return rc;
 		}
+
 		p = lexer_chars(lexer);
 	}
+
 	lexer_get_pos(lexer, &tok->epos);
 	rc = lexer_advance(lexer, 1, tok);
 	if (rc != EOK) {
 		lexer_free_tok(tok);
 		return rc;
 	}
+
 	tok->ttype = ltt_ident;
 	return EOK;
 }
@@ -382,6 +434,10 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case '\t':
 	case '\n':
 		return lexer_whitespace(lexer, tok);
+	case '/':
+		if (p[1] == '*')
+			return lexer_comment(lexer, tok);
+		return lexer_onechar(lexer, ltt_slash, tok);
 	case '(':
 		return lexer_onechar(lexer, ltt_lparen, tok);
 	case ')':
@@ -553,6 +609,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 	switch (ttype) {
 	case ltt_wspace:
 		return "ws";
+	case ltt_comment:
+		return "comment";
 	case ltt_lparen:
 		return "(";
 	case ltt_rparen:
@@ -563,6 +621,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "}";
 	case ltt_scolon:
 		return ";";
+	case ltt_slash:
+		return "/";
 	case ltt_auto:
 		return "auto";
 	case ltt_char:

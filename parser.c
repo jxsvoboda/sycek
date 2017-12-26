@@ -41,6 +41,16 @@ void parser_destroy(parser_t *parser)
 	free(parser);
 }
 
+/** Return @c true if token type is to be ignored when parsing.
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is ignored during parsing
+ */
+static bool parser_ttype_ignore(lexer_toktype_t ttype)
+{
+	return ttype == ltt_wspace || ttype == ltt_comment;
+}
+
 /** Fill lookahead buffer up to the specified number of tokens.
  *
  * @param parser Parser
@@ -56,7 +66,7 @@ static void parser_look_ahead(parser_t *parser, size_t i)
 		do {
 			parser->input_ops->get_tok(parser->input_arg,
 			    &parser->tok[parser->tokcnt]);
-		} while (parser->tok[parser->tokcnt].ttype == ltt_wspace);
+		} while (parser_ttype_ignore(parser->tok[parser->tokcnt].ttype));
 
 		++parser->tokcnt;
 	}

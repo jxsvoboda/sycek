@@ -17,11 +17,13 @@ enum {
 /** Token type */
 typedef enum {
 	ltt_wspace,
+	ltt_comment,
 	ltt_lparen,
 	ltt_rparen,
 	ltt_lbrace,
 	ltt_rbrace,
 	ltt_scolon,
+	ltt_slash,
 
 	ltt_auto,
 	ltt_char,
