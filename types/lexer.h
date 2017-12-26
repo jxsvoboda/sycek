@@ -18,6 +18,7 @@ enum {
 typedef enum {
 	ltt_wspace,
 	ltt_comment,
+	ltt_preproc,
 	ltt_lparen,
 	ltt_rparen,
 	ltt_lbrace,

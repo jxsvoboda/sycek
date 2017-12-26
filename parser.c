@@ -48,7 +48,8 @@ void parser_destroy(parser_t *parser)
  */
 static bool parser_ttype_ignore(lexer_toktype_t ttype)
 {
-	return ttype == ltt_wspace || ttype == ltt_comment;
+	return ttype == ltt_wspace || ttype == ltt_comment ||
+	    ttype == ltt_preproc;
 }
 
 /** Fill lookahead buffer up to the specified number of tokens.

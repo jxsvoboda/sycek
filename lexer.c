@@ -249,6 +249,42 @@ static int lexer_comment(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex preprocessor line.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
+{
+	char *p;
+	int rc;
+
+	lexer_get_pos(lexer, &tok->bpos);
+
+	p = lexer_chars(lexer);
+	while (p[1] != '\n') {
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+
+		p = lexer_chars(lexer);
+	}
+
+	lexer_get_pos(lexer, &tok->epos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	tok->ttype = ltt_preproc;
+	return EOK;
+}
+
 /** Lex single-character token.
  *
  * @param lexer Lexer
@@ -438,6 +474,9 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		if (p[1] == '*')
 			return lexer_comment(lexer, tok);
 		return lexer_onechar(lexer, ltt_slash, tok);
+	case '#':
+//		if (1/*XXX*/)
+			return lexer_preproc(lexer, tok);
 	case '(':
 		return lexer_onechar(lexer, ltt_lparen, tok);
 	case ')':
@@ -611,6 +650,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "ws";
 	case ltt_comment:
 		return "comment";
+	case ltt_preproc:
+		return "preproc";
 	case ltt_lparen:
 		return "(";
 	case ltt_rparen:
