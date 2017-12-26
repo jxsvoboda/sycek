@@ -104,6 +104,32 @@ static int ast_module_print(ast_module_t *module, FILE *f)
 	return EOK;
 }
 
+/** Create AST storage-class specifier.
+ *
+ * @param sctype Storage class type
+ * @param rsclass Place to store pointer to new storage class specifier
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_sclass_create(ast_sclass_type_t sctype,
+    ast_sclass_t **rsclass)
+{
+	ast_sclass_t *sclass;
+
+	sclass = calloc(1, sizeof(ast_sclass_t));
+	if (sclass == NULL)
+		return ENOMEM;
+
+	sclass->sctype = sctype;
+
+	sclass->node.ext = sclass;
+	sclass->node.ntype = ant_sclass;
+
+	*rsclass = sclass;
+	return EOK;
+}
+
+
 /** Create AST function definition.
  *
  * @param ftype Function type

@@ -392,6 +392,12 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_rbrace, tok);
 	case ';':
 		return lexer_onechar(lexer, ltt_scolon, tok);
+	case 'a':
+		if (p[1] == 'u' && p[2] == 't' && p[3] == 'o' &&
+		    !is_idcnt(p[4])) {
+			return lexer_keyword(lexer, ltt_auto, 4, tok);
+		}
+		return lexer_ident(lexer, tok);
 	case 'c':
 		if (p[1] == 'h' && p[2] == 'a' && p[3] == 'r' &&
 		    !is_idcnt(p[4])) {
@@ -557,6 +563,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "}";
 	case ltt_scolon:
 		return ";";
+	case ltt_auto:
+		return "auto";
 	case ltt_char:
 		return "char";
 	case ltt_do:

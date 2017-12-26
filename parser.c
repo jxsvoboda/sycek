@@ -116,6 +116,7 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 
 	ltype = parser_next_ttype(parser);
 	if (ltype != mtype) {
+		fprintf(stderr, "Error: ");
 		lexer_dprint_tok(&parser->tok[0], stderr);
 		fprintf(stderr, " unexpected, expected '%s'.\n",
 		    lexer_str_ttype(mtype));
@@ -232,10 +233,15 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
+	case ltt_char:
 	case ltt_void:
 	case ltt_int:
+	case ltt_long:
+	case ltt_short:
+	case ltt_ident:
 		break;
 	default:
+		fprintf(stderr, "Error: ");
 		lexer_dprint_tok(&parser->tok[0], stderr);
 		fprintf(stderr, " unexpected, expected type.\n");
 		return EINVAL;
@@ -248,6 +254,53 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 		return rc;
 
 	*rtype = ptype;
+	return EOK;
+}
+
+/** Parse storage-class specifier.
+ *
+ * @param parser Parser
+ * @param rsclass Place to store storage class
+ *
+ * @return EOK on success or error code
+ */
+static int parser_process_sclass(parser_t *parser, ast_sclass_t **rsclass)
+{
+	lexer_toktype_t ltt;
+	ast_sclass_type_t sctype;
+	ast_sclass_t *sclass;
+	void *dsclass;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_extern:
+		sctype = asc_extern;
+		break;
+	case ltt_static:
+		sctype = asc_static;
+		break;
+	case ltt_auto:
+		sctype = asc_auto;
+		break;
+	case ltt_register:
+		sctype = asc_register;
+		break;
+	default:
+		sctype = asc_none;
+		break;
+	}
+
+	if (sctype != asc_none)
+		parser_skip(parser, &dsclass);
+
+	rc = ast_sclass_create(sctype, &sclass);
+	if (rc != EOK)
+		return rc;
+
+	sclass->tsclass.data = dsclass;
+
+	*rsclass = sclass;
 	return EOK;
 }
 
@@ -294,9 +347,14 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	ast_fundef_t *fundef;
 	ast_type_t *rtype = NULL;
 	ast_type_t *atype = NULL;
+	ast_sclass_t *sclass;
 	int rc;
 
 	(void)parser;
+
+	rc = parser_process_sclass(parser, &sclass);
+	if (rc != EOK)
+		goto error;
 
 	rc = parser_process_type(parser, &rtype);
 	if (rc != EOK)

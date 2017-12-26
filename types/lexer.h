@@ -23,6 +23,7 @@ typedef enum {
 	ltt_rbrace,
 	ltt_scolon,
 
+	ltt_auto,
 	ltt_char,
 	ltt_do,
 	ltt_double,

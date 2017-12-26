@@ -15,7 +15,8 @@ typedef enum {
 	ant_return,
 	ant_block,
 	ant_fundef,
-	ant_module
+	ant_module,
+	ant_sclass
 } ast_node_type_t;
 
 /** Presence or absence of braces around a block */
@@ -23,6 +24,20 @@ typedef enum {
 	ast_nobraces,
 	ast_braces
 } ast_braces_t;
+
+/** Storage class type */
+typedef enum {
+	/** Extern storage class */
+	asc_extern,
+	/** Static storage class */
+	asc_static,
+	/** Automatic storage class */
+	asc_auto,
+	/** Register storage class */
+	asc_register,
+	/** No storage class specified */
+	asc_none
+} ast_sclass_type_t;
 
 /** AST token data.
  *
@@ -42,6 +57,7 @@ typedef struct ast_node {
 	struct ast_node *lnode;
 	/** Link to list we are in */
 	link_t llist;
+	/** Node type */
 	ast_node_type_t ntype;
 } ast_node_t;
 
@@ -88,10 +104,22 @@ typedef struct {
 	ast_tok_t tclose;
 } ast_block_t;
 
+/** Storage-class specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Storage class type */
+	ast_sclass_type_t sctype;
+	/** Storage class token */
+	ast_tok_t tsclass;
+} ast_sclass_t;
+
 /** Function definition */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
+	/** Storage class specifier */
+	ast_sclass_t *sclass;
 	/** Function type expression, including the function identifier */
 	ast_type_t *ftype;
 	/** Function body */
