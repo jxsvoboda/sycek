@@ -9,7 +9,12 @@
 
 /** AST node type */
 typedef enum {
-	ant_type,
+	ant_tsbuiltin,
+	ant_tsident,
+	ant_dident,
+	ant_dnoident,
+	ant_dparen,
+	ant_dptr,
 	ant_ident,
 	ant_expr,
 	ant_return,
@@ -61,11 +66,73 @@ typedef struct ast_node {
 	ast_node_type_t ntype;
 } ast_node_t;
 
-/** Type expression */
+/** Built-in type specifier */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
-} ast_type_t;
+	/** Signedness token */
+	ast_tok_t tsign;
+	/** Length modifier token */
+	ast_tok_t tlm;
+	/** Second Length modifier token */
+	ast_tok_t tlm2;
+	/** Base type token */
+	ast_tok_t tbase;
+} ast_tsbuiltin_t;
+
+/** Identifier type specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Ideintifier token */
+	ast_tok_t tident;
+} ast_tsident_t;
+
+/** Declarator - identifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Identifier token */
+	ast_tok_t tident;
+} ast_dident_t;
+
+/** Declarator - no identifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+} ast_dnoident_t;
+
+/** Parenthesized declarator */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Left parenthesis token */
+	ast_tok_t tlparen;
+	/** Base declarator */
+	ast_node_t *bdecl;
+	/** Right parenthesis token */
+	ast_tok_t trparen;
+} ast_dparen_t;
+
+/** Pointer declarator */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Asterisk token */
+	ast_tok_t tasterisk;
+	/** Base declarator */
+	ast_node_t *bdecl;
+} ast_dptr_t;
+
+/** Pointer type */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Asterisk token */
+	ast_tok_t tasterisk;
+	/** Base type */
+	ast_node_t *btype;
+} ast_tptr_t;
 
 /** Identifier */
 typedef struct {
@@ -120,8 +187,10 @@ typedef struct {
 	ast_node_t node;
 	/** Storage class specifier */
 	ast_sclass_t *sclass;
-	/** Function type expression, including the function identifier */
-	ast_type_t *ftype;
+	/** Function type specifier */
+	ast_node_t *ftspec;
+	/** Function declarator */
+	ast_node_t *fdecl;
 	/** Function body */
 	ast_block_t *body;
 	/** Trailing ';' token (if function declaration) */

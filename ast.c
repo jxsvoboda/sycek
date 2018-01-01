@@ -10,7 +10,6 @@
 #include <stdlib.h>
 
 static int ast_block_print(ast_block_t *, FILE *);
-static int ast_type_print(ast_type_t *, FILE *);
 
 /** Create AST module.
  *
@@ -132,14 +131,14 @@ int ast_sclass_create(ast_sclass_type_t sctype,
 
 /** Create AST function definition.
  *
- * @param ftype Function type
- * @param fident Function identifier
+ * @param ftspec Function type specifier
+ * @param fdecl Function declarator
  * @param body Body or @c NULL
  * @param rfundef Place to store pointer to new function definition
  *
  * @return EOK on sucess, ENOMEM if out of memory
  */
-int ast_fundef_create(ast_type_t *ftype, ast_block_t *body,
+int ast_fundef_create(ast_node_t *ftspec, ast_node_t *fdecl, ast_block_t *body,
     ast_fundef_t **rfundef)
 {
 	ast_fundef_t *fundef;
@@ -148,7 +147,8 @@ int ast_fundef_create(ast_type_t *ftype, ast_block_t *body,
 	if (fundef == NULL)
 		return ENOMEM;
 
-	fundef->ftype = ftype;
+	fundef->ftspec = ftspec;
+	fundef->fdecl = fdecl;
 	fundef->body = body;
 
 	fundef->node.ext = fundef;
@@ -172,7 +172,14 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 	if (fprintf(f, "fundef(") < 0)
 		return EIO;
 
-	rc = ast_type_print(fundef->ftype, f);
+	rc = ast_tree_print(fundef->ftspec, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ", ") < 0)
+		return EIO;
+
+	rc = ast_tree_print(fundef->fdecl, f);
 	if (rc != EOK)
 		return rc;
 
@@ -286,38 +293,228 @@ static int ast_block_print(ast_block_t *block, FILE *f)
 	return EOK;
 }
 
-/** Create AST type.
+/** Create AST builtin type specifier.
  *
- * @param rtype Place to store pointer to new type
+ * @param rtsbuiltin Place to store pointer to new builtin type specifier
  *
  * @return EOK on sucess, ENOMEM if out of memory
  */
-int ast_type_create(ast_type_t **rtype)
+int ast_tsbuiltin_create(ast_tsbuiltin_t **rtsbuiltin)
 {
-	ast_type_t *atype;
+	ast_tsbuiltin_t *atsbuiltin;
 
-	atype = calloc(1, sizeof(ast_type_t));
-	if (atype == NULL)
+	atsbuiltin = calloc(1, sizeof(ast_tsbuiltin_t));
+	if (atsbuiltin == NULL)
 		return ENOMEM;
 
-	atype->node.ext = atype;
-	atype->node.ntype = ant_type;
+	atsbuiltin->node.ext = atsbuiltin;
+	atsbuiltin->node.ntype = ant_tsbuiltin;
 
-	*rtype = atype;
+	*rtsbuiltin = atsbuiltin;
 	return EOK;
 }
 
-/** Print AST type.
+/** Print AST builtin type specifier.
  *
- * @param atype Type
+ * @param atsbuiltin Builtin type specifier
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
  */
-static int ast_type_print(ast_type_t *atype, FILE *f)
+static int ast_tsbuiltin_print(ast_tsbuiltin_t *atsbuiltin, FILE *f)
 {
-	(void)atype;
-	if (fprintf(f, "type(") < 0)
+	(void)atsbuiltin;/* XXX */
+	if (fprintf(f, "tsbuiltin(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Create AST identifier type specifier.
+ *
+ * @param rtsident Place to store pointer to new identifier type specifier
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_tsident_create(ast_tsident_t **rtsident)
+{
+	ast_tsident_t *atsident;
+
+	atsident = calloc(1, sizeof(ast_tsident_t));
+	if (atsident == NULL)
+		return ENOMEM;
+
+	atsident->node.ext = atsident;
+	atsident->node.ntype = ant_tsident;
+
+	*rtsident = atsident;
+	return EOK;
+}
+
+/** Print AST identifier type specifier.
+ *
+ * @param atsident Identifier specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_tsident_print(ast_tsident_t *atsident, FILE *f)
+{
+	(void)atsident;/* XXX */
+	if (fprintf(f, "tsident(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Create AST identifier declarator.
+ *
+ * @param rdident Place to store pointer to new identifier declarator
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_dident_create(ast_dident_t **rdident)
+{
+	ast_dident_t *adident;
+
+	adident = calloc(1, sizeof(ast_dident_t));
+	if (adident == NULL)
+		return ENOMEM;
+
+	adident->node.ext = adident;
+	adident->node.ntype = ant_dident;
+
+	*rdident = adident;
+	return EOK;
+}
+
+/** Print AST identifier declarator.
+ *
+ * @param adident Identifier specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dident_print(ast_dident_t *adident, FILE *f)
+{
+	(void)adident;/* XXX */
+	if (fprintf(f, "dident(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Create AST no-identifier declartor.
+ *
+ * @param rdnoident Place to store pointer to new no-identifier declartor
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_dnoident_create(ast_dnoident_t **rdnoident)
+{
+	ast_dnoident_t *adnoident;
+
+	adnoident = calloc(1, sizeof(ast_dnoident_t));
+	if (adnoident == NULL)
+		return ENOMEM;
+
+	adnoident->node.ext = adnoident;
+	adnoident->node.ntype = ant_dnoident;
+
+	*rdnoident = adnoident;
+	return EOK;
+}
+
+/** Print AST no-identifier declartor.
+ *
+ * @param adnoident Identifier specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dnoident_print(ast_dnoident_t *adnoident, FILE *f)
+{
+	(void)adnoident;/* XXX */
+	if (fprintf(f, "dnoident(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Create AST parenthesized declarator.
+ *
+ * @param rdparen Place to store pointer to new parenthesized declarator
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_dparen_create(ast_dparen_t **rdparen)
+{
+	ast_dparen_t *adparen;
+
+	adparen = calloc(1, sizeof(ast_dparen_t));
+	if (adparen == NULL)
+		return ENOMEM;
+
+	adparen->node.ext = adparen;
+	adparen->node.ntype = ant_dparen;
+
+	*rdparen = adparen;
+	return EOK;
+}
+
+/** Print AST parenthesized declarator.
+ *
+ * @param adparen Identifier specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dparen_print(ast_dparen_t *adparen, FILE *f)
+{
+	(void)adparen;/* XXX */
+	if (fprintf(f, "dparen(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Create AST pointer declarator.
+ *
+ * @param rdptr Place to store pointer to new pointer declarator
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_dptr_create(ast_dptr_t **rdptr)
+{
+	ast_dptr_t *adptr;
+
+	adptr = calloc(1, sizeof(ast_dptr_t));
+	if (adptr == NULL)
+		return ENOMEM;
+
+	adptr->node.ext = adptr;
+	adptr->node.ntype = ant_dptr;
+
+	*rdptr = adptr;
+	return EOK;
+}
+
+/** Print AST pointer declarator.
+ *
+ * @param adptr pointer declarator
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
+{
+	(void)adptr;/* XXX */
+	if (fprintf(f, "dptr(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
 		return EIO;
@@ -378,8 +575,18 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_fundef_print((ast_fundef_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
-	case ant_type:
-		return ast_type_print((ast_type_t *)node->ext, f);
+	case ant_tsbuiltin:
+		return ast_tsbuiltin_print((ast_tsbuiltin_t *)node->ext, f);
+	case ant_tsident:
+		return ast_tsident_print((ast_tsident_t *)node->ext, f);
+	case ant_dident:
+		return ast_dident_print((ast_dident_t *)node->ext, f);
+	case ant_dnoident:
+		return ast_dnoident_print((ast_dnoident_t *)node->ext, f);
+	case ant_dparen:
+		return ast_dparen_print((ast_dparen_t *)node->ext, f);
+	case ant_dptr:
+		return ast_dptr_print((ast_dptr_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
 	default:

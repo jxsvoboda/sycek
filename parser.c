@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static int parser_process_tspec(parser_t *, ast_node_t **);
+
 /** Create parser.
  *
  * @param ops Parser input ops
@@ -229,16 +231,65 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 	return EOK;
 }
 
-/** Parse type expression.
+/** Parse builtin type specifier.
  *
  * @param parser Parser
- * @param rtype Place to store pointer to new AST type
+ * @param rtype Place to store pointer to new AST type specifier
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_type(parser_t *parser, ast_type_t **rtype)
+static int parser_process_tsbuiltin(parser_t *parser, ast_node_t **rtype)
 {
-	ast_type_t *ptype;
+	ast_tsbuiltin_t *pbuiltin;
+	lexer_toktype_t ltt;
+	bool done;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_const)
+		parser_skip(parser, NULL);
+
+	done = false;
+	while (!done) {
+		ltt = parser_next_ttype(parser);
+		switch (ltt) {
+		case ltt_char:
+		case ltt_double:
+		case ltt_float:
+		case ltt_int:
+		case ltt_long:
+		case ltt_short:
+		case ltt_void:
+			break;
+		default:
+			done = true;
+			break;
+		}
+
+		if (done)
+			break;
+
+		parser_skip(parser, NULL);
+	}
+
+	rc = ast_tsbuiltin_create(&pbuiltin);
+	if (rc != EOK)
+		return rc;
+
+	*rtype = &pbuiltin->node;
+	return EOK;
+}
+
+/** Parse identifier type specifier.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST identifier type specifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
+{
+	ast_tsident_t *pident;
 	lexer_toktype_t ltt;
 	int rc;
 
@@ -248,33 +299,146 @@ static int parser_process_type(parser_t *parser, ast_type_t **rtype)
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
-	case ltt_char:
-	case ltt_void:
-	case ltt_int:
-	case ltt_long:
-	case ltt_short:
 	case ltt_ident:
 		break;
 	default:
 		fprintf(stderr, "Error: ");
 		lexer_dprint_tok(&parser->tok[0], stderr);
-		fprintf(stderr, " unexpected, expected type.\n");
+		fprintf(stderr, " unexpected, expected type identifer.\n");
 		return EINVAL;
 	}
 
 	parser_skip(parser, NULL);
 
-	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_asterisk)
-		parser_skip(parser, NULL);
-
-	rc = ast_type_create(&ptype);
+	rc = ast_tsident_create(&pident);
 	if (rc != EOK)
 		return rc;
 
-	*rtype = ptype;
+	*rtype = &pident->node;
 	return EOK;
 }
+
+/** Parse primitive type specifier.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST type
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsprim(parser_t *parser, ast_node_t **rtype)
+{
+	lexer_toktype_t ltt;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_const)
+		parser_skip(parser, NULL);
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_ident)
+		return parser_process_tsident(parser, rtype);
+	else
+		return parser_process_tsbuiltin(parser, rtype);
+}
+
+/** Parse type specifier.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST type specifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
+{
+	return parser_process_tsprim(parser, rtype);
+}
+
+/** Parse identifier declarator.
+ *
+ * @param parser Parser
+ * @param rdecl Place to store pointer to new AST declarator
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dident(parser_t *parser, ast_node_t **rdecl)
+{
+	ast_dident_t *decl;
+	ast_dnoident_t *ndecl;
+	lexer_toktype_t ltt;
+	void *dident;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_ident) {
+		rc = ast_dnoident_create(&ndecl);
+		if (rc != EOK)
+			return rc;
+
+		*rdecl = &ndecl->node;
+		return EOK;
+	}
+
+	parser_skip(parser, &dident);
+
+	rc = ast_dident_create(&decl);
+	if (rc != EOK)
+		return rc;
+
+	decl->tident.data = dident;
+
+	*rdecl = &decl->node;
+	return EOK;
+}
+
+/** Parse possible pointer declarator.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST type
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
+{
+	ast_dptr_t *dptr;
+	ast_node_t *bdecl;
+	lexer_toktype_t ltt;
+	void *dasterisk;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_asterisk)
+		return parser_process_dident(parser, rdecl);
+
+	parser_skip(parser, &dasterisk);
+
+	rc = ast_dptr_create(&dptr);
+	if (rc != EOK)
+		return rc;
+
+	dptr->tasterisk.data = dasterisk;
+
+	rc = parser_process_dptr(parser, &bdecl);
+	if (rc != EOK) {
+		ast_tree_destroy(&dptr->node);
+		return rc;
+	}
+
+	dptr->bdecl = bdecl;
+	*rdecl = &dptr->node;
+	return EOK;
+}
+
+/** Parse declarator.
+ *
+ * @param parser Parser
+ * @param rdecl Place to store pointer to new AST declarator
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_decl(parser_t *parser, ast_node_t **rdecl)
+{
+	return parser_process_dptr(parser, rdecl);
+}
+
 
 /** Parse storage-class specifier.
  *
@@ -326,13 +490,14 @@ static int parser_process_sclass(parser_t *parser, ast_sclass_t **rsclass)
 /** Parse function definition.
  *
  * @param parser Parser
- * @param ftype Function type expression, including function identifier
+ * @param ftspec Function type specifier
+ * @param fdecl  Function declarator
  * @param rnode Place to store pointer to new function definition
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
-    ast_fundef_t **rfundef)
+static int parser_process_fundef(parser_t *parser, ast_node_t *ftspec,
+    ast_node_t *fdecl, ast_fundef_t **rfundef)
 {
 	lexer_toktype_t ltt;
 	ast_fundef_t *fundef;
@@ -358,7 +523,7 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
 		return EINVAL;
 	}
 
-	rc = ast_fundef_create(ftype, body, &fundef);
+	rc = ast_fundef_create(ftspec, fdecl, body, &fundef);
 	if (rc != EOK) {
 		ast_tree_destroy(&body->node);
 		return rc;
@@ -371,19 +536,20 @@ static int parser_process_fundef(parser_t *parser, ast_type_t *ftype,
 	return EOK;
 }
 
-/** Parse declaration.
+/** Parse global declaration.
  *
  * @param parser Parser
  * @param rnode Place to store pointer to new declaration node
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
+static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 {
 	lexer_toktype_t ltt;
 	ast_fundef_t *fundef;
-	ast_type_t *rtype = NULL;
-	ast_type_t *atype = NULL;
+	ast_node_t *rtspec = NULL;
+	ast_node_t *fdecl = NULL;
+	ast_node_t *atspec = NULL;
 	ast_sclass_t *sclass;
 	int rc;
 
@@ -391,11 +557,11 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_type(parser, &rtype);
+	rc = parser_process_tspec(parser, &rtspec);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_ident, NULL);
+	rc = parser_process_decl(parser, &fdecl);
 	if (rc != EOK)
 		goto error;
 
@@ -403,25 +569,25 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_type(parser, &rtype);
+	rc = parser_process_tspec(parser, &atspec);
 	if (rc != EOK)
 		goto error;
 
-	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_ident)
-		parser_skip(parser, NULL);
+	rc = parser_process_decl(parser, &fdecl);
+	if (rc != EOK)
+		goto error;
 
 	ltt = parser_next_ttype(parser);
 	while (ltt == ltt_comma) {
 		parser_skip(parser, NULL);
 
-		rc = parser_process_type(parser, &atype);
+		rc = parser_process_tspec(parser, &atspec);
 		if (rc != EOK)
 			goto error;
 
-		ltt = parser_next_ttype(parser);
-		if (ltt == ltt_ident)
-			parser_skip(parser, NULL);
+		rc = parser_process_decl(parser, &fdecl);
+		if (rc != EOK)
+			goto error;
 
 		ltt = parser_next_ttype(parser);
 	}
@@ -430,15 +596,17 @@ static int parser_process_decl(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_fundef(parser, rtype/*XXX*/, &fundef);
+	rc = parser_process_fundef(parser, rtspec, fdecl, &fundef);
 	if (rc != EOK)
 		goto error;
 
 	*rnode = &fundef->node;
 	return EOK;
 error:
-	if (rtype != NULL)
-		ast_tree_destroy(&rtype->node);
+	if (rtspec != NULL)
+		ast_tree_destroy(rtspec);
+	if (fdecl != NULL)
+		ast_tree_destroy(fdecl);
 	return rc;
 }
 
@@ -462,7 +630,7 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 		return rc;
 
 	while (parser_next_ttype(parser) != ltt_eof) {
-		rc = parser_process_decl(parser, &decl);
+		rc = parser_process_gdecln(parser, &decl);
 		if (rc != EOK)
 			return rc;
 

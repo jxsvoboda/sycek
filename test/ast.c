@@ -15,18 +15,23 @@ static int test_ast_module(void)
 {
 	ast_module_t *module;
 	ast_fundef_t *fundef;
-	ast_type_t *ftype;
+	ast_tsbuiltin_t *ftspec;
+	ast_dident_t *fdecl;
 	int rc;
 
 	rc = ast_module_create(&module);
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_type_create(&ftype);
+	rc = ast_tsbuiltin_create(&ftspec);
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_fundef_create(ftype, NULL, &fundef);
+	rc = ast_dident_create(&fdecl);
+	if (rc != EOK)
+		return rc;
+
+	rc = ast_fundef_create(&ftspec->node, &fdecl->node, NULL, &fundef);
 	if (rc != EOK)
 		return rc;
 
@@ -46,14 +51,19 @@ static int test_ast_module(void)
 static int test_ast_fundef(void)
 {
 	ast_fundef_t *fundef;
-	ast_type_t *ftype;
+	ast_tsbuiltin_t *ftspec;
+	ast_dident_t *fdecl;
 	int rc;
 
-	rc = ast_type_create(&ftype);
+	rc = ast_tsbuiltin_create(&ftspec);
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_fundef_create(ftype, NULL, &fundef);
+	rc = ast_dident_create(&fdecl);
+	if (rc != EOK)
+		return rc;
+
+	rc = ast_fundef_create(&ftspec->node, &fdecl->node, NULL, &fundef);
 	if (rc != EOK)
 		return rc;
 
@@ -91,20 +101,20 @@ static int test_ast_block(void)
 	return EOK;
 }
 
-/** Test AST type.
+/** Test AST type specifier.
  *
  * @return EOK on success or non-zero error code
  */
-static int test_ast_type(void)
+static int test_ast_tspec(void)
 {
-	ast_type_t *atype;
+	ast_tsbuiltin_t *atspec;
 	int rc;
 
-	rc = ast_type_create(&atype);
+	rc = ast_tsbuiltin_create(&atspec);
 	if (rc != EOK)
 		return rc;
 
-	ast_tree_print(&atype->node, stdout);
+	ast_tree_print(&atspec->node, stdout);
 	putchar('\n');
 
 	return EOK;
@@ -149,7 +159,7 @@ int test_ast(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = test_ast_type();
+	rc = test_ast_tspec();
 	if (rc != EOK)
 		return rc;
 
