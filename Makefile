@@ -36,5 +36,5 @@ clean:
 	rm -f $(objects) $(binary)
 
 backup: clean
-	cd .. && tar czf ccheck-$(bkqual).tar.gz trunk
-	cd .. && rm -f ccheck-latest.tar.gz && ln -s ccheck-$(bkqual).tar.gz ccheck-latest.tar.gz
+	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
+	cd .. && rm -f sycek-latest.tar.gz && ln -s sycek-$(bkqual).tar.gz sycek-latest.tar.gz
