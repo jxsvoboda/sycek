@@ -42,6 +42,7 @@ while read fname; do
 		fi
 	else
 		fcnt=$((fcnt + 1))
+		echo failed $fname
 	fi
 done
 

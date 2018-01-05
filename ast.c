@@ -150,7 +150,6 @@ int ast_sclass_create(ast_sclass_type_t sctype,
 	return EOK;
 }
 
-
 /** Create AST function definition.
  *
  * @param ftspec Function type specifier
@@ -211,6 +210,123 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 		rc = ast_block_print(fundef->body, f);
 		if (rc != EOK)
 			return rc;
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Create AST type definition.
+ *
+ * @param tspec Type specifier
+ * @param rtypedef Place to store pointer to new type definition
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_typedef_create(ast_node_t *tspec, ast_typedef_t **rtypedef)
+{
+	ast_typedef_t *atypedef;
+
+	atypedef = calloc(1, sizeof(ast_typedef_t));
+	if (atypedef == NULL)
+		return ENOMEM;
+
+	atypedef->tspec = tspec;
+	list_initialize(&atypedef->decls);
+
+	atypedef->node.ext = atypedef;
+	atypedef->node.ntype = ant_typedef;
+
+	*rtypedef = atypedef;
+	return EOK;
+}
+
+/** Append declarator to typedef.
+ *
+ * @param atypedef Typedef
+ * @param dcomma Data for preceding comma
+ * @param decl Declarator
+ */
+int ast_typedef_append(ast_typedef_t *atypedef, void *dcomma, ast_node_t *decl)
+{
+	ast_typedef_decl_t *tdecl;
+
+	tdecl = calloc(1, sizeof(ast_typedef_decl_t));
+	if (tdecl == NULL)
+		return ENOMEM;
+
+	tdecl->atypedef = atypedef;
+	list_append(&tdecl->ltypedef, &atypedef->decls);
+
+	tdecl->tcomma.data = dcomma;
+	tdecl->decl = decl;
+
+	return EOK;
+}
+
+/** Return first declarator in typedef.
+ *
+ * @param block Block
+ * @return First statement or @c NULL
+ */
+ast_typedef_decl_t *ast_typedef_first(ast_typedef_t *atypedef)
+{
+	link_t *link;
+
+	link = list_first(&atypedef->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_typedef_decl_t, ltypedef);
+}
+
+/** Return next declarator in typedef.
+ *
+ * @param block Block
+ * @return Next statement or @c NULL
+ */
+ast_typedef_decl_t *ast_typedef_next(ast_typedef_decl_t *decl)
+{
+	link_t *link;
+
+	link = list_next(&decl->ltypedef, &decl->atypedef->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_typedef_decl_t, ltypedef);
+}
+
+/** Print AST type definition.
+ *
+ * @param TYPEdef Type definition
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_typedef_print(ast_typedef_t *atypedef, FILE *f)
+{
+	ast_typedef_decl_t *decl;
+	int rc;
+
+	if (fprintf(f, "typedef(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(atypedef->tspec, f);
+	if (rc != EOK)
+		return rc;
+
+	decl = ast_typedef_first(atypedef);
+	while (decl != NULL) {
+		if (fprintf(f, ", ") < 0)
+			return EIO;
+
+		rc = ast_tree_print(decl->decl, f);
+		if (rc != EOK)
+			return rc;
+
+		decl = ast_typedef_next(decl);
 	}
 
 	if (fprintf(f, ")") < 0)
@@ -595,6 +711,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_block_print((ast_block_t *)node->ext, f);
 	case ant_fundef:
 		return ast_fundef_print((ast_fundef_t *)node->ext, f);
+	case ant_typedef:
+		return ast_typedef_print((ast_typedef_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
 	case ant_tsbuiltin:

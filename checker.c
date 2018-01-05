@@ -36,6 +36,7 @@
 
 static void checker_parser_get_tok(void *, lexer_tok_t *);
 static void *checker_parser_tok_data(void *, lexer_tok_t *);
+static int checker_module_check_decl(checker_module_t *, ast_node_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.get_tok = checker_parser_get_tok,
@@ -255,7 +256,7 @@ static void checker_module_check_lbegin(checker_tok_t *tok, const char *msg)
 	}
 }
 
-/** Non-whitespace.
+/** Non-whitespace before.
  *
  * There should be non-whitespace before the token
  */
@@ -266,6 +267,25 @@ static void checker_module_check_nows_before(checker_tok_t *tok,
 
 	assert(tok != NULL);
 	p = checker_module_prev_tok(tok);
+	assert(p != NULL);
+
+	if (p->tok.ttype == ltt_wspace) {
+		lexer_dprint_tok(&p->tok, stdout);
+		printf(": %s\n", msg);
+	}
+}
+
+/** Non-whitespace after.
+ *
+ * There should be non-whitespace after the token
+ */
+static void checker_module_check_nows_after(checker_tok_t *tok,
+    const char *msg)
+{
+	checker_tok_t *p;
+
+	assert(tok != NULL);
+	p = checker_module_next_tok(tok);
 	assert(p != NULL);
 
 	if (p->tok.ttype == ltt_wspace) {
@@ -362,13 +382,59 @@ static int checker_module_check_stmt(checker_module_t *mod, ast_node_t *stmt)
 	return EOK;
 }
 
-/** Run checks on a declaration.
+/** Run checks on a pointer declarator.
+ *
+ * @param mod Checker module
+ * @param dptr AST pointer declarator
+ * @return EOK on success or error code
+ */
+static int checker_module_check_dptr(checker_module_t *mod, ast_dptr_t *dptr)
+{
+	checker_tok_t *tasterisk;
+
+	tasterisk = (checker_tok_t *)dptr->tasterisk.data;
+	checker_module_check_nows_after(tasterisk,
+	    "Unexpected whitespace after '*'.");
+
+	return checker_module_check_decl(mod, dptr->bdecl);
+}
+
+/** Run checks on a declarator.
+ *
+ * @param mod Checker module
+ * @param decl AST declarator
+ * @return EOK on success or error code
+ */
+static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
+{
+	int rc;
+
+	switch (decl->ntype) {
+	case ant_dnoident:
+	case ant_dident:
+	case ant_dparen:
+		rc = EOK;
+		break;
+	case ant_dptr:
+		rc = checker_module_check_dptr(mod, (ast_dptr_t *)decl->ext);
+		break;
+	default:
+		assert(false);
+		rc = EOK;
+		break;
+	}
+
+	return rc;
+}
+
+
+/** Run checks on a global declaration.
  *
  * @param mod Checker module
  * @param decl AST declaration
  * @return EOK on success or error code
  */
-static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
+static int checker_module_check_gdecln(checker_module_t *mod, ast_node_t *decl)
 {
 	int rc;
 	ast_node_t *stmt;
@@ -400,6 +466,46 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	return EOK;
 }
 
+/** Run checks on a type definition.
+ *
+ * @param mod Checker module
+ * @param decl AST declaration
+ * @return EOK on success or error code
+ */
+static int checker_module_check_typedef(checker_module_t *mod, ast_node_t *decln)
+{
+	checker_tok_t *tcomma;
+	checker_tok_t *tscolon;
+	ast_typedef_t *atypedef;
+	ast_typedef_decl_t *decl;
+	int rc;
+
+	assert(decln->ntype == ant_typedef);
+	atypedef = (ast_typedef_t *)decln->ext;
+
+	decl = ast_typedef_first(atypedef);
+	while (decl != NULL) {
+		tcomma = (checker_tok_t *)decl->tcomma.data;
+		/* Note: declarators have a preceding comma except for the first */
+		if (tcomma != NULL) {
+			checker_module_check_nows_before(tcomma,
+			    "Unexpected whitespace before ','.");
+		}
+
+		rc = checker_module_check_decl(mod, decl->decl);
+		if (rc != EOK)
+			return rc;
+
+		decl = ast_typedef_next(decl);
+	}
+
+	tscolon = (checker_tok_t *)atypedef->tscolon.data;
+	checker_module_check_nows_before(tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
 /** Run checks on a module.
  *
  * @param mod Checker module
@@ -413,9 +519,21 @@ static int checker_module_check(checker_module_t *mod)
 	if (0) printf("Check module\n");
 	decl = ast_module_first(mod->ast);
 	while (decl != NULL) {
-		rc = checker_module_check_decl(mod, decl);
+		switch (decl->ntype) {
+		case ant_fundef:
+			rc = checker_module_check_gdecln(mod, decl);
+			break;
+		case ant_typedef:
+			rc = checker_module_check_typedef(mod, decl);
+			break;
+		default:
+			assert(false);
+			break;
+		}
+
 		if (rc != EOK)
 			return rc;
+
 		decl = ast_module_next(decl);
 	}
 

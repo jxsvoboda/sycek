@@ -558,6 +558,75 @@ static int parser_process_fundef(parser_t *parser, ast_node_t *ftspec,
 	return EOK;
 }
 
+/** Parse typedef.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new typedef node
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_typedef(parser_t *parser, ast_node_t **rnode)
+{
+	lexer_toktype_t ltt;
+	ast_typedef_t *atypedef;
+	void *dtypedef;
+	ast_node_t *tspec = NULL;
+	ast_node_t *tdecl = NULL;
+	void *dcomma;
+	void *dscolon;
+	int rc;
+
+	parser_skip(parser, &dtypedef);
+
+	rc = parser_process_tspec(parser, &tspec);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_typedef_create(tspec, &atypedef);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_decl(parser, &tdecl);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_typedef_append(atypedef, NULL, tdecl);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	while (ltt == ltt_comma) {
+		rc = parser_match(parser, ltt_comma, &dcomma);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_decl(parser, &tdecl);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_typedef_append(atypedef, dcomma, tdecl);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+	}
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	atypedef->tscolon.data = dscolon;
+
+	*rnode = &atypedef->node;
+	return EOK;
+error:
+	if (tspec != NULL)
+		ast_tree_destroy(tspec);
+	if (tdecl != NULL)
+		ast_tree_destroy(tdecl);
+	return rc;
+}
+
 /** Parse global declaration.
  *
  * @param parser Parser
@@ -641,8 +710,9 @@ error:
  */
 int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 {
+	lexer_toktype_t ltt;
 	ast_module_t *module;
-	ast_node_t *decl;
+	ast_node_t *decln;
 	int rc;
 
 	(void)parser;
@@ -651,12 +721,22 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 	if (rc != EOK)
 		return rc;
 
-	while (parser_next_ttype(parser) != ltt_eof) {
-		rc = parser_process_gdecln(parser, &decl);
+	ltt = parser_next_ttype(parser);
+	while (ltt != ltt_eof) {
+		switch (ltt) {
+		case ltt_typedef:
+			rc = parser_process_typedef(parser, &decln);
+			break;
+		default:
+			rc = parser_process_gdecln(parser, &decln);
+			break;
+		}
+
 		if (rc != EOK)
 			return rc;
 
-		ast_module_append(module, decl);
+		ast_module_append(module, decln);
+		ltt = parser_next_ttype(parser);
 	}
 
 	*rmodule = module;

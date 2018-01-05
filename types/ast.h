@@ -42,6 +42,7 @@ typedef enum {
 	ant_return,
 	ant_block,
 	ant_fundef,
+	ant_typedef,
 	ant_module,
 	ant_sclass
 } ast_node_type_t;
@@ -218,6 +219,30 @@ typedef struct {
 	/** Trailing ';' token (if function declaration) */
 	ast_tok_t tscolon;
 } ast_fundef_t;
+
+/** Type definition */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Type specifier */
+	ast_node_t *tspec;
+	/** Declarators */
+	list_t decls; /* of ast_typedef_decl_t */
+	/** Trailing ';' token */
+	ast_tok_t tscolon;
+} ast_typedef_t;
+
+/** Typedef declarator entry */
+typedef struct {
+	/** Containing type definition */
+	ast_typedef_t *atypedef;
+	/** Link to atypedef->decls */
+	link_t ltypedef;
+	/** Preceding comma token (if not the first entry */
+	ast_tok_t tcomma;
+	/** Declarator */
+	ast_node_t *decl;
+} ast_typedef_decl_t;
 
 /** Module.
  *
