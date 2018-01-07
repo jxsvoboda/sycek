@@ -596,6 +596,7 @@ int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_node_t *tspec,
 	elem->decl = decl;
 	elem->tscolon.data = dscolon;
 
+	elem->tsrecord = tsrecord;
 	list_append(&elem->ltsrecord, &tsrecord->elems);
 	return EOK;
 }

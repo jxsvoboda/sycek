@@ -37,6 +37,7 @@
 static void checker_parser_get_tok(void *, lexer_tok_t *);
 static void *checker_parser_tok_data(void *, lexer_tok_t *);
 static int checker_module_check_decl(checker_module_t *, ast_node_t *);
+static int checker_module_check_tspec(checker_module_t *, ast_node_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.get_tok = checker_parser_get_tok,
@@ -427,6 +428,66 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	return rc;
 }
 
+/** Run checks on a record type specifier.
+ *
+ * @param mod Checker module
+ * @param tsrecord AST record type specifier
+ * @return EOK on success or error code
+ */
+static int checker_module_check_tsrecord(checker_module_t *mod,
+    ast_tsrecord_t *tsrecord)
+{
+	ast_tsrecord_elem_t *elem;
+	checker_tok_t *tscolon;
+	int rc;
+
+	elem = ast_tsrecord_first(tsrecord);
+	while (elem != NULL) {
+		rc = checker_module_check_tspec(mod, elem->tspec);
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_module_check_decl(mod, elem->decl);
+		if (rc != EOK)
+			return rc;
+
+		tscolon = (checker_tok_t *)elem->tscolon.data;
+		checker_module_check_nows_before(tscolon,
+		    "Unexpected whitespace before ';'.");
+
+		elem = ast_tsrecord_next(elem);
+	}
+
+	return EOK;
+}
+
+/** Run checks on a type specifier.
+ *
+ * @param mod Checker module
+ * @param tspec AST type specifier
+ * @return EOK on success or error code
+ */
+static int checker_module_check_tspec(checker_module_t *mod, ast_node_t *tspec)
+{
+	int rc;
+
+	switch (tspec->ntype) {
+	case ant_tsbuiltin:
+	case ant_tsident:
+		rc = EOK;
+		break;
+	case ant_tsrecord:
+		rc = checker_module_check_tsrecord(mod, (ast_tsrecord_t *)tspec->ext);
+		break;
+	default:
+		assert(false);
+		rc = EOK;
+		break;
+	}
+
+	return rc;
+}
+
 
 /** Run checks on a global declaration.
  *
@@ -482,6 +543,10 @@ static int checker_module_check_typedef(checker_module_t *mod, ast_node_t *decln
 
 	assert(decln->ntype == ant_typedef);
 	atypedef = (ast_typedef_t *)decln->ext;
+
+	rc = checker_module_check_tspec(mod, atypedef->tspec);
+	if (rc != EOK)
+		return rc;
 
 	decl = ast_typedef_first(atypedef);
 	while (decl != NULL) {
