@@ -150,6 +150,45 @@ int ast_sclass_create(ast_sclass_type_t sctype,
 	return EOK;
 }
 
+/** Print AST storage-class specifier.
+ *
+ * @param fundef Function definition
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
+{
+	const char *s;
+
+	switch (sclass->sctype) {
+	case asc_extern:
+		s = "extern";
+		break;
+	case asc_static:
+		s = "static";
+		break;
+	case asc_auto:
+		s = "auto";
+		break;
+	case asc_register:
+		s = "register";
+		break;
+	case asc_none:
+		s = "none";
+		break;
+	default:
+		assert(false);
+		s = "<invalid>";
+		break;
+	}
+
+	if (fprintf(f, "sclass(%s)", s) < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Create AST function definition.
  *
  * @param ftspec Function type specifier
@@ -389,7 +428,7 @@ ast_node_t *ast_block_first(ast_block_t *block)
 
 /** Return next statement in block.
  *
- * @param block Block
+ * @param node Current statement
  * @return Next statement or @c NULL
  */
 ast_node_t *ast_block_next(ast_node_t *node)
@@ -417,13 +456,17 @@ ast_node_t *ast_block_next(ast_node_t *node)
 static int ast_block_print(ast_block_t *block, FILE *f)
 {
 	ast_node_t *stmt;
+	int rc;
 
 	if (fprintf(f, "block(%s", block->braces == ast_braces ? "{" : "") < 0)
 		return EIO;
 
 	stmt = ast_block_first(block);
 	while (stmt != NULL) {
-		ast_tree_print(stmt, f);
+		rc = ast_tree_print(stmt, f);
+		if (rc != EOK)
+			return rc;
+
 		stmt = ast_block_next(stmt);
 	}
 	if (fprintf(f, "%s)", block->braces == ast_braces ? "}" : "") < 0)
@@ -506,6 +549,120 @@ static int ast_tsident_print(ast_tsident_t *atsident, FILE *f)
 		return EIO;
 	return EOK;
 }
+
+/** Create AST record type specifier.
+ *
+ * @param rtype Record type (struct or union)
+ * @param rtsrecord Place to store pointer to new record type specifier
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_tsrecord_create(ast_rtype_t rtype, ast_tsrecord_t **rtsrecord)
+{
+	ast_tsrecord_t *tsrecord;
+
+	tsrecord = calloc(1, sizeof(ast_tsrecord_t));
+	if (tsrecord == NULL)
+		return ENOMEM;
+
+	tsrecord->rtype = rtype;
+	list_initialize(&tsrecord->elems);
+
+	tsrecord->node.ext = tsrecord;
+	tsrecord->node.ntype = ant_tsrecord;
+
+	*rtsrecord = tsrecord;
+	return EOK;
+}
+
+/** Append element to record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ * @param tspec Type specifier
+ * @param decl Declarator
+ * @param stmt Statement
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_node_t *tspec,
+    ast_node_t *decl, void *dscolon)
+{
+	ast_tsrecord_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_tsrecord_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->tspec = tspec;
+	elem->decl = decl;
+	elem->tscolon.data = dscolon;
+
+	list_append(&elem->ltsrecord, &tsrecord->elems);
+	return EOK;
+}
+
+/** Return first element in record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ * @return First element or @c NULL
+ */
+ast_tsrecord_elem_t *ast_tsrecord_first(ast_tsrecord_t *tsrecord)
+{
+	link_t *link;
+
+	link = list_first(&tsrecord->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_tsrecord_elem_t, ltsrecord);
+}
+
+/** Return next element in record type specifier.
+ *
+ * @param elem Current element
+ * @return Next element or @c NULL
+ */
+ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *elem)
+{
+	link_t *link;
+
+	link = list_next(&elem->ltsrecord, &elem->tsrecord->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_tsrecord_elem_t, ltsrecord);
+}
+
+/** Print AST block.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
+{
+	ast_tsrecord_elem_t *elem;
+	int rc;
+
+	if (fprintf(f, "tsrecord(%s", tsrecord->rtype == ar_struct ? "struct" :
+	    "union") < 0)
+		return EIO;
+
+	elem = ast_tsrecord_first(tsrecord);
+	while (elem != NULL) {
+		rc = ast_tree_print(elem->tspec, f);
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_tsrecord_next(elem);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
 
 /** Create AST identifier declarator.
  *
@@ -715,10 +872,14 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_typedef_print((ast_typedef_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
+	case ant_sclass:
+		return ast_sclass_print((ast_sclass_t *)node->ext, f);
 	case ant_tsbuiltin:
 		return ast_tsbuiltin_print((ast_tsbuiltin_t *)node->ext, f);
 	case ant_tsident:
 		return ast_tsident_print((ast_tsident_t *)node->ext, f);
+	case ant_tsrecord:
+		return ast_tsrecord_print((ast_tsrecord_t *)node->ext, f);
 	case ant_dident:
 		return ast_dident_print((ast_dident_t *)node->ext, f);
 	case ant_dnoident:
@@ -729,8 +890,6 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_dptr_print((ast_dptr_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
-	default:
-		break;
 	}
 
 	return EINVAL;

@@ -33,12 +33,15 @@
 typedef enum {
 	ant_tsbuiltin,
 	ant_tsident,
+	ant_tsrecord,
 	ant_dident,
 	ant_dnoident,
 	ant_dparen,
 	ant_dptr,
+/*
 	ant_ident,
 	ant_expr,
+*/
 	ant_return,
 	ant_block,
 	ant_fundef,
@@ -110,6 +113,46 @@ typedef struct {
 	/** Ideintifier token */
 	ast_tok_t tident;
 } ast_tsident_t;
+
+/** Type of record */
+typedef enum {
+	/** Struct */
+	ar_struct,
+	/** Union */
+	ar_union
+} ast_rtype_t;
+
+/** Record (struct or union) type specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Record type */
+	ast_rtype_t rtype;
+	/** Struct or union token */
+	ast_tok_t tsu;
+	/** Record type identifier */
+	ast_tok_t tident;
+	/** Left brace token */
+	ast_tok_t tlbrace;
+	/** Elements */
+	list_t elems; /* of ast_tsrecord_elem_t */
+	/** Right brace token */
+	ast_tok_t trbrace;
+} ast_tsrecord_t;
+
+/** Record element */
+typedef struct {
+	/** Containing record type specifier */
+	ast_tsrecord_t *tsrecord;
+	/** Link to tsrecord->elems */
+	link_t ltsrecord;
+	/** Type specifier */
+	ast_node_t *tspec;
+	/** Declarator */
+	ast_node_t *decl;
+	/** Semicolon token */
+	ast_tok_t tscolon;
+} ast_tsrecord_elem_t;
 
 /** Declarator - identifier */
 typedef struct {

@@ -47,6 +47,11 @@ extern ast_node_t *ast_block_first(ast_block_t *);
 extern ast_node_t *ast_block_next(ast_node_t *);
 extern int ast_tsbuiltin_create(ast_tsbuiltin_t **);
 extern int ast_tsident_create(ast_tsident_t **);
+extern int ast_tsrecord_create(ast_rtype_t, ast_tsrecord_t **);
+extern int ast_tsrecord_append(ast_tsrecord_t *, ast_node_t *, ast_node_t *,
+    void *);
+extern ast_tsrecord_elem_t *ast_tsrecord_first(ast_tsrecord_t *);
+extern ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *);
 extern int ast_dident_create(ast_dident_t **);
 extern int ast_dnoident_create(ast_dnoident_t **);
 extern int ast_dparen_create(ast_dparen_t **);

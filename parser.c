@@ -33,6 +33,7 @@
 #include <stdlib.h>
 
 static int parser_process_tspec(parser_t *, ast_node_t **);
+static int parser_process_decl(parser_t *, ast_node_t **);
 
 /** Create parser.
  *
@@ -340,6 +341,95 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 	return EOK;
 }
 
+/** Parse record type specifier.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST record type specifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
+{
+	ast_tsrecord_t *precord = NULL;
+	ast_rtype_t rt;
+	lexer_toktype_t ltt;
+	void *dsu;
+	void *dident;
+	void *dlbrace;
+	ast_node_t *tspec;
+	ast_node_t *decl;
+	void *dscolon;
+	void *drbrace;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_struct:
+		rt = ar_struct;
+		break;
+	case ltt_union:
+		rt = ar_union;
+		break;
+	default:
+		assert(false);
+		return EINVAL;
+	}
+
+	rc = ast_tsrecord_create(rt, &precord);
+	if (rc != EOK)
+		return rc;
+
+	parser_skip(parser, &dsu);
+	precord->tsu.data = dsu;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_ident) {
+		parser_skip(parser, &dident);
+		precord->tident.data = dident;
+	}
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lbrace) {
+		parser_skip(parser, &dlbrace);
+
+		precord->tlbrace.data = dlbrace;
+
+		ltt = parser_next_ttype(parser);
+		while (ltt != ltt_rbrace) {
+			rc = parser_process_tspec(parser, &tspec);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_process_decl(parser, &decl);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_scolon, &dscolon);
+			if (rc != EOK)
+				goto error;
+
+			rc = ast_tsrecord_append(precord, tspec, decl, dscolon);
+			if (rc != EOK)
+				goto error;
+
+			ltt = parser_next_ttype(parser);
+		}
+
+		rc = parser_match(parser, ltt_rbrace, &drbrace);
+		if (rc != EOK)
+			goto error;
+
+		precord->trbrace.data = drbrace;
+	}
+
+	*rtype = &precord->node;
+	return EOK;
+error:
+	if (precord != NULL)
+		ast_tree_destroy(&precord->node);
+	return rc;
+}
+
 /** Parse primitive type specifier.
  *
  * @param parser Parser
@@ -350,16 +440,27 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 static int parser_process_tsprim(parser_t *parser, ast_node_t **rtype)
 {
 	lexer_toktype_t ltt;
+	int rc;
 
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_const)
 		parser_skip(parser, NULL);
 
 	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_ident)
-		return parser_process_tsident(parser, rtype);
-	else
-		return parser_process_tsbuiltin(parser, rtype);
+	switch (ltt) {
+	case ltt_ident:
+		rc = parser_process_tsident(parser, rtype);
+		break;
+	case ltt_struct:
+	case ltt_union:
+		rc = parser_process_tsrecord(parser, rtype);
+		break;
+	default:
+		rc = parser_process_tsbuiltin(parser, rtype);
+		break;
+	}
+
+	return rc;
 }
 
 /** Parse type specifier.
