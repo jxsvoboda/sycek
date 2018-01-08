@@ -30,7 +30,7 @@
 #include <stddef.h>
 
 enum {
-	src_pos_fname_max = 16
+	src_pos_fname_max = 128
 };
 
 /** Source code position */
