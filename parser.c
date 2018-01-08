@@ -430,6 +430,110 @@ error:
 	return rc;
 }
 
+/** Parse enum type specifier.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST enum type specifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
+{
+	ast_tsenum_t *penum = NULL;
+	lexer_toktype_t ltt;
+	void *denum;
+	void *dident;
+	void *dlbrace;
+	void *delem;
+	void *dequals;
+	void *dinit;
+	void *dcomma;
+	void *drbrace;
+	int rc;
+
+	rc = ast_tsenum_create(&penum);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_enum, &denum);
+	if (rc != EOK)
+		return rc;
+
+	penum->tenum.data = denum;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_ident) {
+		parser_skip(parser, &dident);
+		penum->tident.data = dident;
+	}
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lbrace) {
+		parser_skip(parser, &dlbrace);
+
+		penum->tlbrace.data = dlbrace;
+
+		ltt = parser_next_ttype(parser);
+		while (ltt != ltt_rbrace) {
+			rc = parser_match(parser, ltt_ident, &delem);
+			if (rc != EOK)
+				goto error;
+
+			ltt = parser_next_ttype(parser);
+			if (ltt == ltt_equals) {
+				rc = parser_match(parser, ltt_equals, &dequals);
+				if (rc != EOK)
+					goto error;
+
+				ltt = parser_next_ttype(parser);
+				if (ltt == ltt_ident || ltt == ltt_number) {
+					parser_skip(parser, &dinit);
+				} else {
+					fprintf(stderr, "Error: ");
+					lexer_dprint_tok(&parser->tok[0],
+					    stderr);
+					fprintf(stderr, " unexpected, expected"
+					    " number or identifier.\n");
+					rc = EINVAL;
+					goto error;
+				}
+			} else {
+				dequals = NULL;
+				dinit = NULL;
+			}
+
+			ltt = parser_next_ttype(parser);
+			if (ltt == ltt_comma)
+				parser_skip(parser, &dcomma);
+			else
+				dcomma = NULL;
+
+			rc = ast_tsenum_append(penum, delem, dequals, dinit,
+			    dcomma);
+			if (rc != EOK)
+				goto error;
+
+			if (dcomma == NULL)
+				break;
+
+			ltt = parser_next_ttype(parser);
+		}
+
+		rc = parser_match(parser, ltt_rbrace, &drbrace);
+		if (rc != EOK)
+			goto error;
+
+		penum->trbrace.data = drbrace;
+	}
+
+	*rtype = &penum->node;
+	return EOK;
+error:
+	if (penum != NULL)
+		ast_tree_destroy(&penum->node);
+	return rc;
+}
+
 /** Parse primitive type specifier.
  *
  * @param parser Parser
@@ -454,6 +558,9 @@ static int parser_process_tsprim(parser_t *parser, ast_node_t **rtype)
 	case ltt_struct:
 	case ltt_union:
 		rc = parser_process_tsrecord(parser, rtype);
+		break;
+	case ltt_enum:
+		rc = parser_process_tsenum(parser, rtype);
 		break;
 	default:
 		rc = parser_process_tsbuiltin(parser, rtype);

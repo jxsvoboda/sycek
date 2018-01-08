@@ -38,11 +38,13 @@ while read fname; do
 			echo '**' Reports for file $fname: '**'
 			cat /tmp/ccheck.out
 		else
+			echo "Succeeded $fname"
 			snorepcnt=$((snorepcnt + 1))
 		fi
 	else
 		fcnt=$((fcnt + 1))
 		echo failed $fname
+		cat /tmp/ccheck.out
 	fi
 done
 

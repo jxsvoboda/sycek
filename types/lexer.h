@@ -49,6 +49,7 @@ typedef enum {
 	ltt_scolon,
 	ltt_asterisk,
 	ltt_slash,
+	ltt_equals,
 
 	ltt_auto,
 	ltt_char,

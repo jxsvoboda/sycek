@@ -52,6 +52,10 @@ extern int ast_tsrecord_append(ast_tsrecord_t *, ast_node_t *, ast_node_t *,
     void *);
 extern ast_tsrecord_elem_t *ast_tsrecord_first(ast_tsrecord_t *);
 extern ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *);
+extern int ast_tsenum_create(ast_tsenum_t **);
+extern int ast_tsenum_append(ast_tsenum_t *, void *, void *, void *, void *);
+extern ast_tsenum_elem_t *ast_tsenum_first(ast_tsenum_t *);
+extern ast_tsenum_elem_t *ast_tsenum_next(ast_tsenum_elem_t *);
 extern int ast_dident_create(ast_dident_t **);
 extern int ast_dnoident_create(ast_dnoident_t **);
 extern int ast_dparen_create(ast_dparen_t **);

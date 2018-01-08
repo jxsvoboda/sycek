@@ -664,6 +664,121 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 	return EOK;
 }
 
+/** Create AST enum type specifier.
+ *
+ * @param rtsenum Place to store pointer to new enum type specifier
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_tsenum_create(ast_tsenum_t **rtsenum)
+{
+	ast_tsenum_t *tsenum;
+
+	tsenum = calloc(1, sizeof(ast_tsenum_t));
+	if (tsenum == NULL)
+		return ENOMEM;
+
+	list_initialize(&tsenum->elems);
+
+	tsenum->node.ext = tsenum;
+	tsenum->node.ntype = ant_tsenum;
+
+	*rtsenum = tsenum;
+	return EOK;
+}
+
+/** Append element to enum type specifier.
+ *
+ * @param tsenum Enum type specifier
+ * @param dident Data for identifier token
+ * @param dequals Data for equals token or @c NULL
+ * @param dinit Data for initializer token or @c NULL
+ * @param dcomma Data for comma token or @c NULL
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tsenum_append(ast_tsenum_t *tsenum, void *dident, void *dequals,
+    void *dinit, void *dcomma)
+{
+	ast_tsenum_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_tsenum_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->tident.data = dident;
+	elem->tequals.data = dequals;
+	elem->tinit.data = dinit;
+	elem->tcomma.data = dcomma;
+
+	elem->tsenum = tsenum;
+	list_append(&elem->ltsenum, &tsenum->elems);
+	return EOK;
+}
+
+/** Return first element in record type specifier.
+ *
+ * @param tsenum Record type specifier
+ * @return First element or @c NULL
+ */
+ast_tsenum_elem_t *ast_tsenum_first(ast_tsenum_t *tsenum)
+{
+	link_t *link;
+
+	link = list_first(&tsenum->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_tsenum_elem_t, ltsenum);
+}
+
+/** Return next element in record type specifier.
+ *
+ * @param elem Current element
+ * @return Next element or @c NULL
+ */
+ast_tsenum_elem_t *ast_tsenum_next(ast_tsenum_elem_t *elem)
+{
+	link_t *link;
+
+	link = list_next(&elem->ltsenum, &elem->tsenum->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_tsenum_elem_t, ltsenum);
+}
+
+/** Print AST block.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_tsenum_print(ast_tsenum_t *tsenum, FILE *f)
+{
+	ast_tsenum_elem_t *elem;
+
+	if (fprintf(f, "tsenum(") < 0)
+		return EIO;
+
+	elem = ast_tsenum_first(tsenum);
+	while (elem != NULL) {
+		if (fprintf(f, "elem") < 0)
+			return EIO;
+
+		elem = ast_tsenum_next(elem);
+
+		if (elem != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
 
 /** Create AST identifier declarator.
  *
@@ -881,6 +996,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsident_print((ast_tsident_t *)node->ext, f);
 	case ant_tsrecord:
 		return ast_tsrecord_print((ast_tsrecord_t *)node->ext, f);
+	case ant_tsenum:
+		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
 	case ant_dident:
 		return ast_dident_print((ast_dident_t *)node->ext, f);
 	case ant_dnoident:

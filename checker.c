@@ -319,6 +319,25 @@ static void checker_module_check_brkspace_before(checker_tok_t *tok,
 }
 #endif
 
+/** Non-breakable space before.
+ *
+ * There should be a single space before the token
+ */
+static void checker_module_check_nbspace_before(checker_tok_t *tok,
+    const char *msg)
+{
+	checker_tok_t *p;
+
+	assert(tok != NULL);
+	p = checker_module_prev_tok(tok);
+	assert(p != NULL);
+
+	if (p->tok.ttype != ltt_wspace) {
+		lexer_dprint_tok(&p->tok, stdout);
+		printf(": %s\n", msg);
+	}
+}
+
 /** Parse a module.
  *
  * @param mod Checker module
@@ -461,6 +480,65 @@ static int checker_module_check_tsrecord(checker_module_t *mod,
 	return EOK;
 }
 
+/** Run checks on an enum type specifier.
+ *
+ * @param mod Checker module
+ * @param tsenum AST enum type specifier
+ * @return EOK on success or error code
+ */
+static int checker_module_check_tsenum(checker_module_t *mod,
+    ast_tsenum_t *tsenum)
+{
+	ast_tsenum_elem_t *elem;
+	checker_tok_t *tlbrace;
+	checker_tok_t *telem;
+	checker_tok_t *tequals;
+	checker_tok_t *tinit;
+	checker_tok_t *tcomma;
+	checker_tok_t *trbrace;
+
+	(void) mod;
+
+	tlbrace = (checker_tok_t *)tsenum->tlbrace.data;
+	if (tlbrace != NULL) {
+		checker_module_check_nbspace_before(tlbrace,
+		    "Expected single space before '{'.");
+	}
+
+	elem = ast_tsenum_first(tsenum);
+	while (elem != NULL) {
+		telem = (checker_tok_t *)elem->tident.data;
+		checker_module_check_lbegin(telem,
+		    "Enum field must begin on a new line.");
+
+		tequals = (checker_tok_t *)elem->tequals.data;
+		if (tequals != NULL) {
+			checker_module_check_nbspace_before(tequals,
+			    "Expected space before '='.");
+
+			tinit = (checker_tok_t *)elem->tinit.data;
+			checker_module_check_nbspace_before(tinit,
+			    "Expected whitespace before initializer.");
+		}
+
+		tcomma = (checker_tok_t *)elem->tcomma.data;
+		if (tcomma != NULL) {
+			checker_module_check_nows_before(tcomma,
+			    "Unexpected whitespace before ','.");
+		}
+
+		elem = ast_tsenum_next(elem);
+	}
+
+	trbrace = (checker_tok_t *)tsenum->trbrace.data;
+	if (trbrace != NULL) {
+		checker_module_check_lbegin(tlbrace,
+		    "'{' must begin on a new line.");
+	}
+
+	return EOK;
+}
+
 /** Run checks on a type specifier.
  *
  * @param mod Checker module
@@ -478,6 +556,9 @@ static int checker_module_check_tspec(checker_module_t *mod, ast_node_t *tspec)
 		break;
 	case ant_tsrecord:
 		rc = checker_module_check_tsrecord(mod, (ast_tsrecord_t *)tspec->ext);
+		break;
+	case ant_tsenum:
+		rc = checker_module_check_tsenum(mod, (ast_tsenum_t *)tspec->ext);
 		break;
 	default:
 		assert(false);

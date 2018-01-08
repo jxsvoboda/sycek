@@ -513,6 +513,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_comma, tok);
 	case ';':
 		return lexer_onechar(lexer, ltt_scolon, tok);
+	case '=':
+		return lexer_onechar(lexer, ltt_scolon, tok);
 	case 'a':
 		if (p[1] == 'u' && p[2] == 't' && p[3] == 'o' &&
 		    !is_idcnt(p[4])) {
@@ -694,6 +696,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return ",";
 	case ltt_scolon:
 		return ";";
+	case ltt_equals:
+		return "=";
 	case ltt_asterisk:
 		return "*";
 	case ltt_slash:

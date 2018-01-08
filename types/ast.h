@@ -34,6 +34,7 @@ typedef enum {
 	ant_tsbuiltin,
 	ant_tsident,
 	ant_tsrecord,
+	ant_tsenum,
 	ant_dident,
 	ant_dnoident,
 	ant_dparen,
@@ -153,6 +154,38 @@ typedef struct {
 	/** Semicolon token */
 	ast_tok_t tscolon;
 } ast_tsrecord_elem_t;
+
+/** Enum type specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Enum token */
+	ast_tok_t tenum;
+	/** Enum identifier token */
+	ast_tok_t tident;
+	/** Left brace token */
+	ast_tok_t tlbrace;
+	/** Elements */
+	list_t elems; /* of ast_tsenum_elem_t */
+	/** Right brace token */
+	ast_tok_t trbrace;
+} ast_tsenum_t;
+
+/** Enum element */
+typedef struct {
+	/** Containing enum type specifier */
+	ast_tsenum_t *tsenum;
+	/** Link to tsenum->elems */
+	link_t ltsenum;
+	/** Identifier token */
+	ast_tok_t tident;
+	/** Equals token */
+	ast_tok_t tequals;
+	/** Initializer token */
+	ast_tok_t tinit;
+	/** Comma token */
+	ast_tok_t tcomma;
+} ast_tsenum_elem_t;
 
 /** Declarator - identifier */
 typedef struct {
