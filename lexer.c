@@ -514,7 +514,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case ';':
 		return lexer_onechar(lexer, ltt_scolon, tok);
 	case '=':
-		return lexer_onechar(lexer, ltt_scolon, tok);
+		return lexer_onechar(lexer, ltt_equals, tok);
 	case 'a':
 		if (p[1] == 'u' && p[2] == 't' && p[3] == 'o' &&
 		    !is_idcnt(p[4])) {
