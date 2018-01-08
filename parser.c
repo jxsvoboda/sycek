@@ -619,10 +619,58 @@ static int parser_process_dident(parser_t *parser, ast_node_t **rdecl)
 	return EOK;
 }
 
+/** Parse possible parenthesized declarator.
+ *
+ * @param parser Parser
+ * @param rdecl Place to store pointer to new AST parenthesized declarator
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dparen(parser_t *parser, ast_node_t **rdecl)
+{
+	ast_dparen_t *dparen = NULL;
+	ast_node_t *bdecl = NULL;
+	lexer_toktype_t ltt;
+	void *dlparen;
+	void *drparen;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_lparen)
+		return parser_process_dident(parser, rdecl);
+
+	parser_skip(parser, &dlparen);
+
+	rc = ast_dparen_create(&dparen);
+	if (rc != EOK)
+		return rc;
+
+	dparen->tlparen.data = dlparen;
+
+	rc = parser_process_decl(parser, &bdecl);
+	if (rc != EOK)
+		goto error;
+
+	dparen->bdecl = bdecl;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	dparen->trparen.data = drparen;
+
+	*rdecl = &dparen->node;
+	return EOK;
+error:
+	if (dparen != NULL)
+		ast_tree_destroy(&dparen->node);
+	return rc;
+}
+
 /** Parse possible pointer declarator.
  *
  * @param parser Parser
- * @param rtype Place to store pointer to new AST type
+ * @param rdecl Place to store pointer to new AST pointer declarator
  *
  * @return EOK on success or non-zero error code
  */
@@ -636,7 +684,7 @@ static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_asterisk)
-		return parser_process_dident(parser, rdecl);
+		return parser_process_dparen(parser, rdecl);
 
 	parser_skip(parser, &dasterisk);
 
@@ -646,7 +694,7 @@ static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 
 	dptr->tasterisk.data = dasterisk;
 
-	rc = parser_process_dptr(parser, &bdecl);
+	rc = parser_process_decl(parser, &bdecl);
 	if (rc != EOK) {
 		ast_tree_destroy(&dptr->node);
 		return rc;

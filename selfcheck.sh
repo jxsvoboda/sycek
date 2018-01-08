@@ -35,7 +35,6 @@ while read fname; do
 	if [ .$rc == .0 ]; then
 		if [ -s /tmp/ccheck.out ] ; then
 			srepcnt=$((srepcnt + 1))
-			echo '**' Reports for file $fname: '**'
 			cat /tmp/ccheck.out
 		else
 			echo "Succeeded $fname"
@@ -43,7 +42,6 @@ while read fname; do
 		fi
 	else
 		fcnt=$((fcnt + 1))
-		echo failed $fname
 		cat /tmp/ccheck.out
 	fi
 done

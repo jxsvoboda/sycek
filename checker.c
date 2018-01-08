@@ -402,6 +402,29 @@ static int checker_module_check_stmt(checker_module_t *mod, ast_node_t *stmt)
 	return EOK;
 }
 
+/** Run checks on a parenthesized declarator.
+ *
+ * @param mod Checker module
+ * @param dparen AST parenthesized declarator
+ * @return EOK on success or error code
+ */
+static int checker_module_check_dparen(checker_module_t *mod,
+    ast_dparen_t *dparen)
+{
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+
+	tlparen = (checker_tok_t *)dparen->tlparen.data;
+	checker_module_check_nows_after(tlparen,
+	    "Unexpected whitespace after '('.");
+
+	trparen = (checker_tok_t *)dparen->trparen.data;
+	checker_module_check_nows_before(trparen,
+	    "Unexpected whitespace before ')'.");
+
+	return checker_module_check_decl(mod, dparen->bdecl);
+}
+
 /** Run checks on a pointer declarator.
  *
  * @param mod Checker module
@@ -432,8 +455,10 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	switch (decl->ntype) {
 	case ant_dnoident:
 	case ant_dident:
-	case ant_dparen:
 		rc = EOK;
+		break;
+	case ant_dparen:
+		rc = checker_module_check_dparen(mod, (ast_dparen_t *)decl->ext);
 		break;
 	case ant_dptr:
 		rc = checker_module_check_dptr(mod, (ast_dptr_t *)decl->ext);
