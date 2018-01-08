@@ -442,6 +442,54 @@ static int checker_module_check_dptr(checker_module_t *mod, ast_dptr_t *dptr)
 	return checker_module_check_decl(mod, dptr->bdecl);
 }
 
+/** Run checks on a function declarator.
+ *
+ * @param mod Checker module
+ * @param dfun AST function declarator
+ * @return EOK on success or error code
+ */
+static int checker_module_check_dfun(checker_module_t *mod, ast_dfun_t *dfun)
+{
+	checker_tok_t *tlparen;
+	ast_dfun_arg_t *arg;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen;
+	int rc;
+
+	rc = checker_module_check_decl(mod, dfun->bdecl);
+	if (rc != EOK)
+		return rc;
+
+	tlparen = (checker_tok_t *)dfun->tlparen.data;
+	checker_module_check_nows_after(tlparen,
+	    "Unexpected whitespace after '('.");
+
+	arg = ast_dfun_first(dfun);
+	while (arg != NULL) {
+		rc = checker_module_check_tspec(mod, arg->tspec);
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_module_check_decl(mod, arg->decl);
+		if (rc != EOK)
+			return rc;
+
+		tcomma = (checker_tok_t *)arg->tcomma.data;
+		if (tcomma != NULL) {
+			checker_module_check_nows_before(tcomma,
+			    "Unexpected whitespace before ','.");
+		}
+
+		arg = ast_dfun_next(arg);
+	}
+
+	trparen = (checker_tok_t *)dfun->trparen.data;
+	checker_module_check_nows_before(trparen,
+	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+}
+
 /** Run checks on a declarator.
  *
  * @param mod Checker module
@@ -462,6 +510,9 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 		break;
 	case ant_dptr:
 		rc = checker_module_check_dptr(mod, (ast_dptr_t *)decl->ext);
+		break;
+	case ant_dfun:
+		rc = checker_module_check_dfun(mod, (ast_dfun_t *)decl->ext);
 		break;
 	default:
 		assert(false);

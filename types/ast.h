@@ -39,6 +39,7 @@ typedef enum {
 	ant_dnoident,
 	ant_dparen,
 	ant_dptr,
+	ant_dfun,
 /*
 	ant_ident,
 	ant_expr,
@@ -222,6 +223,34 @@ typedef struct {
 	/** Base declarator */
 	ast_node_t *bdecl;
 } ast_dptr_t;
+
+/** Function declarator */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Base declarator */
+	ast_node_t *bdecl;
+	/** Left parenthesis token */
+	ast_tok_t tlparen;
+	/** Arguments */
+	list_t args; /* of ast_dfun_arg_t */
+	/** Right parenthesis token */
+	ast_tok_t trparen;
+} ast_dfun_t;
+
+/** Function declarator argument */
+typedef struct {
+	/** Containing function declarator */
+	ast_dfun_t *dfun;
+	/** Link to dfun->args */
+	link_t ldfun;
+	/** Type specifier */
+	ast_node_t *tspec;
+	/** Declarator */
+	ast_node_t *decl;
+	/** Comma token (except for last argument) */
+	ast_tok_t tcomma;
+} ast_dfun_arg_t;
 
 /** Pointer type */
 typedef struct {

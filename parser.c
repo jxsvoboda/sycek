@@ -513,7 +513,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			if (dcomma == NULL)
+			if (ltt != ltt_comma)
 				break;
 
 			ltt = parser_next_ttype(parser);
@@ -667,6 +667,87 @@ error:
 	return rc;
 }
 
+
+/** Parse possible function declarator.
+ *
+ * @param parser Parser
+ * @param rdecl Place to store pointer to new AST function declarator
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
+{
+	ast_dfun_t *dfun = NULL;
+	ast_node_t *bdecl = NULL;
+	lexer_toktype_t ltt;
+	void *dlparen;
+	ast_node_t *tspec;
+	ast_node_t *decl;
+	void *dcomma;
+	void *drparen;
+	int rc;
+
+	rc = ast_dfun_create(&dfun);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_dparen(parser, &bdecl);
+	if (rc != EOK)
+		goto error;
+
+	dfun->bdecl = bdecl;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_lparen) {
+		*rdecl = bdecl;
+		return EOK;
+	}
+
+	parser_skip(parser, &dlparen);
+	dfun->tlparen.data = dlparen;
+
+	/* Parse arguments */
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_rparen) {
+		do {
+			rc = parser_process_tspec(parser, &tspec);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_process_decl(parser, &decl);
+			if (rc != EOK) {
+				ast_tree_destroy(tspec);
+				goto error;
+			}
+
+			ltt = parser_next_ttype(parser);
+			if (ltt != ltt_rparen) {
+				rc = parser_match(parser, ltt_comma, &dcomma);
+				if (rc != EOK)
+					goto error;
+			} else {
+				dcomma = NULL;
+			}
+
+			rc = ast_dfun_append(dfun, tspec, decl, dcomma);
+			if (rc != EOK)
+				goto error;
+		} while (ltt != ltt_rparen);
+	}
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	dfun->trparen.data = drparen;
+
+	*rdecl = &dfun->node;
+	return EOK;
+error:
+	if (dfun != NULL)
+		ast_tree_destroy(&dfun->node);
+	return rc;
+}
 /** Parse possible pointer declarator.
  *
  * @param parser Parser
@@ -684,7 +765,7 @@ static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_asterisk)
-		return parser_process_dparen(parser, rdecl);
+		return parser_process_dfun(parser, rdecl);
 
 	parser_skip(parser, &dasterisk);
 
@@ -892,11 +973,9 @@ error:
  */
 static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 {
-	lexer_toktype_t ltt;
 	ast_fundef_t *fundef;
 	ast_node_t *rtspec = NULL;
 	ast_node_t *fdecl = NULL;
-	ast_node_t *atspec = NULL;
 	ast_sclass_t *sclass;
 	int rc;
 
@@ -909,37 +988,6 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		goto error;
 
 	rc = parser_process_decl(parser, &fdecl);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_match(parser, ltt_lparen, NULL);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_process_tspec(parser, &atspec);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_process_decl(parser, &fdecl);
-	if (rc != EOK)
-		goto error;
-
-	ltt = parser_next_ttype(parser);
-	while (ltt == ltt_comma) {
-		parser_skip(parser, NULL);
-
-		rc = parser_process_tspec(parser, &atspec);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_process_decl(parser, &fdecl);
-		if (rc != EOK)
-			goto error;
-
-		ltt = parser_next_ttype(parser);
-	}
-
-	rc = parser_match(parser, ltt_rparen, NULL);
 	if (rc != EOK)
 		goto error;
 

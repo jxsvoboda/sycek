@@ -932,6 +932,121 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
 	return EOK;
 }
 
+/** Create AST function declarator.
+ *
+ * @param rdfun Place to store pointer to new function declarator
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_dfun_create(ast_dfun_t **rdfun)
+{
+	ast_dfun_t *dfun;
+
+	dfun = calloc(1, sizeof(ast_dfun_t));
+	if (dfun == NULL)
+		return ENOMEM;
+
+	list_initialize(&dfun->args);
+
+	dfun->node.ext = dfun;
+	dfun->node.ntype = ant_dfun;
+
+	*rdfun = dfun;
+	return EOK;
+}
+
+/** Append argument to function declarator.
+ *
+ * @param dfun Function declarator
+ * @param tspec Argument type specifier
+ * @param decl Argument declarator
+ * @param dcomma Data for comma token or @c NULL
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_dfun_append(ast_dfun_t *dfun, ast_node_t *tspec, ast_node_t *decl,
+    void *dcomma)
+{
+	ast_dfun_arg_t *arg;
+
+	arg = calloc(1, sizeof(ast_dfun_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->tspec = tspec;
+	arg->decl = decl;
+	arg->tcomma.data = dcomma;
+
+	arg->dfun = dfun;
+	list_append(&arg->ldfun, &dfun->args);
+	return EOK;
+}
+
+/** Return first argument of function declarator.
+ *
+ * @param dfun Function declarator
+ * @return First argument or @c NULL
+ */
+ast_dfun_arg_t *ast_dfun_first(ast_dfun_t *dfun)
+{
+	link_t *link;
+
+	link = list_first(&dfun->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_dfun_arg_t, ldfun);
+}
+
+/** Return next argument of function declarator.
+ *
+ * @param arg Current argument
+ * @return Next argument or @c NULL
+ */
+ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *arg)
+{
+	link_t *link;
+
+	link = list_next(&arg->ldfun, &arg->dfun->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_dfun_arg_t, ldfun);
+}
+
+/** Print AST block.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
+{
+	ast_dfun_arg_t *elem;
+
+	if (fprintf(f, "dfun(") < 0)
+		return EIO;
+
+	elem = ast_dfun_first(dfun);
+	while (elem != NULL) {
+		if (fprintf(f, "elem") < 0)
+			return EIO;
+
+		elem = ast_dfun_next(elem);
+
+		if (elem != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+
 /** Create AST return.
  *
  * @param rreturn Place to store pointer to new return
@@ -1006,6 +1121,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_dparen_print((ast_dparen_t *)node->ext, f);
 	case ant_dptr:
 		return ast_dptr_print((ast_dptr_t *)node->ext, f);
+	case ant_dfun:
+		return ast_dfun_print((ast_dfun_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
 	}
