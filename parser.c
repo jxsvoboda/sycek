@@ -283,6 +283,8 @@ static int parser_process_tsbuiltin(parser_t *parser, ast_node_t **rtype)
 		case ltt_long:
 		case ltt_short:
 		case ltt_void:
+		case ltt_signed:
+		case ltt_unsigned:
 			break;
 		default:
 			done = true;
