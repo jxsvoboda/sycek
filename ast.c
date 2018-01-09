@@ -130,7 +130,7 @@ static int ast_module_print(ast_module_t *module, FILE *f)
  * @param sctype Storage class type
  * @param rsclass Place to store pointer to new storage class specifier
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_sclass_create(ast_sclass_type_t sctype,
     ast_sclass_t **rsclass)
@@ -196,7 +196,7 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
  * @param body Body or @c NULL
  * @param rfundef Place to store pointer to new function definition
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_fundef_create(ast_node_t *ftspec, ast_node_t *fdecl, ast_block_t *body,
     ast_fundef_t **rfundef)
@@ -262,7 +262,7 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
  * @param tspec Type specifier
  * @param rtypedef Place to store pointer to new type definition
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_typedef_create(ast_node_t *tspec, ast_typedef_t **rtypedef)
 {
@@ -379,7 +379,7 @@ static int ast_typedef_print(ast_typedef_t *atypedef, FILE *f)
  * @param braces Whether the block has braces or not
  * @param rblock Place to store pointer to new block
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_block_create(ast_braces_t braces, ast_block_t **rblock)
 {
@@ -478,7 +478,7 @@ static int ast_block_print(ast_block_t *block, FILE *f)
  *
  * @param rtsbuiltin Place to store pointer to new builtin type specifier
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsbuiltin_create(ast_tsbuiltin_t **rtsbuiltin)
 {
@@ -516,7 +516,7 @@ static int ast_tsbuiltin_print(ast_tsbuiltin_t *atsbuiltin, FILE *f)
  *
  * @param rtsident Place to store pointer to new identifier type specifier
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsident_create(ast_tsident_t **rtsident)
 {
@@ -555,7 +555,7 @@ static int ast_tsident_print(ast_tsident_t *atsident, FILE *f)
  * @param rtype Record type (struct or union)
  * @param rtsrecord Place to store pointer to new record type specifier
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsrecord_create(ast_rtype_t rtype, ast_tsrecord_t **rtsrecord)
 {
@@ -579,12 +579,12 @@ int ast_tsrecord_create(ast_rtype_t rtype, ast_tsrecord_t **rtsrecord)
  *
  * @param tsrecord Record type specifier
  * @param tspec Type specifier
- * @param decl Declarator
+ * @param dlist Declarator list
  * @param stmt Statement
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_node_t *tspec,
-    ast_node_t *decl, void *dscolon)
+    ast_dlist_t *dlist, void *dscolon)
 {
 	ast_tsrecord_elem_t *elem;
 
@@ -593,7 +593,7 @@ int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_node_t *tspec,
 		return ENOMEM;
 
 	elem->tspec = tspec;
-	elem->decl = decl;
+	elem->dlist = dlist;
 	elem->tscolon.data = dscolon;
 
 	elem->tsrecord = tsrecord;
@@ -668,7 +668,7 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
  *
  * @param rtsenum Place to store pointer to new enum type specifier
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsenum_create(ast_tsenum_t **rtsenum)
 {
@@ -784,7 +784,7 @@ static int ast_tsenum_print(ast_tsenum_t *tsenum, FILE *f)
  *
  * @param rdident Place to store pointer to new identifier declarator
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dident_create(ast_dident_t **rdident)
 {
@@ -822,7 +822,7 @@ static int ast_dident_print(ast_dident_t *adident, FILE *f)
  *
  * @param rdnoident Place to store pointer to new no-identifier declartor
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dnoident_create(ast_dnoident_t **rdnoident)
 {
@@ -860,7 +860,7 @@ static int ast_dnoident_print(ast_dnoident_t *adnoident, FILE *f)
  *
  * @param rdparen Place to store pointer to new parenthesized declarator
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dparen_create(ast_dparen_t **rdparen)
 {
@@ -898,7 +898,7 @@ static int ast_dparen_print(ast_dparen_t *adparen, FILE *f)
  *
  * @param rdptr Place to store pointer to new pointer declarator
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dptr_create(ast_dptr_t **rdptr)
 {
@@ -936,7 +936,7 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
  *
  * @param rdfun Place to store pointer to new function declarator
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dfun_create(ast_dfun_t **rdfun)
 {
@@ -1046,11 +1046,11 @@ static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 	return EOK;
 }
 
-/** Create AST arrat declarator.
+/** Create AST array declarator.
  *
  * @param rdarray Place to store pointer to new array declarator
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_darray_create(ast_darray_t **rdarray)
 {
@@ -1087,11 +1087,122 @@ static int ast_darray_print(ast_darray_t *darray, FILE *f)
 	return EOK;
 }
 
+/** Create AST declarator list.
+ *
+ * @param rdfun Place to store pointer to new declarator list
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_dlist_create(ast_dlist_t **rdlist)
+{
+	ast_dlist_t *dlist;
+
+	dlist = calloc(1, sizeof(ast_dlist_t));
+	if (dlist == NULL)
+		return ENOMEM;
+
+	list_initialize(&dlist->decls);
+
+	dlist->node.ext = dlist;
+	dlist->node.ntype = ant_dlist;
+
+	*rdlist = dlist;
+	return EOK;
+}
+
+/** Append entry to declarator list.
+ *
+ * @param dlist Declarator list
+ * @param dcomma Data for preceding comma token or @c NULL
+ * @param decl Declarator
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl)
+{
+	ast_dlist_entry_t *arg;
+
+	arg = calloc(1, sizeof(ast_dlist_entry_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->tcomma.data = dcomma;
+	arg->decl = decl;
+
+	arg->dlist = dlist;
+	list_append(&arg->ldlist, &dlist->decls);
+	return EOK;
+}
+
+/** Return first declarator list entry.
+ *
+ * @param dlist Declarator list
+ * @return First entry or @c NULL
+ */
+ast_dlist_entry_t *ast_dlist_first(ast_dlist_t *dlist)
+{
+	link_t *link;
+
+	link = list_first(&dlist->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_dlist_entry_t, ldlist);
+}
+
+/** Return next declarator list entry.
+ *
+ * @param arg Current entry
+ * @return Next entry or @c NULL
+ */
+ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *arg)
+{
+	link_t *link;
+
+	link = list_next(&arg->ldlist, &arg->dlist->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_dlist_entry_t, ldlist);
+}
+
+/** Print AST declarator list.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
+{
+	ast_dlist_entry_t *entry;
+
+	if (fprintf(f, "dlist(") < 0)
+		return EIO;
+
+	entry = ast_dlist_first(dlist);
+	while (entry != NULL) {
+		if (fprintf(f, "decl") < 0)
+			return EIO;
+
+		entry = ast_dlist_next(entry);
+
+		if (entry != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Create AST return.
  *
  * @param rreturn Place to store pointer to new return
  *
- * @return EOK on sucess, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int ast_return_create(ast_return_t **rreturn)
 {
@@ -1165,6 +1276,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_dfun_print((ast_dfun_t *)node->ext, f);
 	case ant_darray:
 		return ast_darray_print((ast_darray_t *)node->ext, f);
+	case ant_dlist:
+		return ast_dlist_print((ast_dlist_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
 	}

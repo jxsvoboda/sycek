@@ -48,7 +48,7 @@ extern ast_node_t *ast_block_next(ast_node_t *);
 extern int ast_tsbuiltin_create(ast_tsbuiltin_t **);
 extern int ast_tsident_create(ast_tsident_t **);
 extern int ast_tsrecord_create(ast_rtype_t, ast_tsrecord_t **);
-extern int ast_tsrecord_append(ast_tsrecord_t *, ast_node_t *, ast_node_t *,
+extern int ast_tsrecord_append(ast_tsrecord_t *, ast_node_t *, ast_dlist_t *,
     void *);
 extern ast_tsrecord_elem_t *ast_tsrecord_first(ast_tsrecord_t *);
 extern ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *);
@@ -65,6 +65,10 @@ extern int ast_dfun_append(ast_dfun_t *, ast_node_t *, ast_node_t *, void *);
 extern ast_dfun_arg_t *ast_dfun_first(ast_dfun_t *);
 extern ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *);
 extern int ast_darray_create(ast_darray_t **);
+extern int ast_dlist_create(ast_dlist_t **);
+extern int ast_dlist_append(ast_dlist_t *, void *, ast_node_t *);
+extern ast_dlist_entry_t *ast_dlist_first(ast_dlist_t *);
+extern ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *);
 extern int ast_return_create(ast_return_t **);
 extern int ast_tree_print(ast_node_t *, FILE *);
 extern void ast_tree_destroy(ast_node_t *);

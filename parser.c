@@ -34,6 +34,7 @@
 
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
+static int parser_process_dlist(parser_t *, ast_dlist_t **);
 
 /** Create parser.
  *
@@ -359,7 +360,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	void *dident;
 	void *dlbrace;
 	ast_node_t *tspec;
-	ast_node_t *decl;
+	ast_dlist_t *dlist;
 	void *dscolon;
 	void *drbrace;
 	int rc;
@@ -402,7 +403,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			rc = parser_process_decl(parser, &decl);
+			rc = parser_process_dlist(parser, &dlist);
 			if (rc != EOK)
 				goto error;
 
@@ -410,7 +411,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			rc = ast_tsrecord_append(precord, tspec, decl, dscolon);
+			rc = ast_tsrecord_append(precord, tspec, dlist, dscolon);
 			if (rc != EOK)
 				goto error;
 
@@ -859,6 +860,62 @@ static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 static int parser_process_decl(parser_t *parser, ast_node_t **rdecl)
 {
 	return parser_process_dptr(parser, rdecl);
+}
+
+/** Parse declarator list.
+ *
+ * @param parser Parser
+ * @param rdlist Place to store pointer to new declarator list
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dlist(parser_t *parser, ast_dlist_t **rdlist)
+{
+	lexer_toktype_t ltt;
+	ast_dlist_t *dlist;
+	ast_node_t *decl = NULL;
+	void *dcomma;
+	int rc;
+
+	rc = ast_dlist_create(&dlist);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_decl(parser, &decl);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_dlist_append(dlist, NULL, decl);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	while (ltt == ltt_comma) {
+		rc = parser_match(parser, ltt_comma, &dcomma);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_decl(parser, &decl);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_dlist_append(dlist, dcomma, decl);
+		if (rc != EOK)
+			goto error;
+
+		decl = NULL;
+
+		ltt = parser_next_ttype(parser);
+	}
+
+	*rdlist = dlist;
+	return EOK;
+error:
+	if (dlist != NULL)
+		ast_tree_destroy(&dlist->node);
+	if (decl != NULL)
+		ast_tree_destroy(decl);
+	return rc;
 }
 
 

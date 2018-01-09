@@ -554,6 +554,38 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 	return rc;
 }
 
+/** Run checks on a declarator list.
+ *
+ * @param mod Checker module
+ * @param tsrecord AST record type specifier
+ * @return EOK on success or error code
+ */
+static int checker_module_check_dlist(checker_module_t *mod,
+    ast_dlist_t *dlist)
+{
+	ast_dlist_entry_t *entry;
+	checker_tok_t *tcomma;
+	int rc;
+
+	entry = ast_dlist_first(dlist);
+	while (entry != NULL) {
+		tcomma = (checker_tok_t *)entry->tcomma.data;
+		if (tcomma != NULL) {
+			checker_module_check_nows_before(tcomma,
+			    "Unexpected whitespace before ','.");
+		}
+
+		rc = checker_module_check_decl(mod, entry->decl);
+		if (rc != EOK)
+			return rc;
+
+		entry = ast_dlist_next(entry);
+	}
+
+	return EOK;
+}
+
+
 /** Run checks on a record type specifier.
  *
  * @param mod Checker module
@@ -573,7 +605,7 @@ static int checker_module_check_tsrecord(checker_module_t *mod,
 		if (rc != EOK)
 			return rc;
 
-		rc = checker_module_check_decl(mod, elem->decl);
+		rc = checker_module_check_dlist(mod, elem->dlist);
 		if (rc != EOK)
 			return rc;
 

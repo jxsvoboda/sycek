@@ -41,6 +41,7 @@ typedef enum {
 	ant_dptr,
 	ant_dfun,
 	ant_darray,
+	ant_dlist,
 /*
 	ant_ident,
 	ant_expr,
@@ -151,8 +152,8 @@ typedef struct {
 	link_t ltsrecord;
 	/** Type specifier */
 	ast_node_t *tspec;
-	/** Declarator */
-	ast_node_t *decl;
+	/** Declarator list */
+	struct ast_dlist *dlist;
 	/** Semicolon token */
 	ast_tok_t tscolon;
 } ast_tsrecord_elem_t;
@@ -266,6 +267,26 @@ typedef struct {
 	/** Right bracket token */
 	ast_tok_t trbracket;
 } ast_darray_t;
+
+/** Declarator list */
+typedef struct ast_dlist {
+	/** Base object */
+	ast_node_t node;
+	/** Declarators */
+	list_t decls; /* of ast_decllist_entry_t */
+} ast_dlist_t;
+
+/** Declarator list entry */
+typedef struct {
+	/** Containing type definition */
+	ast_dlist_t *dlist;
+	/** Link to decllist->decls */
+	link_t ldlist;
+	/** Preceding comma token (if not the first entry */
+	ast_tok_t tcomma;
+	/** Declarator */
+	ast_node_t *decl;
+} ast_dlist_entry_t;
 
 /** Pointer type */
 typedef struct {
