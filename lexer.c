@@ -286,7 +286,9 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 	lexer_get_pos(lexer, &tok->bpos);
 
 	p = lexer_chars(lexer);
-	while (p[1] != '\n') {
+
+	/* Preprocessor frament ends with newline, except for backslash-newline */
+	while (p[1] != '\n' || p[0] == '\\') {
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			lexer_free_tok(tok);
