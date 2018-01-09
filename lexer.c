@@ -98,6 +98,17 @@ static bool is_alnum(char c)
 	return is_alpha(c) || is_num(c);
 }
 
+/** Determine if character is a hexadecimal digit
+ *
+ * @param c Character
+ *
+ * @return @c true if @a c is a hexadecimal digit, @c false otherwise
+ */
+static bool is_hexdigit(char c)
+{
+	return is_num(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+}
+
 /** Determine if character can begin a C identifier
  *
  * @param c Character
@@ -466,7 +477,9 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 
 	lexer_get_pos(lexer, &tok->bpos);
 	p = lexer_chars(lexer);
-	while (is_num(p[1])) {
+
+	if (p[1] == 'x' || p[1] == 'X') {
+		/* Hexadecimal constant */
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			lexer_free_tok(tok);
@@ -474,7 +487,28 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 		}
 
 		p = lexer_chars(lexer);
+		while (is_hexdigit(p[1])) {
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
+	} else {
+		/* Octal or decimal constant */
+		while (is_num(p[1])) {
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
 	}
+
 	lexer_get_pos(lexer, &tok->epos);
 	rc = lexer_advance(lexer, 1, tok);
 	if (rc != EOK) {
