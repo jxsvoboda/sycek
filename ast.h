@@ -64,6 +64,7 @@ extern int ast_dfun_create(ast_dfun_t **);
 extern int ast_dfun_append(ast_dfun_t *, ast_node_t *, ast_node_t *, void *);
 extern ast_dfun_arg_t *ast_dfun_first(ast_dfun_t *);
 extern ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *);
+extern int ast_darray_create(ast_darray_t **);
 extern int ast_return_create(ast_return_t **);
 extern int ast_tree_print(ast_node_t *, FILE *);
 extern void ast_tree_destroy(ast_node_t *);

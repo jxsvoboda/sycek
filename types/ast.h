@@ -40,6 +40,7 @@ typedef enum {
 	ant_dparen,
 	ant_dptr,
 	ant_dfun,
+	ant_darray,
 /*
 	ant_ident,
 	ant_expr,
@@ -251,6 +252,20 @@ typedef struct {
 	/** Comma token (except for last argument) */
 	ast_tok_t tcomma;
 } ast_dfun_arg_t;
+
+/** Array declarator */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Base declarator */
+	ast_node_t *bdecl;
+	/** Left bracket token */
+	ast_tok_t tlbracket;
+	/** Size token */
+	ast_tok_t tsize;
+	/** Right bracket token */
+	ast_tok_t trbracket;
+} ast_darray_t;
 
 /** Pointer type */
 typedef struct {

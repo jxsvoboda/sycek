@@ -45,6 +45,8 @@ typedef enum {
 	ltt_rparen,
 	ltt_lbrace,
 	ltt_rbrace,
+	ltt_lbracket,
+	ltt_rbracket,
 	ltt_comma,
 	ltt_scolon,
 	ltt_asterisk,

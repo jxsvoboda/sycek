@@ -633,7 +633,7 @@ ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *elem)
 	return list_get_instance(link, ast_tsrecord_elem_t, ltsrecord);
 }
 
-/** Print AST block.
+/** Print AST record type specifier.
  *
  * @param block Block
  * @param f Output file
@@ -747,7 +747,7 @@ ast_tsenum_elem_t *ast_tsenum_next(ast_tsenum_elem_t *elem)
 	return list_get_instance(link, ast_tsenum_elem_t, ltsenum);
 }
 
-/** Print AST block.
+/** Print AST enum type specifier.
  *
  * @param block Block
  * @param f Output file
@@ -1013,7 +1013,7 @@ ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *arg)
 	return list_get_instance(link, ast_dfun_arg_t, ldfun);
 }
 
-/** Print AST block.
+/** Print AST function declarator.
  *
  * @param block Block
  * @param f Output file
@@ -1046,6 +1046,46 @@ static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 	return EOK;
 }
 
+/** Create AST arrat declarator.
+ *
+ * @param rdarray Place to store pointer to new array declarator
+ *
+ * @return EOK on sucess, ENOMEM if out of memory
+ */
+int ast_darray_create(ast_darray_t **rdarray)
+{
+	ast_darray_t *darray;
+
+	darray = calloc(1, sizeof(ast_darray_t));
+	if (darray == NULL)
+		return ENOMEM;
+
+	darray->node.ext = darray;
+	darray->node.ntype = ant_darray;
+
+	*rdarray = darray;
+	return EOK;
+}
+
+/** Print AST function declarator.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_darray_print(ast_darray_t *darray, FILE *f)
+{
+	(void) darray;
+
+	if (fprintf(f, "darray(") < 0)
+		return EIO;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
 
 /** Create AST return.
  *
@@ -1123,6 +1163,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_dptr_print((ast_dptr_t *)node->ext, f);
 	case ant_dfun:
 		return ast_dfun_print((ast_dfun_t *)node->ext, f);
+	case ant_darray:
+		return ast_darray_print((ast_darray_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
 	}

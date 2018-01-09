@@ -622,7 +622,7 @@ static int parser_process_dident(parser_t *parser, ast_node_t **rdecl)
 /** Parse possible parenthesized declarator.
  *
  * @param parser Parser
- * @param rdecl Place to store pointer to new AST parenthesized declarator
+ * @param rdecl Place to store pointer to new AST declarator
  *
  * @return EOK on success or non-zero error code
  */
@@ -667,11 +667,71 @@ error:
 	return rc;
 }
 
+/** Parse possible array declarator.
+ *
+ * @param parser Parser
+ * @param rdecl Place to store pointer to new AST declarator
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
+{
+	ast_darray_t *darray = NULL;
+	ast_node_t *bdecl = NULL;
+	lexer_toktype_t ltt;
+	void *dlbracket;
+	void *dsize;
+	void *drbracket;
+	int rc;
+
+	rc = ast_darray_create(&darray);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_dparen(parser, &bdecl);
+	if (rc != EOK)
+		goto error;
+
+	darray->bdecl = bdecl;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_lbracket) {
+		*rdecl = bdecl;
+		return EOK;
+	}
+
+	parser_skip(parser, &dlbracket);
+	darray->tlbracket.data = dlbracket;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_ident && ltt != ltt_number) {
+		fprintf(stderr, "Error: ");
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected number or identifier.\n");
+		return EINVAL;
+	}
+
+	parser_skip(parser, &dsize);
+	darray->tsize.data = dsize;
+
+	rc = parser_match(parser, ltt_rbracket, &drbracket);
+	if (rc != EOK)
+		goto error;
+
+	darray->trbracket.data = drbracket;
+
+	*rdecl = &darray->node;
+	return EOK;
+error:
+	if (darray != NULL)
+		ast_tree_destroy(&darray->node);
+	return rc;
+}
 
 /** Parse possible function declarator.
  *
  * @param parser Parser
- * @param rdecl Place to store pointer to new AST function declarator
+ * @param rdecl Place to store pointer to new AST declarator
  *
  * @return EOK on success or non-zero error code
  */
@@ -691,7 +751,7 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_dparen(parser, &bdecl);
+	rc = parser_process_darray(parser, &bdecl);
 	if (rc != EOK)
 		goto error;
 
@@ -748,10 +808,11 @@ error:
 		ast_tree_destroy(&dfun->node);
 	return rc;
 }
+
 /** Parse possible pointer declarator.
  *
  * @param parser Parser
- * @param rdecl Place to store pointer to new AST pointer declarator
+ * @param rdecl Place to store pointer to new AST declarator
  *
  * @return EOK on success or non-zero error code
  */

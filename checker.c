@@ -490,6 +490,34 @@ static int checker_module_check_dfun(checker_module_t *mod, ast_dfun_t *dfun)
 	return EOK;
 }
 
+/** Run checks on an array declarator.
+ *
+ * @param mod Checker module
+ * @param dfun AST array declarator
+ * @return EOK on success or error code
+ */
+static int checker_module_check_darray(checker_module_t *mod,
+    ast_darray_t *darray)
+{
+	checker_tok_t *tlbracket;
+	checker_tok_t *trbracket;
+	int rc;
+
+	rc = checker_module_check_decl(mod, darray->bdecl);
+	if (rc != EOK)
+		return rc;
+
+	tlbracket = (checker_tok_t *)darray->tlbracket.data;
+	checker_module_check_nows_after(tlbracket,
+	    "Unexpected whitespace after '['.");
+
+	trbracket = (checker_tok_t *)darray->trbracket.data;
+	checker_module_check_nows_before(trbracket,
+	    "Unexpected whitespace before ']'.");
+
+	return EOK;
+}
+
 /** Run checks on a declarator.
  *
  * @param mod Checker module
@@ -513,6 +541,9 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 		break;
 	case ant_dfun:
 		rc = checker_module_check_dfun(mod, (ast_dfun_t *)decl->ext);
+		break;
+	case ant_darray:
+		rc = checker_module_check_darray(mod, (ast_darray_t *)decl->ext);
 		break;
 	default:
 		assert(false);
