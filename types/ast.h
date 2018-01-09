@@ -367,23 +367,11 @@ typedef struct {
 	ast_node_t node;
 	/** Type specifier */
 	ast_node_t *tspec;
-	/** Declarators */
-	list_t decls; /* of ast_typedef_decl_t */
+	/** Declarator list */
+	ast_dlist_t *dlist;
 	/** Trailing ';' token */
 	ast_tok_t tscolon;
 } ast_typedef_t;
-
-/** Typedef declarator entry */
-typedef struct {
-	/** Containing type definition */
-	ast_typedef_t *atypedef;
-	/** Link to atypedef->decls */
-	link_t ltypedef;
-	/** Preceding comma token (if not the first entry */
-	ast_tok_t tcomma;
-	/** Declarator */
-	ast_node_t *decl;
-} ast_typedef_decl_t;
 
 /** Module.
  *

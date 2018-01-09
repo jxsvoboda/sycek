@@ -1024,12 +1024,10 @@ static int parser_process_fundef(parser_t *parser, ast_node_t *ftspec,
  */
 static int parser_process_typedef(parser_t *parser, ast_node_t **rnode)
 {
-	lexer_toktype_t ltt;
-	ast_typedef_t *atypedef;
+	ast_typedef_t *atypedef = NULL;
 	void *dtypedef;
 	ast_node_t *tspec = NULL;
-	ast_node_t *tdecl = NULL;
-	void *dcomma;
+	ast_dlist_t *dlist = NULL;
 	void *dscolon;
 	int rc;
 
@@ -1039,34 +1037,16 @@ static int parser_process_typedef(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = ast_typedef_create(tspec, &atypedef);
+	rc = parser_process_dlist(parser, &dlist);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_decl(parser, &tdecl);
+	rc = ast_typedef_create(tspec, dlist, &atypedef);
 	if (rc != EOK)
 		goto error;
 
-	rc = ast_typedef_append(atypedef, NULL, tdecl);
-	if (rc != EOK)
-		goto error;
-
-	ltt = parser_next_ttype(parser);
-	while (ltt == ltt_comma) {
-		rc = parser_match(parser, ltt_comma, &dcomma);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_process_decl(parser, &tdecl);
-		if (rc != EOK)
-			goto error;
-
-		rc = ast_typedef_append(atypedef, dcomma, tdecl);
-		if (rc != EOK)
-			goto error;
-
-		ltt = parser_next_ttype(parser);
-	}
+	tspec = NULL;
+	dlist = NULL;
 
 	rc = parser_match(parser, ltt_scolon, &dscolon);
 	if (rc != EOK)
@@ -1079,8 +1059,10 @@ static int parser_process_typedef(parser_t *parser, ast_node_t **rnode)
 error:
 	if (tspec != NULL)
 		ast_tree_destroy(tspec);
-	if (tdecl != NULL)
-		ast_tree_destroy(tdecl);
+	if (dlist != NULL)
+		ast_tree_destroy(&dlist->node);
+	if (atypedef != NULL)
+		ast_tree_destroy(&atypedef->node);
 	return rc;
 }
 

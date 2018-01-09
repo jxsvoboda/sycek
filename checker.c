@@ -755,10 +755,8 @@ static int checker_module_check_gdecln(checker_module_t *mod, ast_node_t *decl)
  */
 static int checker_module_check_typedef(checker_module_t *mod, ast_node_t *decln)
 {
-	checker_tok_t *tcomma;
 	checker_tok_t *tscolon;
 	ast_typedef_t *atypedef;
-	ast_typedef_decl_t *decl;
 	int rc;
 
 	assert(decln->ntype == ant_typedef);
@@ -768,21 +766,9 @@ static int checker_module_check_typedef(checker_module_t *mod, ast_node_t *decln
 	if (rc != EOK)
 		return rc;
 
-	decl = ast_typedef_first(atypedef);
-	while (decl != NULL) {
-		tcomma = (checker_tok_t *)decl->tcomma.data;
-		/* Note: declarators have a preceding comma except for the first */
-		if (tcomma != NULL) {
-			checker_module_check_nows_before(tcomma,
-			    "Unexpected whitespace before ','.");
-		}
-
-		rc = checker_module_check_decl(mod, decl->decl);
-		if (rc != EOK)
-			return rc;
-
-		decl = ast_typedef_next(decl);
-	}
+	rc = checker_module_check_dlist(mod, atypedef->dlist);
+	if (rc != EOK)
+		return rc;
 
 	tscolon = (checker_tok_t *)atypedef->tscolon.data;
 	checker_module_check_nows_before(tscolon,
