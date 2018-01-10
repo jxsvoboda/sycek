@@ -36,8 +36,8 @@
 
 static void checker_parser_get_tok(void *, lexer_tok_t *);
 static void *checker_parser_tok_data(void *, lexer_tok_t *);
-static int checker_module_check_decl(checker_module_t *, ast_node_t *);
-static int checker_module_check_tspec(checker_module_t *, ast_node_t *);
+static int checker_check_decl(checker_scope_t *, ast_node_t *);
+static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.get_tok = checker_parser_get_tok,
@@ -207,7 +207,7 @@ static checker_tok_t *checker_module_first_tok(checker_module_t *mod)
  * @param tok Current token or @c NULL
  * @return Next token or @c NULL
  */
-static checker_tok_t *checker_module_next_tok(checker_tok_t *tok)
+static checker_tok_t *checker_next_tok(checker_tok_t *tok)
 {
 	link_t *link;
 
@@ -226,7 +226,7 @@ static checker_tok_t *checker_module_next_tok(checker_tok_t *tok)
  * @param tok Current token or @c NULL
  * @return Previous token or @c NULL
  */
-static checker_tok_t *checker_module_prev_tok(checker_tok_t *tok)
+static checker_tok_t *checker_prev_tok(checker_tok_t *tok)
 {
 	link_t *link;
 
@@ -244,11 +244,14 @@ static checker_tok_t *checker_module_prev_tok(checker_tok_t *tok)
  *
  * The token must be at the beginning of the line and indented appropriately
  */
-static void checker_module_check_lbegin(checker_tok_t *tok, const char *msg)
+static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
+    const char *msg)
 {
 	checker_tok_t *p;
 
-	p = checker_module_prev_tok(tok);
+	tok->indlvl = scope->indlvl;
+
+	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
 	if (p->tok.ttype != ltt_wspace) {
@@ -261,13 +264,15 @@ static void checker_module_check_lbegin(checker_tok_t *tok, const char *msg)
  *
  * There should be non-whitespace before the token
  */
-static void checker_module_check_nows_before(checker_tok_t *tok,
-    const char *msg)
+static void checker_check_nows_before(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
 
+	tok->indlvl = scope->indlvl;
+
 	assert(tok != NULL);
-	p = checker_module_prev_tok(tok);
+	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
 	if (p->tok.ttype == ltt_wspace) {
@@ -280,13 +285,15 @@ static void checker_module_check_nows_before(checker_tok_t *tok,
  *
  * There should be non-whitespace after the token
  */
-static void checker_module_check_nows_after(checker_tok_t *tok,
-    const char *msg)
+static void checker_check_nows_after(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
 
+	tok->indlvl = scope->indlvl;
+
 	assert(tok != NULL);
-	p = checker_module_next_tok(tok);
+	p = checker_next_tok(tok);
 	assert(p != NULL);
 
 	if (p->tok.ttype == ltt_wspace) {
@@ -299,10 +306,11 @@ static void checker_module_check_nows_after(checker_tok_t *tok,
  *
  * There should be either non-whitespace or a line break before the token. */
 #if 0
-static void checker_module_check_nsbrk_before(checker_tok_t *tok,
-    const char *msg)
+static void checker_check_nsbrk_before(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
 {
-	(void)tok; (void)msg;
+	tok->indlvl = scope->indlvl;
+	(void)msg;
 }
 #endif
 
@@ -312,10 +320,11 @@ static void checker_module_check_nsbrk_before(checker_tok_t *tok,
  * If there is a line break, the token must be indented appropriately.
  */
 #if 0
-static void checker_module_check_brkspace_before(checker_tok_t *tok,
-    const char *msg)
+static void checker_check_brkspace_before(checker_scope_t *scope,
+    hecker_tok_t *tok, const char *msg)
 {
-	(void)tok; (void)msg;
+	tok->indlvl = scope->indlvl;
+	(void)msg;
 }
 #endif
 
@@ -323,19 +332,68 @@ static void checker_module_check_brkspace_before(checker_tok_t *tok,
  *
  * There should be a single space before the token
  */
-static void checker_module_check_nbspace_before(checker_tok_t *tok,
-    const char *msg)
+static void checker_check_nbspace_before(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
 
+	tok->indlvl = scope->indlvl;
+
 	assert(tok != NULL);
-	p = checker_module_prev_tok(tok);
+	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
 	if (p->tok.ttype != ltt_wspace) {
 		lexer_dprint_tok(&p->tok, stdout);
 		printf(": %s\n", msg);
 	}
+}
+
+/** Create top-level checker scope.
+ *
+ * @param mod Checker module
+ * @return New scope or @c NULL if out of memory
+ */
+static checker_scope_t *checker_scope_toplvl(checker_module_t *mod)
+{
+	checker_scope_t *tscope;
+
+	tscope = calloc(1, sizeof(checker_scope_t));
+	if (tscope == NULL)
+		return NULL;
+
+	tscope->mod = mod;
+	tscope->indlvl = 0;
+
+	return tscope;
+}
+
+/** Create nested scope.
+ *
+ * @param scope Containing scope
+ * @return New scope or @c NULL if out of memory
+ */
+static checker_scope_t *checker_scope_nested(checker_scope_t *scope)
+{
+	checker_scope_t *nscope;
+
+	nscope = calloc(1, sizeof(checker_scope_t));
+	if (nscope == NULL)
+		return NULL;
+
+	nscope->mod = scope->mod;
+	nscope->indlvl = scope->indlvl + 1;
+
+	return nscope;
+}
+
+/** Destroy scope.
+ *
+ * @param scope Checker scope
+ */
+static void checker_scope_destroy(checker_scope_t *scope)
+{
+	free(scope);
 }
 
 /** Parse a module.
@@ -377,26 +435,24 @@ static int checker_module_parse(checker_module_t *mod)
 
 /** Run checks on a statement.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param stmt AST statement
  * @return EOK on success or error code
  */
-static int checker_module_check_stmt(checker_module_t *mod, ast_node_t *stmt)
+static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 {
 	checker_tok_t *treturn;
 	checker_tok_t *tscolon;
 	ast_return_t *areturn;
-
-	(void)mod;
 
 	assert(stmt->ntype == ant_return);
 	areturn = (ast_return_t *)stmt->ext;
 	treturn = (checker_tok_t *)areturn->treturn.data;
 	tscolon = (checker_tok_t *)areturn->tscolon.data;
 
-	checker_module_check_lbegin(treturn,
+	checker_check_lbegin(scope, treturn,
 	    "Statement must start on a new line.");
-	checker_module_check_nows_before(tscolon,
+	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
 	return EOK;
@@ -404,51 +460,50 @@ static int checker_module_check_stmt(checker_module_t *mod, ast_node_t *stmt)
 
 /** Run checks on a parenthesized declarator.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param dparen AST parenthesized declarator
  * @return EOK on success or error code
  */
-static int checker_module_check_dparen(checker_module_t *mod,
-    ast_dparen_t *dparen)
+static int checker_check_dparen(checker_scope_t *scope, ast_dparen_t *dparen)
 {
 	checker_tok_t *tlparen;
 	checker_tok_t *trparen;
 
 	tlparen = (checker_tok_t *)dparen->tlparen.data;
-	checker_module_check_nows_after(tlparen,
+	checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
 
 	trparen = (checker_tok_t *)dparen->trparen.data;
-	checker_module_check_nows_before(trparen,
+	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
 
-	return checker_module_check_decl(mod, dparen->bdecl);
+	return checker_check_decl(scope, dparen->bdecl);
 }
 
 /** Run checks on a pointer declarator.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param dptr AST pointer declarator
  * @return EOK on success or error code
  */
-static int checker_module_check_dptr(checker_module_t *mod, ast_dptr_t *dptr)
+static int checker_check_dptr(checker_scope_t *scope, ast_dptr_t *dptr)
 {
 	checker_tok_t *tasterisk;
 
 	tasterisk = (checker_tok_t *)dptr->tasterisk.data;
-	checker_module_check_nows_after(tasterisk,
+	checker_check_nows_after(scope, tasterisk,
 	    "Unexpected whitespace after '*'.");
 
-	return checker_module_check_decl(mod, dptr->bdecl);
+	return checker_check_decl(scope, dptr->bdecl);
 }
 
 /** Run checks on a function declarator.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param dfun AST function declarator
  * @return EOK on success or error code
  */
-static int checker_module_check_dfun(checker_module_t *mod, ast_dfun_t *dfun)
+static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 {
 	checker_tok_t *tlparen;
 	ast_dfun_arg_t *arg;
@@ -456,27 +511,27 @@ static int checker_module_check_dfun(checker_module_t *mod, ast_dfun_t *dfun)
 	checker_tok_t *trparen;
 	int rc;
 
-	rc = checker_module_check_decl(mod, dfun->bdecl);
+	rc = checker_check_decl(scope, dfun->bdecl);
 	if (rc != EOK)
 		return rc;
 
 	tlparen = (checker_tok_t *)dfun->tlparen.data;
-	checker_module_check_nows_after(tlparen,
+	checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = checker_module_check_tspec(mod, arg->tspec);
+		rc = checker_check_tspec(scope, arg->tspec);
 		if (rc != EOK)
 			return rc;
 
-		rc = checker_module_check_decl(mod, arg->decl);
+		rc = checker_check_decl(scope, arg->decl);
 		if (rc != EOK)
 			return rc;
 
 		tcomma = (checker_tok_t *)arg->tcomma.data;
 		if (tcomma != NULL) {
-			checker_module_check_nows_before(tcomma,
+			checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
 		}
 
@@ -484,7 +539,7 @@ static int checker_module_check_dfun(checker_module_t *mod, ast_dfun_t *dfun)
 	}
 
 	trparen = (checker_tok_t *)dfun->trparen.data;
-	checker_module_check_nows_before(trparen,
+	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
 
 	return EOK;
@@ -492,27 +547,27 @@ static int checker_module_check_dfun(checker_module_t *mod, ast_dfun_t *dfun)
 
 /** Run checks on an array declarator.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param dfun AST array declarator
  * @return EOK on success or error code
  */
-static int checker_module_check_darray(checker_module_t *mod,
+static int checker_check_darray(checker_scope_t *scope,
     ast_darray_t *darray)
 {
 	checker_tok_t *tlbracket;
 	checker_tok_t *trbracket;
 	int rc;
 
-	rc = checker_module_check_decl(mod, darray->bdecl);
+	rc = checker_check_decl(scope, darray->bdecl);
 	if (rc != EOK)
 		return rc;
 
 	tlbracket = (checker_tok_t *)darray->tlbracket.data;
-	checker_module_check_nows_after(tlbracket,
+	checker_check_nows_after(scope, tlbracket,
 	    "Unexpected whitespace after '['.");
 
 	trbracket = (checker_tok_t *)darray->trbracket.data;
-	checker_module_check_nows_before(trbracket,
+	checker_check_nows_before(scope, trbracket,
 	    "Unexpected whitespace before ']'.");
 
 	return EOK;
@@ -520,11 +575,11 @@ static int checker_module_check_darray(checker_module_t *mod,
 
 /** Run checks on a declarator.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param decl AST declarator
  * @return EOK on success or error code
  */
-static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
+static int checker_check_decl(checker_scope_t *scope, ast_node_t *decl)
 {
 	int rc;
 
@@ -534,16 +589,16 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 		rc = EOK;
 		break;
 	case ant_dparen:
-		rc = checker_module_check_dparen(mod, (ast_dparen_t *)decl->ext);
+		rc = checker_check_dparen(scope, (ast_dparen_t *)decl->ext);
 		break;
 	case ant_dptr:
-		rc = checker_module_check_dptr(mod, (ast_dptr_t *)decl->ext);
+		rc = checker_check_dptr(scope, (ast_dptr_t *)decl->ext);
 		break;
 	case ant_dfun:
-		rc = checker_module_check_dfun(mod, (ast_dfun_t *)decl->ext);
+		rc = checker_check_dfun(scope, (ast_dfun_t *)decl->ext);
 		break;
 	case ant_darray:
-		rc = checker_module_check_darray(mod, (ast_darray_t *)decl->ext);
+		rc = checker_check_darray(scope, (ast_darray_t *)decl->ext);
 		break;
 	default:
 		assert(false);
@@ -556,12 +611,11 @@ static int checker_module_check_decl(checker_module_t *mod, ast_node_t *decl)
 
 /** Run checks on a declarator list.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param tsrecord AST record type specifier
  * @return EOK on success or error code
  */
-static int checker_module_check_dlist(checker_module_t *mod,
-    ast_dlist_t *dlist)
+static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 {
 	ast_dlist_entry_t *entry;
 	checker_tok_t *tcomma;
@@ -571,11 +625,11 @@ static int checker_module_check_dlist(checker_module_t *mod,
 	while (entry != NULL) {
 		tcomma = (checker_tok_t *)entry->tcomma.data;
 		if (tcomma != NULL) {
-			checker_module_check_nows_before(tcomma,
+			checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
 		}
 
-		rc = checker_module_check_decl(mod, entry->decl);
+		rc = checker_check_decl(scope, entry->decl);
 		if (rc != EOK)
 			return rc;
 
@@ -588,45 +642,67 @@ static int checker_module_check_dlist(checker_module_t *mod,
 
 /** Run checks on a record type specifier.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param tsrecord AST record type specifier
  * @return EOK on success or error code
  */
-static int checker_module_check_tsrecord(checker_module_t *mod,
+static int checker_check_tsrecord(checker_scope_t *scope,
     ast_tsrecord_t *tsrecord)
 {
+	checker_tok_t *tlbrace;
 	ast_tsrecord_elem_t *elem;
+	checker_tok_t *trbrace;
 	checker_tok_t *tscolon;
+	checker_scope_t *escope;
 	int rc;
+
+	escope = checker_scope_nested(scope);
+	if (escope == NULL)
+		return ENOMEM;
+
+	tlbrace = (checker_tok_t *)tsrecord->tlbrace.data;
+	if (tlbrace != NULL) {
+		checker_check_nbspace_before(scope, tlbrace,
+		    "Expected single space before '{'.");
+	}
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = checker_module_check_tspec(mod, elem->tspec);
+		rc = checker_check_tspec(escope, elem->tspec);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
-		rc = checker_module_check_dlist(mod, elem->dlist);
+		rc = checker_check_dlist(escope, elem->dlist);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		tscolon = (checker_tok_t *)elem->tscolon.data;
-		checker_module_check_nows_before(tscolon,
+		checker_check_nows_before(escope, tscolon,
 		    "Unexpected whitespace before ';'.");
 
 		elem = ast_tsrecord_next(elem);
 	}
 
+	trbrace = (checker_tok_t *)tsrecord->trbrace.data;
+	if (trbrace != NULL) {
+		checker_check_lbegin(scope, trbrace,
+		    "'}' must begin on a new line.");
+	}
+
+	checker_scope_destroy(escope);
 	return EOK;
+error:
+	checker_scope_destroy(escope);
+	return rc;
 }
 
 /** Run checks on an enum type specifier.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param tsenum AST enum type specifier
  * @return EOK on success or error code
  */
-static int checker_module_check_tsenum(checker_module_t *mod,
-    ast_tsenum_t *tsenum)
+static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 {
 	ast_tsenum_elem_t *elem;
 	checker_tok_t *tlbrace;
@@ -635,34 +711,37 @@ static int checker_module_check_tsenum(checker_module_t *mod,
 	checker_tok_t *tinit;
 	checker_tok_t *tcomma;
 	checker_tok_t *trbrace;
+	checker_scope_t *escope;
 
-	(void) mod;
+	escope = checker_scope_nested(scope);
+	if (escope == NULL)
+		return ENOMEM;
 
 	tlbrace = (checker_tok_t *)tsenum->tlbrace.data;
 	if (tlbrace != NULL) {
-		checker_module_check_nbspace_before(tlbrace,
+		checker_check_nbspace_before(scope, tlbrace,
 		    "Expected single space before '{'.");
 	}
 
 	elem = ast_tsenum_first(tsenum);
 	while (elem != NULL) {
 		telem = (checker_tok_t *)elem->tident.data;
-		checker_module_check_lbegin(telem,
+		checker_check_lbegin(escope, telem,
 		    "Enum field must begin on a new line.");
 
 		tequals = (checker_tok_t *)elem->tequals.data;
 		if (tequals != NULL) {
-			checker_module_check_nbspace_before(tequals,
+			checker_check_nbspace_before(escope, tequals,
 			    "Expected space before '='.");
 
 			tinit = (checker_tok_t *)elem->tinit.data;
-			checker_module_check_nbspace_before(tinit,
+			checker_check_nbspace_before(escope, tinit,
 			    "Expected whitespace before initializer.");
 		}
 
 		tcomma = (checker_tok_t *)elem->tcomma.data;
 		if (tcomma != NULL) {
-			checker_module_check_nows_before(tcomma,
+			checker_check_nows_before(escope, tcomma,
 			    "Unexpected whitespace before ','.");
 		}
 
@@ -671,20 +750,21 @@ static int checker_module_check_tsenum(checker_module_t *mod,
 
 	trbrace = (checker_tok_t *)tsenum->trbrace.data;
 	if (trbrace != NULL) {
-		checker_module_check_lbegin(tlbrace,
-		    "'{' must begin on a new line.");
+		checker_check_lbegin(scope, trbrace,
+		    "'}' must begin on a new line.");
 	}
 
+	checker_scope_destroy(escope);
 	return EOK;
 }
 
 /** Run checks on a type specifier.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param tspec AST type specifier
  * @return EOK on success or error code
  */
-static int checker_module_check_tspec(checker_module_t *mod, ast_node_t *tspec)
+static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 {
 	int rc;
 
@@ -694,10 +774,10 @@ static int checker_module_check_tspec(checker_module_t *mod, ast_node_t *tspec)
 		rc = EOK;
 		break;
 	case ant_tsrecord:
-		rc = checker_module_check_tsrecord(mod, (ast_tsrecord_t *)tspec->ext);
+		rc = checker_check_tsrecord(scope, (ast_tsrecord_t *)tspec->ext);
 		break;
 	case ant_tsenum:
-		rc = checker_module_check_tsenum(mod, (ast_tsenum_t *)tspec->ext);
+		rc = checker_check_tsenum(scope, (ast_tsenum_t *)tspec->ext);
 		break;
 	default:
 		assert(false);
@@ -711,18 +791,17 @@ static int checker_module_check_tspec(checker_module_t *mod, ast_node_t *tspec)
 
 /** Run checks on a global declaration.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param decl AST declaration
  * @return EOK on success or error code
  */
-static int checker_module_check_gdecln(checker_module_t *mod, ast_node_t *decl)
+static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 {
 	int rc;
 	ast_node_t *stmt;
 	ast_fundef_t *fundef;
 	checker_tok_t *tscolon;
-
-	(void)mod;
+	checker_scope_t *bscope = NULL;
 
 	if (0) printf("Check function declaration\n");
 	assert(decl->ntype == ant_fundef);
@@ -730,30 +809,39 @@ static int checker_module_check_gdecln(checker_module_t *mod, ast_node_t *decl)
 
 	if (fundef->body == NULL) {
 		tscolon = (checker_tok_t *)fundef->tscolon.data;
-		checker_module_check_nows_before(tscolon,
+		checker_check_nows_before(scope, tscolon,
 		    "Unexpected whitespace before ';'.");
 		return EOK;
 	}
 
+	bscope = checker_scope_nested(scope);
+	if (bscope == NULL)
+		return ENOMEM;
+
 	stmt = ast_block_first(fundef->body);
 	while (stmt != NULL) {
-		rc = checker_module_check_stmt(mod, stmt);
+		rc = checker_check_stmt(bscope, stmt);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		stmt = ast_block_next(stmt);
 	}
 
+	checker_scope_destroy(bscope);
 	return EOK;
+error:
+	if (bscope != NULL)
+		checker_scope_destroy(bscope);
+	return rc;
 }
 
 /** Run checks on a type definition.
  *
- * @param mod Checker module
+ * @param scope Checker scope
  * @param decl AST declaration
  * @return EOK on success or error code
  */
-static int checker_module_check_typedef(checker_module_t *mod, ast_node_t *decln)
+static int checker_check_typedef(checker_scope_t *scope, ast_node_t *decln)
 {
 	checker_tok_t *tscolon;
 	ast_typedef_t *atypedef;
@@ -762,16 +850,16 @@ static int checker_module_check_typedef(checker_module_t *mod, ast_node_t *decln
 	assert(decln->ntype == ant_typedef);
 	atypedef = (ast_typedef_t *)decln->ext;
 
-	rc = checker_module_check_tspec(mod, atypedef->tspec);
+	rc = checker_check_tspec(scope, atypedef->tspec);
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_module_check_dlist(mod, atypedef->dlist);
+	rc = checker_check_dlist(scope, atypedef->dlist);
 	if (rc != EOK)
 		return rc;
 
 	tscolon = (checker_tok_t *)atypedef->tscolon.data;
-	checker_module_check_nows_before(tscolon,
+	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
 	return EOK;
@@ -786,28 +874,48 @@ static int checker_module_check(checker_module_t *mod)
 {
 	int rc;
 	ast_node_t *decl;
+	checker_scope_t *scope;
 
 	if (0) printf("Check module\n");
+
+	scope = checker_scope_toplvl(mod);
+	if (scope == NULL)
+		return ENOMEM;
+
 	decl = ast_module_first(mod->ast);
 	while (decl != NULL) {
 		switch (decl->ntype) {
 		case ant_fundef:
-			rc = checker_module_check_gdecln(mod, decl);
+			rc = checker_check_gdecln(scope, decl);
 			break;
 		case ant_typedef:
-			rc = checker_module_check_typedef(mod, decl);
+			rc = checker_check_typedef(scope, decl);
 			break;
 		default:
 			assert(false);
 			break;
 		}
 
-		if (rc != EOK)
+		if (rc != EOK) {
+			checker_scope_destroy(scope);
 			return rc;
+		}
 
 		decl = ast_module_next(decl);
 	}
 
+	checker_scope_destroy(scope);
+	return EOK;
+}
+
+/** Check line breaks, indentation and end-of-line whitespace.
+ *
+ * @param mod Checker module
+ * @return EOK on success or error code
+ */
+static int checker_module_lines(checker_module_t *mod)
+{
+	(void) mod;
 	return EOK;
 }
 
@@ -831,6 +939,10 @@ int checker_run(checker_t *checker)
 		rc = checker_module_check(checker->mod);
 		if (rc != EOK)
 			return rc;
+
+		rc = checker_module_lines(checker->mod);
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -850,7 +962,7 @@ static void checker_parser_get_tok(void *arg, lexer_tok_t *tok)
 	tok->udata = pinput->tok;
 
 	if (tok->ttype != ltt_eof)
-		pinput->tok = checker_module_next_tok(pinput->tok);
+		pinput->tok = checker_next_tok(pinput->tok);
 }
 
 /** Get user data for a token.

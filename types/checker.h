@@ -39,6 +39,8 @@ typedef struct {
 	link_t ltoks;
 	/** Lexer token */
 	lexer_tok_t tok;
+	/** Indentation level */
+	unsigned indlvl;
 } checker_tok_t;
 
 /** Checker module */
@@ -47,6 +49,14 @@ typedef struct checker_module {
 	list_t toks; /* of checker_tok_t */
 	ast_module_t *ast;
 } checker_module_t;
+
+/** Checker scope */
+typedef struct {
+	/** Scope indentation level, starting from zero */
+	unsigned indlvl;
+	/** Module */
+	checker_module_t *mod;
+} checker_scope_t;
 
 /** Checker */
 typedef struct {
