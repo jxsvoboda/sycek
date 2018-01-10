@@ -365,6 +365,8 @@ typedef struct {
 typedef struct {
 	/** Base object */
 	ast_node_t node;
+	/** Typedef token */
+	ast_tok_t ttypedef;
 	/** Type specifier */
 	ast_node_t *tspec;
 	/** Declarator list */

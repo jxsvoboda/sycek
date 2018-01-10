@@ -1052,6 +1052,7 @@ static int parser_process_typedef(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
+	atypedef->ttypedef.data = dtypedef;
 	atypedef->tscolon.data = dscolon;
 
 	*rnode = &atypedef->node;

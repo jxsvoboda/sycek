@@ -240,7 +240,17 @@ static checker_tok_t *checker_prev_tok(checker_tok_t *tok)
 	return list_get_instance(link, checker_tok_t, ltoks);
 }
 
-/** Check that a token is at the beginning of the line.
+/** Check a token that does not itself have whitespace requirements.
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ */
+static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
+{
+	tok->indlvl = scope->indlvl;
+}
+
+/** Check a token that must be at the beginning of the line.
  *
  * The token must be at the beginning of the line and indented appropriately
  */
@@ -249,7 +259,7 @@ static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 {
 	checker_tok_t *p;
 
-	tok->indlvl = scope->indlvl;
+	checker_check_any(scope, tok);
 
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
@@ -260,7 +270,7 @@ static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 	}
 }
 
-/** Non-whitespace before.
+/** Check no whitespace before.
  *
  * There should be non-whitespace before the token
  */
@@ -269,7 +279,7 @@ static void checker_check_nows_before(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 
-	tok->indlvl = scope->indlvl;
+	checker_check_any(scope, tok);
 
 	assert(tok != NULL);
 	p = checker_prev_tok(tok);
@@ -281,7 +291,7 @@ static void checker_check_nows_before(checker_scope_t *scope,
 	}
 }
 
-/** Non-whitespace after.
+/** Check no whitespace after.
  *
  * There should be non-whitespace after the token
  */
@@ -290,7 +300,7 @@ static void checker_check_nows_after(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 
-	tok->indlvl = scope->indlvl;
+	checker_check_any(scope, tok);
 
 	assert(tok != NULL);
 	p = checker_next_tok(tok);
@@ -302,14 +312,14 @@ static void checker_check_nows_after(checker_scope_t *scope,
 	}
 }
 
-/** Non-spacing break.
+/** Check non-spacing break bfore.
  *
  * There should be either non-whitespace or a line break before the token. */
 #if 0
 static void checker_check_nsbrk_before(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
-	tok->indlvl = scope->indlvl;
+	checker_ckeck_any(scope, tok);
 	(void)msg;
 }
 #endif
@@ -321,14 +331,14 @@ static void checker_check_nsbrk_before(checker_scope_t *scope,
  */
 #if 0
 static void checker_check_brkspace_before(checker_scope_t *scope,
-    hecker_tok_t *tok, const char *msg)
+    checker_tok_t *tok, const char *msg)
 {
-	tok->indlvl = scope->indlvl;
+	checker_check_any(scope, tok);
 	(void)msg;
 }
 #endif
 
-/** Non-breakable space before.
+/** Check non-breakable space before.
  *
  * There should be a single space before the token
  */
@@ -337,7 +347,7 @@ static void checker_check_nbspace_before(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 
-	tok->indlvl = scope->indlvl;
+	checker_check_any(scope, tok);
 
 	assert(tok != NULL);
 	p = checker_prev_tok(tok);
@@ -455,6 +465,21 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
+	return EOK;
+}
+
+/** Run checks on an identifier declarator.
+ *
+ * @param scope Checker scope
+ * @param dident AST identifier declarator
+ * @return EOK on success or error code
+ */
+static int checker_check_dident(checker_scope_t *scope, ast_dident_t *dident)
+{
+	checker_tok_t *tident;
+
+	tident = (checker_tok_t *)dident->tident.data;
+	checker_check_any(scope, tident);
 	return EOK;
 }
 
@@ -585,8 +610,10 @@ static int checker_check_decl(checker_scope_t *scope, ast_node_t *decl)
 
 	switch (decl->ntype) {
 	case ant_dnoident:
-	case ant_dident:
 		rc = EOK;
+		break;
+	case ant_dident:
+		rc = checker_check_dident(scope, (ast_dident_t *)decl->ext);
 		break;
 	case ant_dparen:
 		rc = checker_check_dparen(scope, (ast_dparen_t *)decl->ext);
@@ -612,7 +639,7 @@ static int checker_check_decl(checker_scope_t *scope, ast_node_t *decl)
 /** Run checks on a declarator list.
  *
  * @param scope Checker scope
- * @param tsrecord AST record type specifier
+ * @param dlist AST declarator list
  * @return EOK on success or error code
  */
 static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
@@ -639,6 +666,38 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	return EOK;
 }
 
+/** Run checks on an identifier type specifier.
+ *
+ * @param scope Checker scope
+ * @param tsident AST identifier type specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_tsbuiltin(checker_scope_t *scope,
+    ast_tsbuiltin_t *tsbuiltin)
+{
+//	checker_tok_t *tident;
+
+	(void) scope; (void) tsbuiltin;
+	/* XXX */
+	return EOK;
+}
+
+/** Run checks on an identifier type specifier.
+ *
+ * @param scope Checker scope
+ * @param tsident AST identifier type specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_tsident(checker_scope_t *scope,
+    ast_tsident_t *tsident)
+{
+	checker_tok_t *tident;
+
+	tident = (checker_tok_t *)tsident->tident.data;
+	checker_check_any(scope, tident);
+
+	return EOK;
+}
 
 /** Run checks on a record type specifier.
  *
@@ -651,6 +710,8 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 {
 	checker_tok_t *tlbrace;
 	ast_tsrecord_elem_t *elem;
+	checker_tok_t *tsu;
+	checker_tok_t *tident;
 	checker_tok_t *trbrace;
 	checker_tok_t *tscolon;
 	checker_scope_t *escope;
@@ -659,6 +720,13 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	escope = checker_scope_nested(scope);
 	if (escope == NULL)
 		return ENOMEM;
+
+	tsu = (checker_tok_t *)tsrecord->tsu.data;
+	checker_check_any(scope, tsu);
+
+	tident = (checker_tok_t *)tsrecord->tident.data;
+	if (tident != NULL)
+		checker_check_any(scope, tident);
 
 	tlbrace = (checker_tok_t *)tsrecord->tlbrace.data;
 	if (tlbrace != NULL) {
@@ -705,6 +773,8 @@ error:
 static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 {
 	ast_tsenum_elem_t *elem;
+	checker_tok_t *tenum;
+	checker_tok_t *tident;
 	checker_tok_t *tlbrace;
 	checker_tok_t *telem;
 	checker_tok_t *tequals;
@@ -716,6 +786,13 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 	escope = checker_scope_nested(scope);
 	if (escope == NULL)
 		return ENOMEM;
+
+	tenum = (checker_tok_t *)tsenum->tenum.data;
+	checker_check_any(scope, tenum);
+
+	tident = (checker_tok_t *)tsenum->tident.data;
+	if (tident != NULL)
+		checker_check_any(scope, tident);
 
 	tlbrace = (checker_tok_t *)tsenum->tlbrace.data;
 	if (tlbrace != NULL) {
@@ -770,8 +847,10 @@ static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 
 	switch (tspec->ntype) {
 	case ant_tsbuiltin:
+		rc = checker_check_tsbuiltin(scope, (ast_tsbuiltin_t *)tspec->ext);
+		break;
 	case ant_tsident:
-		rc = EOK;
+		rc = checker_check_tsident(scope, (ast_tsident_t *)tspec->ext);
 		break;
 	case ant_tsrecord:
 		rc = checker_check_tsrecord(scope, (ast_tsrecord_t *)tspec->ext);
@@ -843,12 +922,16 @@ error:
  */
 static int checker_check_typedef(checker_scope_t *scope, ast_node_t *decln)
 {
+	checker_tok_t *ttypedef;
 	checker_tok_t *tscolon;
 	ast_typedef_t *atypedef;
 	int rc;
 
 	assert(decln->ntype == ant_typedef);
 	atypedef = (ast_typedef_t *)decln->ext;
+
+	ttypedef = (checker_tok_t *)atypedef->ttypedef.data;
+	checker_check_any(scope, ttypedef);
 
 	rc = checker_check_tspec(scope, atypedef->tspec);
 	if (rc != EOK)
@@ -915,7 +998,15 @@ static int checker_module_check(checker_module_t *mod)
  */
 static int checker_module_lines(checker_module_t *mod)
 {
-	(void) mod;
+	checker_tok_t *ctok;
+
+	ctok = checker_module_first_tok(mod);
+	while (0 && ctok != NULL) {
+		(void) lexer_dprint_tok(&ctok->tok, stdout);
+		printf(" lvl %d\n", ctok->indlvl);
+		ctok = checker_next_tok(ctok);
+	}
+
 	return EOK;
 }
 
