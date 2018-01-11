@@ -672,6 +672,10 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		    p[5] == 't' && p[6] == 'e' && p[7] == 'r' && !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_register, 8, tok);
 		}
+		if (p[1] == 'e' && p[2] == 's' && p[3] == 't' && p[4] == 'r' &&
+		    p[5] == 'i' && p[6] == 'c' && p[7] == 'r' && !is_idcnt(p[8])) {
+			return lexer_keyword(lexer, ltt_restrict, 8, tok);
+		}
 		if (p[1] == 'e' && p[2] == 't' && p[3] == 'u' &&
 		    p[4] == 'r' && p[5] == 'n' && !is_idcnt(p[6])) {
 			return lexer_keyword(lexer, ltt_return, 6, tok);
@@ -825,6 +829,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "long";
 	case ltt_register:
 		return "register";
+	case ltt_restrict:
+		return "restrict";
 	case ltt_return:
 		return "return";
 	case ltt_signed:

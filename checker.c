@@ -38,6 +38,7 @@ static void checker_parser_get_tok(void *, lexer_tok_t *);
 static void *checker_parser_tok_data(void *, lexer_tok_t *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
+static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.get_tok = checker_parser_get_tok,
@@ -666,19 +667,36 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	return EOK;
 }
 
-/** Run checks on an identifier type specifier.
+/** Run checks on a type qualifier.
  *
  * @param scope Checker scope
- * @param tsident AST identifier type specifier
+ * @param tqual AST type qualifier
  * @return EOK on success or error code
  */
-static int checker_check_tsbuiltin(checker_scope_t *scope,
-    ast_tsbuiltin_t *tsbuiltin)
+static int checker_check_tqual(checker_scope_t *scope, ast_tqual_t *tqual)
 {
-//	checker_tok_t *tident;
+	checker_tok_t *ttqual;
 
-	(void) scope; (void) tsbuiltin;
-	/* XXX */
+	ttqual = (checker_tok_t *) tqual->tqual.data;
+	checker_check_any(scope, ttqual);
+
+	return EOK;
+}
+
+/** Run checks on a basic type specifier.
+ *
+ * @param scope Checker scope
+ * @param tsbasic AST basic type specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_tsbasic(checker_scope_t *scope,
+    ast_tsbasic_t *tsbasic)
+{
+	checker_tok_t *tbasic;
+
+	tbasic = (checker_tok_t *) tsbasic->tbasic.data;
+	checker_check_any(scope, tbasic);
+
 	return EOK;
 }
 
@@ -736,7 +754,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = checker_check_tspec(escope, elem->tspec);
+		rc = checker_check_sqlist(escope, elem->sqlist);
 		if (rc != EOK)
 			goto error;
 
@@ -846,8 +864,8 @@ static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 	int rc;
 
 	switch (tspec->ntype) {
-	case ant_tsbuiltin:
-		rc = checker_check_tsbuiltin(scope, (ast_tsbuiltin_t *)tspec->ext);
+	case ant_tsbasic:
+		rc = checker_check_tsbasic(scope, (ast_tsbasic_t *)tspec->ext);
 		break;
 	case ant_tsident:
 		rc = checker_check_tsident(scope, (ast_tsident_t *)tspec->ext);
@@ -865,6 +883,36 @@ static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 	}
 
 	return rc;
+}
+
+/** Run checks on a specifier-qualifier list.
+ *
+ * @param scope Checker scope
+ * @param sqlist AST specifier-qualifier list
+ * @return EOK on success or error code
+ */
+static int checker_check_sqlist(checker_scope_t *scope, ast_sqlist_t *sqlist)
+{
+	ast_node_t *elem;
+	ast_tqual_t *tqual;
+	int rc;
+
+	elem = ast_sqlist_first(sqlist);
+	while (elem != NULL) {
+		if (elem->ntype == ant_tqual) {
+			tqual = (ast_tqual_t *) elem->ext;
+			rc = checker_check_tqual(scope, tqual);
+		} else {
+			rc = checker_check_tspec(scope, elem);
+		}
+
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_sqlist_next(elem);
+	}
+
+	return EOK;
 }
 
 

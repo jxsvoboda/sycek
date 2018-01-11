@@ -27,6 +27,7 @@
 #ifndef AST_H
 #define AST_H
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <types/ast.h>
 
@@ -42,10 +43,11 @@ extern int ast_block_create(ast_braces_t, ast_block_t **);
 extern void ast_block_append(ast_block_t *, ast_node_t *);
 extern ast_node_t *ast_block_first(ast_block_t *);
 extern ast_node_t *ast_block_next(ast_node_t *);
-extern int ast_tsbuiltin_create(ast_tsbuiltin_t **);
+extern int ast_tqual_create(ast_qtype_t, ast_tqual_t **);
+extern int ast_tsbasic_create(ast_tsbasic_t **);
 extern int ast_tsident_create(ast_tsident_t **);
 extern int ast_tsrecord_create(ast_rtype_t, ast_tsrecord_t **);
-extern int ast_tsrecord_append(ast_tsrecord_t *, ast_node_t *, ast_dlist_t *,
+extern int ast_tsrecord_append(ast_tsrecord_t *, ast_sqlist_t *, ast_dlist_t *,
     void *);
 extern ast_tsrecord_elem_t *ast_tsrecord_first(ast_tsrecord_t *);
 extern ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *);
@@ -53,6 +55,10 @@ extern int ast_tsenum_create(ast_tsenum_t **);
 extern int ast_tsenum_append(ast_tsenum_t *, void *, void *, void *, void *);
 extern ast_tsenum_elem_t *ast_tsenum_first(ast_tsenum_t *);
 extern ast_tsenum_elem_t *ast_tsenum_next(ast_tsenum_elem_t *);
+extern int ast_sqlist_create(ast_sqlist_t **);
+extern void ast_sqlist_append(ast_sqlist_t *, ast_node_t *);
+extern ast_node_t *ast_sqlist_first(ast_sqlist_t *);
+extern ast_node_t *ast_sqlist_next(ast_node_t *);
 extern int ast_dident_create(ast_dident_t **);
 extern int ast_dnoident_create(ast_dnoident_t **);
 extern int ast_dparen_create(ast_dparen_t **);

@@ -69,6 +69,7 @@ typedef enum {
 	ltt_int,
 	ltt_long,
 	ltt_register,
+	ltt_restrict,
 	ltt_return,
 	ltt_short,
 	ltt_signed,

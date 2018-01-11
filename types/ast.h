@@ -31,10 +31,12 @@
 
 /** AST node type */
 typedef enum {
-	ant_tsbuiltin,
+	ant_tqual,
+	ant_tsbasic,
 	ant_tsident,
 	ant_tsrecord,
 	ant_tsenum,
+	ant_sqlist,
 	ant_dident,
 	ant_dnoident,
 	ant_dparen,
@@ -96,19 +98,33 @@ typedef struct ast_node {
 	ast_node_type_t ntype;
 } ast_node_t;
 
-/** Built-in type specifier */
+/** Qualifier type */
+typedef enum {
+	/** Const qualifier */
+	aqt_const,
+	/** Restrict qualifier */
+	aqt_restrict,
+	/** Volatile qualifier */
+	aqt_volatile
+} ast_qtype_t;
+
+/** Type qualifier */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
-	/** Signedness token */
-	ast_tok_t tsign;
-	/** Length modifier token */
-	ast_tok_t tlm;
-	/** Second Length modifier token */
-	ast_tok_t tlm2;
-	/** Base type token */
-	ast_tok_t tbase;
-} ast_tsbuiltin_t;
+	/** Qualifier type */
+	ast_qtype_t qtype;
+	/** Qualifier token */
+	ast_tok_t tqual;
+} ast_tqual_t;
+
+/** Basic type specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Basic type specifier token */
+	ast_tok_t tbasic;
+} ast_tsbasic_t;
 
 /** Identifier type specifier */
 typedef struct {
@@ -150,8 +166,8 @@ typedef struct {
 	ast_tsrecord_t *tsrecord;
 	/** Link to tsrecord->elems */
 	link_t ltsrecord;
-	/** Type specifier */
-	ast_node_t *tspec;
+	/** Specifier-qualifier list */
+	struct ast_sqlist *sqlist;
 	/** Declarator list */
 	struct ast_dlist *dlist;
 	/** Semicolon token */
@@ -189,6 +205,14 @@ typedef struct {
 	/** Comma token */
 	ast_tok_t tcomma;
 } ast_tsenum_elem_t;
+
+/** Specifier-qualifier list */
+typedef struct ast_sqlist {
+	/** Base object */
+	ast_node_t node;
+	/** Specifiers and qualifiers */
+	list_t elems;
+} ast_sqlist_t;
 
 /** Declarator - identifier */
 typedef struct {

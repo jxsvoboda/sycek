@@ -37,7 +37,7 @@ static int test_ast_module(void)
 {
 	ast_module_t *module;
 	ast_fundef_t *fundef;
-	ast_tsbuiltin_t *ftspec;
+	ast_tsbasic_t *ftspec;
 	ast_dident_t *fdecl;
 	int rc;
 
@@ -45,7 +45,7 @@ static int test_ast_module(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_tsbuiltin_create(&ftspec);
+	rc = ast_tsbasic_create(&ftspec);
 	if (rc != EOK)
 		return rc;
 
@@ -73,11 +73,11 @@ static int test_ast_module(void)
 static int test_ast_fundef(void)
 {
 	ast_fundef_t *fundef;
-	ast_tsbuiltin_t *ftspec;
+	ast_tsbasic_t *ftspec;
 	ast_dident_t *fdecl;
 	int rc;
 
-	rc = ast_tsbuiltin_create(&ftspec);
+	rc = ast_tsbasic_create(&ftspec);
 	if (rc != EOK)
 		return rc;
 
@@ -129,10 +129,10 @@ static int test_ast_block(void)
  */
 static int test_ast_tspec(void)
 {
-	ast_tsbuiltin_t *atspec;
+	ast_tsbasic_t *atspec;
 	int rc;
 
-	rc = ast_tsbuiltin_create(&atspec);
+	rc = ast_tsbasic_create(&atspec);
 	if (rc != EOK)
 		return rc;
 

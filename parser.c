@@ -35,6 +35,7 @@
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_dlist_t **);
+static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
 
 /** Create parser.
  *
@@ -164,6 +165,41 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 	return EOK;
 }
 
+/** Return @c true if token type a type qualifier.
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is a type qualifier
+ */
+static bool parser_ttype_tqual(lexer_toktype_t ttype)
+{
+	return ttype == ltt_const || ttype == ltt_restrict ||
+	    ttype == ltt_volatile;
+}
+
+/** Return @c true if token type is a basic type specifier
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is a basic type specifier
+ */
+static bool parser_ttype_tsbasic(lexer_toktype_t ttype)
+{
+	return ttype == ltt_void || ttype == ltt_char || ttype == ltt_short ||
+	    ttype == ltt_int || ttype == ltt_long || ttype == ltt_float ||
+	    ttype == ltt_double || ttype == ltt_signed ||
+	    ttype == ltt_unsigned;
+}
+
+/** Return @c true if token type is a type specifier
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is a type specifier
+ */
+static bool parser_ttype_tspec(lexer_toktype_t ttype)
+{
+	return parser_ttype_tsbasic(ttype) || ttype == ltt_struct ||
+	    ttype == ltt_union || ttype == ltt_enum || ttype == ltt_ident;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -199,7 +235,6 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	*rstmt = &areturn->node;
 	return EOK;
 }
-
 
 /** Parse block.
  *
@@ -255,54 +290,77 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 	return EOK;
 }
 
-/** Parse builtin type specifier.
+/** Parse type qualifier.
+ *
+ * @param parser Parser
+ * @param rtqual Place to store pointer to new AST type qualifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tqual(parser_t *parser, ast_tqual_t **rtqual)
+{
+	ast_tqual_t *tqual;
+	lexer_toktype_t ltt;
+	ast_qtype_t qtype;
+	void *dqual;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+
+	switch (ltt) {
+	case ltt_const:
+		qtype = aqt_const;
+		break;
+	case ltt_restrict:
+		qtype = aqt_restrict;
+		break;
+	case ltt_volatile:
+		qtype = aqt_volatile;
+		break;
+	default:
+		assert(false);
+		return EINVAL;
+	}
+
+	parser_skip(parser, &dqual);
+
+	rc = ast_tqual_create(qtype, &tqual);
+	if (rc != EOK)
+		return rc;
+
+	tqual->tqual.data = dqual;
+
+	*rtqual = tqual;
+	return EOK;
+}
+
+
+/** Parse basic type specifier.
  *
  * @param parser Parser
  * @param rtype Place to store pointer to new AST type specifier
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_tsbuiltin(parser_t *parser, ast_node_t **rtype)
+static int parser_process_tsbasic(parser_t *parser, ast_node_t **rtype)
 {
-	ast_tsbuiltin_t *pbuiltin;
+	ast_tsbasic_t *pbasic;
 	lexer_toktype_t ltt;
-	bool done;
+	void *dbasic;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_const)
-		parser_skip(parser, NULL);
+	assert(parser_ttype_tsbasic(ltt));
 
-	done = false;
-	while (!done) {
-		ltt = parser_next_ttype(parser);
-		switch (ltt) {
-		case ltt_char:
-		case ltt_double:
-		case ltt_float:
-		case ltt_int:
-		case ltt_long:
-		case ltt_short:
-		case ltt_void:
-		case ltt_signed:
-		case ltt_unsigned:
-			break;
-		default:
-			done = true;
-			break;
-		}
+	parser_skip(parser, &dbasic);
 
-		if (done)
-			break;
-
-		parser_skip(parser, NULL);
-	}
-
-	rc = ast_tsbuiltin_create(&pbuiltin);
+	rc = ast_tsbasic_create(&pbasic);
 	if (rc != EOK)
 		return rc;
 
-	*rtype = &pbuiltin->node;
+	pbasic->tbasic.data = dbasic;
+
+	*rtype = &pbasic->node;
 	return EOK;
 }
 
@@ -317,11 +375,8 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 {
 	ast_tsident_t *pident;
 	lexer_toktype_t ltt;
+	void *dident;
 	int rc;
-
-	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_const)
-		parser_skip(parser, NULL);
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
@@ -334,11 +389,13 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 		return EINVAL;
 	}
 
-	parser_skip(parser, NULL);
+	parser_skip(parser, &dident);
 
 	rc = ast_tsident_create(&pident);
 	if (rc != EOK)
 		return rc;
+
+	pident->tident.data = dident;
 
 	*rtype = &pident->node;
 	return EOK;
@@ -359,7 +416,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	void *dsu;
 	void *dident;
 	void *dlbrace;
-	ast_node_t *tspec;
+	ast_sqlist_t *sqlist;
 	ast_dlist_t *dlist;
 	void *dscolon;
 	void *drbrace;
@@ -399,7 +456,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 
 		ltt = parser_next_ttype(parser);
 		while (ltt != ltt_rbrace) {
-			rc = parser_process_tspec(parser, &tspec);
+			rc = parser_process_sqlist(parser, &sqlist);
 			if (rc != EOK)
 				goto error;
 
@@ -411,7 +468,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			rc = ast_tsrecord_append(precord, tspec, dlist, dscolon);
+			rc = ast_tsrecord_append(precord, sqlist, dlist, dscolon);
 			if (rc != EOK)
 				goto error;
 
@@ -537,21 +594,17 @@ error:
 	return rc;
 }
 
-/** Parse primitive type specifier.
+/** Parse type specifier.
  *
  * @param parser Parser
  * @param rtype Place to store pointer to new AST type
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_tsprim(parser_t *parser, ast_node_t **rtype)
+static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
 {
 	lexer_toktype_t ltt;
 	int rc;
-
-	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_const)
-		parser_skip(parser, NULL);
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
@@ -566,23 +619,68 @@ static int parser_process_tsprim(parser_t *parser, ast_node_t **rtype)
 		rc = parser_process_tsenum(parser, rtype);
 		break;
 	default:
-		rc = parser_process_tsbuiltin(parser, rtype);
+		if (parser_ttype_tsbasic(ltt)) {
+			rc = parser_process_tsbasic(parser, rtype);
+		} else {
+			fprintf(stderr, "Error: ");
+			lexer_dprint_tok(&parser->tok[0], stderr);
+			fprintf(stderr, " unexpected, expected type specifier.\n");
+		return EINVAL;
+		}
 		break;
 	}
 
 	return rc;
 }
 
-/** Parse type specifier.
+/** Parse specifier-qualifier list.
  *
  * @param parser Parser
- * @param rtype Place to store pointer to new AST type specifier
+ * @param rsqlist Place to store pointer to new AST specifier-qualifier list
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
+static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 {
-	return parser_process_tsprim(parser, rtype);
+	lexer_toktype_t ltt;
+	ast_sqlist_t *sqlist;
+	ast_tqual_t *tqual;
+	ast_node_t *elem;
+	bool have_ident;
+	int rc;
+
+	rc = ast_sqlist_create(&sqlist);
+	if (rc != EOK)
+		return rc;
+
+	have_ident = false;
+
+	ltt = parser_next_ttype(parser);
+	while (parser_ttype_tspec(ltt) || parser_ttype_tqual(ltt)) {
+		printf("process sqlist elem\n");
+		if (parser_ttype_tspec(ltt)) {
+			/* Stop before second identifier */
+			if (ltt == ltt_ident && have_ident)
+				break;
+			rc = parser_process_tspec(parser, &elem);
+			if (rc != EOK)
+				return rc;
+		} else {
+			rc = parser_process_tqual(parser, &tqual);
+			if (rc != EOK)
+				return rc;
+			elem = &tqual->node;
+		}
+
+		if (ltt == ltt_ident)
+			have_ident = true;
+
+		ast_sqlist_append(sqlist, elem);
+		ltt = parser_next_ttype(parser);
+	}
+
+	*rsqlist = sqlist;
+	return EOK;
 }
 
 /** Parse identifier declarator.

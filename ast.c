@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <ast.h>
 #include <merrno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -413,38 +414,91 @@ static int ast_block_print(ast_block_t *block, FILE *f)
 	return EOK;
 }
 
-/** Create AST builtin type specifier.
+/** Create AST type qualifier.
  *
- * @param rtsbuiltin Place to store pointer to new builtin type specifier
+ * @param qtype Qualifier type
+ * @param rtqual Place to store pointer to new type qualifier
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_tsbuiltin_create(ast_tsbuiltin_t **rtsbuiltin)
+int ast_tqual_create(ast_qtype_t qtype, ast_tqual_t **rtqual)
 {
-	ast_tsbuiltin_t *atsbuiltin;
+	ast_tqual_t *tqual;
 
-	atsbuiltin = calloc(1, sizeof(ast_tsbuiltin_t));
-	if (atsbuiltin == NULL)
+	tqual = calloc(1, sizeof(ast_tqual_t));
+	if (tqual == NULL)
 		return ENOMEM;
 
-	atsbuiltin->node.ext = atsbuiltin;
-	atsbuiltin->node.ntype = ant_tsbuiltin;
+	tqual->node.ext = tqual;
+	tqual->node.ntype = ant_tqual;
+	tqual->qtype = qtype;
 
-	*rtsbuiltin = atsbuiltin;
+	*rtqual = tqual;
 	return EOK;
 }
 
-/** Print AST builtin type specifier.
+/** Print AST type qualifier.
  *
- * @param atsbuiltin Builtin type specifier
+ * @param tqual Type qualifier
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
  */
-static int ast_tsbuiltin_print(ast_tsbuiltin_t *atsbuiltin, FILE *f)
+static int ast_tqual_print(ast_tqual_t *tqual, FILE *f)
 {
-	(void)atsbuiltin;/* XXX */
-	if (fprintf(f, "tsbuiltin(") < 0)
+	const char *s = NULL;
+
+	switch (tqual->qtype) {
+	case aqt_const:
+		s = "const";
+		break;
+	case aqt_restrict:
+		s = "restrict";
+		break;
+	case aqt_volatile:
+		s = "volatile";
+		break;
+	}
+
+	if (fprintf(f, "tqual(%s)", s) < 0)
+		return EIO;
+
+	return EOK;
+}
+
+
+/** Create AST basic type specifier.
+ *
+ * @param rtsbasic Place to store pointer to new basic type specifier
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tsbasic_create(ast_tsbasic_t **rtsbasic)
+{
+	ast_tsbasic_t *tsbasic;
+
+	tsbasic = calloc(1, sizeof(ast_tsbasic_t));
+	if (tsbasic == NULL)
+		return ENOMEM;
+
+	tsbasic->node.ext = tsbasic;
+	tsbasic->node.ntype = ant_tsbasic;
+
+	*rtsbasic = tsbasic;
+	return EOK;
+}
+
+/** Print AST basic type specifier.
+ *
+ * @param tsbasic Basic type specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_tsbasic_print(ast_tsbasic_t *tsbasic, FILE *f)
+{
+	(void)tsbasic;/* XXX */
+	if (fprintf(f, "tsbasic(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
 		return EIO;
@@ -517,12 +571,12 @@ int ast_tsrecord_create(ast_rtype_t rtype, ast_tsrecord_t **rtsrecord)
 /** Append element to record type specifier.
  *
  * @param tsrecord Record type specifier
- * @param tspec Type specifier
+ * @param sqlist Specifier-qualifier list
  * @param dlist Declarator list
  * @param stmt Statement
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_node_t *tspec,
+int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_sqlist_t *sqlist,
     ast_dlist_t *dlist, void *dscolon)
 {
 	ast_tsrecord_elem_t *elem;
@@ -531,7 +585,7 @@ int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_node_t *tspec,
 	if (elem == NULL)
 		return ENOMEM;
 
-	elem->tspec = tspec;
+	elem->sqlist = sqlist;
 	elem->dlist = dlist;
 	elem->tscolon.data = dscolon;
 
@@ -590,7 +644,7 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = ast_tree_print(elem->tspec, f);
+		rc = ast_tree_print(&elem->sqlist->node, f);
 		if (rc != EOK)
 			return rc;
 
@@ -718,6 +772,107 @@ static int ast_tsenum_print(ast_tsenum_t *tsenum, FILE *f)
 
 	return EOK;
 }
+
+/** Create AST specifier-qualifier list.
+ *
+ * @param rsqlist Place to store pointer to new specifier-qualifier list
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_sqlist_create(ast_sqlist_t **rsqlist)
+{
+	ast_sqlist_t *sqlist;
+
+	sqlist = calloc(1, sizeof(ast_sqlist_t));
+	if (sqlist == NULL)
+		return ENOMEM;
+
+	list_initialize(&sqlist->elems);
+
+	sqlist->node.ext = sqlist;
+	sqlist->node.ntype = ant_sqlist;
+
+	*rsqlist = sqlist;
+	return EOK;
+}
+
+/** Append element to specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @param elem Specifier or qualifier
+ */
+void ast_sqlist_append(ast_sqlist_t *sqlist, ast_node_t *elem)
+{
+	list_append(&elem->llist, &sqlist->elems);
+	elem->lnode = &sqlist->node;
+}
+
+/** Return first element in specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @return First statement or @c NULL
+ */
+ast_node_t *ast_sqlist_first(ast_sqlist_t *sqlist)
+{
+	link_t *link;
+
+	link = list_first(&sqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return next element in specifier-qualifier list.
+ *
+ * @param node Current element
+ * @return Next element or @c NULL
+ */
+ast_node_t *ast_sqlist_next(ast_node_t *node)
+{
+	link_t *link;
+	ast_sqlist_t *sqlist;
+
+	assert(node->lnode->ntype == ant_sqlist);
+	sqlist = (ast_sqlist_t *) node->lnode->ext;
+
+	link = list_next(&node->llist, &sqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Print AST specifier-qualifier list.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_sqlist_print(ast_sqlist_t *sqlist, FILE *f)
+{
+	ast_node_t *elem;
+	int rc;
+
+	if (fprintf(f, "sqlist(") < 0)
+		return EIO;
+
+	elem = ast_sqlist_first(sqlist);
+	while (elem != NULL) {
+		rc = ast_tree_print(elem, f);
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_sqlist_next(elem);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
 
 /** Create AST identifier declarator.
  *
@@ -1195,14 +1350,18 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_module_print((ast_module_t *)node->ext, f);
 	case ant_sclass:
 		return ast_sclass_print((ast_sclass_t *)node->ext, f);
-	case ant_tsbuiltin:
-		return ast_tsbuiltin_print((ast_tsbuiltin_t *)node->ext, f);
+	case ant_tqual:
+		return ast_tqual_print((ast_tqual_t *)node->ext, f);
+	case ant_tsbasic:
+		return ast_tsbasic_print((ast_tsbasic_t *)node->ext, f);
 	case ant_tsident:
 		return ast_tsident_print((ast_tsident_t *)node->ext, f);
 	case ant_tsrecord:
 		return ast_tsrecord_print((ast_tsrecord_t *)node->ext, f);
 	case ant_tsenum:
 		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
+	case ant_sqlist:
+		return ast_sqlist_print((ast_sqlist_t *)node->ext, f);
 	case ant_dident:
 		return ast_dident_print((ast_dident_t *)node->ext, f);
 	case ant_dnoident:
