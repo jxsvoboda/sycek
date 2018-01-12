@@ -38,7 +38,6 @@ extern ast_node_t *ast_module_next(ast_node_t *);
 extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
 extern int ast_fundef_create(ast_dspecs_t *, ast_node_t *, ast_block_t *,
     ast_fundef_t **);
-extern int ast_typedef_create(ast_node_t *, ast_dlist_t *, ast_typedef_t **);
 extern int ast_block_create(ast_braces_t, ast_block_t **);
 extern void ast_block_append(ast_block_t *, ast_node_t *);
 extern ast_node_t *ast_block_first(ast_block_t *);

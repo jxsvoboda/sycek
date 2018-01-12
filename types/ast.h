@@ -53,7 +53,6 @@ typedef enum {
 	ant_return,
 	ant_block,
 	ant_fundef,
-	ant_typedef,
 	ant_module,
 	ant_sclass
 } ast_node_type_t;
@@ -66,6 +65,8 @@ typedef enum {
 
 /** Storage class type */
 typedef enum {
+	/** Typedef storage class */
+	asc_typedef,
 	/** Extern storage class */
 	asc_extern,
 	/** Static storage class */
@@ -391,8 +392,6 @@ typedef struct {
 typedef struct {
 	/** Base object */
 	ast_node_t node;
-	/** Storage class specifier */
-	ast_sclass_t *sclass;
 	/** Declaration specifiers */
 	ast_dspecs_t *dspecs;
 	/** Function declarator */
@@ -403,23 +402,9 @@ typedef struct {
 	ast_tok_t tscolon;
 } ast_fundef_t;
 
-/** Type definition */
-typedef struct {
-	/** Base object */
-	ast_node_t node;
-	/** Typedef token */
-	ast_tok_t ttypedef;
-	/** Type specifier */
-	ast_node_t *tspec;
-	/** Declarator list */
-	ast_dlist_t *dlist;
-	/** Trailing ';' token */
-	ast_tok_t tscolon;
-} ast_typedef_t;
-
 /** Module.
  *
- * decls must be one of ast_var_t, ast_typedef_t, ast_fundecl_t, ast_fundef_t
+ * decls must be one of ast_var_t, ast_fundecl_t, ast_fundef_t
  */
 typedef struct {
 	/** Base object */

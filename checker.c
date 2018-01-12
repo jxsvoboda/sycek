@@ -667,6 +667,38 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	return EOK;
 }
 
+/** Run checks on a storage class.
+ *
+ * @param scope Checker scope
+ * @param sclass AST storage class
+ * @return EOK on success or error code
+ */
+static int checker_check_sclass(checker_scope_t *scope, ast_sclass_t *sclass)
+{
+	checker_tok_t *tsclass;
+
+	tsclass = (checker_tok_t *) sclass->tsclass.data;
+	checker_check_any(scope, tsclass);
+
+	return EOK;
+}
+
+/** Run checks on a function specifier.
+ *
+ * @param scope Checker scope
+ * @param fspec AST function specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_fspec(checker_scope_t *scope, ast_fspec_t *fspec)
+{
+	checker_tok_t *tfspec;
+
+	tfspec = (checker_tok_t *) fspec->tfspec.data;
+	checker_check_any(scope, tfspec);
+
+	return EOK;
+}
+
 /** Run checks on a type qualifier.
  *
  * @param scope Checker scope
@@ -915,6 +947,44 @@ static int checker_check_sqlist(checker_scope_t *scope, ast_sqlist_t *sqlist)
 	return EOK;
 }
 
+/** Run checks on declaration specifiers.
+ *
+ * @param scope Checker scope
+ * @param dspecs AST declaration specifiers
+ * @return EOK on success or error code
+ */
+static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
+{
+	ast_node_t *elem;
+	ast_tqual_t *tqual;
+	ast_sclass_t *sclass;
+	ast_fspec_t *fspec;
+	int rc;
+
+	elem = ast_dspecs_first(dspecs);
+	while (elem != NULL) {
+		if (elem->ntype == ant_sclass) {
+			sclass = (ast_sclass_t *) elem->ext;
+			rc = checker_check_sclass(scope, sclass);
+		} else if (elem->ntype == ant_tqual) {
+			tqual = (ast_tqual_t *) elem->ext;
+			rc = checker_check_tqual(scope, tqual);
+		} else if (elem->ntype == ant_fspec) {
+			fspec = (ast_fspec_t *) elem->ext;
+			rc = checker_check_fspec(scope, fspec);
+		} else {
+			/* Type specifier */
+			rc = checker_check_tspec(scope, elem);
+		}
+
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_dspecs_next(elem);
+	}
+
+	return EOK;
+}
 
 /** Run checks on a global declaration.
  *
@@ -933,6 +1003,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	if (0) printf("Check function declaration\n");
 	assert(decl->ntype == ant_fundef);
 	fundef = (ast_fundef_t *)decl->ext;
+
+	rc = checker_check_dspecs(scope, fundef->dspecs);
+	if (rc != EOK)
+		goto error;
 
 	if (fundef->body == NULL) {
 		tscolon = (checker_tok_t *)fundef->tscolon.data;
@@ -962,40 +1036,6 @@ error:
 	return rc;
 }
 
-/** Run checks on a type definition.
- *
- * @param scope Checker scope
- * @param decl AST declaration
- * @return EOK on success or error code
- */
-static int checker_check_typedef(checker_scope_t *scope, ast_node_t *decln)
-{
-	checker_tok_t *ttypedef;
-	checker_tok_t *tscolon;
-	ast_typedef_t *atypedef;
-	int rc;
-
-	assert(decln->ntype == ant_typedef);
-	atypedef = (ast_typedef_t *)decln->ext;
-
-	ttypedef = (checker_tok_t *)atypedef->ttypedef.data;
-	checker_check_any(scope, ttypedef);
-
-	rc = checker_check_tspec(scope, atypedef->tspec);
-	if (rc != EOK)
-		return rc;
-
-	rc = checker_check_dlist(scope, atypedef->dlist);
-	if (rc != EOK)
-		return rc;
-
-	tscolon = (checker_tok_t *)atypedef->tscolon.data;
-	checker_check_nows_before(scope, tscolon,
-	    "Unexpected whitespace before ';'.");
-
-	return EOK;
-}
-
 /** Run checks on a module.
  *
  * @param mod Checker module
@@ -1018,9 +1058,6 @@ static int checker_module_check(checker_module_t *mod)
 		switch (decl->ntype) {
 		case ant_fundef:
 			rc = checker_check_gdecln(scope, decl);
-			break;
-		case ant_typedef:
-			rc = checker_check_typedef(scope, decl);
 			break;
 		default:
 			assert(false);

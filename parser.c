@@ -209,8 +209,8 @@ static bool parser_ttype_tspec(lexer_toktype_t ttype)
  */
 static bool parser_ttype_sclass(lexer_toktype_t ttype)
 {
-	return ttype == ltt_extern || ttype == ltt_static ||
-	    ttype == ltt_auto || ttype == ltt_register;
+	return ttype == ltt_typedef || ttype == ltt_extern ||
+	    ttype == ltt_static || ttype == ltt_auto || ttype == ltt_register;
 }
 
 /** Return @c true if token type is a function specifier
@@ -1119,6 +1119,9 @@ static int parser_process_sclass(parser_t *parser, ast_sclass_t **rsclass)
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
+	case ltt_typedef:
+		sctype = asc_typedef;
+		break;
 	case ltt_extern:
 		sctype = asc_extern;
 		break;
@@ -1227,58 +1230,6 @@ static int parser_process_fundef(parser_t *parser, ast_dspecs_t *dspecs,
 	return EOK;
 }
 
-/** Parse typedef.
- *
- * @param parser Parser
- * @param rnode Place to store pointer to new typedef node
- *
- * @return EOK on success or non-zero error code
- */
-static int parser_process_typedef(parser_t *parser, ast_node_t **rnode)
-{
-	ast_typedef_t *atypedef = NULL;
-	void *dtypedef;
-	ast_node_t *tspec = NULL;
-	ast_dlist_t *dlist = NULL;
-	void *dscolon;
-	int rc;
-
-	parser_skip(parser, &dtypedef);
-
-	rc = parser_process_tspec(parser, &tspec);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_process_dlist(parser, &dlist);
-	if (rc != EOK)
-		goto error;
-
-	rc = ast_typedef_create(tspec, dlist, &atypedef);
-	if (rc != EOK)
-		goto error;
-
-	tspec = NULL;
-	dlist = NULL;
-
-	rc = parser_match(parser, ltt_scolon, &dscolon);
-	if (rc != EOK)
-		goto error;
-
-	atypedef->ttypedef.data = dtypedef;
-	atypedef->tscolon.data = dscolon;
-
-	*rnode = &atypedef->node;
-	return EOK;
-error:
-	if (tspec != NULL)
-		ast_tree_destroy(tspec);
-	if (dlist != NULL)
-		ast_tree_destroy(&dlist->node);
-	if (atypedef != NULL)
-		ast_tree_destroy(&atypedef->node);
-	return rc;
-}
-
 /** Parse global declaration.
  *
  * @param parser Parser
@@ -1337,15 +1288,7 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 
 	ltt = parser_next_ttype(parser);
 	while (ltt != ltt_eof) {
-		switch (ltt) {
-		case ltt_typedef:
-			rc = parser_process_typedef(parser, &decln);
-			break;
-		default:
-			rc = parser_process_gdecln(parser, &decln);
-			break;
-		}
-
+		rc = parser_process_gdecln(parser, &decln);
 		if (rc != EOK)
 			return rc;
 

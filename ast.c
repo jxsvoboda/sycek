@@ -259,61 +259,6 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 	return EOK;
 }
 
-/** Create AST type definition.
- *
- * @param tspec Type specifier
- * @param dlist Declarator list
- * @param rtypedef Place to store pointer to new type definition
- *
- * @return EOK on success, ENOMEM if out of memory
- */
-int ast_typedef_create(ast_node_t *tspec, ast_dlist_t *dlist,
-    ast_typedef_t **rtypedef)
-{
-	ast_typedef_t *atypedef;
-
-	atypedef = calloc(1, sizeof(ast_typedef_t));
-	if (atypedef == NULL)
-		return ENOMEM;
-
-	atypedef->tspec = tspec;
-	atypedef->dlist = dlist;
-
-	atypedef->node.ext = atypedef;
-	atypedef->node.ntype = ant_typedef;
-
-	*rtypedef = atypedef;
-	return EOK;
-}
-
-/** Print AST type definition.
- *
- * @param TYPEdef Type definition
- * @param f Output file
- *
- * @return EOK on success, EIO on I/O error
- */
-static int ast_typedef_print(ast_typedef_t *atypedef, FILE *f)
-{
-	int rc;
-
-	if (fprintf(f, "typedef(") < 0)
-		return EIO;
-
-	rc = ast_tree_print(atypedef->tspec, f);
-	if (rc != EOK)
-		return rc;
-
-	rc = ast_dlist_print(atypedef->dlist, f);
-	if (rc != EOK)
-		return rc;
-
-	if (fprintf(f, ")") < 0)
-		return EIO;
-
-	return EOK;
-}
-
 /** Create AST block.
  *
  * @param braces Whether the block has braces or not
@@ -1478,8 +1423,6 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_block_print((ast_block_t *)node->ext, f);
 	case ant_fundef:
 		return ast_fundef_print((ast_fundef_t *)node->ext, f);
-	case ant_typedef:
-		return ast_typedef_print((ast_typedef_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
 	case ant_sclass:
