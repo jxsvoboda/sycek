@@ -36,7 +36,9 @@ typedef enum {
 	ant_tsident,
 	ant_tsrecord,
 	ant_tsenum,
+	ant_fspec,
 	ant_sqlist,
+	ant_dspecs,
 	ant_dident,
 	ant_dnoident,
 	ant_dparen,
@@ -206,6 +208,14 @@ typedef struct {
 	ast_tok_t tcomma;
 } ast_tsenum_elem_t;
 
+/** Function specifier (i. e. inline) */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Function specifier token */
+	ast_tok_t tfspec;
+} ast_fspec_t;
+
 /** Specifier-qualifier list */
 typedef struct ast_sqlist {
 	/** Base object */
@@ -213,6 +223,14 @@ typedef struct ast_sqlist {
 	/** Specifiers and qualifiers */
 	list_t elems;
 } ast_sqlist_t;
+
+/** Declaration specifiers */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Declaration specifiers */
+	list_t dspecs;
+} ast_dspecs_t;
 
 /** Declarator - identifier */
 typedef struct {
@@ -375,8 +393,8 @@ typedef struct {
 	ast_node_t node;
 	/** Storage class specifier */
 	ast_sclass_t *sclass;
-	/** Function type specifier */
-	ast_node_t *ftspec;
+	/** Declaration specifiers */
+	ast_dspecs_t *dspecs;
 	/** Function declarator */
 	ast_node_t *fdecl;
 	/** Function body */

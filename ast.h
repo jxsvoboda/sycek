@@ -36,7 +36,7 @@ extern void ast_module_append(ast_module_t *, ast_node_t *);
 extern ast_node_t *ast_module_first(ast_module_t *);
 extern ast_node_t *ast_module_next(ast_node_t *);
 extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
-extern int ast_fundef_create(ast_node_t *, ast_node_t *, ast_block_t *,
+extern int ast_fundef_create(ast_dspecs_t *, ast_node_t *, ast_block_t *,
     ast_fundef_t **);
 extern int ast_typedef_create(ast_node_t *, ast_dlist_t *, ast_typedef_t **);
 extern int ast_block_create(ast_braces_t, ast_block_t **);
@@ -55,10 +55,15 @@ extern int ast_tsenum_create(ast_tsenum_t **);
 extern int ast_tsenum_append(ast_tsenum_t *, void *, void *, void *, void *);
 extern ast_tsenum_elem_t *ast_tsenum_first(ast_tsenum_t *);
 extern ast_tsenum_elem_t *ast_tsenum_next(ast_tsenum_elem_t *);
+extern int ast_fspec_create(ast_fspec_t **);
 extern int ast_sqlist_create(ast_sqlist_t **);
 extern void ast_sqlist_append(ast_sqlist_t *, ast_node_t *);
 extern ast_node_t *ast_sqlist_first(ast_sqlist_t *);
 extern ast_node_t *ast_sqlist_next(ast_node_t *);
+extern int ast_dspecs_create(ast_dspecs_t **);
+extern void ast_dspecs_append(ast_dspecs_t *, ast_node_t *);
+extern ast_node_t *ast_dspecs_first(ast_dspecs_t *);
+extern ast_node_t *ast_dspecs_next(ast_node_t *);
 extern int ast_dident_create(ast_dident_t **);
 extern int ast_dnoident_create(ast_dnoident_t **);
 extern int ast_dparen_create(ast_dparen_t **);

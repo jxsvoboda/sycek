@@ -193,15 +193,15 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
 
 /** Create AST function definition.
  *
- * @param ftspec Function type specifier
+ * @param dspecs Declaration specifiers
  * @param fdecl Function declarator
  * @param body Body or @c NULL
  * @param rfundef Place to store pointer to new function definition
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_fundef_create(ast_node_t *ftspec, ast_node_t *fdecl, ast_block_t *body,
-    ast_fundef_t **rfundef)
+int ast_fundef_create(ast_dspecs_t *dspecs, ast_node_t *fdecl,
+    ast_block_t *body, ast_fundef_t **rfundef)
 {
 	ast_fundef_t *fundef;
 
@@ -209,7 +209,7 @@ int ast_fundef_create(ast_node_t *ftspec, ast_node_t *fdecl, ast_block_t *body,
 	if (fundef == NULL)
 		return ENOMEM;
 
-	fundef->ftspec = ftspec;
+	fundef->dspecs = dspecs;
 	fundef->fdecl = fdecl;
 	fundef->body = body;
 
@@ -234,7 +234,7 @@ static int ast_fundef_print(ast_fundef_t *fundef, FILE *f)
 	if (fprintf(f, "fundef(") < 0)
 		return EIO;
 
-	rc = ast_tree_print(fundef->ftspec, f);
+	rc = ast_tree_print(&fundef->dspecs->node, f);
 	if (rc != EOK)
 		return rc;
 
@@ -465,7 +465,6 @@ static int ast_tqual_print(ast_tqual_t *tqual, FILE *f)
 
 	return EOK;
 }
-
 
 /** Create AST basic type specifier.
  *
@@ -773,6 +772,41 @@ static int ast_tsenum_print(ast_tsenum_t *tsenum, FILE *f)
 	return EOK;
 }
 
+/** Create AST basic type specifier.
+ *
+ * @param rtsbasic Place to store pointer to new basic type specifier
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_fspec_create(ast_fspec_t **rfspec)
+{
+	ast_fspec_t *fspec;
+
+	fspec = calloc(1, sizeof(ast_fspec_t));
+	if (fspec == NULL)
+		return ENOMEM;
+
+	fspec->node.ext = fspec;
+	fspec->node.ntype = ant_fspec;
+
+	*rfspec = fspec;
+	return EOK;
+}
+
+/** Print AST basic type specifier.
+ *
+ * @param fspec Basic type specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_fspec_print(ast_fspec_t *fspec, FILE *f)
+{
+	(void) fspec;
+	if (fprintf(f, "fspec") < 0)
+		return EIO;
+	return EOK;
+}
 /** Create AST specifier-qualifier list.
  *
  * @param rsqlist Place to store pointer to new specifier-qualifier list
@@ -865,6 +899,106 @@ static int ast_sqlist_print(ast_sqlist_t *sqlist, FILE *f)
 			return rc;
 
 		elem = ast_sqlist_next(elem);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Create AST declaration specifiers.
+ *
+ * @param rdspecs Place to store pointer to new declaration specifiers
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_dspecs_create(ast_dspecs_t **rdspecs)
+{
+	ast_dspecs_t *dspecs;
+
+	dspecs = calloc(1, sizeof(ast_dspecs_t));
+	if (dspecs == NULL)
+		return ENOMEM;
+
+	list_initialize(&dspecs->dspecs);
+
+	dspecs->node.ext = dspecs;
+	dspecs->node.ntype = ant_dspecs;
+
+	*rdspecs = dspecs;
+	return EOK;
+}
+
+/** Append element to declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ * @param dspec Declaration specifier
+ */
+void ast_dspecs_append(ast_dspecs_t *dspecs, ast_node_t *dspec)
+{
+	list_append(&dspec->llist, &dspecs->dspecs);
+	dspec->lnode = &dspecs->node;
+}
+
+/** Return first element in declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ * @return First statement or @c NULL
+ */
+ast_node_t *ast_dspecs_first(ast_dspecs_t *dspecs)
+{
+	link_t *link;
+
+	link = list_first(&dspecs->dspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return next element in declaration specifiers.
+ *
+ * @param node Current element
+ * @return Next element or @c NULL
+ */
+ast_node_t *ast_dspecs_next(ast_node_t *node)
+{
+	link_t *link;
+	ast_dspecs_t *dspecs;
+
+	assert(node->lnode->ntype == ant_dspecs);
+	dspecs = (ast_dspecs_t *) node->lnode->ext;
+
+	link = list_next(&node->llist, &dspecs->dspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Print AST declaration specifiers.
+ *
+ * @param dspecs Declaration specifiers
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_dspecs_print(ast_dspecs_t *dspecs, FILE *f)
+{
+	ast_node_t *elem;
+	int rc;
+
+	if (fprintf(f, "dspecs(") < 0)
+		return EIO;
+
+	elem = ast_dspecs_first(dspecs);
+	while (elem != NULL) {
+		rc = ast_tree_print(elem, f);
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_dspecs_next(elem);
 	}
 
 	if (fprintf(f, ")") < 0)
@@ -1360,8 +1494,12 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsrecord_print((ast_tsrecord_t *)node->ext, f);
 	case ant_tsenum:
 		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
+	case ant_fspec:
+		return ast_fspec_print((ast_fspec_t *)node->ext, f);
 	case ant_sqlist:
 		return ast_sqlist_print((ast_sqlist_t *)node->ext, f);
+	case ant_dspecs:
+		return ast_dspecs_print((ast_dspecs_t *)node->ext, f);
 	case ant_dident:
 		return ast_dident_print((ast_dident_t *)node->ext, f);
 	case ant_dnoident:

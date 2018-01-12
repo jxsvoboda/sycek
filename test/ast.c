@@ -37,7 +37,7 @@ static int test_ast_module(void)
 {
 	ast_module_t *module;
 	ast_fundef_t *fundef;
-	ast_tsbasic_t *ftspec;
+	ast_dspecs_t *dspecs;
 	ast_dident_t *fdecl;
 	int rc;
 
@@ -45,7 +45,7 @@ static int test_ast_module(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_tsbasic_create(&ftspec);
+	rc = ast_dspecs_create(&dspecs);
 	if (rc != EOK)
 		return rc;
 
@@ -53,7 +53,7 @@ static int test_ast_module(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_fundef_create(&ftspec->node, &fdecl->node, NULL, &fundef);
+	rc = ast_fundef_create(dspecs, &fdecl->node, NULL, &fundef);
 	if (rc != EOK)
 		return rc;
 
@@ -73,11 +73,11 @@ static int test_ast_module(void)
 static int test_ast_fundef(void)
 {
 	ast_fundef_t *fundef;
-	ast_tsbasic_t *ftspec;
+	ast_dspecs_t *dspecs;
 	ast_dident_t *fdecl;
 	int rc;
 
-	rc = ast_tsbasic_create(&ftspec);
+	rc = ast_dspecs_create(&dspecs);
 	if (rc != EOK)
 		return rc;
 
@@ -85,7 +85,7 @@ static int test_ast_fundef(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_fundef_create(&ftspec->node, &fdecl->node, NULL, &fundef);
+	rc = ast_fundef_create(dspecs, &fdecl->node, NULL, &fundef);
 	if (rc != EOK)
 		return rc;
 

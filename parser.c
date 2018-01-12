@@ -32,6 +32,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static int parser_process_sclass(parser_t *, ast_sclass_t **);
+static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_dlist_t **);
@@ -198,6 +200,27 @@ static bool parser_ttype_tspec(lexer_toktype_t ttype)
 {
 	return parser_ttype_tsbasic(ttype) || ttype == ltt_struct ||
 	    ttype == ltt_union || ttype == ltt_enum || ttype == ltt_ident;
+}
+
+/** Return @c true if token type is a storage class specifier
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is a type specifier
+ */
+static bool parser_ttype_sclass(lexer_toktype_t ttype)
+{
+	return ttype == ltt_extern || ttype == ltt_static ||
+	    ttype == ltt_auto || ttype == ltt_register;
+}
+
+/** Return @c true if token type is a function specifier
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is a type specifier
+ */
+static bool parser_ttype_fspec(lexer_toktype_t ttype)
+{
+	return ttype == ltt_inline;
 }
 
 /** Parse statement.
@@ -657,7 +680,6 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 	ltt = parser_next_ttype(parser);
 	while (parser_ttype_tspec(ltt) || parser_ttype_tqual(ltt)) {
-		printf("process sqlist elem\n");
 		if (parser_ttype_tspec(ltt)) {
 			/* Stop before second identifier */
 			if (ltt == ltt_ident && have_ident)
@@ -681,6 +703,70 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 	*rsqlist = sqlist;
 	return EOK;
+}
+
+/** Parse declaration specifiers.
+ *
+ * @param parser Parser
+ * @param rdspecs Place to store pointer to new AST declaration specifiers
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
+{
+	lexer_toktype_t ltt;
+	ast_sclass_t *sclass;
+	ast_dspecs_t *dspecs;
+	ast_tqual_t *tqual;
+	ast_fspec_t *fspec;
+	ast_node_t *elem;
+	bool have_tspec;
+	int rc;
+
+	rc = ast_dspecs_create(&dspecs);
+	if (rc != EOK)
+		return rc;
+
+	have_tspec = false;
+
+	ltt = parser_next_ttype(parser);
+	while (parser_ttype_sclass(ltt) || parser_ttype_tspec(ltt) ||
+	    parser_ttype_tqual(ltt) || parser_ttype_fspec(ltt)) {
+		if (parser_ttype_sclass(ltt)) {
+			rc = parser_process_sclass(parser, &sclass);
+			if (rc != EOK)
+				goto error;
+			elem = &sclass->node;
+		} else if (parser_ttype_tspec(ltt)) {
+			/* Stop before identifier if we already have a specifier */
+			if (ltt == ltt_ident && have_tspec)
+				break;
+			rc = parser_process_tspec(parser, &elem);
+			if (rc != EOK)
+				goto error;
+			have_tspec = true;
+		} else if (parser_ttype_tqual(ltt)) {
+			rc = parser_process_tqual(parser, &tqual);
+			if (rc != EOK)
+				goto error;
+			elem = &tqual->node;
+		} else {
+			/* Function specifier */
+			rc = parser_process_fspec(parser, &fspec);
+			if (rc != EOK)
+				goto error;
+			elem = &fspec->node;
+		}
+
+		ast_dspecs_append(dspecs, elem);
+		ltt = parser_next_ttype(parser);
+	}
+
+	*rdspecs = dspecs;
+	return EOK;
+error:
+	ast_tree_destroy(&dspecs->node);
+	return rc;
 }
 
 /** Parse identifier declarator.
@@ -1016,7 +1102,6 @@ error:
 	return rc;
 }
 
-
 /** Parse storage-class specifier.
  *
  * @param parser Parser
@@ -1064,16 +1149,45 @@ static int parser_process_sclass(parser_t *parser, ast_sclass_t **rsclass)
 	return EOK;
 }
 
+/** Parse function specifier.
+ *
+ * @param parser Parser
+ * @param rfspec Place to store function specifier
+ *
+ * @return EOK on success or error code
+ */
+static int parser_process_fspec(parser_t *parser, ast_fspec_t **rfspec)
+{
+	lexer_toktype_t ltt;
+	ast_fspec_t *fspec;
+	void *dfspec;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	assert(ltt == ltt_inline);
+
+	parser_skip(parser, &dfspec);
+
+	rc = ast_fspec_create(&fspec);
+	if (rc != EOK)
+		return rc;
+
+	fspec->tfspec.data = dfspec;
+
+	*rfspec = fspec;
+	return EOK;
+}
+
 /** Parse function definition.
  *
  * @param parser Parser
- * @param ftspec Function type specifier
+ * @param dspecs Declaration specifiers
  * @param fdecl  Function declarator
  * @param rnode Place to store pointer to new function definition
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_fundef(parser_t *parser, ast_node_t *ftspec,
+static int parser_process_fundef(parser_t *parser, ast_dspecs_t *dspecs,
     ast_node_t *fdecl, ast_fundef_t **rfundef)
 {
 	lexer_toktype_t ltt;
@@ -1100,7 +1214,7 @@ static int parser_process_fundef(parser_t *parser, ast_node_t *ftspec,
 		return EINVAL;
 	}
 
-	rc = ast_fundef_create(ftspec, fdecl, body, &fundef);
+	rc = ast_fundef_create(dspecs, fdecl, body, &fundef);
 	if (rc != EOK) {
 		ast_tree_destroy(&body->node);
 		return rc;
@@ -1175,16 +1289,11 @@ error:
 static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 {
 	ast_fundef_t *fundef;
-	ast_node_t *rtspec = NULL;
+	ast_dspecs_t *dspecs = NULL;
 	ast_node_t *fdecl = NULL;
-	ast_sclass_t *sclass;
 	int rc;
 
-	rc = parser_process_sclass(parser, &sclass);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_process_tspec(parser, &rtspec);
+	rc = parser_process_dspecs(parser, &dspecs);
 	if (rc != EOK)
 		goto error;
 
@@ -1192,15 +1301,15 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_fundef(parser, rtspec, fdecl, &fundef);
+	rc = parser_process_fundef(parser, dspecs, fdecl, &fundef);
 	if (rc != EOK)
 		goto error;
 
 	*rnode = &fundef->node;
 	return EOK;
 error:
-	if (rtspec != NULL)
-		ast_tree_destroy(rtspec);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
 	if (fdecl != NULL)
 		ast_tree_destroy(fdecl);
 	return rc;
