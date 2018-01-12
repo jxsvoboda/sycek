@@ -1131,12 +1131,12 @@ int ast_dfun_create(ast_dfun_t **rdfun)
 /** Append argument to function declarator.
  *
  * @param dfun Function declarator
- * @param tspec Argument type specifier
+ * @param dspecs Declaration specifiers
  * @param decl Argument declarator
  * @param dcomma Data for comma token or @c NULL
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_dfun_append(ast_dfun_t *dfun, ast_node_t *tspec, ast_node_t *decl,
+int ast_dfun_append(ast_dfun_t *dfun, ast_dspecs_t *dspecs, ast_node_t *decl,
     void *dcomma)
 {
 	ast_dfun_arg_t *arg;
@@ -1145,7 +1145,7 @@ int ast_dfun_append(ast_dfun_t *dfun, ast_node_t *tspec, ast_node_t *decl,
 	if (arg == NULL)
 		return ENOMEM;
 
-	arg->tspec = tspec;
+	arg->dspecs = dspecs;
 	arg->decl = decl;
 	arg->tcomma.data = dcomma;
 

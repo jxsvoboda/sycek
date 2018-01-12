@@ -37,6 +37,7 @@
 static void checker_parser_get_tok(void *, lexer_tok_t *);
 static void *checker_parser_tok_data(void *, lexer_tok_t *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
+static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
 
@@ -547,7 +548,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = checker_check_tspec(scope, arg->tspec);
+		rc = checker_check_dspecs(scope, arg->dspecs);
 		if (rc != EOK)
 			return rc;
 

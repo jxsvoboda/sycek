@@ -928,7 +928,7 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	ast_node_t *bdecl = NULL;
 	lexer_toktype_t ltt;
 	void *dlparen;
-	ast_node_t *tspec;
+	ast_dspecs_t *dspecs;
 	ast_node_t *decl;
 	void *dcomma;
 	void *drparen;
@@ -957,26 +957,28 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_rparen) {
 		do {
-			rc = parser_process_tspec(parser, &tspec);
+			rc = parser_process_dspecs(parser, &dspecs);
 			if (rc != EOK)
 				goto error;
 
 			rc = parser_process_decl(parser, &decl);
 			if (rc != EOK) {
-				ast_tree_destroy(tspec);
+				ast_tree_destroy(&dspecs->node);
 				goto error;
 			}
 
 			ltt = parser_next_ttype(parser);
 			if (ltt != ltt_rparen) {
 				rc = parser_match(parser, ltt_comma, &dcomma);
-				if (rc != EOK)
+				if (rc != EOK) {
+					ast_tree_destroy(&dspecs->node);
 					goto error;
+				}
 			} else {
 				dcomma = NULL;
 			}
 
-			rc = ast_dfun_append(dfun, tspec, decl, dcomma);
+			rc = ast_dfun_append(dfun, dspecs, decl, dcomma);
 			if (rc != EOK)
 				goto error;
 		} while (ltt != ltt_rparen);

@@ -289,8 +289,8 @@ typedef struct {
 	ast_dfun_t *dfun;
 	/** Link to dfun->args */
 	link_t ldfun;
-	/** Type specifier */
-	ast_node_t *tspec;
+	/** Declaration specifiers */
+	ast_dspecs_t *dspecs;
 	/** Declarator */
 	ast_node_t *decl;
 	/** Comma token (except for last argument) */
