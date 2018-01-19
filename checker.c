@@ -33,6 +33,7 @@
 #include <parser.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void checker_parser_get_tok(void *, lexer_tok_t *);
 static void *checker_parser_tok_data(void *, lexer_tok_t *);
@@ -297,6 +298,48 @@ static bool checker_is_tok_lbegin(checker_tok_t *tok)
 	return false;
 }
 
+/** Prepend a new whitespace token before a token in the source code.
+ *
+ * @param tok Token before which to prepend
+ * @param wstext Text of the whitespace token
+ */
+static int checker_prepend_wspace(checker_tok_t *tok, const char *wstext)
+{
+	checker_tok_t *ctok;
+	char *dtext;
+
+	ctok = calloc(1, sizeof(checker_tok_t));
+	if (ctok == NULL)
+		return ENOMEM;
+
+	dtext = strdup(wstext);
+	if (dtext == NULL) {
+		free(ctok);
+		return ENOMEM;
+	}
+
+	ctok->mod = tok->mod;
+	ctok->tok.ttype = ltt_wspace;
+	ctok->tok.text = dtext;
+	ctok->tok.text_size = strlen(dtext);
+	ctok->tok.udata = (void *) ctok;
+
+	list_insert_before(&ctok->ltoks, &tok->ltoks);
+
+	return EOK;
+}
+
+/** Remove a token from the source code.
+ *
+ * @param tok Token to remove
+ */
+static void checker_remove_token(checker_tok_t *tok)
+{
+	list_remove(&tok->ltoks);
+	lexer_free_tok(&tok->tok);
+	free(tok);
+}
+
 /** Check a token that must be at the beginning of the line.
  *
  * The token must be at the beginning of the line and indented appropriately.
@@ -307,12 +350,28 @@ static bool checker_is_tok_lbegin(checker_tok_t *tok)
 static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
     const char *msg)
 {
+	int rc;
+	size_t i;
+
 	checker_check_any(scope, tok);
 	tok->lbegin = true;
 
 	if (!checker_is_tok_lbegin(tok)) {
-		lexer_dprint_tok(&tok->tok, stdout);
-		printf(": %s\n", msg);
+		if (scope->fix) {
+			rc = checker_prepend_wspace(tok, "\n");
+			if (rc != EOK)
+				abort();
+
+			/* Insert proper indentation */
+			for (i = 0; i < scope->indlvl; i++) {
+				rc = checker_prepend_wspace(tok, "\t");
+				if (rc != EOK)
+					abort();
+			}
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": %s\n", msg);
+		}
 	}
 }
 
@@ -332,8 +391,12 @@ static void checker_check_nows_before(checker_scope_t *scope,
 	assert(p != NULL);
 
 	if (p->tok.ttype == ltt_wspace) {
-		lexer_dprint_tok(&p->tok, stdout);
-		printf(": %s\n", msg);
+		if (scope->fix) {
+			checker_remove_token(p);
+		} else {
+			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
 	}
 }
 
@@ -353,8 +416,12 @@ static void checker_check_nows_after(checker_scope_t *scope,
 	assert(p != NULL);
 
 	if (p->tok.ttype == ltt_wspace) {
-		lexer_dprint_tok(&p->tok, stdout);
-		printf(": %s\n", msg);
+		if (scope->fix) {
+			checker_remove_token(p);
+		} else {
+			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
 	}
 }
 
@@ -392,6 +459,7 @@ static void checker_check_nbspace_before(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
+	int rc;
 
 	checker_check_any(scope, tok);
 
@@ -400,17 +468,25 @@ static void checker_check_nbspace_before(checker_scope_t *scope,
 	assert(p != NULL);
 
 	if (p->tok.ttype != ltt_wspace || checker_is_tok_lbegin(tok)) {
-		lexer_dprint_tok(&p->tok, stdout);
-		printf(": %s\n", msg);
+		if (scope->fix) {
+			rc = checker_prepend_wspace(tok, " ");
+			if (rc != EOK)
+				abort();
+		} else {
+			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
 	}
 }
 
 /** Create top-level checker scope.
  *
  * @param mod Checker module
+ * @param fix @c true to attempt to fix issues instead of reporting them
  * @return New scope or @c NULL if out of memory
  */
-static checker_scope_t *checker_scope_toplvl(checker_module_t *mod)
+static checker_scope_t *checker_scope_toplvl(checker_module_t *mod,
+    bool fix)
 {
 	checker_scope_t *tscope;
 
@@ -420,6 +496,7 @@ static checker_scope_t *checker_scope_toplvl(checker_module_t *mod)
 
 	tscope->mod = mod;
 	tscope->indlvl = 0;
+	tscope->fix = fix;
 
 	return tscope;
 }
@@ -439,6 +516,7 @@ static checker_scope_t *checker_scope_nested(checker_scope_t *scope)
 
 	nscope->mod = scope->mod;
 	nscope->indlvl = scope->indlvl + 1;
+	nscope->fix = scope->fix;
 
 	return nscope;
 }
@@ -835,7 +913,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
 		asqlist = ast_tree_first_tok(&elem->sqlist->node);
-		checker_check_lbegin(scope, (checker_tok_t *)asqlist->data,
+		checker_check_lbegin(escope, (checker_tok_t *)asqlist->data,
 		    "Record element declaration must start on a new line.");
 
 		rc = checker_check_sqlist(escope, elem->sqlist);
@@ -1114,17 +1192,16 @@ error:
 /** Run checks on a module.
  *
  * @param mod Checker module
+ * @param fix @c true to attempt to fix issues
  * @return EOK on success or error code
  */
-static int checker_module_check(checker_module_t *mod)
+static int checker_module_check(checker_module_t *mod, bool fix)
 {
 	int rc;
 	ast_node_t *decl;
 	checker_scope_t *scope;
 
-	if (0) printf("Check module\n");
-
-	scope = checker_scope_toplvl(mod);
+	scope = checker_scope_toplvl(mod, fix);
 	if (scope == NULL)
 		return ENOMEM;
 
@@ -1251,8 +1328,10 @@ static int checker_module_lines(checker_module_t *mod)
 /** Run checker.
  *
  * @param checker Checker
+ * @param fix @c true to attempt to fix issues instead of reporting them,
+ *        @c false to simply report all issues
  */
-int checker_run(checker_t *checker)
+int checker_run(checker_t *checker, bool fix)
 {
 	int rc;
 
@@ -1265,13 +1344,34 @@ int checker_run(checker_t *checker)
 		if (rc != EOK)
 			return rc;
 
-		rc = checker_module_check(checker->mod);
+		rc = checker_module_check(checker->mod, fix);
 		if (rc != EOK)
 			return rc;
 
 		rc = checker_module_lines(checker->mod);
 		if (rc != EOK)
 			return rc;
+	}
+
+	return EOK;
+}
+
+/** Print source code.
+ *
+ * @param checker Checker
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int checker_print(checker_t *checker, FILE *f)
+{
+	checker_tok_t *tok;
+
+	tok = checker_module_first_tok(checker->mod);
+	while (tok->tok.ttype != ltt_eof) {
+		if (fputs(tok->tok.text, f) < 0)
+			return EIO;
+
+		tok = checker_next_tok(tok);
 	}
 
 	return EOK;

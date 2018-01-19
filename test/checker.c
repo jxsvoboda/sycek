@@ -54,7 +54,7 @@ static int test_check_string(const char *str)
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_run(checker);
+	rc = checker_run(checker, false);
 	if (rc != EOK)
 		return rc;
 

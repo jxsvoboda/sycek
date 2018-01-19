@@ -59,6 +59,8 @@ typedef struct {
 	unsigned indlvl;
 	/** Module */
 	checker_module_t *mod;
+	/** @c true to attempt to fix issues instead of reporting them */
+	bool fix;
 } checker_scope_t;
 
 /** Checker */
