@@ -523,7 +523,7 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (p->tok.ttype != ltt_space || checker_is_tok_lbegin(tok)) {
+	if (!lexer_is_wspace(p->tok.ttype) || checker_is_tok_lbegin(tok)) {
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 
