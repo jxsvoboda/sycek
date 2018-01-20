@@ -77,7 +77,8 @@ void parser_destroy(parser_t *parser)
  */
 static bool parser_ttype_ignore(lexer_toktype_t ttype)
 {
-	return ttype == ltt_wspace || ttype == ltt_comment ||
+	return ttype == ltt_space || ttype == ltt_tab ||
+	    ttype == ltt_newline ||ttype == ltt_comment ||
 	    ttype == ltt_dscomment || ttype == ltt_preproc;
 }
 

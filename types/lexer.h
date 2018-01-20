@@ -38,7 +38,9 @@ enum {
 
 /** Token type */
 typedef enum {
-	ltt_wspace,
+	ltt_space,
+	ltt_tab,
+	ltt_newline,
 	ltt_comment,
 	ltt_dscomment,
 	ltt_preproc,

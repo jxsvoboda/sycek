@@ -221,15 +221,17 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 /** Lex whitespace.
  *
  * @param lexer Lexer
+ * @param ltt Token type (one of ltt_space, ltt_tab, ltt_newline)
  * @param tok Output token
  *
  * @return EOK on success or non-zero error code
  */
-static int lexer_whitespace(lexer_t *lexer, lexer_tok_t *tok)
+static int lexer_whitespace(lexer_t *lexer, lexer_toktype_t ltt,
+    lexer_tok_t *tok)
 {
 	lexer_get_pos(lexer, &tok->bpos);
 	lexer_get_pos(lexer, &tok->epos);
-	tok->ttype = ltt_wspace;
+	tok->ttype = ltt;
 	return lexer_advance(lexer, 1, tok);
 }
 
@@ -570,9 +572,11 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 
 	switch (p[0]) {
 	case ' ':
+		return lexer_whitespace(lexer, ltt_space, tok);
 	case '\t':
+		return lexer_whitespace(lexer, ltt_tab, tok);
 	case '\n':
-		return lexer_whitespace(lexer, tok);
+		return lexer_whitespace(lexer, ltt_newline, tok);
 	case '*':
 		return lexer_onechar(lexer, ltt_asterisk, tok);
 	case '/':
@@ -769,8 +773,12 @@ void lexer_free_tok(lexer_tok_t *tok)
 const char *lexer_str_ttype(lexer_toktype_t ttype)
 {
 	switch (ttype) {
-	case ltt_wspace:
-		return "ws";
+	case ltt_space:
+		return "space";
+	case ltt_tab:
+		return "tab";
+	case ltt_newline:
+		return "tab";
 	case ltt_comment:
 		return "comment";
 	case ltt_dscomment:
@@ -934,4 +942,9 @@ int lexer_print_tok(lexer_tok_t *tok, FILE *f)
 	if (fprintf(f, "%s", tok->text) < 0)
 		return EIO;
 	return EOK;
+}
+
+bool lexer_is_wspace(lexer_toktype_t ltt)
+{
+	return ltt == ltt_space || ltt == ltt_tab || ltt == ltt_newline;
 }

@@ -42,14 +42,6 @@ static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
 
-static void checker_reader_init(checker_reader_t *, checker_module_t *);
-static char checker_reader_cur_char(checker_reader_t *);
-static lexer_toktype_t checker_reader_cur_ttype(checker_reader_t *);
-static checker_tok_t *checker_reader_cur_tok(checker_reader_t *);
-static bool checker_reader_eof(checker_reader_t *);
-static void checker_reader_next_tok(checker_reader_t *);
-static void checker_reader_next_char(checker_reader_t *);
-
 static parser_input_ops_t checker_parser_input = {
 	.get_tok = checker_parser_get_tok,
 	.tok_data = checker_parser_tok_data
@@ -276,24 +268,15 @@ static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 static bool checker_is_tok_lbegin(checker_tok_t *tok)
 {
 	checker_tok_t *p;
-	const char *c;
 
 	p = checker_prev_tok(tok);
-	if (p == NULL)
-		return true;
-
-	while (p->tok.ttype == ltt_wspace) {
-		c = p->tok.text;
-		while (*c != '\0') {
-			if (*c == '\n')
-				return true;
-			++c;
-		}
-
+	while (p != NULL && lexer_is_wspace(p->tok.ttype) &&
+	    p->tok.ttype != ltt_newline) {
 		p = checker_prev_tok(p);
-		if (p == NULL)
-			return true;
 	}
+
+	if (p == NULL || p->tok.ttype == ltt_newline)
+		return true;
 
 	return false;
 }
@@ -301,9 +284,11 @@ static bool checker_is_tok_lbegin(checker_tok_t *tok)
 /** Prepend a new whitespace token before a token in the source code.
  *
  * @param tok Token before which to prepend
+ * @param ltt Token type (one of ltt_space, ltt_tab, ltt_newline)
  * @param wstext Text of the whitespace token
  */
-static int checker_prepend_wspace(checker_tok_t *tok, const char *wstext)
+static int checker_prepend_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
+    const char *wstext)
 {
 	checker_tok_t *ctok;
 	char *dtext;
@@ -319,7 +304,7 @@ static int checker_prepend_wspace(checker_tok_t *tok, const char *wstext)
 	}
 
 	ctok->mod = tok->mod;
-	ctok->tok.ttype = ltt_wspace;
+	ctok->tok.ttype = ltt;
 	ctok->tok.text = dtext;
 	ctok->tok.text_size = strlen(dtext);
 	ctok->tok.udata = (void *) ctok;
@@ -338,6 +323,42 @@ static void checker_remove_token(checker_tok_t *tok)
 	list_remove(&tok->ltoks);
 	lexer_free_tok(&tok->tok);
 	free(tok);
+}
+
+/** Remove whitespace before token.
+ *
+ * @param tok Token
+ */
+static void checker_remove_ws_before(checker_tok_t *tok)
+{
+	checker_tok_t *p, *prev;
+
+	assert(tok != NULL);
+	p = checker_prev_tok(tok);
+
+	while (p != NULL && lexer_is_wspace(p->tok.ttype)) {
+		prev = checker_prev_tok(p);
+		checker_remove_token(p);
+		p = prev;
+	}
+}
+
+/** Remove whitespace after token.
+ *
+ * @param tok Token
+ */
+static void checker_remove_ws_after(checker_tok_t *tok)
+{
+	checker_tok_t *p, *next;
+
+	assert(tok != NULL);
+	p = checker_next_tok(tok);
+
+	while (p != NULL && lexer_is_wspace(p->tok.ttype)) {
+		next = checker_next_tok(p);
+		checker_remove_token(p);
+		p = next;
+	}
 }
 
 /** Check a token that must be at the beginning of the line.
@@ -364,13 +385,15 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 
 	if (!checker_is_tok_lbegin(tok)) {
 		if (scope->fix) {
-			rc = checker_prepend_wspace(tok, "\n");
+			checker_remove_ws_before(tok);
+
+			rc = checker_prepend_wspace(tok, ltt_newline, "\n");
 			if (rc != EOK)
 				return rc;
 
 			/* Insert proper indentation */
 			for (i = 0; i < scope->indlvl; i++) {
-				rc = checker_prepend_wspace(tok, "\t");
+				rc = checker_prepend_wspace(tok, ltt_tab, "\t");
 				if (rc != EOK)
 					return rc;
 			}
@@ -398,9 +421,9 @@ static void checker_check_nows_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (p->tok.ttype == ltt_wspace) {
+	if (lexer_is_wspace(p->tok.ttype)) {
 		if (scope->fix) {
-			checker_remove_token(p);
+			checker_remove_ws_before(tok);
 		} else {
 			lexer_dprint_tok(&p->tok, stdout);
 			printf(": %s\n", msg);
@@ -423,9 +446,9 @@ static void checker_check_nows_after(checker_scope_t *scope,
 	p = checker_next_tok(tok);
 	assert(p != NULL);
 
-	if (p->tok.ttype == ltt_wspace) {
+	if (lexer_is_wspace(p->tok.ttype)) {
 		if (scope->fix) {
-			checker_remove_token(p);
+			checker_remove_ws_after(tok);
 		} else {
 			lexer_dprint_tok(&p->tok, stdout);
 			printf(": %s\n", msg);
@@ -481,9 +504,11 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (p->tok.ttype != ltt_wspace || checker_is_tok_lbegin(tok)) {
+	if (p->tok.ttype != ltt_space || checker_is_tok_lbegin(tok)) {
 		if (scope->fix) {
-			rc = checker_prepend_wspace(tok, " ");
+			checker_remove_ws_before(tok);
+
+			rc = checker_prepend_wspace(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
 		} else {
@@ -1283,35 +1308,29 @@ static int checker_module_check(checker_module_t *mod, bool fix)
  */
 static int checker_module_lines(checker_module_t *mod)
 {
-	checker_reader_t cread;
 	checker_tok_t *tok;
 	unsigned tabs;
 	unsigned spaces;
 	bool nonws;
 	bool trailws;
 
-	checker_reader_init(&cread, mod);
-	while (!checker_reader_eof(&cread)) {
+	tok = checker_module_first_tok(mod);
+	while (tok->tok.ttype != ltt_eof) {
 		/* Tab indentation at beginning of line */
 		tabs = 0;
-		while (!checker_reader_eof(&cread) &&
-		    checker_reader_cur_ttype(&cread) == ltt_wspace &&
-		    checker_reader_cur_char(&cread) == '\t') {
-			checker_reader_next_char(&cread);
+		while (tok->tok.ttype == ltt_tab) {
 			++tabs;
+			tok = checker_next_tok(tok);
 		}
 
 		/* Space indentation for continuation lines */
 		spaces = 0;
-		while (!checker_reader_eof(&cread) &&
-		    checker_reader_cur_ttype(&cread) == ltt_wspace &&
-		    checker_reader_cur_char(&cread) == ' ') {
-			checker_reader_next_char(&cread);
+		while (tok->tok.ttype == ltt_space) {
 			++spaces;
+			tok = checker_next_tok(tok);
 		}
 
-		tok = checker_reader_cur_tok(&cread);
-		if (tok->tok.ttype != ltt_wspace && tok->tok.ttype != ltt_comment &&
+		if (!lexer_is_wspace(tok->tok.ttype) && tok->tok.ttype != ltt_comment &&
 		    tok->tok.ttype != ltt_dscomment && tok->tok.ttype != ltt_preproc) {
 			if (tok->lbegin && spaces != 0) {
 				lexer_dprint_tok(&tok->tok, stdout);
@@ -1337,28 +1356,25 @@ static int checker_module_lines(checker_module_t *mod)
 		nonws = false;
 		trailws = false;
 		/* Find end of line */
-		while (!checker_reader_eof(&cread) &&
-		    (checker_reader_cur_ttype(&cread) != ltt_wspace ||
-		    checker_reader_cur_char(&cread) != '\n')) {
-			if (checker_reader_cur_ttype(&cread) != ltt_wspace) {
+		while (tok->tok.ttype != ltt_eof &&
+		    tok->tok.ttype != ltt_newline) {
+			if (!lexer_is_wspace(tok->tok.ttype)) {
 				nonws = true;
 				trailws = false;
 			} else {
 				trailws = true;
 			}
 
-			checker_reader_next_char(&cread);
+			tok = checker_next_tok(tok);
 		}
 
 		/* Check for trailing whitespace */
 		if (nonws && trailws) {
-			tok = checker_reader_cur_tok(&cread);
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": Whitespace at end of line\n");
 		}
 
 		/* Skip newline */
-		tok = checker_reader_cur_tok(&cread);
 		if (tok->tok.bpos.col > 1 + line_length_limit) {
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": Line too long (%zu characters above %u "
@@ -1366,8 +1382,8 @@ static int checker_module_lines(checker_module_t *mod)
 			    line_length_limit - 1, line_length_limit);
 		}
 
-		if (!checker_reader_eof(&cread))
-			checker_reader_next_char(&cread);
+		if (tok->tok.ttype != ltt_eof)
+			tok = checker_next_tok(tok);
 	}
 
 	return EOK;
@@ -1461,79 +1477,4 @@ static void *checker_parser_tok_data(void *arg, lexer_tok_t *tok)
 
 	/* Set this as user data for the AST token */
 	return ctok;
-}
-
-/** Initialize checker reader.
- *
- * @param creader Checker reader
- * @param mod Checker module to read
- */
-static void checker_reader_init(checker_reader_t *creader,
-    checker_module_t *mod)
-{
-	creader->tok = checker_module_first_tok(mod);
-	creader->c = creader->tok->tok.text;
-}
-
-/** Determine if checker reader is at end of file.
- *
- * @param creader Checker reader
- * @return @c true if at end of file, @c false otherwise
- */
-static bool checker_reader_eof(checker_reader_t *creader)
-{
-	return creader->tok->tok.ttype == ltt_eof;
-}
-
-/** Peek at current character.
- *
- * @param creader Checker reader
- * @return Current character
- */
-static char checker_reader_cur_char(checker_reader_t *creader)
-{
-	return *creader->c;
-}
-
-/** Peek at current token type.
- *
- * @param creader Checker reader
- * @return Current token type
- */
-static lexer_toktype_t checker_reader_cur_ttype(checker_reader_t *creader)
-{
-	return creader->tok->tok.ttype;
-}
-
-/** Peek at current token.
- *
- * @param creader Checker reader
- * @return Current token
- */
-static checker_tok_t *checker_reader_cur_tok(checker_reader_t *creader)
-{
-	return creader->tok;
-}
-
-/** Advance checker reader to next token.
- *
- * @param creader Checker reader
- */
-static void checker_reader_next_tok(checker_reader_t *creader)
-{
-	creader->tok = checker_next_tok(creader->tok);
-	creader->c = creader->tok->tok.text;
-}
-
-/** Advance checker reader to next character.
- *
- * @param creader Checker reader
- */
-static void checker_reader_next_char(checker_reader_t *creader)
-{
-	assert(*creader->c != '\0');
-	++creader->c;
-
-	if (*creader->c == '\0')
-		checker_reader_next_tok(creader);
 }

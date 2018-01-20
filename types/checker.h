@@ -76,16 +76,4 @@ typedef struct {
 	checker_tok_t *tok;
 } checker_parser_input_t;
 
-/** Checker reader.
- *
- * Allows reading characters (and tokens they are contained in)
- * from checker module
- */
-typedef struct {
-	/** Current token */
-	checker_tok_t *tok;
-	/** Current character */
-	char *c;
-} checker_reader_t;
-
 #endif

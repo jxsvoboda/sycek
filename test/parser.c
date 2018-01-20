@@ -39,19 +39,19 @@ static parser_input_ops_t parser_test_input = {
 
 lexer_toktype_t toks[] = {
 	ltt_int,
-	ltt_wspace,
+	ltt_space,
 	ltt_ident,
 	ltt_lparen,
 	ltt_void,
 	ltt_rparen,
-	ltt_wspace,
+	ltt_space,
 	ltt_lbrace,
 	ltt_return,
 	ltt_number,
 	ltt_scolon,
-	ltt_wspace,
+	ltt_space,
 	ltt_rbrace,
-	ltt_wspace,
+	ltt_newline,
 	ltt_eof
 };
 
