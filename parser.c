@@ -1171,6 +1171,8 @@ static int parser_process_sclass(parser_t *parser, ast_sclass_t **rsclass)
 
 	if (sctype != asc_none)
 		parser_skip(parser, &dsclass);
+	else
+		dsclass = NULL;
 
 	rc = ast_sclass_create(sctype, &sclass);
 	if (rc != EOK)
@@ -1239,6 +1241,7 @@ static int parser_process_fundef(parser_t *parser, ast_dspecs_t *dspecs,
 		rc = parser_process_block(parser, &body);
 		if (rc != EOK)
 			return rc;
+		dscolon = NULL;
 		break;
 	default:
 		fprintf(stderr, "Error: ");
