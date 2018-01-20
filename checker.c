@@ -343,6 +343,25 @@ static void checker_remove_ws_before(checker_tok_t *tok)
 	}
 }
 
+/** Remove whitespace before token up to the beginning of the line.
+ *
+ * @param tok Token
+ */
+static void checker_line_remove_ws_before(checker_tok_t *tok)
+{
+	checker_tok_t *p, *prev;
+
+	assert(tok != NULL);
+	p = checker_prev_tok(tok);
+
+	while (p != NULL && lexer_is_wspace(p->tok.ttype) &&
+	    p->tok.ttype != ltt_newline) {
+		prev = checker_prev_tok(p);
+		checker_remove_token(p);
+		p = prev;
+	}
+}
+
 /** Remove whitespace after token.
  *
  * @param tok Token
@@ -1301,18 +1320,122 @@ static int checker_module_check(checker_module_t *mod, bool fix)
 	return EOK;
 }
 
+/** Check line indentation.
+ *
+ * @param tabs Number of tabs at the beginning of line
+ * @param spaces Number of spaces after tabs
+ * @parma extra Number of extra (mixed) whitespace characters
+ * @param tok Next token after indentation
+ * @param fix @c true to attempt to fix issues instead of reporting them
+ * @return EOK on success or error code
+ */
+static int checker_check_line_indent(unsigned tabs, unsigned spaces,
+    unsigned extra, checker_tok_t *tok, bool fix)
+{
+	bool need_fix;
+	unsigned i;
+	int rc;
+
+	need_fix = false;
+
+	if (extra != 0) {
+		if (fix) {
+			need_fix = true;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Mixing tabs and spaces in indentation.\n");
+		}
+	}
+
+	if (!need_fix && (lexer_is_wspace(tok->tok.ttype) ||
+	    tok->tok.ttype == ltt_comment || tok->tok.ttype == ltt_dscomment ||
+	    tok->tok.ttype == ltt_preproc))
+		return EOK;
+
+	if (tok->lbegin && spaces != 0) {
+		if (fix) {
+			need_fix = true;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Non-continuation line should not "
+			    "have any spaces for indentation "
+			    "(found %u)\n", spaces);
+		}
+	}
+
+	if (!tok->lbegin && spaces != cont_indent_spaces) {
+		if (fix) {
+			need_fix = true;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Continuation is indented by %u "
+			    "spaces (should be %u)\n",
+			    spaces, cont_indent_spaces);
+		}
+	}
+
+	if (tok->indlvl != tabs) {
+		if (fix) {
+			need_fix = true;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Wrong indentation: found %u tabs, "
+			    "should be %u tabs\n", tabs, tok->indlvl);
+		}
+	}
+
+	if (tok->tok.ttype == ltt_tab) {
+		if (fix) {
+			need_fix = true;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Mixing tabs and spaces.\n");
+		}
+	}
+
+	if (need_fix) {
+		/*
+		 * Delete all tabs and spaces before tok up to newline or
+		 * beginning of file
+		 */
+		checker_line_remove_ws_before(tok);
+
+		/*
+		 * Insert proper indentation
+		 */
+		for (i = 0; i < tok->indlvl; i++) {
+			rc = checker_prepend_wspace(tok, ltt_tab, "\t");
+			if (rc != EOK)
+				return rc;
+		}
+
+		if (!tok->lbegin) {
+			for (i = 0; i < cont_indent_spaces; i++) {
+				rc = checker_prepend_wspace(tok, ltt_space, " ");
+				if (rc != EOK)
+					return rc;
+			}
+		}
+	}
+
+	return EOK;
+}
+
 /** Check line breaks, indentation and end-of-line whitespace.
  *
  * @param mod Checker module
+ * @param fix @c true to attempt to fix issues instead of reporting them
  * @return EOK on success or error code
  */
-static int checker_module_lines(checker_module_t *mod)
+static int checker_module_lines(checker_module_t *mod, bool fix)
 {
 	checker_tok_t *tok;
 	unsigned tabs;
 	unsigned spaces;
+	unsigned extra;
 	bool nonws;
 	bool trailws;
+	int rc;
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
@@ -1330,28 +1453,17 @@ static int checker_module_lines(checker_module_t *mod)
 			tok = checker_next_tok(tok);
 		}
 
-		if (!lexer_is_wspace(tok->tok.ttype) && tok->tok.ttype != ltt_comment &&
-		    tok->tok.ttype != ltt_dscomment && tok->tok.ttype != ltt_preproc) {
-			if (tok->lbegin && spaces != 0) {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Non-continuation line should not "
-				    "have any spaces for indentation "
-				    "(found %u)\n", spaces);
-			}
-
-			if (!tok->lbegin && spaces != cont_indent_spaces) {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Continuation is indented by %u "
-				    "spaces (should be %u)\n",
-				    spaces, cont_indent_spaces);
-			}
-
-			if (tok->indlvl != tabs) {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Wrong indentation: found %u tabs, "
-				    "should be %u tabs\n", tabs, tok->indlvl);
-			}
+		/* Extra spaces or tabs */
+		extra = 0;
+		while (tok->tok.ttype == ltt_space ||
+		    tok->tok.ttype == ltt_tab) {
+			++extra;
+			tok = checker_next_tok(tok);
 		}
+
+		rc = checker_check_line_indent(tabs, spaces, extra, tok, fix);
+		if (rc != EOK)
+			return rc;
 
 		nonws = false;
 		trailws = false;
@@ -1412,7 +1524,7 @@ int checker_run(checker_t *checker, bool fix)
 		if (rc != EOK)
 			return rc;
 
-		rc = checker_module_lines(checker->mod);
+		rc = checker_module_lines(checker->mod, fix);
 		if (rc != EOK)
 			return rc;
 	}
