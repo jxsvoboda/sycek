@@ -346,8 +346,14 @@ static void checker_remove_token(checker_tok_t *tok)
  * This flags the token as having to begin on a new line so that we will
  * verify it later. That also signals the line begun by this token is
  * not a contination line.
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
+static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
     const char *msg)
 {
 	int rc;
@@ -360,19 +366,21 @@ static void checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 		if (scope->fix) {
 			rc = checker_prepend_wspace(tok, "\n");
 			if (rc != EOK)
-				abort();
+				return rc;
 
 			/* Insert proper indentation */
 			for (i = 0; i < scope->indlvl; i++) {
 				rc = checker_prepend_wspace(tok, "\t");
 				if (rc != EOK)
-					abort();
+					return rc;
 			}
 		} else {
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": %s\n", msg);
 		}
 	}
+
+	return EOK;
 }
 
 /** Check no whitespace before.
@@ -454,8 +462,14 @@ static void checker_check_brkspace_before(checker_scope_t *scope,
 /** Check non-breakable space before.
  *
  * There should be a single space before the token
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_nbspace_before(checker_scope_t *scope,
+static int checker_check_nbspace_before(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
@@ -471,12 +485,14 @@ static void checker_check_nbspace_before(checker_scope_t *scope,
 		if (scope->fix) {
 			rc = checker_prepend_wspace(tok, " ");
 			if (rc != EOK)
-				abort();
+				return rc;
 		} else {
 			lexer_dprint_tok(&p->tok, stdout);
 			printf(": %s\n", msg);
 		}
 	}
+
+	return EOK;
 }
 
 /** Create top-level checker scope.
@@ -578,14 +594,18 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 	checker_tok_t *treturn;
 	checker_tok_t *tscolon;
 	ast_return_t *areturn;
+	int rc;
 
 	assert(stmt->ntype == ant_return);
 	areturn = (ast_return_t *)stmt->ext;
 	treturn = (checker_tok_t *)areturn->treturn.data;
 	tscolon = (checker_tok_t *)areturn->tscolon.data;
 
-	checker_check_lbegin(scope, treturn,
+	rc = checker_check_lbegin(scope, treturn,
 	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
@@ -906,15 +926,19 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 
 	tlbrace = (checker_tok_t *)tsrecord->tlbrace.data;
 	if (tlbrace != NULL) {
-		checker_check_nbspace_before(scope, tlbrace,
+		rc = checker_check_nbspace_before(scope, tlbrace,
 		    "Expected single space before '{'.");
+		if (rc != EOK)
+			goto error;
 	}
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
 		asqlist = ast_tree_first_tok(&elem->sqlist->node);
-		checker_check_lbegin(escope, (checker_tok_t *)asqlist->data,
+		rc = checker_check_lbegin(escope, (checker_tok_t *)asqlist->data,
 		    "Record element declaration must start on a new line.");
+		if (rc != EOK)
+			goto error;
 
 		rc = checker_check_sqlist(escope, elem->sqlist);
 		if (rc != EOK)
@@ -923,8 +947,10 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 		adecl = ast_tree_first_tok(&elem->dlist->node);
 		if (adecl != NULL) {
 			tdecl = (checker_tok_t *)adecl->data;
-			checker_check_nbspace_before(escope, tdecl,
+			rc = checker_check_nbspace_before(escope, tdecl,
 			    "Expected space before declarator.");
+			if (rc != EOK)
+				goto error;
 		}
 
 		rc = checker_check_dlist(escope, elem->dlist);
@@ -940,8 +966,10 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 
 	trbrace = (checker_tok_t *)tsrecord->trbrace.data;
 	if (trbrace != NULL) {
-		checker_check_lbegin(scope, trbrace,
+		rc = checker_check_lbegin(scope, trbrace,
 		    "'}' must begin on a new line.");
+		if (rc != EOK)
+			goto error;
 	}
 
 	checker_scope_destroy(escope);
@@ -969,6 +997,7 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 	checker_tok_t *tcomma;
 	checker_tok_t *trbrace;
 	checker_scope_t *escope;
+	int rc;
 
 	escope = checker_scope_nested(scope);
 	if (escope == NULL)
@@ -983,24 +1012,32 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 
 	tlbrace = (checker_tok_t *)tsenum->tlbrace.data;
 	if (tlbrace != NULL) {
-		checker_check_nbspace_before(scope, tlbrace,
+		rc = checker_check_nbspace_before(scope, tlbrace,
 		    "Expected single space before '{'.");
+		if (rc != EOK)
+			goto error;
 	}
 
 	elem = ast_tsenum_first(tsenum);
 	while (elem != NULL) {
 		telem = (checker_tok_t *)elem->tident.data;
-		checker_check_lbegin(escope, telem,
+		rc = checker_check_lbegin(escope, telem,
 		    "Enum field must begin on a new line.");
+		if (rc != EOK)
+			goto error;
 
 		tequals = (checker_tok_t *)elem->tequals.data;
 		if (tequals != NULL) {
-			checker_check_nbspace_before(escope, tequals,
+			rc = checker_check_nbspace_before(escope, tequals,
 			    "Expected space before '='.");
+			if (rc != EOK)
+				goto error;
 
 			tinit = (checker_tok_t *)elem->tinit.data;
-			checker_check_nbspace_before(escope, tinit,
+			rc = checker_check_nbspace_before(escope, tinit,
 			    "Expected whitespace before initializer.");
+			if (rc != EOK)
+				goto error;
 		}
 
 		tcomma = (checker_tok_t *)elem->tcomma.data;
@@ -1014,12 +1051,17 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 
 	trbrace = (checker_tok_t *)tsenum->trbrace.data;
 	if (trbrace != NULL) {
-		checker_check_lbegin(scope, trbrace,
+		rc = checker_check_lbegin(scope, trbrace,
 		    "'}' must begin on a new line.");
+		if (rc != EOK)
+			goto error;
 	}
 
 	checker_scope_destroy(escope);
 	return EOK;
+error:
+	checker_scope_destroy(escope);
+	return rc;
 }
 
 /** Run checks on a type specifier.
@@ -1145,8 +1187,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	fundef = (ast_fundef_t *)decl->ext;
 
 	adecl = ast_tree_first_tok(&fundef->dspecs->node);
-	checker_check_lbegin(scope, (checker_tok_t *)adecl->data,
+	rc = checker_check_lbegin(scope, (checker_tok_t *)adecl->data,
 	    "Declaration must start on a new line.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_dspecs(scope, fundef->dspecs);
 	if (rc != EOK)
@@ -1161,8 +1205,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 
 	assert(fundef->body->braces);
 	tlbrace = (checker_tok_t *)fundef->body->topen.data;
-	checker_check_lbegin(scope, tlbrace,
+	rc = checker_check_lbegin(scope, tlbrace,
 	    "Function opening brace must start on a new line.");
+	if (rc != EOK)
+		return rc;
 
 	bscope = checker_scope_nested(scope);
 	if (bscope == NULL)
@@ -1178,8 +1224,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	}
 
 	trbrace = (checker_tok_t *)fundef->body->tclose.data;
-	checker_check_lbegin(scope, trbrace,
+	rc = checker_check_lbegin(scope, trbrace,
 	    "Function closing brace must start on a new line.");
+	if (rc != EOK)
+		goto error;
 
 	checker_scope_destroy(bscope);
 	return EOK;
