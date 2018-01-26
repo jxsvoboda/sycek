@@ -47,7 +47,7 @@ lexer_toktype_t toks[] = {
 	ltt_space,
 	ltt_lbrace,
 	ltt_return,
-	ltt_number,
+	ltt_ident,
 	ltt_scolon,
 	ltt_space,
 	ltt_rbrace,

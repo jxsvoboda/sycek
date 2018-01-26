@@ -104,6 +104,7 @@ static int test_ast_block(void)
 {
 	ast_block_t *block;
 	ast_return_t *areturn;
+	ast_eident_t *eident;
 	int rc;
 
 	rc = ast_block_create(ast_braces, &block);
@@ -114,7 +115,12 @@ static int test_ast_block(void)
 	if (rc != EOK)
 		return rc;
 
+	rc = ast_eident_create(&eident);
+	if (rc != EOK)
+		return rc;
+
 	ast_block_append(block, &areturn->node);
+	areturn->arg = &eident->node;
 
 	ast_tree_print(&block->node, stdout);
 	putchar('\n');
@@ -149,11 +155,18 @@ static int test_ast_tspec(void)
 static int test_ast_return(void)
 {
 	ast_return_t *areturn;
+	ast_eident_t *eident;
 	int rc;
 
 	rc = ast_return_create(&areturn);
 	if (rc != EOK)
 		return rc;
+
+	rc = ast_eident_create(&eident);
+	if (rc != EOK)
+		return rc;
+
+	areturn->arg = &eident->node;
 
 	ast_tree_print(&areturn->node, stdout);
 	putchar('\n');

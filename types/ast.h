@@ -29,6 +29,8 @@
 
 #include <types/adt/list.h>
 
+typedef struct ast_block ast_block_t;
+
 /** AST node type */
 typedef enum {
 	ant_tqual,
@@ -46,11 +48,13 @@ typedef enum {
 	ant_dfun,
 	ant_darray,
 	ant_dlist,
-/*
-	ant_ident,
-	ant_expr,
-*/
+	ant_eident,
 	ant_return,
+	ant_if,
+	ant_while,
+	ant_do,
+	ant_for,
+	ant_switch,
 	ant_block,
 	ant_gdecln,
 	ant_module,
@@ -356,17 +360,13 @@ typedef struct {
 	ast_node_t *btype;
 } ast_tptr_t;
 
-/** Identifier */
+/** Identifier expression */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
 	/** Ideintifier token */
 	ast_tok_t tident;
-} ast_ident_t;
-
-/** Arithmetic expression */
-typedef struct {
-} ast_expr_t;
+} ast_eident_t;
 
 /** Return statement. */
 typedef struct {
@@ -375,13 +375,109 @@ typedef struct {
 	/** 'return' token */
 	ast_tok_t treturn;
 	/** Argument */
-	ast_expr_t arg;
+	ast_node_t *arg;
 	/** ';' token */
 	ast_tok_t tscolon;
 } ast_return_t;
 
-/** Statement block. */
+/** If statement */
 typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'if' token */
+	ast_tok_t tif;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Condition */
+	ast_node_t *cond;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** True branch */
+	ast_block_t *tbranch;
+	/** 'else' token */
+	ast_tok_t telse;
+	/** False branch */
+	ast_block_t *fbranch;
+} ast_if_t;
+
+/** While loop statement */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'while' token */
+	ast_tok_t twhile;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Condition */
+	ast_node_t *cond;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Loop body */
+	ast_block_t *body;
+} ast_while_t;
+
+/** Do loop statement */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'do' token */
+	ast_tok_t tdo;
+	/** Loop body */
+	ast_block_t *body;
+	/** 'while' token */
+	ast_tok_t twhile;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Condition */
+	ast_node_t *cond;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_do_t;
+
+/** For loop statement */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'for' token */
+	ast_tok_t tfor;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Loop initialization */
+	ast_node_t *linit;
+	/** ';' token */
+	ast_tok_t tscolon1;
+	/** Loop condition */
+	ast_node_t *lcond;
+	/** ';' token */
+	ast_tok_t tscolon2;
+	/** Next iteration */
+	ast_node_t *lnext;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Loop body */
+	ast_block_t *body;
+} ast_for_t;
+
+/** Switch statement */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'switch' token */
+	ast_tok_t tswitch;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Switch expression */
+	ast_node_t *sexpr;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Switch body */
+	ast_block_t *body;
+} ast_switch_t;
+
+/** Statement block. */
+struct ast_block {
 	/** Base object */
 	ast_node_t node;
 	/** Block having braces or not */
@@ -391,7 +487,7 @@ typedef struct {
 	list_t stmts; /* of ast_node_t */
 	/** Closing brace token */
 	ast_tok_t tclose;
-} ast_block_t;
+};
 
 /** Storage-class specifier */
 typedef struct {

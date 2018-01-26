@@ -641,6 +641,10 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		}
 		return lexer_ident(lexer, tok);
 	case 'e':
+		if (p[1] == 'l' && p[2] == 's' && p[3] == 'e' &&
+		    !is_idcnt(p[4])) {
+			return lexer_keyword(lexer, ltt_else, 4, tok);
+		}
 		if (p[1] == 'n' && p[2] == 'u' && p[3] == 'm' &&
 		    !is_idcnt(p[4])) {
 			return lexer_keyword(lexer, ltt_enum, 4, tok);
@@ -714,6 +718,10 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		if (p[1] == 't' && p[2] == 'r' && p[3] == 'u' && p[4] == 'c' &&
 		    p[5] == 't' && !is_idcnt(p[6])) {
 			return lexer_keyword(lexer, ltt_struct, 6, tok);
+		}
+		if (p[1] == 'w' && p[2] == 'i' && p[3] == 't' && p[4] == 'c' &&
+		    p[5] == 'h' && !is_idcnt(p[6])) {
+			return lexer_keyword(lexer, ltt_switch, 6, tok);
 		}
 		return lexer_ident(lexer, tok);
 	case 't':
@@ -828,6 +836,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "do";
 	case ltt_double:
 		return "double";
+	case ltt_else:
+		return "else";
 	case ltt_enum:
 		return "enum";
 	case ltt_extern:
@@ -862,6 +872,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "static";
 	case ltt_struct:
 		return "struct";
+	case ltt_switch:
+		return "switch";
 	case ltt_typedef:
 		return "typedef";
 	case ltt_union:

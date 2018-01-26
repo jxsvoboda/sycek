@@ -41,6 +41,8 @@ static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
+static int checker_check_block(checker_scope_t *, ast_block_t *);
+static int checker_check_expr(checker_scope_t *, ast_node_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
 
@@ -733,21 +735,18 @@ error:
 	return rc;
 }
 
-/** Run checks on a statement.
+/** Run checks on a return statement.
  *
  * @param scope Checker scope
- * @param stmt AST statement
+ * @param areturn AST return statement
  * @return EOK on success or error code
  */
-static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
+static int checker_check_return(checker_scope_t *scope, ast_return_t *areturn)
 {
 	checker_tok_t *treturn;
 	checker_tok_t *tscolon;
-	ast_return_t *areturn;
 	int rc;
 
-	assert(stmt->ntype == ant_return);
-	areturn = (ast_return_t *)stmt->ext;
 	treturn = (checker_tok_t *)areturn->treturn.data;
 	tscolon = (checker_tok_t *)areturn->tscolon.data;
 
@@ -756,10 +755,332 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 	if (rc != EOK)
 		return rc;
 
+	rc = checker_check_expr(scope, areturn->arg);
+	if (rc != EOK)
+		return rc;
+
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
 	return EOK;
+}
+
+/** Run checks on an if statement.
+ *
+ * @param scope Checker scope
+ * @param aif AST if statement
+ * @return EOK on success or error code
+ */
+static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
+{
+	checker_tok_t *tif;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *telse;
+	int rc;
+
+	tif = (checker_tok_t *)aif->tif.data;
+	tlparen = (checker_tok_t *)aif->tlparen.data;
+	trparen = (checker_tok_t *)aif->trparen.data;
+	telse = (checker_tok_t *)aif->telse.data;
+
+	rc = checker_check_lbegin(scope, tif,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nbspace_before(scope, tlparen,
+	    "There must be single space between 'if' and '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+
+	rc = checker_check_expr(scope, aif->cond);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "There must not be whitespace before ')'.");
+
+	rc = checker_check_block(scope, aif->tbranch);
+	if (rc != EOK)
+		return rc;
+
+	if (aif->fbranch != NULL) {
+		if (aif->tbranch->braces) {
+			rc = checker_check_nbspace_before(scope, telse,
+			    "There must be single space between '}' and "
+			    "'else'.");
+			if (rc != EOK)
+				return rc;
+		} else {
+			rc = checker_check_lbegin(scope, telse,
+			    "'else' must begin on a new line.");
+			if (rc != EOK)
+				return rc;
+		}
+	}
+
+	if (aif->fbranch != NULL) {
+		rc = checker_check_block(scope, aif->fbranch);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
+/** Run checks on a while loop statement.
+ *
+ * @param scope Checker scope
+ * @param awhile AST while loop statement
+ * @return EOK on success or error code
+ */
+static int checker_check_while(checker_scope_t *scope, ast_while_t *awhile)
+{
+	checker_tok_t *twhile;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	int rc;
+
+	twhile = (checker_tok_t *)awhile->twhile.data;
+	tlparen = (checker_tok_t *)awhile->tlparen.data;
+	trparen = (checker_tok_t *)awhile->trparen.data;
+
+	rc = checker_check_lbegin(scope, twhile,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nbspace_before(scope, tlparen,
+	    "There must be single space between 'while' and '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+
+	rc = checker_check_expr(scope, awhile->cond);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	rc = checker_check_block(scope, awhile->body);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Run checks on a do loop statement.
+ *
+ * @param scope Checker scope
+ * @param ado AST do loop statement
+ * @return EOK on success or error code
+ */
+static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
+{
+	checker_tok_t *tdo;
+	checker_tok_t *twhile;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *tscolon;
+	int rc;
+
+	tdo = (checker_tok_t *)ado->tdo.data;
+	twhile = (checker_tok_t *)ado->twhile.data;
+	tlparen = (checker_tok_t *)ado->tlparen.data;
+	trparen = (checker_tok_t *)ado->trparen.data;
+	tscolon = (checker_tok_t *)ado->tscolon.data;
+
+	rc = checker_check_lbegin(scope, tdo,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_block(scope, ado->body);
+	if (rc != EOK)
+		return rc;
+
+	if (ado->body->braces) {
+		rc = checker_check_nbspace_before(scope, twhile,
+		    "There must be single space between '}' and "
+		    "'while'.");
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = checker_check_lbegin(scope, twhile,
+		    "'while' must begin on a new line.");
+		if (rc != EOK)
+			return rc;
+	}
+
+	rc = checker_check_nbspace_before(scope, tlparen,
+	    "There must be single space between 'while' and '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+
+	rc = checker_check_expr(scope, ado->cond);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
+/** Run checks on a for loop statement.
+ *
+ * @param scope Checker scope
+ * @param afor AST for loop statement
+ * @return EOK on success or error code
+ */
+static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
+{
+	checker_tok_t *tfor;
+	checker_tok_t *tlparen;
+	checker_tok_t *tscolon1;
+	checker_tok_t *tscolon2;
+	checker_tok_t *trparen;
+	int rc;
+
+	tfor = (checker_tok_t *)afor->tfor.data;
+	tlparen = (checker_tok_t *)afor->tlparen.data;
+	tscolon1 = (checker_tok_t *)afor->tscolon1.data;
+	tscolon2 = (checker_tok_t *)afor->tscolon2.data;
+	trparen = (checker_tok_t *)afor->trparen.data;
+
+	rc = checker_check_lbegin(scope, tfor,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nbspace_before(scope, tlparen,
+	    "There must be single space between 'for' and '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+
+	rc = checker_check_expr(scope, afor->linit);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tscolon1,
+	    "Unexpected whitespace before ';'.");
+
+	rc = checker_check_brkspace_after(scope, tscolon1,
+	    "Expected space after ';'.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, afor->lcond);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tscolon2,
+	    "Unexpected whitespace before ';'.");
+
+	rc = checker_check_brkspace_after(scope, tscolon2,
+	    "Expected space after ';'.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, afor->lnext);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	rc = checker_check_block(scope, afor->body);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Run checks on a switch statement.
+ *
+ * @param scope Checker scope
+ * @param aswitch AST switch statement
+ * @return EOK on success or error code
+ */
+static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
+{
+	checker_tok_t *tswitch;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	int rc;
+
+	tswitch = (checker_tok_t *)aswitch->tswitch.data;
+	tlparen = (checker_tok_t *)aswitch->tlparen.data;
+	trparen = (checker_tok_t *)aswitch->trparen.data;
+
+	rc = checker_check_lbegin(scope, tswitch,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nbspace_before(scope, tlparen,
+	    "There must be single space between 'switch' and '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+
+	rc = checker_check_expr(scope, aswitch->sexpr);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	rc = checker_check_block(scope, aswitch->body);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Run checks on a statement.
+ *
+ * @param scope Checker scope
+ * @param stmt AST statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
+{
+	switch (stmt->ntype) {
+	case ant_return:
+		return checker_check_return(scope, (ast_return_t *)stmt->ext);
+	case ant_if:
+		return checker_check_if(scope, (ast_if_t *)stmt->ext);
+	case ant_while:
+		return checker_check_while(scope, (ast_while_t *)stmt->ext);
+	case ant_do:
+		return checker_check_do(scope, (ast_do_t *)stmt->ext);
+	case ant_for:
+		return checker_check_for(scope, (ast_for_t *)stmt->ext);
+	case ant_switch:
+		return checker_check_switch(scope, (ast_switch_t *)stmt->ext);
+	default:
+		assert(false);
+		return EOK;
+	}
 }
 
 /** Run checks on an identifier declarator.
@@ -1326,6 +1647,75 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 
 		elem = ast_dspecs_next(elem);
 	}
+
+	return EOK;
+}
+
+/** Check statement block.
+ *
+ * @param scope Checker scope
+ * @param block Statement block
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_block(checker_scope_t *scope, ast_block_t *block)
+{
+	checker_scope_t *bscope = NULL;
+	checker_tok_t *tlbrace;
+	checker_tok_t *trbrace;
+	ast_node_t *stmt;
+	int rc;
+
+	if (block->braces) {
+		tlbrace = (checker_tok_t *)block->topen.data;
+		rc = checker_check_nbspace_before(scope, tlbrace,
+		    "Expected single space before block opening brace.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	bscope = checker_scope_nested(scope);
+	if (bscope == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	stmt = ast_block_first(block);
+	while (stmt != NULL) {
+		rc = checker_check_stmt(bscope, stmt);
+		if (rc != EOK)
+			goto error;
+
+		stmt = ast_block_next(stmt);
+	}
+
+	if (block->braces) {
+		trbrace = (checker_tok_t *)block->tclose.data;
+		rc = checker_check_lbegin(scope, trbrace,
+		    "Block closing brace must start on a new line.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	checker_scope_destroy(bscope);
+	return EOK;
+error:
+	if (bscope != NULL)
+		checker_scope_destroy(bscope);
+	return rc;
+}
+
+/** Check arithmetic expression.
+ *
+ * @param scope Checker scope
+ * @param expr Expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
+{
+	(void) scope;
+	(void) expr;
 
 	return EOK;
 }

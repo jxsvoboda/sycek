@@ -562,6 +562,9 @@ static void ast_block_destroy(ast_block_t *block)
 {
 	ast_node_t *stmt;
 
+	if (block == NULL)
+		return;
+
 	stmt = ast_block_first(block);
 	while (stmt != NULL) {
 		list_remove(&stmt->llist);
@@ -1723,9 +1726,13 @@ int ast_dparen_create(ast_dparen_t **rdparen)
  */
 static int ast_dparen_print(ast_dparen_t *adparen, FILE *f)
 {
-	(void)adparen;/* XXX */
+	int rc;
+
 	if (fprintf(f, "dparen(") < 0)
 		return EIO;
+	rc = ast_tree_print(adparen->bdecl, f);
+	if (rc != EOK)
+		return rc;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
@@ -1792,9 +1799,13 @@ int ast_dptr_create(ast_dptr_t **rdptr)
  */
 static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
 {
-	(void)adptr;/* XXX */
+	int rc;
+
 	if (fprintf(f, "dptr(") < 0)
 		return EIO;
+	rc = ast_tree_print(adptr->bdecl, f);
+	if (rc != EOK)
+		return rc;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
@@ -2327,6 +2338,74 @@ bool ast_decl_is_abstract(ast_node_t *node)
 	}
 }
 
+/** Create AST identifier expression.
+ *
+ * @param reident Place to store pointer to new identifier expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eident_create(ast_eident_t **reident)
+{
+	ast_eident_t *aeident;
+
+	aeident = calloc(1, sizeof(ast_eident_t));
+	if (aeident == NULL)
+		return ENOMEM;
+
+	aeident->node.ext = aeident;
+	aeident->node.ntype = ant_eident;
+
+	*reident = aeident;
+	return EOK;
+}
+
+/** Print AST identifier expression.
+ *
+ * @param aeident Identifier expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eident_print(ast_eident_t *aeident, FILE *f)
+{
+	(void)aeident;
+	if (fprintf(f, "eident(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST identifier expression.
+ *
+ * @param aeident Identifier expression
+ */
+static void ast_eident_destroy(ast_eident_t *aeident)
+{
+	free(aeident);
+}
+
+/** Get first token of AST identifier expression.
+ *
+ * @param eident Identifier expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eident_first_tok(ast_eident_t *eident)
+{
+	return &eident->tident;
+}
+
+/** Get last token of AST identifier expression.
+ *
+ * @param eident Identifier expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eident_last_tok(ast_eident_t *eident)
+{
+	return &eident->tident;
+}
+
+
 /** Create AST return.
  *
  * @param rreturn Place to store pointer to new return
@@ -2357,9 +2436,13 @@ int ast_return_create(ast_return_t **rreturn)
  */
 static int ast_return_print(ast_return_t *areturn, FILE *f)
 {
-	(void)areturn;
+	int rc;
+
 	if (fprintf(f, "return(") < 0)
 		return EIO;
+	rc = ast_tree_print(areturn->arg, f);
+	if (rc != EOK)
+		return rc;
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
@@ -2392,6 +2475,427 @@ static ast_tok_t *ast_return_first_tok(ast_return_t *areturn)
 static ast_tok_t *ast_return_last_tok(ast_return_t *areturn)
 {
 	return &areturn->tscolon;
+}
+
+/** Create AST if statement.
+ *
+ * @param rif Place to store pointer to new if statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_if_create(ast_if_t **rif)
+{
+	ast_if_t *aif;
+
+	aif = calloc(1, sizeof(ast_if_t));
+	if (aif == NULL)
+		return ENOMEM;
+
+	aif->node.ext = aif;
+	aif->node.ntype = ant_if;
+
+	*rif = aif;
+	return EOK;
+}
+
+/** Print AST if statement.
+ *
+ * @param aif If statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_if_print(ast_if_t *aif, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "if(") < 0)
+		return EIO;
+	rc = ast_tree_print(aif->cond, f);
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	rc = ast_block_print(aif->tbranch, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	rc = ast_block_print(aif->fbranch, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST if statement.
+ *
+ * @param aif If statement
+ */
+static void ast_if_destroy(ast_if_t *aif)
+{
+	if (aif->cond != NULL)
+		ast_tree_destroy(aif->cond);
+	if (aif->tbranch != NULL)
+		ast_block_destroy(aif->tbranch);
+	if (aif->fbranch != NULL)
+		ast_block_destroy(aif->fbranch);
+	free(aif);
+}
+
+/** Get first token of AST if statement.
+ *
+ * @param aif If statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_if_first_tok(ast_if_t *aif)
+{
+	return &aif->tif;
+}
+
+/** Get last token of AST if statement.
+ *
+ * @param aif If statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_if_last_tok(ast_if_t *aif)
+{
+	if (aif->fbranch != NULL)
+		return ast_block_last_tok(aif->fbranch);
+	else
+		return ast_block_last_tok(aif->tbranch);
+}
+
+/** Create AST while loop statement.
+ *
+ * @param rwhile Place to store pointer to new while loop statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_while_create(ast_while_t **rwhile)
+{
+	ast_while_t *awhile;
+
+	awhile = calloc(1, sizeof(ast_while_t));
+	if (awhile == NULL)
+		return ENOMEM;
+
+	awhile->node.ext = awhile;
+	awhile->node.ntype = ant_while;
+
+	*rwhile = awhile;
+	return EOK;
+}
+
+/** Print AST while loop statement.
+ *
+ * @param awhile While loop statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_while_print(ast_while_t *awhile, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "while(") < 0)
+		return EIO;
+	rc = ast_tree_print(awhile->cond, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	rc = ast_block_print(awhile->body, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST while loop statement.
+ *
+ * @param awhile While loop statement
+ */
+static void ast_while_destroy(ast_while_t *awhile)
+{
+	ast_tree_destroy(awhile->cond);
+	ast_block_destroy(awhile->body);
+	free(awhile);
+}
+
+/** Get first token of AST while loop statement.
+ *
+ * @param awhile While loop statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_while_first_tok(ast_while_t *awhile)
+{
+	return &awhile->twhile;
+}
+
+/** Get last token of AST while loop statement.
+ *
+ * @param awhile While loop statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_while_last_tok(ast_while_t *awhile)
+{
+	return ast_block_last_tok(awhile->body);
+}
+
+/** Create AST do loop statement.
+ *
+ * @param rdo Place to store pointer to new do loop statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_do_create(ast_do_t **rdo)
+{
+	ast_do_t *ado;
+
+	ado = calloc(1, sizeof(ast_do_t));
+	if (ado == NULL)
+		return ENOMEM;
+
+	ado->node.ext = ado;
+	ado->node.ntype = ant_do;
+
+	*rdo = ado;
+	return EOK;
+}
+
+/** Print AST do loop statement.
+ *
+ * @param ado Do loop statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_do_print(ast_do_t *ado, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "do(") < 0)
+		return EIO;
+
+	rc = ast_block_print(ado->body, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ado->cond, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST do loop statement.
+ *
+ * @param ado Do loop statement
+ */
+static void ast_do_destroy(ast_do_t *ado)
+{
+	ast_block_destroy(ado->body);
+	ast_tree_destroy(ado->cond);
+	free(ado);
+}
+
+/** Get first token of AST do loop statement.
+ *
+ * @param ado Do loop statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_do_first_tok(ast_do_t *ado)
+{
+	return &ado->tdo;
+}
+
+/** Get last token of AST do loop statement.
+ *
+ * @param ado Do loop statementOS
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_do_last_tok(ast_do_t *ado)
+{
+	return &ado->tscolon;
+}
+
+/** Create AST for statement.
+ *
+ * @param rfor Place to store pointer to new for statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_for_create(ast_for_t **rfor)
+{
+	ast_for_t *afor;
+
+	afor = calloc(1, sizeof(ast_for_t));
+	if (afor == NULL)
+		return ENOMEM;
+
+	afor->node.ext = afor;
+	afor->node.ntype = ant_for;
+
+	*rfor = afor;
+	return EOK;
+}
+
+/** Print AST for statement.
+ *
+ * @param afor For statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_for_print(ast_for_t *afor, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "for(") < 0)
+		return EIO;
+	rc = ast_tree_print(afor->linit, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	rc = ast_tree_print(afor->lcond, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	rc = ast_tree_print(afor->lnext, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ",") < 0)
+		return EIO;
+	rc = ast_block_print(afor->body, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST for statement.
+ *
+ * @param afor For statement
+ */
+static void ast_for_destroy(ast_for_t *afor)
+{
+	ast_tree_destroy(afor->linit);
+	ast_tree_destroy(afor->lcond);
+	ast_tree_destroy(afor->lnext);
+	ast_block_destroy(afor->body);
+	free(afor);
+}
+
+/** Get first token of AST for statement.
+ *
+ * @param afor For statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_for_first_tok(ast_for_t *afor)
+{
+	return &afor->tfor;
+}
+
+/** Get last token of AST for statement.
+ *
+ * @param afor For statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_for_last_tok(ast_for_t *afor)
+{
+	return ast_block_last_tok(afor->body);
+}
+
+/** Create AST switch statement.
+ *
+ * @param rswitch Place to store pointer to new switch statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_switch_create(ast_switch_t **rswitch)
+{
+	ast_switch_t *aswitch;
+
+	aswitch = calloc(1, sizeof(ast_switch_t));
+	if (aswitch == NULL)
+		return ENOMEM;
+
+	aswitch->node.ext = aswitch;
+	aswitch->node.ntype = ant_switch;
+
+	*rswitch = aswitch;
+	return EOK;
+}
+
+/** Print AST switch statement.
+ *
+ * @param aswitch Switch statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_switch_print(ast_switch_t *aswitch, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "switch(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(aswitch->sexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_block_print(aswitch->body, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST switch statement.
+ *
+ * @param aswitch Sswitch statement
+ */
+static void ast_switch_destroy(ast_switch_t *aswitch)
+{
+	free(aswitch);
+}
+
+/** Get first token of AST switch statement.
+ *
+ * @param aswitch Switch statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_switch_first_tok(ast_switch_t *aswitch)
+{
+	return &aswitch->tswitch;
+}
+
+/** Get last token of AST switch statement.
+ *
+ * @param aswitch Switch statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_switch_last_tok(ast_switch_t *aswitch)
+{
+	return ast_block_last_tok(aswitch->body);
 }
 
 /** Print AST tree.
@@ -2442,8 +2946,20 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_darray_print((ast_darray_t *)node->ext, f);
 	case ant_dlist:
 		return ast_dlist_print((ast_dlist_t *)node->ext, f);
+	case ant_eident:
+		return ast_eident_print((ast_eident_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
+	case ant_if:
+		return ast_if_print((ast_if_t *)node->ext, f);
+	case ant_while:
+		return ast_while_print((ast_while_t *)node->ext, f);
+	case ant_do:
+		return ast_do_print((ast_do_t *)node->ext, f);
+	case ant_for:
+		return ast_for_print((ast_for_t *)node->ext, f);
+	case ant_switch:
+		return ast_switch_print((ast_switch_t *)node->ext, f);
 	}
 
 	return EINVAL;
@@ -2513,9 +3029,22 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_dlist:
 		ast_dlist_destroy((ast_dlist_t *)node->ext);
 		break;
+	case ant_eident:
+		ast_eident_destroy((ast_eident_t *)node->ext);
+		break;
 	case ant_return:
 		ast_return_destroy((ast_return_t *)node->ext);
 		break;
+	case ant_if:
+		return ast_if_destroy((ast_if_t *)node->ext);
+	case ant_while:
+		return ast_while_destroy((ast_while_t *)node->ext);
+	case ant_do:
+		return ast_do_destroy((ast_do_t *)node->ext);
+	case ant_for:
+		return ast_for_destroy((ast_for_t *)node->ext);
+	case ant_switch:
+		return ast_switch_destroy((ast_switch_t *)node->ext);
 	}
 }
 
@@ -2560,8 +3089,20 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_darray_first_tok((ast_darray_t *)node->ext);
 	case ant_dlist:
 		return ast_dlist_first_tok((ast_dlist_t *)node->ext);
+	case ant_eident:
+		return ast_eident_first_tok((ast_eident_t *)node->ext);
 	case ant_return:
 		return ast_return_first_tok((ast_return_t *)node->ext);
+	case ant_if:
+		return ast_if_first_tok((ast_if_t *)node->ext);
+	case ant_while:
+		return ast_while_first_tok((ast_while_t *)node->ext);
+	case ant_do:
+		return ast_do_first_tok((ast_do_t *)node->ext);
+	case ant_for:
+		return ast_for_first_tok((ast_for_t *)node->ext);
+	case ant_switch:
+		return ast_switch_first_tok((ast_switch_t *)node->ext);
 	}
 
 	assert(false);
@@ -2609,8 +3150,20 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_darray_last_tok((ast_darray_t *)node->ext);
 	case ant_dlist:
 		return ast_dlist_last_tok((ast_dlist_t *)node->ext);
+	case ant_eident:
+		return ast_eident_last_tok((ast_eident_t *)node->ext);
 	case ant_return:
 		return ast_return_last_tok((ast_return_t *)node->ext);
+	case ant_if:
+		return ast_if_last_tok((ast_if_t *)node->ext);
+	case ant_while:
+		return ast_while_last_tok((ast_while_t *)node->ext);
+	case ant_do:
+		return ast_do_last_tok((ast_do_t *)node->ext);
+	case ant_for:
+		return ast_for_last_tok((ast_for_t *)node->ext);
+	case ant_switch:
+		return ast_switch_last_tok((ast_switch_t *)node->ext);
 	}
 
 	assert(false);

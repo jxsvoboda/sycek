@@ -38,6 +38,7 @@ static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
+static int parser_process_block(parser_t *, ast_block_t **);
 
 /** Create parser.
  *
@@ -246,6 +247,421 @@ static bool parser_ttype_fspec(lexer_toktype_t ttype)
 	return ttype == ltt_inline;
 }
 
+/** Parse arithmetic expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_eident_t *eident = NULL;
+	void *dident;
+	int rc;
+
+	rc = ast_eident_create(&eident);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_number, &dident);
+	if (rc != EOK)
+		goto error;
+
+	eident->tident.data = dident;
+	*rexpr = &eident->node;
+	return EOK;
+error:
+	if (eident != NULL)
+		ast_tree_destroy(&eident->node);
+	return rc;
+}
+
+/** Parse return statement.
+ *
+ * @param parser Parser
+ * @param rreturn Place to store pointer to new return statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_return(parser_t *parser, ast_node_t **rreturn)
+{
+	ast_return_t *areturn;
+	ast_node_t *arg = NULL;
+	void *dreturn;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_return, &dreturn);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &arg);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_return_create(&areturn);
+	if (rc != EOK)
+		goto error;
+
+	areturn->treturn.data = dreturn;
+	areturn->tscolon.data = dscolon;
+	*rreturn = &areturn->node;
+	return EOK;
+error:
+	if (arg != NULL)
+		ast_tree_destroy(arg);
+	return rc;
+}
+
+/** Parse if statement.
+ *
+ * @param parser Parser
+ * @param rif Place to store pointer to new if statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_if(parser_t *parser, ast_node_t **rif)
+{
+	lexer_toktype_t ltt;
+	ast_if_t *aif = NULL;
+	void *dif;
+	void *dlparen;
+	ast_node_t *cond = NULL;
+	void *drparen;
+	ast_block_t *tbranch = NULL;
+	void *delse;
+	ast_block_t *fbranch = NULL;
+	int rc;
+
+	rc = parser_match(parser, ltt_if, &dif);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &cond);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_block(parser, &tbranch);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_else) {
+		parser_skip(parser, &delse);
+
+		rc = parser_process_block(parser, &fbranch);
+		if (rc != EOK)
+			goto error;
+	} else {
+		delse = NULL;
+		fbranch = NULL;
+	}
+
+	rc = ast_if_create(&aif);
+	if (rc != EOK)
+		goto error;
+
+	aif->tif.data = dif;
+	aif->tlparen.data = dlparen;
+	aif->cond = cond;
+	aif->trparen.data = drparen;
+	aif->tbranch = tbranch;
+	aif->telse.data = delse;
+	aif->fbranch = fbranch;
+
+	*rif = &aif->node;
+	return EOK;
+error:
+	if (cond != NULL)
+		ast_tree_destroy(cond);
+	if (tbranch != NULL)
+		ast_tree_destroy(&tbranch->node);
+	if (fbranch != NULL)
+		ast_tree_destroy(&fbranch->node);
+	return rc;
+}
+
+/** Parse while loop statement.
+ *
+ * @param parser Parser
+ * @param rwhile Place to store pointer to new while loop statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
+{
+	ast_while_t *awhile = NULL;
+	void *dwhile;
+	void *dlparen;
+	ast_node_t *cond = NULL;
+	void *drparen;
+	ast_block_t *body = NULL;
+	int rc;
+
+	rc = parser_match(parser, ltt_while, &dwhile);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &cond);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_block(parser, &body);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_while_create(&awhile);
+	if (rc != EOK)
+		goto error;
+
+	awhile->twhile.data = dwhile;
+	awhile->tlparen.data = dlparen;
+	awhile->cond = cond;
+	awhile->trparen.data = drparen;
+	awhile->body = body;
+
+	*rwhile = &awhile->node;
+	return EOK;
+error:
+	if (cond != NULL)
+		ast_tree_destroy(cond);
+	if (body != NULL)
+		ast_tree_destroy(&body->node);
+	return rc;
+}
+
+/** Parse do loop statement.
+ *
+ * @param parser Parser
+ * @param rdo Place to store pointer to new do loop statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_do(parser_t *parser, ast_node_t **rdo)
+{
+	ast_do_t *ado = NULL;
+	void *ddo;
+	ast_block_t *body = NULL;
+	void *dwhile;
+	void *dlparen;
+	ast_node_t *cond = NULL;
+	void *drparen;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_do, &ddo);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_block(parser, &body);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_while, &dwhile);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &cond);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_do_create(&ado);
+	if (rc != EOK)
+		goto error;
+
+	ado->tdo.data = ddo;
+	ado->body = body;
+	ado->twhile.data = dwhile;
+	ado->tlparen.data = dlparen;
+	ado->cond = cond;
+	ado->trparen.data = drparen;
+	ado->tscolon.data = dscolon;
+
+	*rdo = &ado->node;
+	return EOK;
+error:
+	if (cond != NULL)
+		ast_tree_destroy(cond);
+	if (body != NULL)
+		ast_tree_destroy(&body->node);
+	return rc;
+}
+
+/** Parse for loop statement.
+ *
+ * @param parser Parser
+ * @param rfor Place to store pointer to new for loop statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_for(parser_t *parser, ast_node_t **rfor)
+{
+	ast_for_t *afor = NULL;
+	void *dfor;
+	void *dlparen;
+	ast_node_t *linit = NULL;
+	void *dscolon1;
+	ast_node_t *lcond = NULL;
+	void *dscolon2;
+	ast_node_t *lnext = NULL;
+	void *drparen;
+	ast_block_t *body = NULL;
+	int rc;
+
+	rc = parser_match(parser, ltt_for, &dfor);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &linit);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon1);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &lcond);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon2);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &lnext);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_block(parser, &body);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_for_create(&afor);
+	if (rc != EOK)
+		goto error;
+
+	afor->tfor.data = dfor;
+	afor->tlparen.data = dlparen;
+	afor->linit = linit;
+	afor->tscolon1.data = dscolon1;
+	afor->lcond = lcond;
+	afor->tscolon2.data = dscolon2;
+	afor->lnext = lnext;
+	afor->trparen.data = drparen;
+	afor->body = body;
+
+	*rfor = &afor->node;
+	return EOK;
+error:
+	if (linit != NULL)
+		ast_tree_destroy(linit);
+	if (lcond != NULL)
+		ast_tree_destroy(lcond);
+	if (lnext != NULL)
+		ast_tree_destroy(lnext);
+	if (body != NULL)
+		ast_tree_destroy(&body->node);
+	return rc;
+}
+
+/** Parse switch statement.
+ *
+ * @param parser Parser
+ * @param rswitch Place to store pointer to new switch statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_switch(parser_t *parser, ast_node_t **rswitch)
+{
+	ast_switch_t *aswitch = NULL;
+	void *dswitch;
+	void *dlparen;
+	ast_node_t *sexpr = NULL;
+	void *drparen;
+	ast_block_t *body = NULL;
+	int rc;
+
+	rc = parser_match(parser, ltt_switch, &dswitch);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &sexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_block(parser, &body);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_switch_create(&aswitch);
+	if (rc != EOK)
+		goto error;
+
+	aswitch->tswitch.data = dswitch;
+	aswitch->tlparen.data = dlparen;
+	aswitch->sexpr = sexpr;
+	aswitch->trparen.data = drparen;
+	aswitch->body = body;
+
+	*rswitch = &aswitch->node;
+	return EOK;
+error:
+	if (sexpr != NULL)
+		ast_tree_destroy(sexpr);
+	if (body != NULL)
+		ast_tree_destroy(&body->node);
+	return rc;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -255,31 +671,29 @@ static bool parser_ttype_fspec(lexer_toktype_t ttype)
  */
 static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 {
-	ast_return_t *areturn;
-	void *dreturn;
-	void *dscolon;
-	int rc;
+	lexer_toktype_t ltt;
 
-	rc = parser_match(parser, ltt_return, &dreturn);
-	if (rc != EOK)
-		return rc;
+	ltt = parser_next_ttype(parser);
 
-	rc = parser_match(parser, ltt_number, NULL);
-	if (rc != EOK)
-		return rc;
-
-	rc = parser_match(parser, ltt_scolon, &dscolon);
-	if (rc != EOK)
-		return rc;
-
-	rc = ast_return_create(&areturn);
-	if (rc != EOK)
-		return rc;
-
-	areturn->treturn.data = dreturn;
-	areturn->tscolon.data = dscolon;
-	*rstmt = &areturn->node;
-	return EOK;
+	switch (ltt) {
+	case ltt_return:
+		return parser_process_return(parser, rstmt);
+	case ltt_if:
+		return parser_process_if(parser, rstmt);
+	case ltt_while:
+		return parser_process_while(parser, rstmt);
+	case ltt_do:
+		return parser_process_do(parser, rstmt);
+	case ltt_for:
+		return parser_process_for(parser, rstmt);
+	case ltt_switch:
+		return parser_process_switch(parser, rstmt);
+	default:
+		fprintf(stderr, "Error: ");
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected statement.\n");
+		return EINVAL;
+	}
 }
 
 /** Parse block.
