@@ -58,8 +58,10 @@ typedef enum {
 
 	ltt_attribute,
 	ltt_auto,
+	ltt_break,
 	ltt_char,
 	ltt_const,
+	ltt_continue,
 	ltt_do,
 	ltt_double,
 	ltt_else,

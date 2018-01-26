@@ -49,6 +49,9 @@ typedef enum {
 	ant_darray,
 	ant_dlist,
 	ant_eident,
+	ant_break,
+	ant_continue,
+	ant_goto,
 	ant_return,
 	ant_if,
 	ant_while,
@@ -367,6 +370,38 @@ typedef struct {
 	/** Ideintifier token */
 	ast_tok_t tident;
 } ast_eident_t;
+
+/** Break statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'break' token */
+	ast_tok_t tbreak;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_break_t;
+
+/** Continue statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'continue' token */
+	ast_tok_t tcontinue;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_continue_t;
+
+/** Goto statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'goto' token */
+	ast_tok_t tgoto;
+	/** Target */
+	ast_tok_t ttarget;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_goto_t;
 
 /** Return statement. */
 typedef struct {

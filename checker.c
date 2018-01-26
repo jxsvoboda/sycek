@@ -735,6 +735,89 @@ error:
 	return rc;
 }
 
+/** Run checks on a break statement.
+ *
+ * @param scope Checker scope
+ * @param abreak AST break statement
+ * @return EOK on success or error code
+ */
+static int checker_check_break(checker_scope_t *scope, ast_break_t *abreak)
+{
+	checker_tok_t *tbreak;
+	checker_tok_t *tscolon;
+	int rc;
+
+	tbreak = (checker_tok_t *)abreak->tbreak.data;
+	tscolon = (checker_tok_t *)abreak->tscolon.data;
+
+	rc = checker_check_lbegin(scope, tbreak,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
+/** Run checks on a continue statement.
+ *
+ * @param scope Checker scope
+ * @param acontinue AST continue statement
+ * @return EOK on success or error code
+ */
+static int checker_check_continue(checker_scope_t *scope,
+    ast_continue_t *acontinue)
+{
+	checker_tok_t *tcontinue;
+	checker_tok_t *tscolon;
+	int rc;
+
+	tcontinue = (checker_tok_t *)acontinue->tcontinue.data;
+	tscolon = (checker_tok_t *)acontinue->tscolon.data;
+
+	rc = checker_check_lbegin(scope, tcontinue,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
+/** Run checks on a goto statement.
+ *
+ * @param scope Checker scope
+ * @param agoto AST goto statement
+ * @return EOK on success or error code
+ */
+static int checker_check_goto(checker_scope_t *scope, ast_goto_t *agoto)
+{
+	checker_tok_t *tgoto;
+	checker_tok_t *ttarget;
+	checker_tok_t *tscolon;
+	int rc;
+
+	tgoto = (checker_tok_t *)agoto->tgoto.data;
+	ttarget = (checker_tok_t *)agoto->ttarget.data;
+	tscolon = (checker_tok_t *)agoto->tscolon.data;
+
+	rc = checker_check_lbegin(scope, tgoto,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_any(scope, ttarget);
+
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
 /** Run checks on a return statement.
  *
  * @param scope Checker scope
@@ -1065,6 +1148,12 @@ static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
 static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 {
 	switch (stmt->ntype) {
+	case ant_break:
+		return checker_check_break(scope, (ast_break_t *)stmt->ext);
+	case ant_continue:
+		return checker_check_continue(scope, (ast_continue_t *)stmt->ext);
+	case ant_goto:
+		return checker_check_goto(scope, (ast_goto_t *)stmt->ext);
 	case ant_return:
 		return checker_check_return(scope, (ast_return_t *)stmt->ext);
 	case ant_if:

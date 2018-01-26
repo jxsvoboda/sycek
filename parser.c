@@ -277,6 +277,118 @@ error:
 	return rc;
 }
 
+/** Parse break statement.
+ *
+ * @param parser Parser
+ * @param rbreak Place to store pointer to new break statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_break(parser_t *parser, ast_node_t **rbreak)
+{
+	ast_break_t *abreak;
+	void *dbreak;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_break, &dbreak);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_break_create(&abreak);
+	if (rc != EOK)
+		goto error;
+
+	abreak->tbreak.data = dbreak;
+	abreak->tscolon.data = dscolon;
+	*rbreak = &abreak->node;
+	return EOK;
+error:
+	return rc;
+}
+
+/** Parse continue statement.
+ *
+ * @param parser Parser
+ * @param rcontinue Place to store pointer to new continue statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_continue(parser_t *parser, ast_node_t **rcontinue)
+{
+	ast_continue_t *acontinue;
+	void *dcontinue;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_continue, &dcontinue);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_continue_create(&acontinue);
+	if (rc != EOK)
+		goto error;
+
+	acontinue->tcontinue.data = dcontinue;
+	acontinue->tscolon.data = dscolon;
+	*rcontinue = &acontinue->node;
+	return EOK;
+error:
+	return rc;
+}
+
+
+/** Parse goto statement.
+ *
+ * @param parser Parser
+ * @param rgoto Place to store pointer to new goto statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_goto(parser_t *parser, ast_node_t **rgoto)
+{
+	ast_goto_t *agoto;
+	ast_node_t *arg = NULL;
+	void *dgoto;
+	void *dtarget;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_goto, &dgoto);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_ident, &dtarget);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_goto_create(&agoto);
+	if (rc != EOK)
+		goto error;
+
+	agoto->tgoto.data = dgoto;
+	agoto->ttarget.data = dtarget;
+	agoto->tscolon.data = dscolon;
+	*rgoto = &agoto->node;
+	return EOK;
+error:
+	if (arg != NULL)
+		ast_tree_destroy(arg);
+	return rc;
+}
+
 /** Parse return statement.
  *
  * @param parser Parser
@@ -309,6 +421,7 @@ static int parser_process_return(parser_t *parser, ast_node_t **rreturn)
 		goto error;
 
 	areturn->treturn.data = dreturn;
+	areturn->arg = arg;
 	areturn->tscolon.data = dscolon;
 	*rreturn = &areturn->node;
 	return EOK;
@@ -676,6 +789,12 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	ltt = parser_next_ttype(parser);
 
 	switch (ltt) {
+	case ltt_break:
+		return parser_process_break(parser, rstmt);
+	case ltt_continue:
+		return parser_process_continue(parser, rstmt);
+	case ltt_goto:
+		return parser_process_goto(parser, rstmt);
 	case ltt_return:
 		return parser_process_return(parser, rstmt);
 	case ltt_if:

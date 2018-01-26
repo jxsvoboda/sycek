@@ -2405,6 +2405,206 @@ static ast_tok_t *ast_eident_last_tok(ast_eident_t *eident)
 	return &eident->tident;
 }
 
+/** Create AST break.
+ *
+ * @param rbreak Place to store pointer to new break
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_break_create(ast_break_t **rbreak)
+{
+	ast_break_t *abreak;
+
+	abreak = calloc(1, sizeof(ast_break_t));
+	if (abreak == NULL)
+		return ENOMEM;
+
+	abreak->node.ext = abreak;
+	abreak->node.ntype = ant_break;
+
+	*rbreak = abreak;
+	return EOK;
+}
+
+/** Print AST break.
+ *
+ * @param abreak Break statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_break_print(ast_break_t *abreak, FILE *f)
+{
+	(void) abreak;
+
+	if (fprintf(f, "break()") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST break.
+ *
+ * @param abreak Break statement
+ */
+static void ast_break_destroy(ast_break_t *abreak)
+{
+	free(abreak);
+}
+
+/** Get first token of AST break.
+ *
+ * @param abreak Break
+ * @break First token or @c NULL
+ */
+static ast_tok_t *ast_break_first_tok(ast_break_t *abreak)
+{
+	return &abreak->tbreak;
+}
+
+/** Get last token of AST break.
+ *
+ * @param abreak Break
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_break_last_tok(ast_break_t *abreak)
+{
+	return &abreak->tscolon;
+}
+
+/** Create AST continue.
+ *
+ * @param rcontinue Place to store pointer to new continue
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_continue_create(ast_continue_t **rcontinue)
+{
+	ast_continue_t *acontinue;
+
+	acontinue = calloc(1, sizeof(ast_continue_t));
+	if (acontinue == NULL)
+		return ENOMEM;
+
+	acontinue->node.ext = acontinue;
+	acontinue->node.ntype = ant_continue;
+
+	*rcontinue = acontinue;
+	return EOK;
+}
+
+/** Print AST continue.
+ *
+ * @param acontinue Continue statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_continue_print(ast_continue_t *acontinue, FILE *f)
+{
+	(void) acontinue;
+
+	if (fprintf(f, "continue()") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST continue.
+ *
+ * @param acontinue Continue statement
+ */
+static void ast_continue_destroy(ast_continue_t *acontinue)
+{
+	free(acontinue);
+}
+
+/** Get first token of AST continue.
+ *
+ * @param acontinue Continue
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_continue_first_tok(ast_continue_t *acontinue)
+{
+	return &acontinue->tcontinue;
+}
+
+/** Get last token of AST continue.
+ *
+ * @param acontinue Continue
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_continue_last_tok(ast_continue_t *acontinue)
+{
+	return &acontinue->tscolon;
+}
+
+/** Create AST goto.
+ *
+ * @param rgoto Place to store pointer to new goto
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_goto_create(ast_goto_t **rgoto)
+{
+	ast_goto_t *agoto;
+
+	agoto = calloc(1, sizeof(ast_goto_t));
+	if (agoto == NULL)
+		return ENOMEM;
+
+	agoto->node.ext = agoto;
+	agoto->node.ntype = ant_goto;
+
+	*rgoto = agoto;
+	return EOK;
+}
+
+/** Print AST goto.
+ *
+ * @param agoto Goto statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_goto_print(ast_goto_t *agoto, FILE *f)
+{
+	(void) agoto;
+
+	if (fprintf(f, "goto()") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST goto.
+ *
+ * @param agoto Goto statement
+ */
+static void ast_goto_destroy(ast_goto_t *agoto)
+{
+	free(agoto);
+}
+
+/** Get first token of AST goto.
+ *
+ * @param agoto Goto
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_goto_first_tok(ast_goto_t *agoto)
+{
+	return &agoto->tgoto;
+}
+
+/** Get last token of AST goto.
+ *
+ * @param agoto Goto
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_goto_last_tok(ast_goto_t *agoto)
+{
+	return &agoto->tscolon;
+}
 
 /** Create AST return.
  *
@@ -2948,6 +3148,12 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_dlist_print((ast_dlist_t *)node->ext, f);
 	case ant_eident:
 		return ast_eident_print((ast_eident_t *)node->ext, f);
+	case ant_break:
+		return ast_break_print((ast_break_t *)node->ext, f);
+	case ant_continue:
+		return ast_continue_print((ast_continue_t *)node->ext, f);
+	case ant_goto:
+		return ast_goto_print((ast_goto_t *)node->ext, f);
 	case ant_return:
 		return ast_return_print((ast_return_t *)node->ext, f);
 	case ant_if:
@@ -3032,6 +3238,15 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_eident:
 		ast_eident_destroy((ast_eident_t *)node->ext);
 		break;
+	case ant_break:
+		ast_break_destroy((ast_break_t *)node->ext);
+		break;
+	case ant_continue:
+		ast_continue_destroy((ast_continue_t *)node->ext);
+		break;
+	case ant_goto:
+		ast_goto_destroy((ast_goto_t *)node->ext);
+		break;
 	case ant_return:
 		ast_return_destroy((ast_return_t *)node->ext);
 		break;
@@ -3091,6 +3306,12 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_dlist_first_tok((ast_dlist_t *)node->ext);
 	case ant_eident:
 		return ast_eident_first_tok((ast_eident_t *)node->ext);
+	case ant_break:
+		return ast_break_first_tok((ast_break_t *)node->ext);
+	case ant_continue:
+		return ast_continue_first_tok((ast_continue_t *)node->ext);
+	case ant_goto:
+		return ast_goto_first_tok((ast_goto_t *)node->ext);
 	case ant_return:
 		return ast_return_first_tok((ast_return_t *)node->ext);
 	case ant_if:
@@ -3152,6 +3373,12 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_dlist_last_tok((ast_dlist_t *)node->ext);
 	case ant_eident:
 		return ast_eident_last_tok((ast_eident_t *)node->ext);
+	case ant_break:
+		return ast_break_last_tok((ast_break_t *)node->ext);
+	case ant_continue:
+		return ast_continue_last_tok((ast_continue_t *)node->ext);
+	case ant_goto:
+		return ast_goto_last_tok((ast_goto_t *)node->ext);
 	case ant_return:
 		return ast_return_last_tok((ast_return_t *)node->ext);
 	case ant_if:
