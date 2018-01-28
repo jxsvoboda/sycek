@@ -241,6 +241,7 @@ static char *lexer_chars(lexer_t *lexer)
 			lexer->buf[lexer->buf_used] = '\0';
 	}
 
+	assert(lexer->buf_pos < lexer_buf_size);
 	return lexer->buf + lexer->buf_pos;
 }
 
@@ -280,6 +281,7 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 		tok->text[tok->text_size + 1] = '\0';
 		tok->text_size++;
 		++lexer->buf_pos;
+		assert(lexer->buf_pos < lexer_buf_size);
 		src_pos_fwd_char(&lexer->pos, p[0]);
 		--nchars;
 	}
@@ -498,7 +500,7 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 	 * Preprocessor frament ends with newline, except for
 	 * backslash-newline
 	 */
-	while (p[1] != '\n' || p[0] == '\\') {
+	while ((p[1] != '\n' && p[1] != '\0') || p[0] == '\\') {
 		if (p[0] == '/' && p[1] == '*') {
 			/* Comment inside prerocessor line */
 			rc = lexer_advance(lexer, 2, tok);

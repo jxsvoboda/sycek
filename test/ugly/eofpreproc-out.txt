@@ -1,0 +1,1 @@
+<test/ugly/eofpreproc-in.c:5:12:eof>: Expected newline at end of file.
