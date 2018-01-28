@@ -500,7 +500,7 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 	 * Preprocessor frament ends with newline, except for
 	 * backslash-newline
 	 */
-	while ((p[1] != '\n' && p[1] != '\0') || p[0] == '\\') {
+	while (p[0] != '\0' && (p[1] != '\n' || p[0] == '\\')) {
 		if (p[0] == '/' && p[1] == '*') {
 			/* Comment inside prerocessor line */
 			rc = lexer_advance(lexer, 2, tok);
@@ -510,7 +510,7 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 			}
 
 			p = lexer_chars(lexer);
-			while (p[0] != '*' || p[1] != '/') {
+			while (p[0] != '\0' && (p[0] != '*' || p[1] != '/')) {
 				rc = lexer_advance(lexer, 1, tok);
 				if (rc != EOK) {
 					lexer_free_tok(tok);
@@ -521,20 +521,24 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 			}
 		}
 
+		if (p[0] != '\0') {
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
+	}
+
+	if (p[0] != '\0') {
+		lexer_get_pos(lexer, &tok->epos);
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			lexer_free_tok(tok);
 			return rc;
 		}
-
-		p = lexer_chars(lexer);
-	}
-
-	lexer_get_pos(lexer, &tok->epos);
-	rc = lexer_advance(lexer, 1, tok);
-	if (rc != EOK) {
-		lexer_free_tok(tok);
-		return rc;
 	}
 
 	tok->ttype = ltt_preproc;
