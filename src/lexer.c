@@ -457,7 +457,7 @@ static int lexer_dscomment(lexer_t *lexer, lexer_tok_t *tok)
 	}
 
 	p = lexer_chars(lexer);
-	while (p[1] != '\n' || p[0] == '\\') {
+	while (p[0] != '\0' && (p[1] != '\n' || p[0] == '\\')) {
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			lexer_free_tok(tok);
@@ -469,11 +469,13 @@ static int lexer_dscomment(lexer_t *lexer, lexer_tok_t *tok)
 
 	lexer_get_pos(lexer, &tok->epos);
 
-	/* Skip trailing newline */
-	rc = lexer_advance(lexer, 1, tok);
-	if (rc != EOK) {
-		lexer_free_tok(tok);
-		return rc;
+	if (p[0] != '\0') {
+		/* Skip trailing newline */
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
 	}
 
 	tok->ttype = ltt_dscomment;

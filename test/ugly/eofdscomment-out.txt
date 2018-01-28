@@ -1,0 +1,1 @@
+<test/ugly/eofdscomment-in.c:5:3:eof>: Expected newline at end of file.
