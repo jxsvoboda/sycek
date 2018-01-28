@@ -60,7 +60,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 	char *bkname;
 	const char *ext;
 	file_input_t finput;
-	FILE *f;
+	FILE *f = NULL;
 
 	ext = strrchr(fname, '.');
 	if (ext == NULL) {
