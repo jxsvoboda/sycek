@@ -58,10 +58,12 @@ typedef enum {
 	ant_do,
 	ant_for,
 	ant_switch,
+	ant_clabel,
+	ant_glabel,
 	ant_block,
 	ant_gdecln,
 	ant_module,
-	ant_sclass
+	ant_sclass,
 } ast_node_type_t;
 
 /** Presence or absence of braces around a block */
@@ -510,6 +512,28 @@ typedef struct {
 	/** Switch body */
 	ast_block_t *body;
 } ast_switch_t;
+
+/** Case label */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'case' token */
+	ast_tok_t tcase;
+	/** Case expression */
+	ast_node_t *cexpr;;
+	/** Colon token */
+	ast_tok_t tcolon;
+} ast_clabel_t;
+
+/** Goto label */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Label token */
+	ast_tok_t tlabel;
+	/** Colon token */
+	ast_tok_t tcolon;
+} ast_glabel_t;
 
 /** Statement block. */
 struct ast_block {

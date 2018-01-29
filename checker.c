@@ -1139,6 +1139,78 @@ static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
 	return EOK;
 }
 
+/** Run checks on a case label.
+ *
+ * @param scope Checker scope
+ * @param clabel AST case label
+ * @return EOK on success or error code
+ */
+static int checker_check_clabel(checker_scope_t *scope, ast_clabel_t *clabel)
+{
+	checker_tok_t *tcase;
+	ast_tok_t *aexpr;
+	checker_tok_t *texpr;
+	checker_tok_t *tcolon;
+	int rc;
+
+	tcase = (checker_tok_t *)clabel->tcase.data;
+	tcolon = (checker_tok_t *)clabel->tcolon.data;
+
+	/* Case labels have one less level of indentation */
+	--scope->indlvl;
+	rc = checker_check_lbegin(scope, tcase,
+	    "Case label must start on a new line.");
+	++scope->indlvl;
+	if (rc != EOK)
+		return rc;
+
+	aexpr = ast_tree_first_tok(clabel->cexpr);
+	texpr = (checker_tok_t *) aexpr->data;
+
+	rc = checker_check_nbspace_before(scope, texpr,
+	    "There must be single space between 'case' and case expression.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, clabel->cexpr);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tcolon,
+	    "Unexpected whitespace before ':'.");
+
+	return EOK;
+}
+
+/** Run checks on a goto label.
+ *
+ * @param scope Checker scope
+ * @param glabel AST goto label
+ * @return EOK on success or error code
+ */
+static int checker_check_glabel(checker_scope_t *scope, ast_glabel_t *glabel)
+{
+	checker_tok_t *tlabel;
+	checker_tok_t *tcolon;
+	int rc;
+
+	tlabel = (checker_tok_t *)glabel->tlabel.data;
+	tcolon = (checker_tok_t *)glabel->tcolon.data;
+
+	/* Goto labels have one less level of indentation */
+	--scope->indlvl;
+	rc = checker_check_lbegin(scope, tlabel,
+	    "Label must start on a new line.");
+	++scope->indlvl;
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tcolon,
+	    "Unexpected whitespace before ':'.");
+
+	return EOK;
+}
+
 /** Run checks on a statement.
  *
  * @param scope Checker scope
@@ -1166,6 +1238,10 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 		return checker_check_for(scope, (ast_for_t *)stmt->ext);
 	case ant_switch:
 		return checker_check_switch(scope, (ast_switch_t *)stmt->ext);
+	case ant_clabel:
+		return checker_check_clabel(scope, (ast_clabel_t *)stmt->ext);
+	case ant_glabel:
+		return checker_check_glabel(scope, (ast_glabel_t *)stmt->ext);
 	default:
 		assert(false);
 		return EOK;

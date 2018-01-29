@@ -3075,6 +3075,8 @@ static int ast_switch_print(ast_switch_t *aswitch, FILE *f)
  */
 static void ast_switch_destroy(ast_switch_t *aswitch)
 {
+	ast_tree_destroy(aswitch->sexpr);
+	ast_block_destroy(aswitch->body);
 	free(aswitch);
 }
 
@@ -3096,6 +3098,141 @@ static ast_tok_t *ast_switch_first_tok(ast_switch_t *aswitch)
 static ast_tok_t *ast_switch_last_tok(ast_switch_t *aswitch)
 {
 	return ast_block_last_tok(aswitch->body);
+}
+
+/** Create AST case label.
+ *
+ * @param rclabel Place to store pointer to new case label
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_clabel_create(ast_clabel_t **rclabel)
+{
+	ast_clabel_t *clabel;
+
+	clabel = calloc(1, sizeof(ast_clabel_t));
+	if (clabel == NULL)
+		return ENOMEM;
+
+	clabel->node.ext = clabel;
+	clabel->node.ntype = ant_clabel;
+
+	*rclabel = clabel;
+	return EOK;
+}
+
+/** Print AST case label.
+ *
+ * @param clabel Case label
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_clabel_print(ast_clabel_t *clabel, FILE *f)
+{
+	(void) clabel;
+
+	if (fprintf(f, "clabel()") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST case label.
+ *
+ * @param aswitch Switch statement
+ */
+static void ast_clabel_destroy(ast_clabel_t *clabel)
+{
+	ast_tree_destroy(clabel->cexpr);
+	free(clabel);
+}
+
+/** Get first token of AST case label.
+ *
+ * @param clabel Case label
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_clabel_first_tok(ast_clabel_t *clabel)
+{
+	return &clabel->tcase;
+}
+
+/** Get last token of AST case label
+ *
+ * @param clabel Case label
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_clabel_last_tok(ast_clabel_t *clabel)
+{
+	return &clabel->tcolon;
+}
+
+/** Create AST goto label.
+ *
+ * @param rglabel Place to store pointer to new goto label
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_glabel_create(ast_glabel_t **rglabel)
+{
+	ast_glabel_t *glabel;
+
+	glabel = calloc(1, sizeof(ast_glabel_t));
+	if (glabel == NULL)
+		return ENOMEM;
+
+	glabel->node.ext = glabel;
+	glabel->node.ntype = ant_glabel;
+
+	*rglabel = glabel;
+	return EOK;
+}
+
+/** Print AST goto label.
+ *
+ * @param glabel Goto label
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_glabel_print(ast_glabel_t *glabel, FILE *f)
+{
+	(void) glabel;
+
+	if (fprintf(f, "glabel()") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST goto label.
+ *
+ * @param aswitch Switch statement
+ */
+static void ast_glabel_destroy(ast_glabel_t *glabel)
+{
+	free(glabel);
+}
+
+/** Get first token of AST goto label.
+ *
+ * @param glabel Goto label
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_glabel_first_tok(ast_glabel_t *glabel)
+{
+	return &glabel->tlabel;
+}
+
+/** Get last token of AST goto label
+ *
+ * @param glabel Goto label
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_glabel_last_tok(ast_glabel_t *glabel)
+{
+	return &glabel->tcolon;
 }
 
 /** Print AST tree.
@@ -3166,6 +3303,10 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_for_print((ast_for_t *)node->ext, f);
 	case ant_switch:
 		return ast_switch_print((ast_switch_t *)node->ext, f);
+	case ant_clabel:
+		return ast_clabel_print((ast_clabel_t *)node->ext, f);
+	case ant_glabel:
+		return ast_glabel_print((ast_glabel_t *)node->ext, f);
 	}
 
 	return EINVAL;
@@ -3177,6 +3318,9 @@ int ast_tree_print(ast_node_t *node, FILE *f)
  */
 void ast_tree_destroy(ast_node_t *node)
 {
+	if (node == NULL)
+		return;
+
 	switch (node->ntype) {
 	case ant_block:
 		ast_block_destroy((ast_block_t *)node->ext);
@@ -3260,6 +3404,10 @@ void ast_tree_destroy(ast_node_t *node)
 		return ast_for_destroy((ast_for_t *)node->ext);
 	case ant_switch:
 		return ast_switch_destroy((ast_switch_t *)node->ext);
+	case ant_clabel:
+		return ast_clabel_destroy((ast_clabel_t *)node->ext);
+	case ant_glabel:
+		return ast_glabel_destroy((ast_glabel_t *)node->ext);
 	}
 }
 
@@ -3324,6 +3472,10 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_for_first_tok((ast_for_t *)node->ext);
 	case ant_switch:
 		return ast_switch_first_tok((ast_switch_t *)node->ext);
+	case ant_clabel:
+		return ast_clabel_first_tok((ast_clabel_t *)node->ext);
+	case ant_glabel:
+		return ast_glabel_first_tok((ast_glabel_t *)node->ext);
 	}
 
 	assert(false);
@@ -3391,6 +3543,10 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_for_last_tok((ast_for_t *)node->ext);
 	case ant_switch:
 		return ast_switch_last_tok((ast_switch_t *)node->ext);
+	case ant_clabel:
+		return ast_clabel_last_tok((ast_clabel_t *)node->ext);
+	case ant_glabel:
+		return ast_glabel_last_tok((ast_glabel_t *)node->ext);
 	}
 
 	assert(false);

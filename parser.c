@@ -115,6 +115,17 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
 	return parser->tok[0].ttype;
 }
 
+/** Return type of next next token.
+ *
+ * @param parser Parser
+ * @return Type of next next token being parsed
+ */
+static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
+{
+	parser_look_ahead(parser, 2);
+	return parser->tok[1].ttype;
+}
+
 /** Return pointer to next token.
  *
  * This may be only used for printing out tokens for debugging purposes.
@@ -775,6 +786,84 @@ error:
 	return rc;
 }
 
+/** Parse case label.
+ *
+ * @param parser Parser
+ * @param rclabel Place to store pointer to new case label
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_clabel(parser_t *parser, ast_node_t **rclabel)
+{
+	ast_clabel_t *clabel = NULL;
+	void *dcase;
+	ast_node_t *cexpr = NULL;
+	void *dcolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_case, &dcase);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &cexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_colon, &dcolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_clabel_create(&clabel);
+	if (rc != EOK)
+		goto error;
+
+	clabel->tcase.data = dcase;
+	clabel->cexpr = cexpr;
+	clabel->tcolon.data = dcolon;
+
+	*rclabel = &clabel->node;
+	return EOK;
+error:
+	if (cexpr != NULL)
+		ast_tree_destroy(cexpr);
+	return rc;
+}
+
+/** Parse goto label.
+ *
+ * @param parser Parser
+ * @param rglabel Place to store pointer to new goto label
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_glabel(parser_t *parser, ast_node_t **rglabel)
+{
+	ast_glabel_t *glabel = NULL;
+	void *dlabel;
+	void *dcolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_ident, &dlabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_colon, &dcolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_glabel_create(&glabel);
+	if (rc != EOK)
+		goto error;
+
+	glabel->tlabel.data = dlabel;
+	glabel->tcolon.data = dcolon; 
+
+	*rglabel = &glabel->node;
+	return EOK;
+error:
+	return rc;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -784,7 +873,7 @@ error:
  */
 static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 {
-	lexer_toktype_t ltt;
+	lexer_toktype_t ltt, ltt2;
 
 	ltt = parser_next_ttype(parser);
 
@@ -807,6 +896,13 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_for(parser, rstmt);
 	case ltt_switch:
 		return parser_process_switch(parser, rstmt);
+	case ltt_case:
+		return parser_process_clabel(parser, rstmt);
+	case ltt_ident:
+		ltt2 = parser_next_next_ttype(parser);
+		if (ltt2 == ltt_colon)
+			return parser_process_glabel(parser, rstmt);
+		/* fall through */
 	default:
 		fprintf(stderr, "Error: ");
 		lexer_dprint_tok(&parser->tok[0], stderr);
