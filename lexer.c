@@ -571,39 +571,97 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_eof(lexer, tok);
 
 	switch (p[0]) {
-	case ' ':
-		return lexer_whitespace(lexer, ltt_space, tok);
 	case '\t':
 		return lexer_whitespace(lexer, ltt_tab, tok);
 	case '\n':
 		return lexer_whitespace(lexer, ltt_newline, tok);
+	case ' ':
+		return lexer_whitespace(lexer, ltt_space, tok);
+	case '!':
+		return lexer_onechar(lexer, ltt_lnot, tok);
+	case '#':
+//		if (1/*XXX*/)
+			return lexer_preproc(lexer, tok);
+	case '%':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_modulo_assign, 2, tok);
+		return lexer_onechar(lexer, ltt_modulo, tok);
+	case '&':
+		if (p[1] == '&')
+			return lexer_keyword(lexer, ltt_land, 2, tok);
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_band_assign, 2, tok);
+		return lexer_onechar(lexer, ltt_band, tok);
+	case '(':
+		return lexer_onechar(lexer, ltt_lparen, tok);
+	case ')':
+		return lexer_onechar(lexer, ltt_rparen, tok);
 	case '*':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_times_assign, 2, tok);
 		return lexer_onechar(lexer, ltt_asterisk, tok);
+	case '+':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_plus_assign, 2, tok);
+		return lexer_onechar(lexer, ltt_plus, tok);
+	case ',':
+		return lexer_onechar(lexer, ltt_comma, tok);
+	case '-':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_minus_assign, 2, tok);
+		return lexer_onechar(lexer, ltt_minus, tok);
 	case '/':
 		if (p[1] == '*')
 			return lexer_comment(lexer, tok);
 		if (p[1] == '/')
 			return lexer_dscomment(lexer, tok);
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_divide_assign, 2, tok);
 		return lexer_onechar(lexer, ltt_slash, tok);
-	case '#':
-//		if (1/*XXX*/)
-			return lexer_preproc(lexer, tok);
-	case '(':
-		return lexer_onechar(lexer, ltt_lparen, tok);
-	case ')':
-		return lexer_onechar(lexer, ltt_rparen, tok);
-	case '{':
-		return lexer_onechar(lexer, ltt_lbrace, tok);
-	case '}':
-		return lexer_onechar(lexer, ltt_rbrace, tok);
-	case ',':
-		return lexer_onechar(lexer, ltt_comma, tok);
 	case ':':
 		return lexer_onechar(lexer, ltt_colon, tok);
 	case ';':
 		return lexer_onechar(lexer, ltt_scolon, tok);
+	case '<':
+		if (p[1] == '<') {
+			if (p[2] == '=') {
+				return lexer_keyword(lexer, ltt_shl_assign,
+				    3, tok);
+			}
+
+			return lexer_keyword(lexer, ltt_shl, 2, tok);
+		}
+		return lexer_onechar(lexer, ltt_less, tok);
 	case '=':
-		return lexer_onechar(lexer, ltt_equals, tok);
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_equal, 2, tok);
+		return lexer_onechar(lexer, ltt_assign, tok);
+	case '>':
+		if (p[1] == '>') {
+			if (p[2] == '=') {
+				return lexer_keyword(lexer, ltt_shr_assign,
+				    3, tok);
+			}
+
+			return lexer_keyword(lexer, ltt_shr, 2, tok);
+		}
+		return lexer_onechar(lexer, ltt_greater, tok);
+	case '~':
+		return lexer_onechar(lexer, ltt_bnot, tok);
+	case '^':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_bxor_assign, 2, tok);
+		return lexer_onechar(lexer, ltt_bxor, tok);
+	case '{':
+		return lexer_onechar(lexer, ltt_lbrace, tok);
+	case '|':
+		if (p[1] == '|')
+			return lexer_keyword(lexer, ltt_lor, 2, tok);
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_bor_assign, 2, tok);
+		return lexer_onechar(lexer, ltt_bor, tok);
+	case '}':
+		return lexer_onechar(lexer, ltt_rbrace, tok);
 	case '[':
 		return lexer_onechar(lexer, ltt_lbracket, tok);
 	case ']':
@@ -833,12 +891,62 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return ":";
 	case ltt_scolon:
 		return ";";
-	case ltt_equals:
-		return "=";
+	case ltt_plus:
+		return "+";
+	case ltt_minus:
+		return "-";
 	case ltt_asterisk:
 		return "*";
 	case ltt_slash:
 		return "/";
+	case ltt_modulo:
+		return "%";
+	case ltt_shl:
+		return "<<";
+	case ltt_shr:
+		return ">>";
+	case ltt_band:
+		return "&";
+	case ltt_bor:
+		return "|";
+	case ltt_bxor:
+		return "^";
+	case ltt_bnot:
+		return "~";
+	case ltt_land:
+		return "&&";
+	case ltt_lor:
+		return "||";
+	case ltt_lnot:
+		return "!";
+	case ltt_less:
+		return "<";
+	case ltt_greater:
+		return "<";
+	case ltt_equal:
+		return "==";
+	case ltt_assign:
+		return "=";
+	case ltt_plus_assign:
+		return "+=";
+	case ltt_minus_assign:
+		return "-=";
+	case ltt_times_assign:
+		return "*=";
+	case ltt_divide_assign:
+		return "/=";
+	case ltt_modulo_assign:
+		return "%=";
+	case ltt_shl_assign:
+		return "<<=";
+	case ltt_shr_assign:
+		return ">>=";
+	case ltt_band_assign:
+		return "&=";
+	case ltt_bor_assign:
+		return "|=";
+	case ltt_bxor_assign:
+		return "^=";
 	case ltt_lbracket:
 		return "[";
 	case ltt_rbracket:

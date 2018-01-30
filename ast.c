@@ -2338,6 +2338,210 @@ bool ast_decl_is_abstract(ast_node_t *node)
 	}
 }
 
+/** Create AST integer literal expression.
+ *
+ * @param reint Place to store pointer to new integer literal expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eint_create(ast_eint_t **reint)
+{
+	ast_eint_t *eint;
+
+	eint = calloc(1, sizeof(ast_eint_t));
+	if (eint == NULL)
+		return ENOMEM;
+
+	eint->node.ext = eint;
+	eint->node.ntype = ant_eint;
+
+	*reint = eint;
+	return EOK;
+}
+
+/** Print AST integer literal expression.
+ *
+ * @param eint Integer literal expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eint_print(ast_eint_t *eint, FILE *f)
+{
+	(void) eint;
+
+	if (fprintf(f, "eint(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST integer literal expression.
+ *
+ * @param eint Integer literal expression
+ */
+static void ast_eint_destroy(ast_eint_t *eint)
+{
+	free(eint);
+}
+
+/** Get first token of AST integer literal expression.
+ *
+ * @param eint Integer literal expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eint_first_tok(ast_eint_t *eint)
+{
+	return &eint->tlit;
+}
+
+/** Get last token of AST integer literal expression.
+ *
+ * @param eint Integer literal expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eint_last_tok(ast_eint_t *eint)
+{
+	return &eint->tlit;
+}
+
+/** Create AST character literal expression.
+ *
+ * @param rechar Place to store pointer to new character literal expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_echar_create(ast_echar_t **rechar)
+{
+	ast_echar_t *echar;
+
+	echar = calloc(1, sizeof(ast_echar_t));
+	if (echar == NULL)
+		return ENOMEM;
+
+	echar->node.ext = echar;
+	echar->node.ntype = ant_echar;
+
+	*rechar = echar;
+	return EOK;
+}
+
+/** Print AST character literal expression.
+ *
+ * @param echar Character literal expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_echar_print(ast_echar_t *echar, FILE *f)
+{
+	(void) echar;
+
+	if (fprintf(f, "echar(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST character literal expression.
+ *
+ * @param echar Character literal expression
+ */
+static void ast_echar_destroy(ast_echar_t *echar)
+{
+	free(echar);
+}
+
+/** Get first token of AST character literal expression.
+ *
+ * @param echar Character literal expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_echar_first_tok(ast_echar_t *echar)
+{
+	return &echar->tlit;
+}
+
+/** Get last token of AST character literal expression.
+ *
+ * @param echar Character literal expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_echar_last_tok(ast_echar_t *echar)
+{
+	return &echar->tlit;
+}
+
+/** Create AST string literal expression.
+ *
+ * @param restring Place to store pointer to new string literal expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_estring_create(ast_estring_t **restring)
+{
+	ast_estring_t *estring;
+
+	estring = calloc(1, sizeof(ast_estring_t));
+	if (estring == NULL)
+		return ENOMEM;
+
+	estring->node.ext = estring;
+	estring->node.ntype = ant_estring;
+
+	*restring = estring;
+	return EOK;
+}
+
+/** Print AST string literal expression.
+ *
+ * @param estring String literal expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_estring_print(ast_estring_t *estring, FILE *f)
+{
+	(void) estring;
+
+	if (fprintf(f, "estring(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST string literal expression.
+ *
+ * @param estring String literal expression
+ */
+static void ast_estring_destroy(ast_estring_t *estring)
+{
+	free(estring);
+}
+
+/** Get first token of AST string literal expression.
+ *
+ * @param estring String literal expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_estring_first_tok(ast_estring_t *estring)
+{
+	return &estring->tlit;
+}
+
+/** Get last token of AST string literal expression.
+ *
+ * @param estring String literal expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_estring_last_tok(ast_estring_t *estring)
+{
+	return &estring->tlit;
+}
+
 /** Create AST identifier expression.
  *
  * @param reident Place to store pointer to new identifier expression
@@ -2346,29 +2550,29 @@ bool ast_decl_is_abstract(ast_node_t *node)
  */
 int ast_eident_create(ast_eident_t **reident)
 {
-	ast_eident_t *aeident;
+	ast_eident_t *eident;
 
-	aeident = calloc(1, sizeof(ast_eident_t));
-	if (aeident == NULL)
+	eident = calloc(1, sizeof(ast_eident_t));
+	if (eident == NULL)
 		return ENOMEM;
 
-	aeident->node.ext = aeident;
-	aeident->node.ntype = ant_eident;
+	eident->node.ext = eident;
+	eident->node.ntype = ant_eident;
 
-	*reident = aeident;
+	*reident = eident;
 	return EOK;
 }
 
 /** Print AST identifier expression.
  *
- * @param aeident Identifier expression
+ * @param eident Identifier expression
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
  */
-static int ast_eident_print(ast_eident_t *aeident, FILE *f)
+static int ast_eident_print(ast_eident_t *eident, FILE *f)
 {
-	(void)aeident;
+	(void)eident;
 	if (fprintf(f, "eident(") < 0)
 		return EIO;
 	if (fprintf(f, ")") < 0)
@@ -2378,11 +2582,11 @@ static int ast_eident_print(ast_eident_t *aeident, FILE *f)
 
 /** Destroy AST identifier expression.
  *
- * @param aeident Identifier expression
+ * @param eident Identifier expression
  */
-static void ast_eident_destroy(ast_eident_t *aeident)
+static void ast_eident_destroy(ast_eident_t *eident)
 {
-	free(aeident);
+	free(eident);
 }
 
 /** Get first token of AST identifier expression.
@@ -2403,6 +2607,1263 @@ static ast_tok_t *ast_eident_first_tok(ast_eident_t *eident)
 static ast_tok_t *ast_eident_last_tok(ast_eident_t *eident)
 {
 	return &eident->tident;
+}
+
+/** Create AST parenthesized expression.
+ *
+ * @param reparen Place to store pointer to new parenthesized expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eparen_create(ast_eparen_t **reparen)
+{
+	ast_eparen_t *eparen;
+
+	eparen = calloc(1, sizeof(ast_eparen_t));
+	if (eparen == NULL)
+		return ENOMEM;
+
+	eparen->node.ext = eparen;
+	eparen->node.ntype = ant_eparen;
+
+	*reparen = eparen;
+	return EOK;
+}
+
+/** Print AST parenthesized expression.
+ *
+ * @param eparen Parenthesized expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eparen_print(ast_eparen_t *eparen, FILE *f)
+{
+	int rc;
+
+	(void) eparen;
+
+	if (fprintf(f, "eparen(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eparen->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST parenthesized expression.
+ *
+ * @param eparen Parenthesized expression
+ */
+static void ast_eparen_destroy(ast_eparen_t *eparen)
+{
+	ast_tree_destroy(eparen->bexpr);
+	free(eparen);
+}
+
+/** Get first token of AST parenthesized expression.
+ *
+ * @param eparen Parenthesized expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eparen_first_tok(ast_eparen_t *eparen)
+{
+	return &eparen->tlparen;
+}
+
+/** Get last token of AST parenthesized expression.
+ *
+ * @param eparen parenthesized expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eparen_last_tok(ast_eparen_t *eparen)
+{
+	return &eparen->trparen;
+}
+
+/** Create AST binary operator expression.
+ *
+ * @param rebinop Place to store pointer to new binary operator expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ebinop_create(ast_ebinop_t **rebinop)
+{
+	ast_ebinop_t *ebinop;
+
+	ebinop = calloc(1, sizeof(ast_ebinop_t));
+	if (ebinop == NULL)
+		return ENOMEM;
+
+	ebinop->node.ext = ebinop;
+	ebinop->node.ntype = ant_ebinop;
+
+	*rebinop = ebinop;
+	return EOK;
+}
+
+/** Print AST binary operator expression.
+ *
+ * @param ebinop Binary operator expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ebinop_print(ast_ebinop_t *ebinop, FILE *f)
+{
+	int rc;
+
+	(void) ebinop;
+
+	if (fprintf(f, "ebinop(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ebinop->larg, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ebinop->rarg, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST binary operator expression.
+ *
+ * @param ebinop Binary operator expression
+ */
+static void ast_ebinop_destroy(ast_ebinop_t *ebinop)
+{
+	ast_tree_destroy(ebinop->larg);
+	ast_tree_destroy(ebinop->rarg);
+	free(ebinop);
+}
+
+/** Get first token of AST binary operator expression.
+ *
+ * @param ebinop Binary operator expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ebinop_first_tok(ast_ebinop_t *ebinop)
+{
+	return ast_tree_first_tok(ebinop->larg);
+}
+
+/** Get last token of AST binary operator expression.
+ *
+ * @param ebinop Binary operator expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ebinop_last_tok(ast_ebinop_t *ebinop)
+{
+	return ast_tree_last_tok(ebinop->rarg);
+}
+
+/** Create AST ternary conditional expression.
+ *
+ * @param retcond Place to store pointer to new ternary conditional expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_etcond_create(ast_etcond_t **retcond)
+{
+	ast_etcond_t *etcond;
+
+	etcond = calloc(1, sizeof(ast_etcond_t));
+	if (etcond == NULL)
+		return ENOMEM;
+
+	etcond->node.ext = etcond;
+	etcond->node.ntype = ant_etcond;
+
+	*retcond = etcond;
+	return EOK;
+}
+
+/** Print AST ternary conditional expression.
+ *
+ * @param etcond Ternary conditional expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_etcond_print(ast_etcond_t *etcond, FILE *f)
+{
+	int rc;
+
+	(void) etcond;
+
+	if (fprintf(f, "etcond(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(etcond->cond, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(etcond->targ, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(etcond->farg, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST ternary conditional expression.
+ *
+ * @param etcond Ternary conditional expression
+ */
+static void ast_etcond_destroy(ast_etcond_t *etcond)
+{
+	ast_tree_destroy(etcond->cond);
+	ast_tree_destroy(etcond->targ);
+	ast_tree_destroy(etcond->farg);
+	free(etcond);
+}
+
+/** Get first token of AST ternary conditional expression.
+ *
+ * @param etcond Ternary conditional expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_etcond_first_tok(ast_etcond_t *etcond)
+{
+	return ast_tree_first_tok(etcond->cond);
+}
+
+/** Get last token of AST ternary conditional expression.
+ *
+ * @param etcond Ternary conditional expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_etcond_last_tok(ast_etcond_t *etcond)
+{
+	return ast_tree_last_tok(etcond->farg);
+}
+
+/** Create AST comma expression.
+ *
+ * @param recomma Place to store pointer to new comma expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ecomma_create(ast_ecomma_t **recomma)
+{
+	ast_ecomma_t *ecomma;
+
+	ecomma = calloc(1, sizeof(ast_ecomma_t));
+	if (ecomma == NULL)
+		return ENOMEM;
+
+	ecomma->node.ext = ecomma;
+	ecomma->node.ntype = ant_ecomma;
+
+	*recomma = ecomma;
+	return EOK;
+}
+
+/** Print AST comma expression.
+ *
+ * @param ecomma Comma expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ecomma_print(ast_ecomma_t *ecomma, FILE *f)
+{
+	int rc;
+
+	(void) ecomma;
+
+	if (fprintf(f, "ecomma(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ecomma->larg, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ecomma->rarg, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST comma expression.
+ *
+ * @param ecomma Comma expression
+ */
+static void ast_ecomma_destroy(ast_ecomma_t *ecomma)
+{
+	ast_tree_destroy(ecomma->larg);
+	ast_tree_destroy(ecomma->rarg);
+	free(ecomma);
+}
+
+/** Get first token of AST comma expression.
+ *
+ * @param ecomma Comma expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ecomma_first_tok(ast_ecomma_t *ecomma)
+{
+	return ast_tree_first_tok(ecomma->larg);
+}
+
+/** Get last token of AST comma expression.
+ *
+ * @param ecomma Comma expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ecomma_last_tok(ast_ecomma_t *ecomma)
+{
+	return ast_tree_last_tok(ecomma->rarg);
+}
+
+/** Create AST function call expression.
+ *
+ * @param refuncall Place to store pointer to new function call expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_efuncall_create(ast_efuncall_t **refuncall)
+{
+	ast_efuncall_t *efuncall;
+
+	efuncall = calloc(1, sizeof(ast_efuncall_t));
+	if (efuncall == NULL)
+		return ENOMEM;
+
+	efuncall->node.ext = efuncall;
+	efuncall->node.ntype = ant_efuncall;
+
+	*refuncall = efuncall;
+	return EOK;
+}
+
+/** Print AST function call expression.
+ *
+ * @param efuncall Function call expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_efuncall_print(ast_efuncall_t *efuncall, FILE *f)
+{
+	int rc;
+
+	(void) efuncall;
+
+	if (fprintf(f, "efuncall(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(efuncall->fexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST function call expression.
+ *
+ * @param efuncall Function call expression
+ */
+static void ast_efuncall_destroy(ast_efuncall_t *efuncall)
+{
+	ast_tree_destroy(efuncall->fexpr);
+	free(efuncall);
+}
+
+/** Get first token of AST function call expression.
+ *
+ * @param efuncall Function call expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_efuncall_first_tok(ast_efuncall_t *efuncall)
+{
+	return ast_tree_first_tok(efuncall->fexpr);
+}
+
+/** Get last token of AST function call expression.
+ *
+ * @param efuncall Function call expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_efuncall_last_tok(ast_efuncall_t *efuncall)
+{
+	return &efuncall->trparen;
+}
+
+/** Create AST index expression.
+ *
+ * @param reindex Place to store pointer to new index expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eindex_create(ast_eindex_t **reindex)
+{
+	ast_eindex_t *eindex;
+
+	eindex = calloc(1, sizeof(ast_eindex_t));
+	if (eindex == NULL)
+		return ENOMEM;
+
+	eindex->node.ext = eindex;
+	eindex->node.ntype = ant_eindex;
+
+	*reindex = eindex;
+	return EOK;
+}
+
+/** Print AST index expression.
+ *
+ * @param eindex Index expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eindex_print(ast_eindex_t *eindex, FILE *f)
+{
+	int rc;
+
+	(void) eindex;
+
+	if (fprintf(f, "eindex(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eindex->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eindex->iexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST index expression.
+ *
+ * @param eindex Index expression
+ */
+static void ast_eindex_destroy(ast_eindex_t *eindex)
+{
+	ast_tree_destroy(eindex->bexpr);
+	ast_tree_destroy(eindex->iexpr);
+	free(eindex);
+}
+
+/** Get first token of AST index expression.
+ *
+ * @param eindex Index expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eindex_first_tok(ast_eindex_t *eindex)
+{
+	return ast_tree_first_tok(eindex->bexpr);
+}
+
+/** Get last token of AST index expression.
+ *
+ * @param eindex Index expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eindex_last_tok(ast_eindex_t *eindex)
+{
+	return &eindex->trbracket;
+}
+
+/** Create AST dereference expression.
+ *
+ * @param rederef Place to store pointer to new dereference expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ederef_create(ast_ederef_t **rederef)
+{
+	ast_ederef_t *ederef;
+
+	ederef = calloc(1, sizeof(ast_ederef_t));
+	if (ederef == NULL)
+		return ENOMEM;
+
+	ederef->node.ext = ederef;
+	ederef->node.ntype = ant_ederef;
+
+	*rederef = ederef;
+	return EOK;
+}
+
+/** Print AST dereference expression.
+ *
+ * @param ederef Dereference expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ederef_print(ast_ederef_t *ederef, FILE *f)
+{
+	int rc;
+
+	(void) ederef;
+
+	if (fprintf(f, "ederef(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ederef->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST dereference expression.
+ *
+ * @param ederef Dereference expression
+ */
+static void ast_ederef_destroy(ast_ederef_t *ederef)
+{
+	ast_tree_destroy(ederef->bexpr);
+	free(ederef);
+}
+
+/** Get first token of AST dereference expression.
+ *
+ * @param ederef Dereference expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ederef_first_tok(ast_ederef_t *ederef)
+{
+	return &ederef->tasterisk;
+}
+
+/** Get last token of AST dereference expression.
+ *
+ * @param ederef Dereference expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ederef_last_tok(ast_ederef_t *ederef)
+{
+	return ast_tree_last_tok(ederef->bexpr);
+}
+
+/** Create AST address expression.
+ *
+ * @param readdr Place to store pointer to new address expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eaddr_create(ast_eaddr_t **readdr)
+{
+	ast_eaddr_t *eaddr;
+
+	eaddr = calloc(1, sizeof(ast_eaddr_t));
+	if (eaddr == NULL)
+		return ENOMEM;
+
+	eaddr->node.ext = eaddr;
+	eaddr->node.ntype = ant_eaddr;
+
+	*readdr = eaddr;
+	return EOK;
+}
+
+/** Print AST address expression.
+ *
+ * @param eaddr Sizeof expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eaddr_print(ast_eaddr_t *eaddr, FILE *f)
+{
+	int rc;
+
+	(void) eaddr;
+
+	if (fprintf(f, "eaddr(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eaddr->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST address expression.
+ *
+ * @param eaddr Sizeof expression
+ */
+static void ast_eaddr_destroy(ast_eaddr_t *eaddr)
+{
+	ast_tree_destroy(eaddr->bexpr);
+	free(eaddr);
+}
+
+/** Get first token of AST address expression.
+ *
+ * @param eaddr Dereference expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eaddr_first_tok(ast_eaddr_t *eaddr)
+{
+	return &eaddr->tamper;
+}
+
+/** Get last token of AST address expression.
+ *
+ * @param eaddr Address expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eaddr_last_tok(ast_eaddr_t *eaddr)
+{
+	return ast_tree_last_tok(eaddr->bexpr);
+}
+
+/** Create AST sizeof expression.
+ *
+ * @param resizeof Place to store pointer to new sizeof expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_esizeof_create(ast_esizeof_t **resizeof)
+{
+	ast_esizeof_t *esizeof;
+
+	esizeof = calloc(1, sizeof(ast_esizeof_t));
+	if (esizeof == NULL)
+		return ENOMEM;
+
+	esizeof->node.ext = esizeof;
+	esizeof->node.ntype = ant_esizeof;
+
+	*resizeof = esizeof;
+	return EOK;
+}
+
+/** Print AST sizeof expression.
+ *
+ * @param esizeof Sizeof expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_esizeof_print(ast_esizeof_t *esizeof, FILE *f)
+{
+	int rc;
+
+	(void) esizeof;
+
+	if (fprintf(f, "esizeof(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(esizeof->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST sizeof expression.
+ *
+ * @param esizeof Sizeof expression
+ */
+static void ast_esizeof_destroy(ast_esizeof_t *esizeof)
+{
+	ast_tree_destroy(esizeof->bexpr);
+	free(esizeof);
+}
+
+/** Get first token of AST sizeof expression.
+ *
+ * @param esizeof Sizeof expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_esizeof_first_tok(ast_esizeof_t *esizeof)
+{
+	return &esizeof->tsizeof;
+}
+
+/** Get last token of AST sizeo expression.
+ *
+ * @param eaddr Sizeof expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_esizeof_last_tok(ast_esizeof_t *esizeof)
+{
+	return ast_tree_last_tok(esizeof->bexpr);
+}
+
+/** Create AST member expression.
+ *
+ * @param remember Place to store pointer to new member expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_emember_create(ast_emember_t **remember)
+{
+	ast_emember_t *emember;
+
+	emember = calloc(1, sizeof(ast_emember_t));
+	if (emember == NULL)
+		return ENOMEM;
+
+	emember->node.ext = emember;
+	emember->node.ntype = ant_emember;
+
+	*remember = emember;
+	return EOK;
+}
+
+/** Print AST member expression.
+ *
+ * @param emember Member expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_emember_print(ast_emember_t *emember, FILE *f)
+{
+	int rc;
+
+	(void) emember;
+
+	if (fprintf(f, "emember(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(emember->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST member expression.
+ *
+ * @param emember Member expression
+ */
+static void ast_emember_destroy(ast_emember_t *emember)
+{
+	ast_tree_destroy(emember->bexpr);
+	free(emember);
+}
+
+/** Get first token of AST member expression.
+ *
+ * @param emember Member expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_emember_first_tok(ast_emember_t *emember)
+{
+	return ast_tree_first_tok(emember->bexpr);
+}
+
+/** Get last token of AST member expression.
+ *
+ * @param emember Member expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_emember_last_tok(ast_emember_t *emember)
+{
+	return &emember->tperiod;
+}
+
+/** Create AST indirect member expression.
+ *
+ * @param reindmember Place to store pointer to new indirect member expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eindmember_create(ast_eindmember_t **reindmember)
+{
+	ast_eindmember_t *eindmember;
+
+	eindmember = calloc(1, sizeof(ast_eindmember_t));
+	if (eindmember == NULL)
+		return ENOMEM;
+
+	eindmember->node.ext = eindmember;
+	eindmember->node.ntype = ant_eindmember;
+
+	*reindmember = eindmember;
+	return EOK;
+}
+
+/** Print AST indirect member expression.
+ *
+ * @param eindmember Indirect member expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eindmember_print(ast_eindmember_t *eindmember, FILE *f)
+{
+	int rc;
+
+	(void) eindmember;
+
+	if (fprintf(f, "eindmember(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eindmember->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST indirect member expression.
+ *
+ * @param eindmember Indirect member expression
+ */
+static void ast_eindmember_destroy(ast_eindmember_t *eindmember)
+{
+	ast_tree_destroy(eindmember->bexpr);
+	free(eindmember);
+}
+
+/** Get first token of AST indirect member expression.
+ *
+ * @param eindmember Indirect member expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eindmember_first_tok(ast_eindmember_t *eindmember)
+{
+	return ast_tree_first_tok(eindmember->bexpr);
+}
+
+/** Get last token of AST indirect member expression.
+ *
+ * @param eindmember Indirect member expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eindmember_last_tok(ast_eindmember_t *eindmember)
+{
+	return &eindmember->tarrow;
+}
+
+/** Create AST unary sign expression.
+ *
+ * @param reusign Place to store pointer to new unary sign expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eusign_create(ast_eusign_t **reusign)
+{
+	ast_eusign_t *eusign;
+
+	eusign = calloc(1, sizeof(ast_eusign_t));
+	if (eusign == NULL)
+		return ENOMEM;
+
+	eusign->node.ext = eusign;
+	eusign->node.ntype = ant_eusign;
+
+	*reusign = eusign;
+	return EOK;
+}
+
+/** Print AST unary sign expression.
+ *
+ * @param eusign Unary sign expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eusign_print(ast_eusign_t *eusign, FILE *f)
+{
+	int rc;
+
+	(void) eusign;
+
+	if (fprintf(f, "eusign(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eusign->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST unary sign expression.
+ *
+ * @param eusign Unary sign expression
+ */
+static void ast_eusign_destroy(ast_eusign_t *eusign)
+{
+	ast_tree_destroy(eusign->bexpr);
+	free(eusign);
+}
+
+/** Get first token of AST unary sign expression.
+ *
+ * @param eusign Unary sign expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eusign_first_tok(ast_eusign_t *eusign)
+{
+	return &eusign->tsign;
+}
+
+/** Get last token of AST unary sign expression.
+ *
+ * @param eusign Unary sign expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eusign_last_tok(ast_eusign_t *eusign)
+{
+	return ast_tree_last_tok(eusign->bexpr);
+}
+
+/** Create AST logical not expression.
+ *
+ * @param relnot Place to store pointer to new logical not expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_elnot_create(ast_elnot_t **relnot)
+{
+	ast_elnot_t *elnot;
+
+	elnot = calloc(1, sizeof(ast_elnot_t));
+	if (elnot == NULL)
+		return ENOMEM;
+
+	elnot->node.ext = elnot;
+	elnot->node.ntype = ant_elnot;
+
+	*relnot = elnot;
+	return EOK;
+}
+
+/** Print AST logical not expression.
+ *
+ * @param elnot Logical not expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_elnot_print(ast_elnot_t *elnot, FILE *f)
+{
+	int rc;
+
+	(void) elnot;
+
+	if (fprintf(f, "elnot(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(elnot->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST logical not expression.
+ *
+ * @param elnot Logical not expression
+ */
+static void ast_elnot_destroy(ast_elnot_t *elnot)
+{
+	ast_tree_destroy(elnot->bexpr);
+	free(elnot);
+}
+
+/** Get first token of AST logical not expression.
+ *
+ * @param elnot Logical not expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_elnot_first_tok(ast_elnot_t *elnot)
+{
+	return &elnot->tlnot;
+}
+
+/** Get last token of AST logical not expression.
+ *
+ * @param elnot Logical not expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_elnot_last_tok(ast_elnot_t *elnot)
+{
+	return ast_tree_last_tok(elnot->bexpr);
+}
+
+/** Create AST bitwise not expression.
+ *
+ * @param rebnot Place to store pointer to new bitwise not expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ebnot_create(ast_ebnot_t **rebnot)
+{
+	ast_ebnot_t *ebnot;
+
+	ebnot = calloc(1, sizeof(ast_ebnot_t));
+	if (ebnot == NULL)
+		return ENOMEM;
+
+	ebnot->node.ext = ebnot;
+	ebnot->node.ntype = ant_ebnot;
+
+	*rebnot = ebnot;
+	return EOK;
+}
+
+/** Print AST bitwise not expression.
+ *
+ * @param ebnot Bitwise not expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ebnot_print(ast_ebnot_t *ebnot, FILE *f)
+{
+	int rc;
+
+	(void) ebnot;
+
+	if (fprintf(f, "ebnot(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ebnot->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST bitwise not expression.
+ *
+ * @param ebnot Bitwise not expression
+ */
+static void ast_ebnot_destroy(ast_ebnot_t *ebnot)
+{
+	ast_tree_destroy(ebnot->bexpr);
+	free(ebnot);
+}
+
+/** Get first token of AST bitwise not expression.
+ *
+ * @param ebnot Bitwise not expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ebnot_first_tok(ast_ebnot_t *ebnot)
+{
+	return &ebnot->tbnot;
+}
+
+/** Get last token of AST bitwise not expression.
+ *
+ * @param ebnot Bitwise not expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ebnot_last_tok(ast_ebnot_t *ebnot)
+{
+	return ast_tree_last_tok(ebnot->bexpr);
+}
+
+/** Create AST pre-adjustment expression.
+ *
+ * @param repreadj Place to store pointer to new pre-adjustment expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_epreadj_create(ast_epreadj_t **repreadj)
+{
+	ast_epreadj_t *epreadj;
+
+	epreadj = calloc(1, sizeof(ast_epreadj_t));
+	if (epreadj == NULL)
+		return ENOMEM;
+
+	epreadj->node.ext = epreadj;
+	epreadj->node.ntype = ant_epreadj;
+
+	*repreadj = epreadj;
+	return EOK;
+}
+
+/** Print AST pre-adjustment expression.
+ *
+ * @param epreadj Pre-adjustment expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_epreadj_print(ast_epreadj_t *epreadj, FILE *f)
+{
+	int rc;
+
+	(void) epreadj;
+
+	if (fprintf(f, "epreadj(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(epreadj->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST pre-adjustment expression.
+ *
+ * @param epreadj Pre-adjustment expression
+ */
+static void ast_epreadj_destroy(ast_epreadj_t *epreadj)
+{
+	ast_tree_destroy(epreadj->bexpr);
+	free(epreadj);
+}
+
+/** Get first token of AST pre-adjustment expression.
+ *
+ * @param epreadj Pre-adjustment expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_epreadj_first_tok(ast_epreadj_t *epreadj)
+{
+	return &epreadj->tadj;
+}
+
+/** Get last token of AST pre-adjustment expression.
+ *
+ * @param epreadj Pre-adjustment expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_epreadj_last_tok(ast_epreadj_t *epreadj)
+{
+	return ast_tree_last_tok(epreadj->bexpr);
+}
+
+/** Create AST pre-adjustment expression.
+ *
+ * @param repostadj Place to store pointer to new pre-adjustment expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_epostadj_create(ast_epostadj_t **repostadj)
+{
+	ast_epostadj_t *epostadj;
+
+	epostadj = calloc(1, sizeof(ast_epostadj_t));
+	if (epostadj == NULL)
+		return ENOMEM;
+
+	epostadj->node.ext = epostadj;
+	epostadj->node.ntype = ant_epostadj;
+
+	*repostadj = epostadj;
+	return EOK;
+}
+
+/** Print AST pre-adjustment expression.
+ *
+ * @param epostadj Pre-adjustment expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_epostadj_print(ast_epostadj_t *epostadj, FILE *f)
+{
+	int rc;
+
+	(void) epostadj;
+
+	if (fprintf(f, "epostadj(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(epostadj->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST pre-adjustment expression.
+ *
+ * @param epostadj Pre-adjustment expression
+ */
+static void ast_epostadj_destroy(ast_epostadj_t *epostadj)
+{
+	ast_tree_destroy(epostadj->bexpr);
+	free(epostadj);
+}
+
+/** Get first token of AST pre-adjustment expression.
+ *
+ * @param epostadj Pre-adjustment expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_epostadj_first_tok(ast_epostadj_t *epostadj)
+{
+	return ast_tree_first_tok(epostadj->bexpr);
+}
+
+/** Get last token of AST pre-adjustment expression.
+ *
+ * @param epostadj Pre-adjustment expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_epostadj_last_tok(ast_epostadj_t *epostadj)
+{
+	return &epostadj->tadj;
 }
 
 /** Create AST break.
@@ -3283,8 +4744,46 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_darray_print((ast_darray_t *)node->ext, f);
 	case ant_dlist:
 		return ast_dlist_print((ast_dlist_t *)node->ext, f);
+	case ant_eint:
+		return ast_eint_print((ast_eint_t *)node->ext, f);
+	case ant_echar:
+		return ast_echar_print((ast_echar_t *)node->ext, f);
+	case ant_estring:
+		return ast_estring_print((ast_estring_t *)node->ext, f);
 	case ant_eident:
 		return ast_eident_print((ast_eident_t *)node->ext, f);
+	case ant_eparen:
+		return ast_eparen_print((ast_eparen_t *)node->ext, f);
+	case ant_ebinop:
+		return ast_ebinop_print((ast_ebinop_t *)node->ext, f);
+	case ant_etcond:
+		return ast_etcond_print((ast_etcond_t *)node->ext, f);
+	case ant_ecomma:
+		return ast_ecomma_print((ast_ecomma_t *)node->ext, f);
+	case ant_efuncall:
+		return ast_efuncall_print((ast_efuncall_t *)node->ext, f);
+	case ant_eindex:
+		return ast_eindex_print((ast_eindex_t *)node->ext, f);
+	case ant_ederef:
+		return ast_ederef_print((ast_ederef_t *)node->ext, f);
+	case ant_eusign:
+		return ast_eusign_print((ast_eusign_t *)node->ext, f);
+	case ant_eaddr:
+		return ast_eaddr_print((ast_eaddr_t *)node->ext, f);
+	case ant_esizeof:
+		return ast_esizeof_print((ast_esizeof_t *)node->ext, f);
+	case ant_emember:
+		return ast_emember_print((ast_emember_t *)node->ext, f);
+	case ant_eindmember:
+		return ast_eindmember_print((ast_eindmember_t *)node->ext, f);
+	case ant_elnot:
+		return ast_elnot_print((ast_elnot_t *)node->ext, f);
+	case ant_ebnot:
+		return ast_ebnot_print((ast_ebnot_t *)node->ext, f);
+	case ant_epreadj:
+		return ast_epreadj_print((ast_epreadj_t *)node->ext, f);
+	case ant_epostadj:
+		return ast_epostadj_print((ast_epostadj_t *)node->ext, f);
 	case ant_break:
 		return ast_break_print((ast_break_t *)node->ext, f);
 	case ant_continue:
@@ -3379,8 +4878,65 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_dlist:
 		ast_dlist_destroy((ast_dlist_t *)node->ext);
 		break;
+	case ant_eint:
+		ast_eint_destroy((ast_eint_t *)node->ext);
+		break;
+	case ant_echar:
+		ast_echar_destroy((ast_echar_t *)node->ext);
+		break;
+	case ant_estring:
+		ast_estring_destroy((ast_estring_t *)node->ext);
+		break;
 	case ant_eident:
 		ast_eident_destroy((ast_eident_t *)node->ext);
+		break;
+	case ant_eparen:
+		ast_eparen_destroy((ast_eparen_t *)node->ext);
+		break;
+	case ant_ebinop:
+		ast_ebinop_destroy((ast_ebinop_t *)node->ext);
+		break;
+	case ant_etcond:
+		ast_etcond_destroy((ast_etcond_t *)node->ext);
+		break;
+	case ant_ecomma:
+		ast_ecomma_destroy((ast_ecomma_t *)node->ext);
+		break;
+	case ant_efuncall:
+		ast_efuncall_destroy((ast_efuncall_t *)node->ext);
+		break;
+	case ant_eindex:
+		ast_eindex_destroy((ast_eindex_t *)node->ext);
+		break;
+	case ant_ederef:
+		ast_ederef_destroy((ast_ederef_t *)node->ext);
+		break;
+	case ant_eusign:
+		ast_eusign_destroy((ast_eusign_t *)node->ext);
+		break;
+	case ant_eaddr:
+		ast_eaddr_destroy((ast_eaddr_t *)node->ext);
+		break;
+	case ant_esizeof:
+		ast_esizeof_destroy((ast_esizeof_t *)node->ext);
+		break;
+	case ant_emember:
+		ast_emember_destroy((ast_emember_t *)node->ext);
+		break;
+	case ant_eindmember:
+		ast_eindmember_destroy((ast_eindmember_t *)node->ext);
+		break;
+	case ant_elnot:
+		ast_elnot_destroy((ast_elnot_t *)node->ext);
+		break;
+	case ant_ebnot:
+		ast_ebnot_destroy((ast_ebnot_t *)node->ext);
+		break;
+	case ant_epreadj:
+		ast_epreadj_destroy((ast_epreadj_t *)node->ext);
+		break;
+	case ant_epostadj:
+		ast_epostadj_destroy((ast_epostadj_t *)node->ext);
 		break;
 	case ant_break:
 		ast_break_destroy((ast_break_t *)node->ext);
@@ -3452,8 +5008,46 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_darray_first_tok((ast_darray_t *)node->ext);
 	case ant_dlist:
 		return ast_dlist_first_tok((ast_dlist_t *)node->ext);
+	case ant_eint:
+		return ast_eint_first_tok((ast_eint_t *)node->ext);
+	case ant_echar:
+		return ast_echar_first_tok((ast_echar_t *)node->ext);
+	case ant_estring:
+		return ast_estring_first_tok((ast_estring_t *)node->ext);
 	case ant_eident:
 		return ast_eident_first_tok((ast_eident_t *)node->ext);
+	case ant_eparen:
+		return ast_eparen_first_tok((ast_eparen_t *)node->ext);
+	case ant_ebinop:
+		return ast_ebinop_first_tok((ast_ebinop_t *)node->ext);
+	case ant_etcond:
+		return ast_etcond_first_tok((ast_etcond_t *)node->ext);
+	case ant_ecomma:
+		return ast_ecomma_first_tok((ast_ecomma_t *)node->ext);
+	case ant_efuncall:
+		return ast_efuncall_first_tok((ast_efuncall_t *)node->ext);
+	case ant_eindex:
+		return ast_eindex_first_tok((ast_eindex_t *)node->ext);
+	case ant_ederef:
+		return ast_ederef_first_tok((ast_ederef_t *)node->ext);
+	case ant_eusign:
+		return ast_eusign_first_tok((ast_eusign_t *)node->ext);
+	case ant_eaddr:
+		return ast_eaddr_first_tok((ast_eaddr_t *)node->ext);
+	case ant_esizeof:
+		return ast_esizeof_first_tok((ast_esizeof_t *)node->ext);
+	case ant_emember:
+		return ast_emember_first_tok((ast_emember_t *)node->ext);
+	case ant_eindmember:
+		return ast_eindmember_first_tok((ast_eindmember_t *)node->ext);
+	case ant_elnot:
+		return ast_elnot_first_tok((ast_elnot_t *)node->ext);
+	case ant_ebnot:
+		return ast_ebnot_first_tok((ast_ebnot_t *)node->ext);
+	case ant_epreadj:
+		return ast_epreadj_first_tok((ast_epreadj_t *)node->ext);
+	case ant_epostadj:
+		return ast_epostadj_first_tok((ast_epostadj_t *)node->ext);
 	case ant_break:
 		return ast_break_first_tok((ast_break_t *)node->ext);
 	case ant_continue:
@@ -3523,8 +5117,46 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_darray_last_tok((ast_darray_t *)node->ext);
 	case ant_dlist:
 		return ast_dlist_last_tok((ast_dlist_t *)node->ext);
+	case ant_eint:
+		return ast_eint_last_tok((ast_eint_t *)node->ext);
+	case ant_echar:
+		return ast_echar_last_tok((ast_echar_t *)node->ext);
+	case ant_estring:
+		return ast_estring_last_tok((ast_estring_t *)node->ext);
 	case ant_eident:
 		return ast_eident_last_tok((ast_eident_t *)node->ext);
+	case ant_eparen:
+		return ast_eparen_last_tok((ast_eparen_t *)node->ext);
+	case ant_ebinop:
+		return ast_ebinop_last_tok((ast_ebinop_t *)node->ext);
+	case ant_etcond:
+		return ast_etcond_last_tok((ast_etcond_t *)node->ext);
+	case ant_ecomma:
+		return ast_ecomma_last_tok((ast_ecomma_t *)node->ext);
+	case ant_efuncall:
+		return ast_efuncall_last_tok((ast_efuncall_t *)node->ext);
+	case ant_eindex:
+		return ast_eindex_last_tok((ast_eindex_t *)node->ext);
+	case ant_ederef:
+		return ast_ederef_last_tok((ast_ederef_t *)node->ext);
+	case ant_eusign:
+		return ast_eusign_last_tok((ast_eusign_t *)node->ext);
+	case ant_eaddr:
+		return ast_eaddr_last_tok((ast_eaddr_t *)node->ext);
+	case ant_esizeof:
+		return ast_esizeof_last_tok((ast_esizeof_t *)node->ext);
+	case ant_emember:
+		return ast_emember_last_tok((ast_emember_t *)node->ext);
+	case ant_eindmember:
+		return ast_eindmember_last_tok((ast_eindmember_t *)node->ext);
+	case ant_elnot:
+		return ast_elnot_last_tok((ast_elnot_t *)node->ext);
+	case ant_ebnot:
+		return ast_ebnot_last_tok((ast_ebnot_t *)node->ext);
+	case ant_epreadj:
+		return ast_epreadj_last_tok((ast_epreadj_t *)node->ext);
+	case ant_epostadj:
+		return ast_epostadj_last_tok((ast_epostadj_t *)node->ext);
 	case ant_break:
 		return ast_break_last_tok((ast_break_t *)node->ext);
 	case ant_continue:

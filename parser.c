@@ -38,6 +38,7 @@ static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
+static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
 
 /** Create parser.
@@ -81,6 +82,21 @@ static bool parser_ttype_ignore(lexer_toktype_t ttype)
 	return ttype == ltt_space || ttype == ltt_tab ||
 	    ttype == ltt_newline ||ttype == ltt_comment ||
 	    ttype == ltt_dscomment || ttype == ltt_preproc;
+}
+
+/** Return @c true if token type is an assignment operator.
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is an assignment operator
+ */
+static bool parser_ttype_assignop(lexer_toktype_t ttype)
+{
+	return ttype == ltt_assign || ttype == ltt_plus_assign ||
+	    ttype == ltt_minus_assign || ttype == ltt_times_assign ||
+	    ttype == ltt_divide_assign || ttype == ltt_modulo_assign ||
+	    ttype == ltt_shl_assign || ttype == ltt_shr_assign ||
+	    ttype == ltt_band_assign || ttype == ltt_bor_assign ||
+	    ttype == ltt_bxor_assign;
 }
 
 /** Fill lookahead buffer up to the specified number of tokens.
@@ -258,14 +274,44 @@ static bool parser_ttype_fspec(lexer_toktype_t ttype)
 	return ttype == ltt_inline;
 }
 
-/** Parse arithmetic expression.
+/** Parse integer literal.
  *
  * @param parser Parser
  * @param rexpr Place to store pointer to new arithmetic expression
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
+static int parser_process_eint(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_eint_t *eint = NULL;
+	void *dlit;
+	int rc;
+
+	rc = ast_eint_create(&eint);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_number, &dlit);
+	if (rc != EOK)
+		goto error;
+
+	eint->tlit.data = dlit;
+	*rexpr = &eint->node;
+	return EOK;
+error:
+	if (eint != NULL)
+		ast_tree_destroy(&eint->node);
+	return rc;
+}
+
+/** Parse identifier expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eident(parser_t *parser, ast_node_t **rexpr)
 {
 	ast_eident_t *eident = NULL;
 	void *dident;
@@ -275,7 +321,7 @@ static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
 	if (rc != EOK)
 		return rc;
 
-	rc = parser_match(parser, ltt_number, &dident);
+	rc = parser_match(parser, ltt_ident, &dident);
 	if (rc != EOK)
 		goto error;
 
@@ -286,6 +332,404 @@ error:
 	if (eident != NULL)
 		ast_tree_destroy(&eident->node);
 	return rc;
+}
+
+/** Parse parenthesized expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_eparen_t *eparen = NULL;
+	ast_node_t *bexpr = NULL;
+	void *dlparen;
+	void *drparen;
+	int rc;
+
+	rc = ast_eparen_create(&eparen);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &bexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	eparen->tlparen.data = dlparen;
+	eparen->bexpr = bexpr;
+	eparen->trparen.data = drparen;
+	*rexpr = &eparen->node;
+	return EOK;
+error:
+	if (eparen != NULL)
+		ast_tree_destroy(&eparen->node);
+	if (bexpr != NULL)
+		ast_tree_destroy(bexpr);
+	return rc;
+}
+
+/** Parse arithmetic term.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
+{
+	lexer_toktype_t ltt;
+
+	ltt = parser_next_ttype(parser);
+
+	switch (ltt) {
+	case ltt_number:
+		return parser_process_eint(parser, rexpr);
+	case ltt_ident:
+		return parser_process_eident(parser, rexpr);
+	case ltt_lparen:
+		return parser_process_eparen(parser, rexpr);
+	default:
+		fprintf(stderr, "Error: ");
+		lexer_dprint_tok(&parser->tok[0], stderr);
+		fprintf(stderr, " unexpected, expected expression.\n");
+		return EINVAL;
+	}
+}
+
+/** Parse postfix operator expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eterm(parser, rexpr);
+}
+
+/** Parse prefix operator expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_epostfix(parser, rexpr);
+}
+
+/** Parse multiplicative expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_emul(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eprefix(parser, rexpr);
+}
+
+/** Parse additive expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eadd(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_emul(parser, rexpr);
+}
+
+/** Parse shift expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eshift(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eadd(parser, rexpr);
+}
+
+/** Parse non-equality expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eltgt(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eshift(parser, rexpr);
+}
+
+/** Parse equality expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eequal(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eltgt(parser, rexpr);
+}
+
+/** Parse bitwise and expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eband(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eequal(parser, rexpr);
+}
+
+/** Parse bitwise xor expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ebxor(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_eband(parser, rexpr);
+}
+
+/** Parse bitwise or expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ebor(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_ebxor(parser, rexpr);
+}
+
+/** Parse logical and expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eland(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_ebor(parser, rexpr);
+}
+
+/** Parse logical or expression.
+ *
+ * A logical or expression consists of one or more logical and expressions
+ * separated by ||.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_elor(parser_t *parser, ast_node_t **rexpr)
+{
+	lexer_toktype_t ltt;
+	ast_ebinop_t *ebinop = NULL;
+	ast_node_t *ea = NULL;
+	ast_node_t *eb = NULL;
+	void *dcomma;
+	int rc;
+
+	rc = parser_process_eland(parser, &ea);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	while (ltt == ltt_lor) {
+		parser_skip(parser, &dcomma);
+
+		rc = parser_process_eland(parser, &eb);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_ebinop_create(&ebinop);
+		if (rc != EOK)
+			goto error;
+
+		ebinop->larg = ea;
+		ebinop->optype = abo_lor;
+		ebinop->top.data = dcomma;
+		ebinop->rarg = eb;
+
+		ea = &ebinop->node;
+		ea = NULL;
+		eb = NULL;
+
+		ltt = parser_next_ttype(parser);
+	}
+
+	*rexpr = ea;
+	return EOK;
+error:
+	if (ea != NULL)
+		ast_tree_destroy(ea);
+	if (eb != NULL)
+		ast_tree_destroy(eb);
+	if (ebinop != NULL)
+		ast_tree_destroy(&ebinop->node);
+	return rc;
+}
+
+/** Parse ternary conditional expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_etcond(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_elor(parser, rexpr);
+}
+
+/** Parse assignment expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eassign(parser_t *parser, ast_node_t **rexpr)
+{
+	lexer_toktype_t ltt;
+	ast_ebinop_t *ebinop = NULL;
+	ast_node_t *ea = NULL;
+	ast_node_t *eb = NULL;
+	void *dassign;
+	int rc;
+
+	rc = parser_process_etcond(parser, &ea);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (!parser_ttype_assignop(ltt)) {
+		*rexpr = ea;
+		return EOK;
+	}
+
+	parser_skip(parser, &dassign);
+
+	rc = parser_process_eassign(parser, &eb);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_ebinop_create(&ebinop);
+	if (rc != EOK)
+		goto error;
+
+	ebinop->larg = ea;
+	ebinop->optype = abo_assign; /* XXX */
+	ebinop->top.data = dassign;
+	ebinop->rarg = eb;
+
+	*rexpr = &ebinop->node;
+	return EOK;
+error:
+	if (ea != NULL)
+		ast_tree_destroy(ea);
+	if (eb != NULL)
+		ast_tree_destroy(eb);
+	if (ebinop != NULL)
+		ast_tree_destroy(&ebinop->node);
+	return rc;
+}
+
+/** Parse comma expression.
+ *
+ * A comma expression consists of one or more assignment expressions
+ * separated by commas.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ecomma(parser_t *parser, ast_node_t **rexpr)
+{
+	lexer_toktype_t ltt;
+	ast_ecomma_t *ecomma = NULL;
+	ast_node_t *ea = NULL;
+	ast_node_t *eb = NULL;
+	void *dcomma;
+	int rc;
+
+	rc = parser_process_eassign(parser, &ea);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	while (ltt == ltt_comma) {
+		parser_skip(parser, &dcomma);
+
+		rc = parser_process_eassign(parser, &eb);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_ecomma_create(&ecomma);
+		if (rc != EOK)
+			goto error;
+
+		ecomma->larg = ea;
+		ecomma->tcomma.data = dcomma;
+		ecomma->rarg = eb;
+
+		ea = &ecomma->node;
+		ea = NULL;
+		eb = NULL;
+
+		ltt = parser_next_ttype(parser);
+	}
+
+	*rexpr = ea;
+	return EOK;
+error:
+	if (ea != NULL)
+		ast_tree_destroy(ea);
+	if (eb != NULL)
+		ast_tree_destroy(eb);
+	if (ecomma != NULL)
+		ast_tree_destroy(&ecomma->node);
+	return rc;
+}
+
+/** Parse arithmetic expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
+{
+	return parser_process_ecomma(parser, rexpr);
 }
 
 /** Parse break statement.
@@ -1223,10 +1667,8 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 				goto error;
 
 			ltt = parser_next_ttype(parser);
-			if (ltt == ltt_equals) {
-				rc = parser_match(parser, ltt_equals, &dequals);
-				if (rc != EOK)
-					goto error;
+			if (ltt == ltt_assign) {
+				parser_skip(parser, &dequals);
 
 				ltt = parser_next_ttype(parser);
 				if (ltt == ltt_ident || ltt == ltt_number) {

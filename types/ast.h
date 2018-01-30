@@ -33,36 +33,105 @@ typedef struct ast_block ast_block_t;
 
 /** AST node type */
 typedef enum {
+	/** Type qualifier */
 	ant_tqual,
+	/** Basic type specifier */
 	ant_tsbasic,
+	/** Identifier type specifier */
 	ant_tsident,
+	/** Record type specifier */
 	ant_tsrecord,
+	/** Enum type specifier */
 	ant_tsenum,
+	/** Function specifier */
 	ant_fspec,
+	/** Specifier-qualifier list */
 	ant_sqlist,
+	/** Declaration specifiers */
 	ant_dspecs,
+	/** Ideintifier declarator */
 	ant_dident,
+	/** No-identifier declarator */
 	ant_dnoident,
+	/** Parenthesized declarator */
 	ant_dparen,
+	/** Pointer declarator */
 	ant_dptr,
+	/** Function declarator */
 	ant_dfun,
+	/** Array declarator */
 	ant_darray,
+	/** Declarator list */
 	ant_dlist,
+	/** Integer literal */
+	ant_eint,
+	/** Character literal */
+	ant_echar,
+	/** String literal */
+	ant_estring,
+	/** Identifier expression */
 	ant_eident,
+	/** Parenthesized expression */
+	ant_eparen,
+	/** Binary operator expression */
+	ant_ebinop,
+	/** Ternary conditional expression */
+	ant_etcond,
+	/** Comma expression */
+	ant_ecomma,
+	/** Function call expression */
+	ant_efuncall,
+	/** Index expression */
+	ant_eindex,
+	/** Dereference expression */
+	ant_ederef,
+	/** Address expression */
+	ant_eaddr,
+	/** Sizeof expression */
+	ant_esizeof,
+	/** Member expression */
+	ant_emember,
+	/** Indirect member expression */
+	ant_eindmember,
+	/** Unary sign expression */
+	ant_eusign,
+	/** Logical not expression */
+	ant_elnot,
+	/** Bitwise not expression */
+	ant_ebnot,
+	/** Pre-increment/-decrement expression */
+	ant_epreadj,
+	/** Post-increment/-decrement expression */
+	ant_epostadj,
+	/** Break statement */
 	ant_break,
+	/** Continue statement */
 	ant_continue,
+	/** Goto statement */
 	ant_goto,
+	/** Return statement */
 	ant_return,
+	/** If statement */
 	ant_if,
+	/** While loop statement */
 	ant_while,
+	/** Do loop statement */
 	ant_do,
+	/** For loop statement */
 	ant_for,
+	/** Switch statement */
 	ant_switch,
+	/** Case label */
 	ant_clabel,
+	/** Goto label */
 	ant_glabel,
+	/** Statement block */
 	ant_block,
+	/** Global declaration */
 	ant_gdecln,
+	/** Module */
 	ant_module,
+	/** Storage-class specifier */
 	ant_sclass,
 } ast_node_type_t;
 
@@ -87,6 +156,86 @@ typedef enum {
 	/** No storage class specified */
 	asc_none
 } ast_sclass_type_t;
+
+/** Binary operator type */
+typedef enum {
+	/* *'+' addition */
+	abo_plus,
+	/** '-' subtraction */
+	abo_minus,
+	/** '*' multiplication */
+	abo_times,
+	/** '/' division */
+	abo_divide,
+	/** '%' remainder */
+	abo_modulo,
+	/** '<<' shift left */
+	abo_shl,
+	/** '>>' shift right */
+	abo_shr,
+	/** '<' less than */
+	abo_lt,
+	/** '<=' less-than or equal */
+	abo_lteq,
+	/** '>' greater-than */
+	abo_gt,
+	/** '>=' greater-than or equal */
+	abo_gteq,
+	/** '==' equal */
+	abo_eq,
+	/** '!=' not equal */
+	abo_neq,
+	/** '&' bitwise and */
+	abo_band,
+	/** '^' bitwise xor */
+	abo_bxor,
+	/** '|' bitwise or */
+	abo_bor,
+	/** '&&' logical and */
+	abo_land,
+	/** '||' logical or */
+	abo_lor,
+	/** '=' assignment */
+	abo_assign,
+	/** '+=' assignment by sum */
+	abo_plus_assign,
+	/** '-=' assignment by difference */
+	abo_minus_assign,
+	/** '*=' assignment by product */
+	abo_times_assign,
+	/** '/=' assignment by quotient */
+	abo_divide_assign,
+	/** '%=' assignment by remainder */
+	abo_modulo_assign,
+	/** '<<=' assignment by left shift */
+	abo_shl_assign,
+	/** '>>=' assignment by right shift */
+	abo_shr_assign,
+	/** '&=' assignment by bitwise and */
+	abo_band_assign,
+	/** '|=' assignment by bitwise or */
+	abo_bxor_assign,
+	/** '^=' assignment by bitwise xor */
+	abo_bor_assign,
+	/** Comma */
+	abo_comma
+} ast_binop_t;
+
+/** Unary sign operator type */
+typedef enum {
+	/** Plus sign */
+	aus_plus,
+	/** Minus sign */
+	aus_minus
+} ast_usign_t;
+
+/** Increment or decrement */
+typedef enum {
+	/** Pre/post increment */
+	aat_inc,
+	/** Pre/post decrement */
+	aat_dec
+} ast_adj_t;
 
 /** AST token data.
  *
@@ -365,6 +514,30 @@ typedef struct {
 	ast_node_t *btype;
 } ast_tptr_t;
 
+/** Integer literal expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Literal token */
+	ast_tok_t tlit;
+} ast_eint_t;
+
+/** Character literal expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Literal token */
+	ast_tok_t tlit;
+} ast_echar_t;
+
+/** String literal expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Literal token */
+	ast_tok_t tlit;
+} ast_estring_t;
+
 /** Identifier expression */
 typedef struct {
 	/** Base object */
@@ -372,6 +545,197 @@ typedef struct {
 	/** Ideintifier token */
 	ast_tok_t tident;
 } ast_eident_t;
+
+/** Parenthesized expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Base expression */
+	ast_node_t *bexpr;
+	/** ')' token */
+	ast_tok_t trparen;
+} ast_eparen_t;
+
+/** Binary operator expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Binary operator type */
+	ast_binop_t optype;
+	/** Left argument */
+	ast_node_t *larg;
+	/** Operator token */
+	ast_tok_t top;
+	/** Right argument */
+	ast_node_t *rarg;
+} ast_ebinop_t;
+
+/** Ternary conditional expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Condition */
+	ast_node_t *cond;
+	/** '?' token */
+	ast_tok_t tqmark;
+	/** True argument */
+	ast_node_t *targ;
+	/** ':' token */
+	ast_tok_t tcolon;
+	/** False argument */
+	ast_node_t *farg;
+} ast_etcond_t;
+
+/** Comma expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Left argument */
+	ast_node_t *larg;
+	/** Comma token */
+	ast_tok_t tcomma;
+	/** Right argument */
+	ast_node_t *rarg;
+} ast_ecomma_t;
+
+/** Function call expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Function expression */
+	ast_node_t *fexpr;
+	/** Left parenthesis token */
+	ast_tok_t tlparen;
+	/* XXX arguments */
+	/** Right parenthesis token */
+	ast_tok_t trparen;
+} ast_efuncall_t;
+
+/** Index expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Base expression */
+	ast_node_t *bexpr;
+	/** Left bracket token */
+	ast_tok_t tlbracket;
+	/* Index expression */
+	ast_node_t *iexpr;
+	/** Right bracket token */
+	ast_tok_t trbracket;
+} ast_eindex_t;
+
+/** Dereference expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '*' token */
+	ast_tok_t tasterisk;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_ederef_t;
+
+/** Address expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '&' token */
+	ast_tok_t tamper;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_eaddr_t;
+
+/** Sizeof expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'sizeof' token */
+	ast_tok_t tsizeof;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_esizeof_t;
+
+/** Member expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Base expression */
+	ast_node_t *bexpr;
+	/** '.' token */
+	ast_tok_t tperiod;
+	/** Member name token */
+	ast_tok_t tmember;
+} ast_emember_t;
+
+/** Indirect member expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Base expression */
+	ast_node_t *bexpr;
+	/** '->' token */
+	ast_tok_t tarrow;
+	/** Member name token */
+	ast_tok_t tmember;
+} ast_eindmember_t;
+
+/** Unary sign expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Unary sign type (+ or -) */
+	ast_usign_t usign;
+	/** Sign token */
+	ast_tok_t tsign;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_eusign_t;
+
+/** Logical not expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Logical not token */
+	ast_tok_t tlnot;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_elnot_t;
+
+/** Bitwise not expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Bitwise not token */
+	ast_tok_t tbnot;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_ebnot_t;
+
+/** Pre-adjustment (increment/decrement) */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Adjustment type (++ or --) */
+	ast_adj_t adj;
+	/** Adjustment token */
+	ast_tok_t tadj;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_epreadj_t;
+
+/** Post-adjustment (increment/decrement) */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Base expression */
+	ast_node_t *bexpr;
+	/** Adjustment type (++ or --) */
+	ast_adj_t adj;
+	/** Adjustment token */
+	ast_tok_t tadj;
+} ast_epostadj_t;
 
 /** Break statement. */
 typedef struct {
