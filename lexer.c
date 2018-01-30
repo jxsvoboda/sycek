@@ -578,6 +578,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case ' ':
 		return lexer_whitespace(lexer, ltt_space, tok);
 	case '!':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_notequal, 2, tok);
 		return lexer_onechar(lexer, ltt_lnot, tok);
 	case '#':
 //		if (1/*XXX*/)
@@ -623,6 +625,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case ';':
 		return lexer_onechar(lexer, ltt_scolon, tok);
 	case '<':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_lteq, 2, tok);
 		if (p[1] == '<') {
 			if (p[2] == '=') {
 				return lexer_keyword(lexer, ltt_shl_assign,
@@ -637,6 +641,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_equal, 2, tok);
 		return lexer_onechar(lexer, ltt_assign, tok);
 	case '>':
+		if (p[1] == '=')
+			return lexer_keyword(lexer, ltt_gteq, 2, tok);
 		if (p[1] == '>') {
 			if (p[2] == '=') {
 				return lexer_keyword(lexer, ltt_shr_assign,
@@ -925,6 +931,12 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "<";
 	case ltt_equal:
 		return "==";
+	case ltt_lteq:
+		return "<=";
+	case ltt_gteq:
+		return ">=";
+	case ltt_notequal:
+		return "!=";
 	case ltt_assign:
 		return "=";
 	case ltt_plus_assign:
