@@ -488,7 +488,123 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
  */
 static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 {
-	return parser_process_epostfix(parser, rexpr);
+	lexer_toktype_t ltt;
+	ast_epreadj_t *epreadj;
+	ast_eusign_t *eusign;
+	ast_elnot_t *elnot;
+	ast_ebnot_t *ebnot;
+	ast_ederef_t *ederef;
+	ast_eaddr_t *eaddr;
+	ast_node_t *bexpr;
+	void *dop;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+
+	switch (ltt) {
+	case ltt_inc:
+	case ltt_dec:
+		parser_skip(parser, &dop);
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_epreadj_create(&epreadj);
+		if (rc != EOK)
+			goto error;
+
+		epreadj->adj = ltt == ltt_inc ? aat_inc : aat_dec;
+		epreadj->tadj.data = dop;
+		epreadj->bexpr = bexpr;
+		*rexpr = &epreadj->node;
+		break;
+	case ltt_plus:
+	case ltt_minus:
+		parser_skip(parser, &dop);
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_eusign_create(&eusign);
+		if (rc != EOK)
+			goto error;
+
+		eusign->usign = ltt == ltt_plus ? aus_plus : aus_minus;
+		eusign->tsign.data = dop;
+		eusign->bexpr = bexpr;
+		*rexpr = &eusign->node;
+		break;
+	case ltt_lnot:
+		parser_skip(parser, &dop);
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_elnot_create(&elnot);
+		if (rc != EOK)
+			goto error;
+
+		elnot->tlnot.data = dop;
+		elnot->bexpr = bexpr;
+		*rexpr = &elnot->node;
+		break;
+	case ltt_bnot:
+		parser_skip(parser, &dop);
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_ebnot_create(&ebnot);
+		if (rc != EOK)
+			goto error;
+
+		ebnot->tbnot.data = dop;
+		ebnot->bexpr = bexpr;
+		*rexpr = &ebnot->node;
+		break;
+	case ltt_asterisk:
+		parser_skip(parser, &dop);
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_ederef_create(&ederef);
+		if (rc != EOK)
+			goto error;
+
+		ederef->tasterisk.data = dop;
+		ederef->bexpr = bexpr;
+		*rexpr = &ederef->node;
+		break;
+	case ltt_amper:
+		parser_skip(parser, &dop);
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_eaddr_create(&eaddr);
+		if (rc != EOK)
+			goto error;
+
+		eaddr->tamper.data = dop;
+		eaddr->bexpr = bexpr;
+		*rexpr = &eaddr->node;
+		break;
+	default:
+		return parser_process_epostfix(parser, rexpr);
+	}
+
+	return EOK;
+error:
+	if (bexpr != NULL)
+		ast_tree_destroy(bexpr);
+	return rc;
 }
 
 /** Parse multiplicative expression.
@@ -811,7 +927,7 @@ error:
  */
 static int parser_process_eband(parser_t *parser, ast_node_t **rexpr)
 {
-	return parser_process_ltr_binop(parser, ltt_band, parser_process_eequal,
+	return parser_process_ltr_binop(parser, ltt_amper, parser_process_eequal,
 	    abo_band, rexpr);
 }
 

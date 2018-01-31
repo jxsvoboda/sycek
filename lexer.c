@@ -593,7 +593,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_land, 2, tok);
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_band_assign, 2, tok);
-		return lexer_onechar(lexer, ltt_band, tok);
+		return lexer_onechar(lexer, ltt_amper, tok);
 	case '(':
 		return lexer_onechar(lexer, ltt_lparen, tok);
 	case ')':
@@ -603,12 +603,16 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_times_assign, 2, tok);
 		return lexer_onechar(lexer, ltt_asterisk, tok);
 	case '+':
+		if (p[1] == '+')
+			return lexer_keyword(lexer, ltt_inc, 2, tok);
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_plus_assign, 2, tok);
 		return lexer_onechar(lexer, ltt_plus, tok);
 	case ',':
 		return lexer_onechar(lexer, ltt_comma, tok);
 	case '-':
+		if (p[1] == '-')
+			return lexer_keyword(lexer, ltt_dec, 2, tok);
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_minus_assign, 2, tok);
 		return lexer_onechar(lexer, ltt_minus, tok);
@@ -907,11 +911,15 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "/";
 	case ltt_modulo:
 		return "%";
+	case ltt_inc:
+		return "++";
+	case ltt_dec:
+		return "--";
 	case ltt_shl:
 		return "<<";
 	case ltt_shr:
 		return ">>";
-	case ltt_band:
+	case ltt_amper:
 		return "&";
 	case ltt_bor:
 		return "|";
@@ -928,7 +936,7 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 	case ltt_less:
 		return "<";
 	case ltt_greater:
-		return "<";
+		return ">";
 	case ltt_equal:
 		return "==";
 	case ltt_lteq:
