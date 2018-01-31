@@ -608,10 +608,23 @@ typedef struct {
 	ast_node_t *fexpr;
 	/** Left parenthesis token */
 	ast_tok_t tlparen;
-	/* XXX arguments */
+	/*( Arguments */
+	list_t args; /* of ast_efuncall_arg_t */
 	/** Right parenthesis token */
 	ast_tok_t trparen;
 } ast_efuncall_t;
+
+/** Function call argument */
+typedef struct {
+	/** Containing function call expression */
+	ast_efuncall_t *efuncall;
+	/** Link to @c efuncall->args */
+	link_t lfuncall;
+	/** Preceding comma (if not first argument) */
+	ast_tok_t tcomma;
+	/** Argument expression */
+	ast_node_t *expr;
+} ast_efuncall_arg_t;
 
 /** Index expression */
 typedef struct {

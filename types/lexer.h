@@ -53,6 +53,8 @@ typedef enum {
 	ltt_comma,
 	ltt_colon,
 	ltt_scolon,
+	ltt_period,
+	ltt_arrow,
 	ltt_plus,
 	ltt_minus,
 	ltt_asterisk,

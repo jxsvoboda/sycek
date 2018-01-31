@@ -615,7 +615,11 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_dec, 2, tok);
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_minus_assign, 2, tok);
+		if (p[1] == '>')
+			return lexer_keyword(lexer, ltt_arrow, 2, tok);
 		return lexer_onechar(lexer, ltt_minus, tok);
+	case '.':
+		return lexer_onechar(lexer, ltt_period, tok);
 	case '/':
 		if (p[1] == '*')
 			return lexer_comment(lexer, tok);
@@ -901,6 +905,10 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return ":";
 	case ltt_scolon:
 		return ";";
+	case ltt_period:
+		return ".";
+	case ltt_arrow:
+		return "->";
 	case ltt_plus:
 		return "+";
 	case ltt_minus:

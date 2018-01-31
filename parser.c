@@ -476,7 +476,157 @@ error:
  */
 static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 {
-	return parser_process_eterm(parser, rexpr);
+	lexer_toktype_t ltt;
+	ast_node_t *ea = NULL;
+	ast_node_t *iexpr = NULL;
+	ast_epostadj_t *epostadj = NULL;
+	ast_emember_t *emember = NULL;
+	ast_eindmember_t *eindmember = NULL;
+	ast_eindex_t *eindex = NULL;
+	ast_efuncall_t *efuncall = NULL;
+	ast_node_t *arg = NULL;
+	void *dop;
+	void *dmember;
+	void *drbracket;
+	void *drparen;
+	void *dcomma;
+	int rc;
+
+	rc = parser_process_eterm(parser, &ea);
+	if (rc != EOK)
+		goto error;
+
+	while (true) {
+		ltt = parser_next_ttype(parser);
+		switch (ltt) {
+		case ltt_inc:
+		case ltt_dec:
+			parser_skip(parser, &dop);
+
+			rc = ast_epostadj_create(&epostadj);
+			if (rc != EOK)
+				goto error;
+
+			epostadj->bexpr = ea;
+			epostadj->adj = ltt == ltt_inc ? aat_inc : aat_dec;
+			epostadj->tadj.data = dop;
+
+			ea = &epostadj->node;
+			epostadj = NULL;
+			break;
+		case ltt_period:
+			parser_skip(parser, &dop);
+
+			rc = parser_match(parser, ltt_ident, &dmember);
+			if (rc != EOK)
+				goto error;
+
+			rc = ast_emember_create(&emember);
+			if (rc != EOK)
+				goto error;
+
+			emember->bexpr = ea;
+			emember->tperiod.data = dop;
+			emember->tmember.data = dmember;
+
+			ea = &emember->node;
+			emember = NULL;
+			break;
+		case ltt_arrow:
+			parser_skip(parser, &dop);
+
+			rc = parser_match(parser, ltt_ident, &dmember);
+			if (rc != EOK)
+				goto error;
+
+			rc = ast_eindmember_create(&eindmember);
+			if (rc != EOK)
+				goto error;
+
+			eindmember->bexpr = ea;
+			eindmember->tarrow.data = dop;
+			eindmember->tmember.data = dmember;
+
+			ea = &eindmember->node;
+			eindmember = NULL;
+			break;
+		case ltt_lbracket:
+			parser_skip(parser, &dop);
+
+			rc = parser_process_expr(parser, &iexpr);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_rbracket, &drbracket);
+			if (rc != EOK)
+				goto error;
+
+			rc = ast_eindex_create(&eindex);
+			if (rc != EOK)
+				goto error;
+
+			eindex->bexpr = ea;
+			eindex->tlbracket.data = dop;
+			eindex->iexpr = iexpr;
+			eindex->trbracket.data = drbracket;
+			iexpr = NULL;
+
+			ea = &eindex->node;
+			eindex = NULL;
+			break;
+		case ltt_lparen:
+			parser_skip(parser, &dop);
+
+			rc = ast_efuncall_create(&efuncall);
+			if (rc != EOK)
+				goto error;
+
+			efuncall->fexpr = ea;
+			efuncall->tlparen.data = dop;
+			ea = &efuncall->node;
+
+			ltt = parser_next_ttype(parser);
+			dcomma = NULL;
+
+			/* We can only fail this test upon entry */
+			while (ltt != ltt_rparen) {
+				rc = parser_process_expr(parser, &arg);
+				if (rc != EOK)
+					goto error;
+
+				rc = ast_efuncall_append(efuncall, dcomma,
+				    arg);
+				if (rc != EOK)
+					goto error;
+
+				arg = NULL;
+
+				ltt = parser_next_ttype(parser);
+				if (ltt == ltt_rparen)
+					break;
+
+				rc = parser_match(parser, ltt_comma, &dcomma);
+				if (rc != EOK)
+					goto error;
+			}
+
+		    	parser_skip(parser, &drparen);
+			efuncall->trparen.data = drparen;
+			break;
+		default:
+			*rexpr = ea;
+			return EOK;
+		}
+	}
+
+error:
+	if (ea != NULL)
+		ast_tree_destroy(ea);
+	if (iexpr != NULL)
+		ast_tree_destroy(iexpr);
+	if (arg != NULL)
+		ast_tree_destroy(arg);
+	return rc;
 }
 
 /** Parse prefix operator expression.

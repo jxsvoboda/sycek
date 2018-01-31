@@ -96,6 +96,8 @@ extern int ast_ebinop_create(ast_ebinop_t **);
 extern int ast_etcond_create(ast_etcond_t **);
 extern int ast_ecomma_create(ast_ecomma_t **);
 extern int ast_efuncall_create(ast_efuncall_t **);
+extern int ast_efuncall_append(ast_efuncall_t *, void *, ast_node_t *);
+extern ast_efuncall_arg_t *ast_efuncall_first(ast_efuncall_t *);
 extern int ast_eindex_create(ast_eindex_t **);
 extern int ast_ederef_create(ast_ederef_t **);
 extern int ast_eaddr_create(ast_eaddr_t **);

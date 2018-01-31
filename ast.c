@@ -2962,9 +2962,50 @@ int ast_efuncall_create(ast_efuncall_t **refuncall)
 
 	efuncall->node.ext = efuncall;
 	efuncall->node.ntype = ant_efuncall;
+	list_initialize(&efuncall->args);
 
 	*refuncall = efuncall;
 	return EOK;
+}
+
+/** Append entry to function call argument list.
+ *
+ * @param efuncall Function call expression
+ * @param dcomma Data for preceding comma token or @c NULL
+ * @param expr Argument expression
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_efuncall_append(ast_efuncall_t *efuncall, void *dcomma,
+    ast_node_t *expr)
+{
+	ast_efuncall_arg_t *arg;
+
+	arg = calloc(1, sizeof(ast_efuncall_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->tcomma.data = dcomma;
+	arg->expr = expr;
+
+	arg->efuncall = efuncall;
+	list_append(&arg->lfuncall, &efuncall->args);
+	return EOK;
+}
+
+/** Return first argument in function call expression.
+ *
+ * @param efuncall Function call expression
+ * @return First argument or @c NULL
+ */
+ast_efuncall_arg_t *ast_efuncall_first(ast_efuncall_t *efuncall)
+{
+	link_t *link;
+
+	link = list_first(&efuncall->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_efuncall_arg_t, lfuncall);
 }
 
 /** Print AST function call expression.
@@ -2998,7 +3039,19 @@ static int ast_efuncall_print(ast_efuncall_t *efuncall, FILE *f)
  */
 static void ast_efuncall_destroy(ast_efuncall_t *efuncall)
 {
+	ast_efuncall_arg_t *arg;
+
 	ast_tree_destroy(efuncall->fexpr);
+
+	arg = ast_efuncall_first(efuncall);
+	while (arg != NULL) {
+		list_remove(&arg->lfuncall);
+		ast_tree_destroy(arg->expr);
+		free(arg);
+
+		arg = ast_efuncall_first(efuncall);
+	}
+
 	free(efuncall);
 }
 
