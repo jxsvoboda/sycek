@@ -513,7 +513,7 @@ static int parser_process_ltr_binop(parser_t *parser, lexer_toktype_t optt,
 		ebinop->rarg = eb;
 
 		ea = &ebinop->node;
-		ea = NULL;
+		ebinop = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);
@@ -873,7 +873,7 @@ static int parser_process_emul(parser_t *parser, ast_node_t **rexpr)
 		ebinop->rarg = eb;
 
 		ea = &ebinop->node;
-		ea = NULL;
+		ebinop = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);
@@ -929,7 +929,7 @@ static int parser_process_eadd(parser_t *parser, ast_node_t **rexpr)
 		ebinop->rarg = eb;
 
 		ea = &ebinop->node;
-		ea = NULL;
+		ebinop = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);
@@ -985,7 +985,7 @@ static int parser_process_eshift(parser_t *parser, ast_node_t **rexpr)
 		ebinop->rarg = eb;
 
 		ea = &ebinop->node;
-		ea = NULL;
+		ebinop = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);
@@ -1058,7 +1058,7 @@ static int parser_process_eltgt(parser_t *parser, ast_node_t **rexpr)
 		ebinop->rarg = eb;
 
 		ea = &ebinop->node;
-		ea = NULL;
+		ebinop = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);
@@ -1114,7 +1114,7 @@ static int parser_process_eequal(parser_t *parser, ast_node_t **rexpr)
 		ebinop->rarg = eb;
 
 		ea = &ebinop->node;
-		ea = NULL;
+		ebinop = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);
@@ -1308,7 +1308,7 @@ static int parser_process_ecomma(parser_t *parser, ast_node_t **rexpr)
 		ecomma->rarg = eb;
 
 		ea = &ecomma->node;
-		ea = NULL;
+		ecomma = NULL;
 		eb = NULL;
 
 		ltt = parser_next_ttype(parser);

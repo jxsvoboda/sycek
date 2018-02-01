@@ -3008,6 +3008,22 @@ ast_efuncall_arg_t *ast_efuncall_first(ast_efuncall_t *efuncall)
 	return list_get_instance(link, ast_efuncall_arg_t, lfuncall);
 }
 
+/** Return next argument in function call expression.
+ *
+ * @param arg Function call argument
+ * @return Next argument or @c NULL
+ */
+ast_efuncall_arg_t *ast_efuncall_next(ast_efuncall_arg_t *arg)
+{
+	link_t *link;
+
+	link = list_next(&arg->lfuncall, &arg->efuncall->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_efuncall_arg_t, lfuncall);
+}
+
 /** Print AST function call expression.
  *
  * @param efuncall Function call expression

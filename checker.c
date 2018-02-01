@@ -1870,6 +1870,555 @@ error:
 	return rc;
 }
 
+/** Check integer literal expression.
+ *
+ * @param scope Checker scope
+ * @param eint Integer literal expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eint(checker_scope_t *scope, ast_eint_t *eint)
+{
+	checker_tok_t *tlit;
+
+	tlit = (checker_tok_t *) eint->tlit.data;
+	checker_check_any(scope, tlit);
+	return EOK;
+}
+
+/** Check string literal expression.
+ *
+ * @param scope Checker scope
+ * @param estring String literal expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
+{
+	checker_tok_t *tlit;
+
+	tlit = (checker_tok_t *) estring->tlit.data;
+	checker_check_any(scope, tlit);
+	return EOK;
+}
+
+/** Check character literal expression.
+ *
+ * @param scope Checker scope
+ * @param echar Character literal expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_echar(checker_scope_t *scope, ast_echar_t *echar)
+{
+	checker_tok_t *tlit;
+
+	tlit = (checker_tok_t *) echar->tlit.data;
+	checker_check_any(scope, tlit);
+	return EOK;
+}
+
+/** Check identifier expression.
+ *
+ * @param scope Checker scope
+ * @param eident Identifier expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eident(checker_scope_t *scope, ast_eident_t *eident)
+{
+	checker_tok_t *tident;
+
+	tident = (checker_tok_t *) eident->tident.data;
+	checker_check_any(scope, tident);
+	return EOK;
+}
+
+/** Check parenthesized expression.
+ *
+ * @param scope Checker scope
+ * @param eparen Parenthesized expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eparen(checker_scope_t *scope, ast_eparen_t *eparen)
+{
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	int rc;
+
+	tlparen = (checker_tok_t *) eparen->tlparen.data;
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	rc = checker_check_expr(scope, eparen->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	trparen = (checker_tok_t *) eparen->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+	return EOK;
+}
+
+/** Check binary operator expression.
+ *
+ * @param scope Checker scope
+ * @param ebinop Binary operator expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ebinop(checker_scope_t *scope, ast_ebinop_t *ebinop)
+{
+	checker_tok_t *top;
+	int rc;
+
+	rc = checker_check_expr(scope, ebinop->larg);
+	if (rc != EOK)
+		return rc;
+
+	top = (checker_tok_t *) ebinop->top.data;
+
+	rc = checker_check_nbspace_before(scope, top,
+	    "Single space expected before binary operator.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_brkspace_after(scope, top,
+	    "Whitespace expected after binary operator.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, ebinop->rarg);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check ternary conditional expression.
+ *
+ * @param scope Checker scope
+ * @param etcond Ternary conditional expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_etcond(checker_scope_t *scope, ast_etcond_t *etcond)
+{
+	checker_tok_t *tqmark;
+	checker_tok_t *tcolon;
+	int rc;
+
+	rc = checker_check_expr(scope, etcond->cond);
+	if (rc != EOK)
+		return rc;
+
+	tqmark = (checker_tok_t *) etcond->tqmark.data;
+
+	rc = checker_check_nbspace_before(scope, tqmark,
+	    "Single space expected before '?'.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_brkspace_after(scope, tqmark,
+	    "Whitespace expected after '?'.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, etcond->targ);
+	if (rc != EOK)
+		return rc;
+
+	tcolon = (checker_tok_t *) etcond->tcolon.data;
+
+	rc = checker_check_nbspace_before(scope, tcolon,
+	    "Single space expected before ':'.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_brkspace_after(scope, tcolon,
+	    "Whitespace expected after ':'.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, etcond->farg);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check comma expression.
+ *
+ * @param scope Checker scope
+ * @param ecomma Comma expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ecomma(checker_scope_t *scope, ast_ecomma_t *ecomma)
+{
+	checker_tok_t *tcomma;
+	int rc;
+
+	rc = checker_check_expr(scope, ecomma->larg);
+	if (rc != EOK)
+		return rc;
+
+	tcomma = (checker_tok_t *) ecomma->tcomma.data;
+
+	checker_check_nows_before(scope, tcomma,
+	    "Single space expected before ','.");
+
+	rc = checker_check_brkspace_after(scope, tcomma,
+	    "Whitespace expected after ','.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, ecomma->rarg);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check function call expression.
+ *
+ * @param scope Checker scope
+ * @param efuncall Function call expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_efuncall(checker_scope_t *scope,
+    ast_efuncall_t *efuncall)
+{
+	checker_tok_t *tlparen;
+	ast_efuncall_arg_t *arg;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen;
+	int rc;
+
+	rc = checker_check_expr(scope, efuncall->fexpr);
+	if (rc != EOK)
+		return rc;
+
+	tlparen = (checker_tok_t *) efuncall->tlparen.data;
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	arg = ast_efuncall_first(efuncall);
+	while (arg != NULL) {
+		tcomma = (checker_tok_t *) arg->tcomma.data;
+		if (tcomma != NULL) {
+			checker_check_nows_before(scope, tcomma,
+			    "Unexpected whitespace before ','.");
+		}
+
+		if (tcomma != NULL) {
+			rc = checker_check_brkspace_after(scope, tcomma,
+			    "Whitespace expected after ','.");
+			if (rc != EOK)
+				return rc;
+		}
+
+		rc = checker_check_expr(scope, arg->expr);
+		if (rc != EOK)
+			return rc;
+
+		arg = ast_efuncall_next(arg);
+	}
+
+	trparen = (checker_tok_t *) efuncall->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+	return EOK;
+}
+
+/** Check index expression.
+ *
+ * @param scope Checker scope
+ * @param eindex Index expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eindex(checker_scope_t *scope,
+    ast_eindex_t *eindex)
+{
+	checker_tok_t *tlbracket;
+	checker_tok_t *trbracket;
+	int rc;
+
+	rc = checker_check_expr(scope, eindex->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	tlbracket = (checker_tok_t *) eindex->tlbracket.data;
+	checker_check_nows_after(scope, tlbracket,
+	    "Unexpected whitespace after '['.");
+
+	rc = checker_check_expr(scope, eindex->iexpr);
+	if (rc != EOK)
+		return rc;
+
+	trbracket = (checker_tok_t *) eindex->trbracket.data;
+	checker_check_nows_before(scope, trbracket,
+	    "Unexpected whitespace before ']'.");
+
+	return EOK;
+}
+
+/** Check dereference expression.
+ *
+ * @param scope Checker scope
+ * @param ederef Dereference expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ederef(checker_scope_t *scope, ast_ederef_t *ederef)
+{
+	checker_tok_t *tasterisk;
+	int rc;
+
+	tasterisk = (checker_tok_t *) ederef->tasterisk.data;
+
+	checker_check_nows_after(scope, tasterisk,
+	    "Unexpected whitespace after '*'.");
+
+	rc = checker_check_expr(scope, ederef->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check address expression.
+ *
+ * @param scope Checker scope
+ * @param eaddr Address expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eaddr(checker_scope_t *scope, ast_eaddr_t *eaddr)
+{
+	checker_tok_t *tamper;
+	int rc;
+
+	tamper = (checker_tok_t *) eaddr->tamper.data;
+
+	checker_check_nows_after(scope, tamper,
+	    "Unexpected whitespace after '&'.");
+
+	rc = checker_check_expr(scope, eaddr->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check sizeof expression.
+ *
+ * @param scope Checker scope
+ * @param esizeof Sizeof expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
+{
+	checker_tok_t *tsizeof;
+	int rc;
+
+	tsizeof = (checker_tok_t *) esizeof->tsizeof.data;
+
+	checker_check_nows_after(scope, tsizeof,
+	    "Unexpected whitespace after 'sizeof'.");
+
+	rc = checker_check_expr(scope, esizeof->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check member expression.
+ *
+ * @param scope Checker scope
+ * @param emember Member expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_emember(checker_scope_t *scope, ast_emember_t *emember)
+{
+	checker_tok_t *tperiod;
+	checker_tok_t *tmember;
+	int rc;
+
+	rc = checker_check_expr(scope, emember->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	tperiod = (checker_tok_t *) emember->tperiod.data;
+
+	checker_check_nows_before(scope, tperiod,
+	    "Unexpected whitespace before '.'.");
+	checker_check_nsbrk_after(scope, tperiod,
+	    "Unexpected whitespace after '.'.");
+
+	tmember = (checker_tok_t *) emember->tmember.data;
+	checker_check_any(scope, tmember);
+
+	return EOK;
+}
+
+/** Check indirect member expression.
+ *
+ * @param scope Checker scope
+ * @param eindmember Indirect member expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eindmember(checker_scope_t *scope,
+    ast_eindmember_t *eindmember)
+{
+	checker_tok_t *tarrow;
+	checker_tok_t *tmember;
+	int rc;
+
+	rc = checker_check_expr(scope, eindmember->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	tarrow = (checker_tok_t *) eindmember->tarrow.data;
+
+	checker_check_nows_before(scope, tarrow,
+	    "Unexpected whitespace before '->'.");
+	checker_check_nsbrk_after(scope, tarrow,
+	    "Unexpected whitespace after '->'.");
+
+	tmember = (checker_tok_t *) eindmember->tmember.data;
+	checker_check_any(scope, tmember);
+
+	return EOK;
+}
+
+/** Check unary sign expression.
+ *
+ * @param scope Checker scope
+ * @param eusign Unary sign expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_eusign(checker_scope_t *scope, ast_eusign_t *eusign)
+{
+	checker_tok_t *tsign;
+	int rc;
+
+	tsign = (checker_tok_t *) eusign->tsign.data;
+
+	checker_check_nows_after(scope, tsign,
+	    "Unexpected whitespace after unary sign operator.");
+
+	rc = checker_check_expr(scope, eusign->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check logical not expression.
+ *
+ * @param scope Checker scope
+ * @param elnot Logical not expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_elnot(checker_scope_t *scope, ast_elnot_t *elnot)
+{
+	checker_tok_t *tlnot;
+	int rc;
+
+	tlnot = (checker_tok_t *) elnot->tlnot.data;
+
+	checker_check_nows_after(scope, tlnot,
+	    "Unexpected whitespace after '!'.");
+
+	rc = checker_check_expr(scope, elnot->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check bitwise not expression.
+ *
+ * @param scope Checker scope
+ * @param ebnot Bitwise not expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ebnot(checker_scope_t *scope, ast_ebnot_t *ebnot)
+{
+	checker_tok_t *tbnot;
+	int rc;
+
+	tbnot = (checker_tok_t *) ebnot->tbnot.data;
+
+	checker_check_nows_after(scope, tbnot,
+	    "Unexpected whitespace after '~'.");
+
+	rc = checker_check_expr(scope, ebnot->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check pre-adjustment expression.
+ *
+ * @param scope Checker scope
+ * @param epreadj Pre-adjustment expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_epreadj(checker_scope_t *scope, ast_epreadj_t *epreadj)
+{
+	checker_tok_t *tadj;
+	int rc;
+
+	tadj = (checker_tok_t *) epreadj->tadj.data;
+
+	checker_check_nows_after(scope, tadj,
+	    "Unexpected whitespace after pre-increment/-decrement.");
+
+	rc = checker_check_expr(scope, epreadj->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Check post-adjustment expression.
+ *
+ * @param scope Checker scope
+ * @param epostadj Post-adjustment expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_epostadj(checker_scope_t *scope, ast_epostadj_t *epostadj)
+{
+	checker_tok_t *tadj;
+	int rc;
+
+	rc = checker_check_expr(scope, epostadj->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	tadj = (checker_tok_t *) epostadj->tadj.data;
+
+	checker_check_nows_before(scope, tadj,
+	    "Unexpected whitespace before post-increment/-decrement.");
+
+	return EOK;
+}
+
 /** Check arithmetic expression.
  *
  * @param scope Checker scope
@@ -1879,8 +2428,52 @@ error:
  */
 static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 {
-	(void) scope;
-	(void) expr;
+	switch (expr->ntype) {
+	case ant_eint:
+		return checker_check_eint(scope, (ast_eint_t *) expr);
+	case ant_echar:
+		return checker_check_echar(scope, (ast_echar_t *) expr);
+	case ant_estring:
+		return checker_check_estring(scope, (ast_estring_t *) expr);
+	case ant_eident:
+		return checker_check_eident(scope, (ast_eident_t *) expr);
+	case ant_eparen:
+		return checker_check_eparen(scope, (ast_eparen_t *) expr);
+	case ant_ebinop:
+		return checker_check_ebinop(scope, (ast_ebinop_t *) expr);
+	case ant_etcond:
+		return checker_check_etcond(scope, (ast_etcond_t *) expr);
+	case ant_ecomma:
+		return checker_check_ecomma(scope, (ast_ecomma_t *) expr);
+	case ant_efuncall:
+		return checker_check_efuncall(scope, (ast_efuncall_t *) expr);
+	case ant_eindex:
+		return checker_check_eindex(scope, (ast_eindex_t *) expr);
+	case ant_ederef:
+		return checker_check_ederef(scope, (ast_ederef_t *) expr);
+	case ant_eaddr:
+		return checker_check_eaddr(scope, (ast_eaddr_t *) expr);
+	case ant_esizeof:
+		return checker_check_esizeof(scope, (ast_esizeof_t *) expr);
+	case ant_emember:
+		return checker_check_emember(scope, (ast_emember_t *) expr);
+	case ant_eindmember:
+		return checker_check_eindmember(scope,
+		    (ast_eindmember_t *) expr);
+	case ant_eusign:
+		return checker_check_eusign(scope, (ast_eusign_t *) expr);
+	case ant_elnot:
+		return checker_check_elnot(scope, (ast_elnot_t *) expr);
+	case ant_ebnot:
+		return checker_check_ebnot(scope, (ast_ebnot_t *) expr);
+	case ant_epreadj:
+		return checker_check_epreadj(scope, (ast_epreadj_t *) expr);
+	case ant_epostadj:
+		return checker_check_epostadj(scope, (ast_epostadj_t *) expr);
+	default:
+		assert(false);
+		break;
+	}
 
 	return EOK;
 }
