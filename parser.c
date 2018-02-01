@@ -304,6 +304,66 @@ error:
 	return rc;
 }
 
+/** Parse string literal.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_estring(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_estring_t *estring = NULL;
+	void *dlit;
+	int rc;
+
+	rc = ast_estring_create(&estring);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_strlit, &dlit);
+	if (rc != EOK)
+		goto error;
+
+	estring->tlit.data = dlit;
+	*rexpr = &estring->node;
+	return EOK;
+error:
+	if (estring != NULL)
+		ast_tree_destroy(&estring->node);
+	return rc;
+}
+
+/** Parse character literal.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_echar(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_echar_t *echar = NULL;
+	void *dlit;
+	int rc;
+
+	rc = ast_echar_create(&echar);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_charlit, &dlit);
+	if (rc != EOK)
+		goto error;
+
+	echar->tlit.data = dlit;
+	*rexpr = &echar->node;
+	return EOK;
+error:
+	if (echar != NULL)
+		ast_tree_destroy(&echar->node);
+	return rc;
+}
+
 /** Parse identifier expression.
  *
  * @param parser Parser
@@ -394,6 +454,10 @@ static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 	switch (ltt) {
 	case ltt_number:
 		return parser_process_eint(parser, rexpr);
+	case ltt_strlit:
+		return parser_process_estring(parser, rexpr);
+	case ltt_charlit:
+		return parser_process_echar(parser, rexpr);
 	case ltt_ident:
 		return parser_process_eident(parser, rexpr);
 	case ltt_lparen:

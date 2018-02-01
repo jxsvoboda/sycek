@@ -24,6 +24,7 @@
  * Lexer (lexical analyzer)
  */
 
+#include <assert.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -522,6 +523,68 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex character or string literal.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
+{
+	char *p;
+	char delim;
+	int rc;
+
+	lexer_get_pos(lexer, &tok->bpos);
+
+	p = lexer_chars(lexer);
+	delim = p[0];
+	assert(delim == '\'' || delim == '"');
+
+	while (true) {
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+
+		p = lexer_chars(lexer);
+		if (p[0] == '\0') {
+			tok->ttype = ltt_invalid;
+			return EOK;
+		}
+
+		if (p[0] == delim)
+			break;
+
+		if (p[0] == '\\') {
+			/* Skip the next character */
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+			if (p[0] == '\0') {
+				tok->ttype = ltt_invalid;
+				return EOK;
+			}
+		}
+	}
+
+	lexer_get_pos(lexer, &tok->epos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	tok->ttype = delim == '"' ? ltt_strlit : ltt_charlit;
+	return EOK;
+}
+
 /** Lex invalid character.
  *
  * @param lexer Lexer
@@ -581,6 +644,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_notequal, 2, tok);
 		return lexer_onechar(lexer, ltt_lnot, tok);
+	case '"':
+		return lexer_charstr(lexer, tok);
 	case '#':
 //		if (1/*XXX*/)
 			return lexer_preproc(lexer, tok);
@@ -594,6 +659,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_band_assign, 2, tok);
 		return lexer_onechar(lexer, ltt_amper, tok);
+	case '\'':
+		return lexer_charstr(lexer, tok);
 	case '(':
 		return lexer_onechar(lexer, ltt_lparen, tok);
 	case ')':
@@ -1050,7 +1117,11 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 	case ltt_ident:
 		return "id";
 	case ltt_number:
-		return "num";
+		return "<num>";
+	case ltt_strlit:
+		return "<str>";
+	case ltt_charlit:
+		return "<char>";
 	case ltt_eof:
 		return "eof";
 	case ltt_invalid:

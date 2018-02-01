@@ -125,6 +125,8 @@ typedef enum {
 
 	ltt_ident,
 	ltt_number,
+	ltt_charlit,
+	ltt_strlit,
 
 	ltt_invalid,
 	ltt_eof,
