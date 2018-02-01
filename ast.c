@@ -1744,8 +1744,7 @@ static int ast_dparen_print(ast_dparen_t *adparen, FILE *f)
  */
 static void ast_dparen_destroy(ast_dparen_t *adparen)
 {
-	if (adparen->bdecl != NULL)
-		ast_tree_destroy(adparen->bdecl);
+	ast_tree_destroy(adparen->bdecl);
 	free(adparen);
 }
 
@@ -1817,8 +1816,7 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
  */
 static void ast_dptr_destroy(ast_dptr_t *adptr)
 {
-	if (adptr->bdecl != NULL)
-		ast_tree_destroy(adptr->bdecl);
+	ast_tree_destroy(adptr->bdecl);
 	free(adptr);
 }
 
@@ -1979,8 +1977,7 @@ static void ast_dfun_destroy(ast_dfun_t *dfun)
 {
 	ast_dfun_arg_t *arg;
 
-	if (dfun->bdecl != NULL)
-		ast_tree_destroy(dfun->bdecl);
+	ast_tree_destroy(dfun->bdecl);
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
@@ -2072,8 +2069,7 @@ static int ast_darray_print(ast_darray_t *darray, FILE *f)
  */
 static void ast_darray_destroy(ast_darray_t *darray)
 {
-	if (darray->bdecl != NULL)
-		ast_tree_destroy(darray->bdecl);
+	ast_tree_destroy(darray->bdecl);
 	free(darray);
 }
 
@@ -4184,6 +4180,7 @@ static int ast_return_print(ast_return_t *areturn, FILE *f)
  */
 static void ast_return_destroy(ast_return_t *areturn)
 {
+	ast_tree_destroy(areturn->arg);
 	free(areturn);
 }
 
@@ -4765,6 +4762,143 @@ static ast_tok_t *ast_glabel_last_tok(ast_glabel_t *glabel)
 	return &glabel->tcolon;
 }
 
+/** Create AST expression statement.
+ *
+ * @param rstexpr Place to store pointer to new expression statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_stexpr_create(ast_stexpr_t **rstexpr)
+{
+	ast_stexpr_t *astexpr;
+
+	astexpr = calloc(1, sizeof(ast_stexpr_t));
+	if (astexpr == NULL)
+		return ENOMEM;
+
+	astexpr->node.ext = astexpr;
+	astexpr->node.ntype = ant_stexpr;
+
+	*rstexpr = astexpr;
+	return EOK;
+}
+
+/** Print AST expression statement.
+ *
+ * @param astexpr Expression statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_stexpr_print(ast_stexpr_t *astexpr, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "stexpr(") < 0)
+		return EIO;
+	rc = ast_tree_print(astexpr->expr, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST expression statement.
+ *
+ * @param astexpr Expression statement
+ */
+static void ast_stexpr_destroy(ast_stexpr_t *astexpr)
+{
+	free(astexpr);
+}
+
+/** Get first token of AST expression statement.
+ *
+ * @param astexpr Expression statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_stexpr_first_tok(ast_stexpr_t *astexpr)
+{
+	return ast_tree_first_tok(astexpr->expr);
+}
+
+/** Get last token of AST expression statement.
+ *
+ * @param astexpr Expression statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_stexpr_last_tok(ast_stexpr_t *astexpr)
+{
+	return &astexpr->tscolon;
+}
+
+/** Create AST null statement.
+ *
+ * @param rstnull Place to store pointer to new null statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_stnull_create(ast_stnull_t **rstnull)
+{
+	ast_stnull_t *astnull;
+
+	astnull = calloc(1, sizeof(ast_stnull_t));
+	if (astnull == NULL)
+		return ENOMEM;
+
+	astnull->node.ext = astnull;
+	astnull->node.ntype = ant_stnull;
+
+	*rstnull = astnull;
+	return EOK;
+}
+
+/** Print AST null statement.
+ *
+ * @param astnull Null statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_stnull_print(ast_stnull_t *astnull, FILE *f)
+{
+	(void) astnull;
+
+	if (fprintf(f, "stnull()") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST null statement.
+ *
+ * @param astnull Null statement
+ */
+static void ast_stnull_destroy(ast_stnull_t *astnull)
+{
+	free(astnull);
+}
+
+/** Get first token of AST null statement.
+ *
+ * @param astnull Null statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_stnull_first_tok(ast_stnull_t *astnull)
+{
+	return &astnull->tscolon;
+}
+
+/** Get last token of AST null statement.
+ *
+ * @param astnull Null statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_stnull_last_tok(ast_stnull_t *astnull)
+{
+	return &astnull->tscolon;
+}
+
 /** Print AST tree.
  *
  * @param node Root node
@@ -4875,6 +5009,10 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_clabel_print((ast_clabel_t *)node->ext, f);
 	case ant_glabel:
 		return ast_glabel_print((ast_glabel_t *)node->ext, f);
+	case ant_stexpr:
+		return ast_stexpr_print((ast_stexpr_t *)node->ext, f);
+	case ant_stnull:
+		return ast_stnull_print((ast_stnull_t *)node->ext, f);
 	}
 
 	return EINVAL;
@@ -5033,6 +5171,10 @@ void ast_tree_destroy(ast_node_t *node)
 		return ast_clabel_destroy((ast_clabel_t *)node->ext);
 	case ant_glabel:
 		return ast_glabel_destroy((ast_glabel_t *)node->ext);
+	case ant_stexpr:
+		return ast_stexpr_destroy((ast_stexpr_t *)node->ext);
+	case ant_stnull:
+		return ast_stnull_destroy((ast_stnull_t *)node->ext);
 	}
 }
 
@@ -5139,6 +5281,10 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_clabel_first_tok((ast_clabel_t *)node->ext);
 	case ant_glabel:
 		return ast_glabel_first_tok((ast_glabel_t *)node->ext);
+	case ant_stexpr:
+		return ast_stexpr_first_tok((ast_stexpr_t *)node->ext);
+	case ant_stnull:
+		return ast_stnull_first_tok((ast_stnull_t *)node->ext);
 	}
 
 	assert(false);
@@ -5248,6 +5394,10 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_clabel_last_tok((ast_clabel_t *)node->ext);
 	case ant_glabel:
 		return ast_glabel_last_tok((ast_glabel_t *)node->ext);
+	case ant_stexpr:
+		return ast_stexpr_last_tok((ast_stexpr_t *)node->ext);
+	case ant_stnull:
+		return ast_stnull_last_tok((ast_stnull_t *)node->ext);
 	}
 
 	assert(false);

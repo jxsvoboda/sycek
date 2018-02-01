@@ -1211,6 +1211,39 @@ static int checker_check_glabel(checker_scope_t *scope, ast_glabel_t *glabel)
 	return EOK;
 }
 
+/** Run checks on an expression statement.
+ *
+ * @param scope Checker scope
+ * @param stexpr AST expression statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stexpr(checker_scope_t *scope, ast_stexpr_t *stexpr)
+{
+	checker_tok_t *tscolon;
+	ast_tok_t *aexpr;
+	checker_tok_t *texpr;
+	int rc;
+
+	aexpr = ast_tree_first_tok(stexpr->expr);
+	texpr = (checker_tok_t *) aexpr->data;
+
+	rc = checker_check_lbegin(scope, texpr,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	tscolon = (checker_tok_t *)stexpr->tscolon.data;
+
+	rc = checker_check_expr(scope, stexpr->expr);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
 /** Run checks on a statement.
  *
  * @param scope Checker scope
@@ -1242,6 +1275,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 		return checker_check_clabel(scope, (ast_clabel_t *)stmt->ext);
 	case ant_glabel:
 		return checker_check_glabel(scope, (ast_glabel_t *)stmt->ext);
+	case ant_stexpr:
+		return checker_check_stexpr(scope, (ast_stexpr_t *)stmt->ext);
 	default:
 		assert(false);
 		return EOK;

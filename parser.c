@@ -709,7 +709,7 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	ast_ebnot_t *ebnot;
 	ast_ederef_t *ederef;
 	ast_eaddr_t *eaddr;
-	ast_node_t *bexpr;
+	ast_node_t *bexpr = NULL;
 	void *dop;
 	int rc;
 
@@ -1914,6 +1914,45 @@ error:
 	return rc;
 }
 
+/** Parse expression statement.
+ *
+ * @param parser Parser
+ * @param rstmt Place to store pointer to new statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
+{
+	ast_stexpr_t *stexpr = NULL;
+	ast_node_t *expr = NULL;
+	void *dscolon;
+	int rc;
+
+	rc = ast_stexpr_create(&stexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &expr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	stexpr->expr = expr;
+	stexpr->tscolon.data = dscolon;
+
+	*rstmt = &stexpr->node;
+	return EOK;
+error:
+	if (stexpr != NULL)
+		ast_tree_destroy(&stexpr->node);
+	if (expr != NULL)
+		ast_tree_destroy(expr);
+	return rc;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -1954,10 +1993,7 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 			return parser_process_glabel(parser, rstmt);
 		/* fall through */
 	default:
-		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
-		fprintf(stderr, " unexpected, expected statement.\n");
-		return EINVAL;
+		return parser_process_stexpr(parser, rstmt);
 	}
 }
 

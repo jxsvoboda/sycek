@@ -125,6 +125,10 @@ typedef enum {
 	ant_clabel,
 	/** Goto label */
 	ant_glabel,
+	/** Expression statement */
+	ant_stexpr,
+	/* Null statement */
+	ant_stnull,
 	/** Statement block */
 	ant_block,
 	/** Global declaration */
@@ -911,6 +915,24 @@ typedef struct {
 	/** Colon token */
 	ast_tok_t tcolon;
 } ast_glabel_t;
+
+/** Expression statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Expression */
+	ast_node_t *expr;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_stexpr_t;
+
+/** Null statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_stnull_t;
 
 /** Statement block. */
 struct ast_block {
