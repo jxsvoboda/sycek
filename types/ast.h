@@ -670,8 +670,12 @@ typedef struct {
 	ast_node_t node;
 	/** 'sizeof' token */
 	ast_tok_t tsizeof;
+	/** '(' token */
+	ast_tok_t tlparen;
 	/** Base expression */
 	ast_node_t *bexpr;
+	/** ')' token */
+	ast_tok_t trparen;
 } ast_esizeof_t;
 
 /** Member expression */

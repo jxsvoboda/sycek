@@ -838,9 +838,11 @@ static int checker_check_return(checker_scope_t *scope, ast_return_t *areturn)
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_check_expr(scope, areturn->arg);
-	if (rc != EOK)
-		return rc;
+	if (areturn->arg != NULL) {
+		rc = checker_check_expr(scope, areturn->arg);
+		if (rc != EOK)
+			return rc;
+	}
 
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
@@ -2259,16 +2261,26 @@ static int checker_check_eaddr(checker_scope_t *scope, ast_eaddr_t *eaddr)
 static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 {
 	checker_tok_t *tsizeof;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
 	int rc;
 
 	tsizeof = (checker_tok_t *) esizeof->tsizeof.data;
+	tlparen = (checker_tok_t *) esizeof->tlparen.data;
+	trparen = (checker_tok_t *) esizeof->trparen.data;
 
 	checker_check_nows_after(scope, tsizeof,
 	    "Unexpected whitespace after 'sizeof'.");
 
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
 	rc = checker_check_expr(scope, esizeof->bexpr);
 	if (rc != EOK)
 		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
 
 	return EOK;
 }

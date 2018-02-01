@@ -709,8 +709,11 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	ast_ebnot_t *ebnot;
 	ast_ederef_t *ederef;
 	ast_eaddr_t *eaddr;
+	ast_esizeof_t *esizeof;
 	ast_node_t *bexpr = NULL;
 	void *dop;
+	void *dlparen;
+	void *drparen;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
@@ -809,6 +812,31 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 		eaddr->tamper.data = dop;
 		eaddr->bexpr = bexpr;
 		*rexpr = &eaddr->node;
+		break;
+	case ltt_sizeof:
+		parser_skip(parser, &dop);
+
+		rc = parser_match(parser, ltt_lparen, &dlparen);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_rparen, &drparen);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_esizeof_create(&esizeof);
+		if (rc != EOK)
+			goto error;
+
+		esizeof->tsizeof.data = dop;
+		esizeof->tlparen.data = dlparen;
+		esizeof->bexpr = bexpr;
+		esizeof->trparen.data = drparen;
+		*rexpr = &esizeof->node;
 		break;
 	default:
 		return parser_process_epostfix(parser, rexpr);
@@ -1459,6 +1487,7 @@ error:
  */
 static int parser_process_return(parser_t *parser, ast_node_t **rreturn)
 {
+	lexer_toktype_t ltt;
 	ast_return_t *areturn;
 	ast_node_t *arg = NULL;
 	void *dreturn;
@@ -1469,9 +1498,12 @@ static int parser_process_return(parser_t *parser, ast_node_t **rreturn)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &arg);
-	if (rc != EOK)
-		goto error;
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_scolon) {
+		rc = parser_process_expr(parser, &arg);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = parser_match(parser, ltt_scolon, &dscolon);
 	if (rc != EOK)
