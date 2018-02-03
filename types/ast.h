@@ -981,6 +981,12 @@ typedef struct {
 	ast_dlist_t *dlist;
 	/** Function body (if function definition) */
 	ast_block_t *body;
+	/** @c true if we have an equals token and an initializer */
+	bool have_init;
+	/** Assign token */
+	ast_tok_t tassign;
+	/** Initializer */
+	ast_node_t *init;
 	/** @c true if we have a trailing semicolon */
 	bool have_scolon;
 	/** Trailing ';' token (if @c have_scolon is @c true) */

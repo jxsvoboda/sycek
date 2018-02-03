@@ -3028,7 +3028,11 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	ast_dlist_entry_t *entry;
 	bool more_decls;
 	ast_block_t *body = NULL;
+	ast_node_t *init = NULL;
+	bool have_scolon;
+	bool have_init;
 	void *dscolon;
+	void *dassign;
 	int rc;
 
 	rc = parser_process_dspecs(parser, &dspecs);
@@ -3049,6 +3053,8 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	case ltt_scolon:
 		body = NULL;
 		parser_skip(parser, &dscolon);
+		have_scolon = true;
+		have_init = false;
 		break;
 	case ltt_lbrace:
 		if (more_decls) {
@@ -3063,6 +3069,22 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		if (rc != EOK)
 			goto error;
 		dscolon = NULL;
+		have_scolon = false;
+		have_init = false;
+		break;
+	case ltt_assign:
+		parser_skip(parser, &dassign);
+
+		rc = parser_process_expr(parser, &init);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_scolon, &dscolon);
+		if (rc != EOK)
+			goto error;
+
+		have_scolon = true;
+		have_init = true;
 		break;
 	default:
 		fprintf(stderr, "Error: ");
@@ -3076,7 +3098,13 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	if (rc != EOK) 
 		goto error;
 
-	if (body == NULL) {
+	if (have_init) {
+		gdecln->have_init = true;
+		gdecln->tassign.data = dassign;
+		gdecln->init = init;
+	}
+
+	if (have_scolon) {
 		gdecln->have_scolon = true;
 		gdecln->tscolon.data = dscolon;
 	}
@@ -3092,6 +3120,8 @@ error:
 		ast_tree_destroy(&dlist->node);
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
+	if (init != NULL)
+		ast_tree_destroy(init);
 	return rc;
 }
 

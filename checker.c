@@ -2548,10 +2548,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	checker_tok_t *tdecl;
 	checker_tok_t *tlbrace;
 	checker_tok_t *trbrace;
+	checker_tok_t *tassign;
 	checker_tok_t *tscolon;
 	checker_scope_t *bscope = NULL;
 
-	if (0) printf("Check function declaration\n");
 	assert(decl->ntype == ant_gdecln);
 	gdecln = (ast_gdecln_t *)decl->ext;
 
@@ -2577,6 +2577,19 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	rc = checker_check_dlist(scope, gdecln->dlist);
 	if (rc != EOK)
 		goto error;
+
+	if (gdecln->have_init) {
+		tassign = (checker_tok_t *)gdecln->tassign.data;
+		rc = checker_check_nbspace_before(scope, tassign,
+		    "Single space expected before '='.");
+		if (rc != EOK)
+			goto error;
+
+		rc = checker_check_brkspace_after(scope, tassign,
+		    "Whitespace expected after '='.");
+		if (rc != EOK)
+			goto error;
+	}
 
 	if (gdecln->body == NULL) {
 		tscolon = (checker_tok_t *)gdecln->tscolon.data;
