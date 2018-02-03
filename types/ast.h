@@ -538,9 +538,19 @@ typedef struct {
 typedef struct {
 	/** Base object */
 	ast_node_t node;
+	/** List of literals */
+	list_t lits;
+} ast_estring_t;
+
+/** String literal expression element */
+typedef struct {
+	/** Containing string literal expression */
+	ast_estring_t *estring;
+	/** Link to @c estring->lits */
+	link_t lstring;
 	/** Literal token */
 	ast_tok_t tlit;
-} ast_estring_t;
+} ast_estring_lit_t;
 
 /** Identifier expression */
 typedef struct {
@@ -905,7 +915,7 @@ typedef struct {
 	/** 'case' token */
 	ast_tok_t tcase;
 	/** Case expression */
-	ast_node_t *cexpr;;
+	ast_node_t *cexpr;
 	/** Colon token */
 	ast_tok_t tcolon;
 } ast_clabel_t;

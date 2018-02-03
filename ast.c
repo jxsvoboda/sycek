@@ -2486,9 +2486,79 @@ int ast_estring_create(ast_estring_t **restring)
 
 	estring->node.ext = estring;
 	estring->node.ntype = ant_estring;
+	list_initialize(&estring->lits);
 
 	*restring = estring;
 	return EOK;
+}
+
+/** Append literal to string literal expression.
+ *
+ * @param estring String literal expression
+ * @param dlit Data for string literal token
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_estring_append(ast_estring_t *estring, void *dlit)
+{
+	ast_estring_lit_t *lit;
+
+	lit = calloc(1, sizeof(ast_estring_lit_t));
+	if (lit == NULL)
+		return ENOMEM;
+
+	lit->tlit.data = dlit;
+	lit->estring = estring;
+
+	list_append(&lit->lstring, &estring->lits);
+	return EOK;
+}
+
+/** Return first string literal in string literal expression.
+ *
+ * @param estring String literal expression
+ * @return First literal or @c NULL
+ */
+ast_estring_lit_t *ast_estring_first(ast_estring_t *estring)
+{
+	link_t *link;
+
+	link = list_first(&estring->lits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_estring_lit_t, lstring);
+}
+
+/** Return next string literal in string literal expression.
+ *
+ * @param lit Current literal
+ * @return Next literal or @c NULL
+ */
+ast_estring_lit_t *ast_estring_next(ast_estring_lit_t *lit)
+{
+	link_t *link;
+
+	link = list_next(&lit->lstring, &lit->estring->lits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_estring_lit_t, lstring);
+}
+
+/** Return last string literal in string literal expression.
+ *
+ * @param estring String literal expression
+ * @return First literal or @c NULL
+ */
+ast_estring_lit_t *ast_estring_last(ast_estring_t *estring)
+{
+	link_t *link;
+
+	link = list_last(&estring->lits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_estring_lit_t, lstring);
 }
 
 /** Print AST string literal expression.
@@ -2500,10 +2570,24 @@ int ast_estring_create(ast_estring_t **restring)
  */
 static int ast_estring_print(ast_estring_t *estring, FILE *f)
 {
-	(void) estring;
+	ast_estring_lit_t *lit;
 
 	if (fprintf(f, "estring(") < 0)
 		return EIO;
+
+	lit = ast_estring_first(estring);
+	if (lit != NULL) {
+		if (fprintf(f, "lit") < 0)
+			return EIO;
+	}
+
+	lit = ast_estring_next(lit);
+	while (lit != NULL) {
+		if (fprintf(f, ", lit") < 0)
+			return EIO;
+		lit = ast_estring_next(lit);
+	}
+
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
@@ -2515,6 +2599,15 @@ static int ast_estring_print(ast_estring_t *estring, FILE *f)
  */
 static void ast_estring_destroy(ast_estring_t *estring)
 {
+	ast_estring_lit_t *lit;
+
+	lit = ast_estring_first(estring);
+	while (lit != NULL) {
+		list_remove(&lit->lstring);
+		free(lit);
+		lit = ast_estring_first(estring);
+	}
+
 	free(estring);
 }
 
@@ -2525,7 +2618,10 @@ static void ast_estring_destroy(ast_estring_t *estring)
  */
 static ast_tok_t *ast_estring_first_tok(ast_estring_t *estring)
 {
-	return &estring->tlit;
+	ast_estring_lit_t *lit;
+
+	lit = ast_estring_first(estring);
+	return &lit->tlit;
 }
 
 /** Get last token of AST string literal expression.
@@ -2535,7 +2631,10 @@ static ast_tok_t *ast_estring_first_tok(ast_estring_t *estring)
  */
 static ast_tok_t *ast_estring_last_tok(ast_estring_t *estring)
 {
-	return &estring->tlit;
+	ast_estring_lit_t *lit;
+
+	lit = ast_estring_last(estring);
+	return &lit->tlit;
 }
 
 /** Create AST identifier expression.

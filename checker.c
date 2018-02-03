@@ -1932,10 +1932,17 @@ static int checker_check_eint(checker_scope_t *scope, ast_eint_t *eint)
  */
 static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 {
+	ast_estring_lit_t *lit;
 	checker_tok_t *tlit;
 
-	tlit = (checker_tok_t *) estring->tlit.data;
-	checker_check_any(scope, tlit);
+	lit = ast_estring_first(estring);
+	while (lit != NULL) {
+		tlit = (checker_tok_t *) lit->tlit.data;
+		checker_check_any(scope, tlit);
+
+		lit = ast_estring_next(lit);
+	}
+
 	return EOK;
 }
 

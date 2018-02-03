@@ -313,6 +313,7 @@ error:
  */
 static int parser_process_estring(parser_t *parser, ast_node_t **rexpr)
 {
+	lexer_toktype_t ltt;
 	ast_estring_t *estring = NULL;
 	void *dlit;
 	int rc;
@@ -325,7 +326,17 @@ static int parser_process_estring(parser_t *parser, ast_node_t **rexpr)
 	if (rc != EOK)
 		goto error;
 
-	estring->tlit.data = dlit;
+	ltt = parser_next_ttype(parser);
+	while (ltt == ltt_strlit) {
+		parser_skip(parser, &dlit);
+
+		rc = ast_estring_append(estring, dlit);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+	}
+
 	*rexpr = &estring->node;
 	return EOK;
 error:
