@@ -32,6 +32,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static bool parser_ttype_ignore(lexer_toktype_t);
+
 static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
@@ -54,6 +56,8 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
     parser_t **rparser)
 {
 	parser_t *parser;
+	void *ntok;
+	lexer_tok_t ltok;
 
 	parser = calloc(1, sizeof(parser_t));
 	if (parser == NULL)
@@ -61,7 +65,16 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
 
 	parser->input_ops = ops;
 	parser->input_arg = arg;
-	parser->tok = tok;
+
+	ntok = tok;
+	parser->input_ops->read_tok(parser->input_arg, ntok, &ltok);
+	while (parser_ttype_ignore(ltok.ttype)) {
+		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
+		parser->input_ops->read_tok(parser->input_arg, ntok, &ltok);
+	}
+
+	parser->tok = ntok;
+
 	*rparser = parser;
 	return EOK;
 }
@@ -102,6 +115,28 @@ static bool parser_ttype_assignop(lexer_toktype_t ttype)
 	    ttype == ltt_bxor_assign;
 }
 
+/** Return next input token skipping tokens that should be ignored.
+ *
+ * At the same time we read the token contents into the provided buffer @a rtok
+ *
+ * @param parser Parser
+ * @param itok Current input token pointer
+ * @param ritok Place to store next input token pointer
+ * @param rtok Place to store next lexer token
+ */
+static void parser_next_input_tok(parser_t *parser, void *itok,
+    void **ritok, lexer_tok_t *rtok)
+{
+	void *ntok = itok;
+
+	do {
+		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
+		parser->input_ops->read_tok(parser->input_arg, ntok, rtok);
+	} while (parser_ttype_ignore(rtok->ttype));
+
+	*ritok = ntok;
+}
+
 /** Return type of next token.
  *
  * @param parser Parser
@@ -125,8 +160,7 @@ static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
 	lexer_tok_t tok;
 	void *ntok;
 
-	ntok = parser->input_ops->next_tok(parser->input_arg, parser->tok);
-	parser->input_ops->read_tok(parser->input_arg, ntok, &tok);
+	parser_next_input_tok(parser, parser->tok, &ntok, &tok);
 	return tok.ttype;
 }
 
