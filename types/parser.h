@@ -51,6 +51,8 @@ typedef struct {
 	void *input_arg;
 	/** Next token */
 	void *tok;
+	/** @c true to supress error messages */
+	bool silent;
 } parser_t;
 
 #endif

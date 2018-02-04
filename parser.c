@@ -80,6 +80,29 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
 	return EOK;
 }
 
+/** Create a silent clone parser.
+ *
+ * Create a parser starting at the same point as @ a parent, but
+ * with error messages disabled. This is used in cases where we must
+ * try multiple parsing options.
+ *
+ * @param parent Parser to clone
+ * @param rparser Place to store pointer to new parser
+ * @return EOK on success, or error code
+ */
+static int parser_create_silent_sub(parser_t *parent, parser_t **rparser)
+{
+	int rc;
+
+	rc = parser_create(parent->input_ops, parent->input_arg,
+	    parent->tok, rparser);
+	if (rc != EOK)
+		return rc;
+
+	(*rparser)->silent = true;
+	return EOK;
+}
+
 /** Destroy parser.
  *
  * @param parser Parser
@@ -235,10 +258,12 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 
 	ltype = parser_next_ttype(parser);
 	if (ltype != mtype) {
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected '%s'.\n",
-		    lexer_str_ttype(mtype));
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected '%s'.\n",
+			    lexer_str_ttype(mtype));
+		}
 		return EINVAL;
 	}
 
@@ -502,9 +527,11 @@ static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 	case ltt_lparen:
 		return parser_process_eparen(parser, rexpr);
 	default:
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected expression.\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected expression.\n");
+		}
 		return EINVAL;
 	}
 }
@@ -2071,9 +2098,11 @@ static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
 		have_init = true;
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected ';' or '='.\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected ';' or '='.\n");
+		}
 		rc = EINVAL;
 		goto error;
 	}
@@ -2117,6 +2146,8 @@ error:
 static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 {
 	lexer_toktype_t ltt, ltt2;
+	parser_t *sparser;
+	int rc;
 
 	ltt = parser_next_ttype(parser);
 
@@ -2141,16 +2172,35 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_switch(parser, rstmt);
 	case ltt_case:
 		return parser_process_clabel(parser, rstmt);
-	case ltt_int:
-		return parser_process_stdecln(parser, rstmt);
 	case ltt_ident:
 		ltt2 = parser_next_next_ttype(parser);
 		if (ltt2 == ltt_colon)
 			return parser_process_glabel(parser, rstmt);
 		/* fall through */
 	default:
-		return parser_process_stexpr(parser, rstmt);
+		break;
+		
 	}
+
+	rc = parser_create_silent_sub(parser, &sparser);
+	if (rc != EOK)
+		return rc;
+
+	/* Try parsing the statement as a delcaration */
+	rc = parser_process_stdecln(sparser, rstmt);
+	if (rc == EOK) {
+		/* It worked */
+		parser->tok = sparser->tok;
+		parser_destroy(sparser);
+	} else {
+		/* Didn't work. Try parsing as an expression instead */
+		parser_destroy(sparser);
+		rc = parser_process_stexpr(parser, rstmt);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
 }
 
 /** Parse block.
@@ -2303,9 +2353,12 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 	case ltt_ident:
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected type identifer.\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected type "
+			    "identifer.\n");
+		}
 		return EINVAL;
 	}
 
@@ -2472,10 +2525,14 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 				if (ltt == ltt_ident || ltt == ltt_number) {
 					parser_skip(parser, &dinit);
 				} else {
-					fprintf(stderr, "Error: ");
-					parser_dprint_next_tok(parser, stderr);
-					fprintf(stderr, " unexpected, expected"
-					    " number or identifier.\n");
+					if (!parser->silent) {
+						fprintf(stderr, "Error: ");
+						parser_dprint_next_tok(parser,
+						    stderr);
+						fprintf(stderr,
+						    " unexpected, expected"
+						    " number or identifier.\n");
+					}
 					rc = EINVAL;
 					goto error;
 				}
@@ -2544,9 +2601,12 @@ static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
 		if (parser_ttype_tsbasic(ltt)) {
 			rc = parser_process_tsbasic(parser, rtype);
 		} else {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected type specifier.\n");
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, " unexpected, expected type "
+				    "specifier.\n");
+			}
 			return EINVAL;
 		}
 		break;
@@ -2578,7 +2638,7 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 	have_tspec = false;
 
 	ltt = parser_next_ttype(parser);
-	while (parser_ttype_tspec(ltt) || parser_ttype_tqual(ltt)) {
+	do {
 		if (parser_ttype_tspec(ltt)) {
 			/* Stop before identifier if we already have a specifier */
 			if (ltt == ltt_ident && have_tspec)
@@ -2589,16 +2649,26 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 				goto error;
 
 			have_tspec = true;
-		} else {
+		} else if (parser_ttype_tqual(ltt)) {
 			rc = parser_process_tqual(parser, &tqual);
 			if (rc != EOK)
 				goto error;
 			elem = &tqual->node;
+		} else {
+			/* Unexpected */
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, " unexpected, expected "
+				    "type specifier or qualifier.\n");
+			}
+
+			return EINVAL;
 		}
 
 		ast_sqlist_append(sqlist, elem);
 		ltt = parser_next_ttype(parser);
-	}
+	} while (parser_ttype_tspec(ltt) || parser_ttype_tqual(ltt));
 
 	*rsqlist = sqlist;
 	return EOK;
@@ -2632,8 +2702,7 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 	have_tspec = false;
 
 	ltt = parser_next_ttype(parser);
-	while (parser_ttype_sclass(ltt) || parser_ttype_tspec(ltt) ||
-	    parser_ttype_tqual(ltt) || parser_ttype_fspec(ltt)) {
+	do {
 		if (parser_ttype_sclass(ltt)) {
 			rc = parser_process_sclass(parser, &sclass);
 			if (rc != EOK)
@@ -2652,17 +2721,27 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 			if (rc != EOK)
 				goto error;
 			elem = &tqual->node;
-		} else {
+		} else if (parser_ttype_fspec(ltt)) {
 			/* Function specifier */
 			rc = parser_process_fspec(parser, &fspec);
 			if (rc != EOK)
 				goto error;
 			elem = &fspec->node;
+		} else {
+			/* Unexpected */
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, " unexpected, expected "
+				    "declaration specifier.\n");
+			}
+			return EINVAL;
 		}
 
 		ast_dspecs_append(dspecs, elem);
 		ltt = parser_next_ttype(parser);
-	}
+	} while (parser_ttype_sclass(ltt) || parser_ttype_tspec(ltt) ||
+	    parser_ttype_tqual(ltt) || parser_ttype_fspec(ltt));
 
 	*rdspecs = dspecs;
 	return EOK;
@@ -2794,9 +2873,11 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_ident && ltt != ltt_number) {
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number or identifier.\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected number or identifier.\n");
+		}
 		rc = EINVAL;
 		goto error;
 	}
@@ -2983,9 +3064,11 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 		goto error;
 
 	if (ast_decl_is_abstract(decl) && aallow != ast_abs_allow) {
-		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&dtok, stderr);
-		fprintf(stderr, " unexpected abstract declarator.\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			lexer_dprint_tok(&dtok, stderr);
+			fprintf(stderr, " unexpected abstract declarator.\n");
+		}
 		rc = EINVAL;
 		goto error;
 	}
@@ -2996,9 +3079,11 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 	 * in parentheses as not valid C code even if they are.
 	 */
 	if (decl->ntype == ant_dparen) {
-		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&dtok, stderr);
-		fprintf(stderr, " parenthesized declarator (cough).\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			lexer_dprint_tok(&dtok, stderr);
+			fprintf(stderr, " parenthesized declarator (cough).\n");
+		}
 		rc = EINVAL;
 		goto error;
 	}
@@ -3018,8 +3103,10 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			goto error;
 
 		if (ast_decl_is_abstract(decl)) {
-			fprintf(stderr, "Error: ");
-			fprintf(stderr, " Abstract declarator.\n");
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				fprintf(stderr, " Abstract declarator.\n");
+			}
 			rc = EINVAL;
 			goto error;
 		}
@@ -3170,9 +3257,12 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		break;
 	case ltt_lbrace:
 		if (more_decls) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " '{' unexpected, expected ';'.\n");
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, " '{' unexpected, "
+				    "expected ';'.\n");
+			}
 			rc = EINVAL;
 			goto error;
 		}
@@ -3199,9 +3289,11 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		have_init = true;
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+		}
 		rc = EINVAL;
 		goto error;
 	}
