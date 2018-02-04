@@ -126,6 +126,7 @@ extern int ast_switch_create(ast_switch_t **);
 extern int ast_clabel_create(ast_clabel_t **);
 extern int ast_glabel_create(ast_glabel_t **);
 extern int ast_stexpr_create(ast_stexpr_t **);
+extern int ast_stdecln_create(ast_stdecln_t **);
 extern int ast_stnull_create(ast_stnull_t **);
 extern int ast_tree_print(ast_node_t *, FILE *);
 extern void ast_tree_destroy(ast_node_t *);

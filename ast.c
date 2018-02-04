@@ -317,7 +317,7 @@ static ast_tok_t *ast_sclass_last_tok(ast_sclass_t *sclass)
  * @param dspecs Declaration specifiers
  * @param dlist Declarator list
  * @param body Body or @c NULL
- * @param rgdecln Place to store pointer to new function definition
+ * @param rgdecln Place to store pointer to new global declaration
  *
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -374,23 +374,28 @@ static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 			return rc;
 	}
 
+	if (gdecln->have_init) {
+		rc = ast_tree_print(gdecln->init, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ")") < 0)
 		return EIO;
 
 	return EOK;
 }
 
-/** Destroy AST function definition.
+/** Destroy AST global declaration.
  *
- * @param gdecln Function definition
+ * @param gdecln Global declaration
  */
 static void ast_gdecln_destroy(ast_gdecln_t *gdecln)
 {
 	ast_dspecs_destroy(gdecln->dspecs);
 	ast_dlist_destroy(gdecln->dlist);
-
-	if (gdecln->body != NULL)
-		ast_block_destroy(gdecln->body);
+	ast_block_destroy(gdecln->body);
+	ast_tree_destroy(gdecln->init);
 
 	free(gdecln);
 }
@@ -4361,12 +4366,9 @@ static int ast_if_print(ast_if_t *aif, FILE *f)
  */
 static void ast_if_destroy(ast_if_t *aif)
 {
-	if (aif->cond != NULL)
-		ast_tree_destroy(aif->cond);
-	if (aif->tbranch != NULL)
-		ast_block_destroy(aif->tbranch);
-	if (aif->fbranch != NULL)
-		ast_block_destroy(aif->fbranch);
+	ast_tree_destroy(aif->cond);
+	ast_block_destroy(aif->tbranch);
+	ast_block_destroy(aif->fbranch);
 	free(aif);
 }
 
@@ -4932,6 +4934,91 @@ static ast_tok_t *ast_stexpr_last_tok(ast_stexpr_t *astexpr)
 	return &astexpr->tscolon;
 }
 
+/** Create AST declaration statement.
+ *
+ * @param rstdecln Place to store pointer to new function definition
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_stdecln_create(ast_stdecln_t **rstdecln)
+{
+	ast_stdecln_t *stdecln;
+
+	stdecln = calloc(1, sizeof(ast_stdecln_t));
+	if (stdecln == NULL)
+		return ENOMEM;
+
+	stdecln->node.ext = stdecln;
+	stdecln->node.ntype = ant_stdecln;
+
+	*rstdecln = stdecln;
+	return EOK;
+}
+
+/** Print AST declaration statement.
+ *
+ * @param stdecln Declaration statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_stdecln_print(ast_stdecln_t *stdecln, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "stdecln(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(&stdecln->dspecs->node, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ", ") < 0)
+		return EIO;
+
+	rc = ast_dlist_print(stdecln->dlist, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST function definition.
+ *
+ * @param stdecln Function definition
+ */
+static void ast_stdecln_destroy(ast_stdecln_t *stdecln)
+{
+	ast_dspecs_destroy(stdecln->dspecs);
+	ast_dlist_destroy(stdecln->dlist);
+	ast_tree_destroy(stdecln->init);
+
+	free(stdecln);
+}
+
+/** Get first token of AST declaration statement.
+ *
+ * @param stdecln Declaration statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_stdecln_first_tok(ast_stdecln_t *stdecln)
+{
+	return ast_dspecs_first_tok(stdecln->dspecs);
+}
+
+/** Get last token of AST declaration statement.
+ *
+ * @param stdecln Declaration statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_stdecln_last_tok(ast_stdecln_t *stdecln)
+{
+	return &stdecln->tscolon;
+}
+
 /** Create AST null statement.
  *
  * @param rstnull Place to store pointer to new null statement
@@ -5110,6 +5197,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_glabel_print((ast_glabel_t *)node->ext, f);
 	case ant_stexpr:
 		return ast_stexpr_print((ast_stexpr_t *)node->ext, f);
+	case ant_stdecln:
+		return ast_stdecln_print((ast_stdecln_t *)node->ext, f);
 	case ant_stnull:
 		return ast_stnull_print((ast_stnull_t *)node->ext, f);
 	}
@@ -5272,6 +5361,8 @@ void ast_tree_destroy(ast_node_t *node)
 		return ast_glabel_destroy((ast_glabel_t *)node->ext);
 	case ant_stexpr:
 		return ast_stexpr_destroy((ast_stexpr_t *)node->ext);
+	case ant_stdecln:
+		return ast_stdecln_destroy((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_destroy((ast_stnull_t *)node->ext);
 	}
@@ -5382,6 +5473,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_glabel_first_tok((ast_glabel_t *)node->ext);
 	case ant_stexpr:
 		return ast_stexpr_first_tok((ast_stexpr_t *)node->ext);
+	case ant_stdecln:
+		return ast_stdecln_first_tok((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_first_tok((ast_stnull_t *)node->ext);
 	}
@@ -5495,6 +5588,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_glabel_last_tok((ast_glabel_t *)node->ext);
 	case ant_stexpr:
 		return ast_stexpr_last_tok((ast_stexpr_t *)node->ext);
+	case ant_stdecln:
+		return ast_stdecln_last_tok((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_last_tok((ast_stnull_t *)node->ext);
 	}

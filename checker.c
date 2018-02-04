@@ -39,6 +39,7 @@ static void checker_parser_read_tok(void *, void *, lexer_tok_t *);
 static void *checker_parser_next_tok(void *, void *);
 static void *checker_parser_tok_data(void *, void *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
+static int checker_check_dlist(checker_scope_t *, ast_dlist_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
@@ -1248,6 +1249,66 @@ static int checker_check_stexpr(checker_scope_t *scope, ast_stexpr_t *stexpr)
 	return EOK;
 }
 
+/** Run checks on a declaration statement.
+ *
+ * @param scope Checker scope
+ * @param stdecln AST declaration statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
+{
+	int rc;
+	ast_tok_t *adecln;
+	ast_tok_t *adecl;
+	checker_tok_t *tdecl;
+	checker_tok_t *tassign;
+	checker_tok_t *tscolon;
+
+	adecln = ast_tree_first_tok(&stdecln->dspecs->node);
+	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,
+	    "Declaration must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_dspecs(scope, stdecln->dspecs);
+	if (rc != EOK)
+		goto error;
+
+	adecl = ast_tree_first_tok(&stdecln->dlist->node);
+	if (adecl != NULL) {
+		tdecl = (checker_tok_t *)adecl->data;
+		rc = checker_check_brkspace_before(scope, tdecl,
+		    "Expected space before declarator.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = checker_check_dlist(scope, stdecln->dlist);
+	if (rc != EOK)
+		goto error;
+
+	if (stdecln->have_init) {
+		tassign = (checker_tok_t *)stdecln->tassign.data;
+		rc = checker_check_nbspace_before(scope, tassign,
+		    "Single space expected before '='.");
+		if (rc != EOK)
+			goto error;
+
+		rc = checker_check_brkspace_after(scope, tassign,
+		    "Whitespace expected after '='.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	tscolon = (checker_tok_t *)stdecln->tscolon.data;
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Run checks on a statement.
  *
  * @param scope Checker scope
@@ -1281,6 +1342,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 		return checker_check_glabel(scope, (ast_glabel_t *)stmt->ext);
 	case ant_stexpr:
 		return checker_check_stexpr(scope, (ast_stexpr_t *)stmt->ext);
+	case ant_stdecln:
+		return checker_check_stdecln(scope, (ast_stdecln_t *)stmt->ext);
 	default:
 		assert(false);
 		return EOK;
@@ -2537,10 +2600,10 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 /** Run checks on a global declaration.
  *
  * @param scope Checker scope
- * @param decl AST declaration
+ * @param decln AST global declaration
  * @return EOK on success or error code
  */
-static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
+static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 {
 	int rc;
 	ast_tok_t *adecln;
@@ -2554,8 +2617,8 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decl)
 	checker_tok_t *tscolon;
 	checker_scope_t *bscope = NULL;
 
-	assert(decl->ntype == ant_gdecln);
-	gdecln = (ast_gdecln_t *)decl->ext;
+	assert(decln->ntype == ant_gdecln);
+	gdecln = (ast_gdecln_t *)decln->ext;
 
 	adecln = ast_tree_first_tok(&gdecln->dspecs->node);
 	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,

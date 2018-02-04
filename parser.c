@@ -37,6 +37,7 @@ static bool parser_ttype_ignore(lexer_toktype_t);
 static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
+static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
@@ -2023,6 +2024,89 @@ error:
 	return rc;
 }
 
+/** Parse declaration statement.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new declaration statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
+{
+	lexer_toktype_t ltt;
+	ast_stdecln_t *stdecln = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_dlist_t *dlist = NULL;
+	ast_node_t *init = NULL;
+	bool have_init;
+	void *dscolon;
+	void *dassign;
+	int rc;
+
+	rc = parser_process_dspecs(parser, &dspecs);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_dlist(parser, ast_abs_disallow, &dlist);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_scolon:
+		parser_skip(parser, &dscolon);
+		have_init = false;
+		break;
+	case ltt_assign:
+		parser_skip(parser, &dassign);
+
+		rc = parser_process_expr(parser, &init);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_scolon, &dscolon);
+		if (rc != EOK)
+			goto error;
+
+		have_init = true;
+		break;
+	default:
+		fprintf(stderr, "Error: ");
+		parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected ';' or '='.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ast_stdecln_create(&stdecln);
+	if (rc != EOK) 
+		goto error;
+
+	stdecln->dspecs = dspecs;
+	stdecln->dlist = dlist;
+
+	if (have_init) {
+		stdecln->have_init = true;
+		stdecln->tassign.data = dassign;
+		stdecln->init = init;
+	}
+
+	stdecln->tscolon.data = dscolon;
+
+	*rstmt = &stdecln->node;
+	return EOK;
+error:
+	if (stdecln != NULL)
+		ast_tree_destroy(&stdecln->node);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	if (dlist != NULL)
+		ast_tree_destroy(&dlist->node);
+	if (init != NULL)
+		ast_tree_destroy(init);
+	return rc;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -2057,6 +2141,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_switch(parser, rstmt);
 	case ltt_case:
 		return parser_process_clabel(parser, rstmt);
+	case ltt_int:
+		return parser_process_stdecln(parser, rstmt);
 	case ltt_ident:
 		ltt2 = parser_next_next_ttype(parser);
 		if (ltt2 == ltt_colon)

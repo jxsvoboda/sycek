@@ -127,6 +127,8 @@ typedef enum {
 	ant_glabel,
 	/** Expression statement */
 	ant_stexpr,
+	/** Declaration statement */
+	ant_stdecln,
 	/* Null statement */
 	ant_stnull,
 	/** Statement block */
@@ -939,6 +941,24 @@ typedef struct {
 	/** ';' token */
 	ast_tok_t tscolon;
 } ast_stexpr_t;
+
+/** Declaration statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Declaration specifiers */
+	ast_dspecs_t *dspecs;
+	/** Declarator list */
+	ast_dlist_t *dlist;
+	/** @c true if we have an equals token and an initializer */
+	bool have_init;
+	/** Assign token */
+	ast_tok_t tassign;
+	/** Initializer */
+	ast_node_t *init;
+	/** Trailing ';' token (if @c have_scolon is @c true) */
+	ast_tok_t tscolon;
+} ast_stdecln_t;
 
 /** Null statement. */
 typedef struct {
