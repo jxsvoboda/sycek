@@ -29,11 +29,13 @@
 #include <parser.h>
 #include <test/parser.h>
 
-static void parser_test_get_tok(void *, lexer_tok_t *);
-static void *parser_test_tok_data(void *, lexer_tok_t *);
+static void parser_test_read_tok(void *, void *, lexer_tok_t *);
+static void *parser_test_next_tok(void *, void *);
+static void *parser_test_tok_data(void *, void *);
 
 static parser_input_ops_t parser_test_input = {
-	.get_tok = parser_test_get_tok,
+	.read_tok = parser_test_read_tok,
+	.next_tok = parser_test_next_tok,
 	.tok_data = parser_test_tok_data
 };
 
@@ -63,11 +65,9 @@ int test_parser(void)
 {
 	parser_t *parser;
 	int rc;
-	size_t idx;
 	ast_module_t *module;
 
-	idx = 0;
-	rc = parser_create(&parser_test_input, &idx, &parser);
+	rc = parser_create(&parser_test_input, NULL, (void *)0, &parser);
 	if (rc != EOK)
 		return rc;
 
@@ -88,22 +88,28 @@ int test_parser(void)
 }
 
 /** Parser input from a global array */
-static void parser_test_get_tok(void *arg, lexer_tok_t *tok)
+static void parser_test_read_tok(void *apinput, void *atok, lexer_tok_t *tok)
 {
-	size_t *idx = (size_t *)arg;
+	size_t idx = (size_t)atok;
+	(void) apinput;
 
-	tok->ttype = toks[*idx];
-	tok->bpos.col = *idx;
-	tok->epos.col = *idx;
-	if (tok->ttype != ltt_eof)
-		++(*idx);
+	tok->ttype = toks[idx];
+	tok->bpos.col = idx;
+	tok->epos.col = idx;
 }
 
 /** Parser input from a global array */
-static void *parser_test_tok_data(void *arg, lexer_tok_t *tok)
+static void *parser_test_next_tok(void *apinput, void *atok)
 {
-	size_t *idx = (size_t *)arg;
+	size_t idx = (size_t)atok;
+	(void) apinput;
 
-	(void)tok;
-	return (void *)(*idx);
+	return (void *)(idx + 1);
+}
+
+/** Parser input from a global array */
+static void *parser_test_tok_data(void *apinput, void *tok)
+{
+	(void) apinput;
+	return tok;
 }

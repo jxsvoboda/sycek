@@ -45,11 +45,13 @@ static int parser_process_block(parser_t *, ast_block_t **);
  *
  * @param ops Parser input ops
  * @param arg Argument to input ops
+ * @param tok Starting token
  * @param rparser Place to store pointer to new parser
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int parser_create(parser_input_ops_t *ops, void *arg, parser_t **rparser)
+int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
+    parser_t **rparser)
 {
 	parser_t *parser;
 
@@ -59,6 +61,7 @@ int parser_create(parser_input_ops_t *ops, void *arg, parser_t **rparser)
 
 	parser->input_ops = ops;
 	parser->input_arg = arg;
+	parser->tok = tok;
 	*rparser = parser;
 	return EOK;
 }
@@ -99,27 +102,6 @@ static bool parser_ttype_assignop(lexer_toktype_t ttype)
 	    ttype == ltt_bxor_assign;
 }
 
-/** Fill lookahead buffer up to the specified number of tokens.
- *
- * @param parser Parser
- * @param i Number of tokens required in lookahead buffer
- *          (not greater than @c parser_lookahead)
- */
-static void parser_look_ahead(parser_t *parser, size_t i)
-{
-	assert(i <= parser_lookahead);
-
-	while (parser->tokcnt < i) {
-		/* Need to skip whitespace */
-		do {
-			parser->input_ops->get_tok(parser->input_arg,
-			    &parser->tok[parser->tokcnt]);
-		} while (parser_ttype_ignore(parser->tok[parser->tokcnt].ttype));
-
-		++parser->tokcnt;
-	}
-}
-
 /** Return type of next token.
  *
  * @param parser Parser
@@ -127,8 +109,10 @@ static void parser_look_ahead(parser_t *parser, size_t i)
  */
 static lexer_toktype_t parser_next_ttype(parser_t *parser)
 {
-	parser_look_ahead(parser, 1);
-	return parser->tok[0].ttype;
+	lexer_tok_t tok;
+
+	parser->input_ops->read_tok(parser->input_arg, parser->tok, &tok);
+	return tok.ttype;
 }
 
 /** Return type of next next token.
@@ -138,24 +122,34 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
  */
 static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
 {
-	parser_look_ahead(parser, 2);
-	return parser->tok[1].ttype;
+	lexer_tok_t tok;
+	void *ntok;
+
+	ntok = parser->input_ops->next_tok(parser->input_arg, parser->tok);
+	parser->input_ops->read_tok(parser->input_arg, ntok, &tok);
+	return tok.ttype;
 }
 
-/** Return pointer to next token.
+/** Read next token.
  *
  * This may be only used for printing out tokens for debugging purposes.
  * All decisions are based only on token type (see parser_next_ttype).
- * The token data must be copied if they are to be used after advancing
- * the parser's read head.
  *
  * @param parser Parser
+ * @param 
  * @return Pointer to the next token at the read head
  */
-static lexer_tok_t *parser_next_tok(parser_t *parser)
+static void parser_read_next_tok(parser_t *parser, lexer_tok_t *tok)
 {
-	parser_look_ahead(parser, 1);
-	return &parser->tok[0];
+	parser->input_ops->read_tok(parser->input_arg, parser->tok, tok);
+}
+
+static int parser_dprint_next_tok(parser_t *parser, FILE *f)
+{
+	lexer_tok_t tok;
+
+	parser_read_next_tok(parser, &tok);
+	return lexer_dprint_tok(&tok, f);
 }
 
 /** Get user data that should be stored into the AST for a token.
@@ -164,8 +158,9 @@ static lexer_tok_t *parser_next_tok(parser_t *parser)
  * @param tok Token
  * @return User data for token @a tok
  */
-static void *parser_get_tok_data(parser_t *parser, lexer_tok_t *tok)
+static void *parser_get_tok_data(parser_t *parser, void *tok)
 {
+	(void) parser;
 	return parser->input_ops->tok_data(parser->input_arg, tok);
 }
 
@@ -176,18 +171,16 @@ static void *parser_get_tok_data(parser_t *parser, lexer_tok_t *tok)
  */
 static void parser_skip(parser_t *parser, void **rdata)
 {
-	size_t i;
-
-	/* We should never skip a token without looking at it first */
-	assert(parser->tokcnt > 0);
+	void *ntok;
 
 	if (rdata != NULL)
-		*rdata = parser_get_tok_data(parser, &parser->tok[0]);
+		*rdata = parser_get_tok_data(parser, parser->tok);
 
-	for (i = 1; i < parser->tokcnt; i++)
-		parser->tok[i - 1] = parser->tok[i];
-
-	--parser->tokcnt;
+	do {
+		ntok = parser->input_ops->next_tok(parser->input_arg,
+		    parser->tok);
+		parser->tok = ntok;
+	} while (parser_ttype_ignore(parser_next_ttype(parser)));
 }
 
 /** Match a particular token type.
@@ -208,7 +201,7 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 	ltype = parser_next_ttype(parser);
 	if (ltype != mtype) {
 		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
+		parser_dprint_next_tok(parser, stderr);
 		fprintf(stderr, " unexpected, expected '%s'.\n",
 		    lexer_str_ttype(mtype));
 		return EINVAL;
@@ -475,7 +468,7 @@ static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 		return parser_process_eparen(parser, rexpr);
 	default:
 		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
+		parser_dprint_next_tok(parser, stderr);
 		fprintf(stderr, " unexpected, expected expression.\n");
 		return EINVAL;
 	}
@@ -2191,7 +2184,7 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 		break;
 	default:
 		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
+		parser_dprint_next_tok(parser, stderr);
 		fprintf(stderr, " unexpected, expected type identifer.\n");
 		return EINVAL;
 	}
@@ -2360,8 +2353,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 					parser_skip(parser, &dinit);
 				} else {
 					fprintf(stderr, "Error: ");
-					lexer_dprint_tok(&parser->tok[0],
-					    stderr);
+					parser_dprint_next_tok(parser, stderr);
 					fprintf(stderr, " unexpected, expected"
 					    " number or identifier.\n");
 					rc = EINVAL;
@@ -2433,7 +2425,7 @@ static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
 			rc = parser_process_tsbasic(parser, rtype);
 		} else {
 			fprintf(stderr, "Error: ");
-			lexer_dprint_tok(&parser->tok[0], stderr);
+			parser_dprint_next_tok(parser, stderr);
 			fprintf(stderr, " unexpected, expected type specifier.\n");
 			return EINVAL;
 		}
@@ -2683,7 +2675,7 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_ident && ltt != ltt_number) {
 		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
+		parser_dprint_next_tok(parser, stderr);
 		fprintf(stderr, " unexpected, expected number or identifier.\n");
 		rc = EINVAL;
 		goto error;
@@ -2864,7 +2856,7 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 	if (rc != EOK)
 		goto error;
 
-	dtok = *parser_next_tok(parser);
+	parser_read_next_tok(parser, &dtok);
 
 	rc = parser_process_decl(parser, &decl);
 	if (rc != EOK)
@@ -3059,7 +3051,7 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	case ltt_lbrace:
 		if (more_decls) {
 			fprintf(stderr, "Error: ");
-			lexer_dprint_tok(&parser->tok[0], stderr);
+			parser_dprint_next_tok(parser, stderr);
 			fprintf(stderr, " '{' unexpected, expected ';'.\n");
 			rc = EINVAL;
 			goto error;
@@ -3088,7 +3080,7 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		break;
 	default:
 		fprintf(stderr, "Error: ");
-		lexer_dprint_tok(&parser->tok[0], stderr);
+		parser_dprint_next_tok(parser, stderr);
 		fprintf(stderr, " unexpected, expected '{' or ';'.\n");
 		rc = EINVAL;
 		goto error;

@@ -35,8 +35,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void checker_parser_get_tok(void *, lexer_tok_t *);
-static void *checker_parser_tok_data(void *, lexer_tok_t *);
+static void checker_parser_read_tok(void *, void *, lexer_tok_t *);
+static void *checker_parser_next_tok(void *, void *);
+static void *checker_parser_tok_data(void *, void *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
@@ -47,7 +48,8 @@ static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
 
 static parser_input_ops_t checker_parser_input = {
-	.get_tok = checker_parser_get_tok,
+	.read_tok = checker_parser_read_tok,
+	.next_tok = checker_parser_next_tok,
 	.tok_data = checker_parser_tok_data
 };
 
@@ -709,8 +711,8 @@ static int checker_module_parse(checker_module_t *mod)
 	checker_parser_input_t pinput;
 	int rc;
 
-	pinput.tok = checker_module_first_tok(mod);
-	rc = parser_create(&checker_parser_input, &pinput, &parser);
+	rc = parser_create(&checker_parser_input, &pinput,
+	    checker_module_first_tok(mod), &parser);
 	if (rc != EOK)
 		return rc;
 
@@ -2914,21 +2916,44 @@ int checker_print(checker_t *checker, FILE *f)
 	return EOK;
 }
 
-/** Parser input from checker token list.
+/** Parser function to read input token from checker.
  *
- * @param arg Checker parser input (checker_parser_input_t)
- * @param tok Place to store token
+ * @param apinput Checker parser input (checker_parser_input_t *)
+ * @param atok Checker token (checker_tok_t *)
+ * @param ltok Place to store token
  */
-static void checker_parser_get_tok(void *arg, lexer_tok_t *tok)
+static void checker_parser_read_tok(void *apinput, void *atok,
+    lexer_tok_t *ltok)
 {
-	checker_parser_input_t *pinput = (checker_parser_input_t *)arg;
+	checker_parser_input_t *pinput = (checker_parser_input_t *)apinput;
+	checker_tok_t *tok = (checker_tok_t *)atok;
 
-	*tok = pinput->tok->tok;
+	(void) pinput;
+	*ltok = tok->tok;
 	/* Pass pointer to checker token down to checker_parser_tok_data */
-	tok->udata = pinput->tok;
+	ltok->udata = tok;
+}
 
-	if (tok->ttype != ltt_eof)
-		pinput->tok = checker_next_tok(pinput->tok);
+/** Parser function to get next input token from checker.
+ *
+ * @param apinput Checker parser input (checker_parser_input_t *)
+ * @param atok Checker token (checker_tok_t *)
+ * @return Pointer to next token
+ */
+static void *checker_parser_next_tok(void *apinput, void *atok)
+{
+	checker_parser_input_t *pinput = (checker_parser_input_t *)apinput;
+	checker_tok_t *tok = (checker_tok_t *)atok;
+	checker_tok_t *ntok;
+
+	(void) pinput;
+
+	if (tok->tok.ttype != ltt_eof)
+		ntok = checker_next_tok(tok);
+	else
+		ntok = tok;
+
+	return (void *) ntok;
 }
 
 /** Get user data for a token.
@@ -2937,17 +2962,13 @@ static void checker_parser_get_tok(void *arg, lexer_tok_t *tok)
  * tokens in memory all the time.
  *
  * @param arg Checker parser input (checker_parser_input_t)
+ * @param tok Token
  * @param tok Place to store token
  */
-static void *checker_parser_tok_data(void *arg, lexer_tok_t *tok)
+static void *checker_parser_tok_data(void *apinput, void *tok)
 {
-	checker_tok_t *ctok;
-
-	(void)arg;
-
-	/* Pointer to checker_tok_t sent by checker_parser_get_tok. */
-	ctok = (checker_tok_t *)tok->udata;
+	(void)apinput;
 
 	/* Set this as user data for the AST token */
-	return ctok;
+	return tok;
 }

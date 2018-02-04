@@ -35,10 +35,12 @@ enum {
 
 /** Parser input ops */
 typedef struct {
-	/** Get next input token */
-	void (*get_tok)(void *, lexer_tok_t *);
+	/** Read input token */
+	void (*read_tok)(void *, void *, lexer_tok_t *);
+	/** Return next token */
+	void *(*next_tok)(void *, void *);
 	/** Get data that should be stored into AST for a token */
-	void *(*tok_data)(void *, lexer_tok_t *);
+	void *(*tok_data)(void *, void *);
 } parser_input_ops_t;
 
 /** Parser */
@@ -47,10 +49,8 @@ typedef struct {
 	parser_input_ops_t *input_ops;
 	/** Input argument */
 	void *input_arg;
-	/** Number of tokens in lookahead buffer @c tok */
-	size_t tokcnt;
-	/** Lookahead buffer */
-	lexer_tok_t tok[parser_lookahead];
+	/** Next token */
+	void *tok;
 } parser_t;
 
 #endif

@@ -73,7 +73,7 @@ typedef struct {
 
 /** Checker parser input */
 typedef struct {
-	checker_tok_t *tok;
+	int dummy;
 } checker_parser_input_t;
 
 #endif
