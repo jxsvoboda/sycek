@@ -1317,13 +1317,6 @@ error:
  */
 static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 {
-	ast_tok_t *atok;
-	checker_tok_t *tok;
-
-	atok = ast_tree_first_tok(stmt);
-	tok = (checker_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stdout);
-	printf("\n");
 	switch (stmt->ntype) {
 	case ant_break:
 		return checker_check_break(scope, (ast_break_t *)stmt->ext);

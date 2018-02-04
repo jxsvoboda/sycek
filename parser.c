@@ -2179,7 +2179,6 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		/* fall through */
 	default:
 		break;
-		
 	}
 
 	rc = parser_create_silent_sub(parser, &sparser);
