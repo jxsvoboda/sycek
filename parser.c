@@ -1306,7 +1306,56 @@ static int parser_process_elor(parser_t *parser, ast_node_t **rexpr)
  */
 static int parser_process_etcond(parser_t *parser, ast_node_t **rexpr)
 {
-	return parser_process_elor(parser, rexpr);
+	lexer_toktype_t ltt;
+	ast_etcond_t *etcond = NULL;
+	ast_node_t *cond = NULL;
+	void *dqmark;
+	ast_node_t *targ = NULL;
+	void *dcolon;
+	ast_node_t *farg = NULL;
+	int rc;
+
+	rc = parser_process_elor(parser, &cond);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_qmark) {
+		*rexpr = cond;
+		return EOK;
+	}
+
+	parser_skip(parser, &dqmark);
+
+	rc = parser_process_etcond(parser, &targ);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_colon, &dcolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_elor(parser, &farg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_etcond_create(&etcond);
+	if (rc != EOK)
+		goto error;
+
+	etcond->cond = cond;
+	etcond->tqmark.data = dqmark;
+	etcond->targ = targ;
+	etcond->tcolon.data = dcolon;
+	etcond->farg = farg;
+
+	*rexpr = &etcond->node;
+	return EOK;
+error:
+	ast_tree_destroy(cond);
+	ast_tree_destroy(targ);
+	ast_tree_destroy(farg);
+	return rc;
 }
 
 /** Parse assignment expression.

@@ -727,6 +727,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_shr, 2, tok);
 		}
 		return lexer_onechar(lexer, ltt_greater, tok);
+	case '?':
+		return lexer_onechar(lexer, ltt_qmark, tok);
 	case '~':
 		return lexer_onechar(lexer, ltt_bnot, tok);
 	case '^':
@@ -972,6 +974,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return ":";
 	case ltt_scolon:
 		return ";";
+	case ltt_qmark:
+		return "?";
 	case ltt_period:
 		return ".";
 	case ltt_arrow:
