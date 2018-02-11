@@ -380,6 +380,10 @@ static int parser_process_estring(parser_t *parser, ast_node_t **rexpr)
 	if (rc != EOK)
 		goto error;
 
+	rc = ast_estring_append(estring, dlit);
+	if (rc != EOK)
+		goto error;
+
 	ltt = parser_next_ttype(parser);
 	while (ltt == ltt_strlit) {
 		parser_skip(parser, &dlit);
