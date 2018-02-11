@@ -863,7 +863,7 @@ int ast_tsrecord_create(ast_rtype_t rtype, ast_tsrecord_t **rtsrecord)
  * @param tsrecord Record type specifier
  * @param sqlist Specifier-qualifier list
  * @param dlist Declarator list
- * @param stmt Statement
+ * @param dscolon Semicolon token data
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_sqlist_t *sqlist,
@@ -4111,6 +4111,247 @@ static ast_tok_t *ast_epostadj_last_tok(ast_epostadj_t *epostadj)
 	return &epostadj->tadj;
 }
 
+/** Create AST compound initializer.
+ *
+ * @param rcinit Place to store pointer to new compound initializer
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_create(ast_cinit_t **rcinit)
+{
+	ast_cinit_t *cinit;
+
+	cinit = calloc(1, sizeof(ast_cinit_t));
+	if (cinit == NULL)
+		return ENOMEM;
+
+	list_initialize(&cinit->elems);
+
+	cinit->node.ext = cinit;
+	cinit->node.ntype = ant_cinit;
+
+	*rcinit = cinit;
+	return EOK;
+}
+
+/** Append plain element to compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @param expr Initializer value expression
+ * @param have_comma @c true if we have a comma token
+ * @param dcomma Comma token data
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_append_plain(ast_cinit_t *cinit, ast_node_t *expr,
+    bool have_comma, void *dcomma)
+{
+	ast_cinit_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_cinit_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->etype = ace_plain;
+	elem->expr = expr;
+	elem->have_comma = have_comma;
+
+	if (have_comma)
+		elem->tcomma.data = dcomma;
+
+	elem->cinit = cinit;
+	list_append(&elem->lcinit, &cinit->elems);
+	return EOK;
+}
+
+/** Append index element to compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @param dlbracket Left bracket token data
+ * @param index Index expression
+ * @param drbracket Right bracket token data
+ * @param dassign Assignment token data
+ * @param expr Initializer value expression
+ * @param have_comma @c true if we have a comma token
+ * @param dcomma Comma token data
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_append_index(ast_cinit_t *cinit, void *dlbracket,
+    ast_node_t *index, void *drbracket, void *dassign, ast_node_t *expr,
+    bool have_comma, void *dcomma)
+{
+	ast_cinit_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_cinit_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->etype = ace_index;
+	elem->tlbracket.data = dlbracket;
+	elem->index = index;
+	elem->trbracket.data = drbracket;
+	elem->tassign.data = dassign;
+	elem->expr = expr;
+	elem->have_comma = have_comma;
+
+	if (have_comma)
+		elem->tcomma.data = dcomma;
+
+	elem->cinit = cinit;
+	list_append(&elem->lcinit, &cinit->elems);
+	return EOK;
+}
+
+/** Append member element to compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @param dperiod Period token data
+ * @param dmember Member token data
+ * @param dassign Assignment token data
+ * @param expr Initializer value expression
+ * @param have_comma @c true if we have a comma token
+ * @param dcomma Comma token data
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_append_member(ast_cinit_t *cinit, void *dperiod, void *dmember,
+    void *dassign, ast_node_t *expr, bool have_comma, void *dcomma)
+{
+	ast_cinit_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_cinit_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->etype = ace_member;
+	elem->tperiod.data = dperiod;
+	elem->tmember.data = dmember;
+	elem->tassign.data = dassign;
+	elem->expr = expr;
+	elem->have_comma = have_comma;
+
+	if (have_comma)
+		elem->tcomma.data = dcomma;
+
+	elem->cinit = cinit;
+	list_append(&elem->lcinit, &cinit->elems);
+	return EOK;
+}
+
+/** Return first element in compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @return First element or @c NULL
+ */
+ast_cinit_elem_t *ast_cinit_first(ast_cinit_t *cinit)
+{
+	link_t *link;
+
+	link = list_first(&cinit->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_cinit_elem_t, lcinit);
+}
+
+/** Return next element in compound initializer.
+ *
+ * @param elem Current element
+ * @return Next element or @c NULL
+ */
+ast_cinit_elem_t *ast_cinit_next(ast_cinit_elem_t *elem)
+{
+	link_t *link;
+
+	link = list_next(&elem->lcinit, &elem->cinit->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_cinit_elem_t, lcinit);
+}
+
+/** Print AST compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_cinit_print(ast_cinit_t *cinit, FILE *f)
+{
+	ast_cinit_elem_t *elem;
+	int rc;
+
+	if (fprintf(f, "cinit(") < 0)
+		return EIO;
+
+	elem = ast_cinit_first(cinit);
+	while (elem != NULL) {
+		if (elem->etype == ace_index) {
+			if (fprintf(f, "[") < 0)
+				return EIO;
+			rc = ast_tree_print(elem->index, f);
+			if (rc != EOK)
+				return rc;
+			if (fprintf(f, "]") < 0)
+				return EIO;
+		}
+
+		rc = ast_tree_print(elem->expr, f);
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_cinit_next(elem);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST compound initializer.
+ *
+ * @param cinit Compound initializer
+ */
+static void ast_cinit_destroy(ast_cinit_t *cinit)
+{
+	ast_cinit_elem_t *elem;
+
+	elem = ast_cinit_first(cinit);
+	while (elem != NULL) {
+		list_remove(&elem->lcinit);
+		if (elem->etype == ace_index)
+			ast_tree_destroy(elem->index);
+		ast_tree_destroy(elem->expr);
+		free(elem);
+		elem = ast_cinit_first(cinit);
+	}
+
+	free(cinit);
+}
+
+/** Get first token of AST compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_cinit_first_tok(ast_cinit_t *cinit)
+{
+	return &cinit->tlbrace;
+}
+
+/** Get last token of AST compound initializer.
+ *
+ * @param cinit Compound initializer
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_cinit_last_tok(ast_cinit_t *cinit)
+{
+	return &cinit->trbrace;
+}
+
 /** Create AST break.
  *
  * @param rbreak Place to store pointer to new break
@@ -5251,6 +5492,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_epreadj_print((ast_epreadj_t *)node->ext, f);
 	case ant_epostadj:
 		return ast_epostadj_print((ast_epostadj_t *)node->ext, f);
+	case ant_cinit:
+		return ast_cinit_print((ast_cinit_t *)node->ext, f);
 	case ant_break:
 		return ast_break_print((ast_break_t *)node->ext, f);
 	case ant_continue:
@@ -5414,6 +5657,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_epostadj:
 		ast_epostadj_destroy((ast_epostadj_t *)node->ext);
 		break;
+	case ant_cinit:
+		ast_cinit_destroy((ast_cinit_t *)node->ext);
+		break;
 	case ant_break:
 		ast_break_destroy((ast_break_t *)node->ext);
 		break;
@@ -5532,6 +5778,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_epreadj_first_tok((ast_epreadj_t *)node->ext);
 	case ant_epostadj:
 		return ast_epostadj_first_tok((ast_epostadj_t *)node->ext);
+	case ant_cinit:
+		return ast_cinit_first_tok((ast_cinit_t *)node->ext);
 	case ant_break:
 		return ast_break_first_tok((ast_break_t *)node->ext);
 	case ant_continue:
@@ -5649,6 +5897,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_epreadj_last_tok((ast_epreadj_t *)node->ext);
 	case ant_epostadj:
 		return ast_epostadj_last_tok((ast_epostadj_t *)node->ext);
+	case ant_cinit:
+		return ast_cinit_last_tok((ast_cinit_t *)node->ext);
 	case ant_break:
 		return ast_break_last_tok((ast_break_t *)node->ext);
 	case ant_continue:

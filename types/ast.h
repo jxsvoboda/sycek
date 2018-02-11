@@ -105,6 +105,8 @@ typedef enum {
 	ant_epreadj,
 	/** Post-increment/-decrement expression */
 	ant_epostadj,
+	/** Compound initializer */
+	ant_cinit,
 	/** Break statement */
 	ant_break,
 	/** Continue statement */
@@ -787,6 +789,56 @@ typedef struct {
 	/** Adjustment token */
 	ast_tok_t tadj;
 } ast_epostadj_t;
+
+/** Compound initializer */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '{' token */
+	ast_tok_t tlbrace;
+	/** Elements */
+	list_t elems; /* of ast_cinit_elem_t */
+	/** '}' token */
+	ast_tok_t trbrace;
+} ast_cinit_t;
+
+/** Compound initializer element type */
+typedef enum {
+	/** Plain element (expr) */
+	ace_plain,
+	/** Indexed element ([expr] = expr) */
+	ace_index,
+	/** Member element (.member = expr) */
+	ace_member
+} ast_cinit_elem_type_t;
+
+/** Compound initializer element */
+typedef struct {
+	/** Containing compound initializer */
+	ast_cinit_t *cinit;
+	/** Link to cinit->elems */
+	link_t lcinit;
+	/** Element type */
+	ast_cinit_elem_type_t etype;
+	/** '.' token (member element only) */
+	ast_tok_t tperiod;
+	/** Member name (member element only) */
+	ast_tok_t tmember;
+	/** '[' token (index element only) */
+	ast_tok_t tlbracket;
+	/** Index expression (index element only) */
+	ast_node_t *index;
+	/** ']' token (index element only) */
+	ast_tok_t trbracket;
+	/** '=' token (except for plain element) */
+	ast_tok_t tassign;
+	/** Initializer value expression */
+	ast_node_t *expr;
+	/** @c true if we have a comma */
+	bool have_comma;
+	/** Comma (optional for the last element) */
+	ast_tok_t tcomma;
+} ast_cinit_elem_t;
 
 /** Break statement. */
 typedef struct {

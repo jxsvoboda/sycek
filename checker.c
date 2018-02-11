@@ -45,6 +45,7 @@ static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
 static int checker_check_block(checker_scope_t *, ast_block_t *);
 static int checker_check_expr(checker_scope_t *, ast_node_t *);
+static int checker_check_init(checker_scope_t *, ast_node_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
 
@@ -1296,6 +1297,10 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 
 		rc = checker_check_brkspace_after(scope, tassign,
 		    "Whitespace expected after '='.");
+		if (rc != EOK)
+			goto error;
+
+		rc = checker_check_init(scope, stdecln->init);
 		if (rc != EOK)
 			goto error;
 	}
@@ -2653,6 +2658,141 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 	return EOK;
 }
 
+/** Run checks on a compound initialixzer.
+ *
+ * @param scope Checker scope
+ * @param cinit AST compound initializer
+ * @return EOK on success or error code
+ */
+static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
+{
+	ast_tok_t *afirst;
+	checker_tok_t *tlbrace;
+	ast_cinit_elem_t *elem;
+	checker_tok_t *tlbracket;
+	checker_tok_t *trbracket;
+	checker_tok_t *tperiod;
+	checker_tok_t *tassign;
+	checker_tok_t *tcomma;
+	checker_tok_t *trbrace;
+	checker_scope_t *escope;
+	int rc;
+
+	escope = checker_scope_nested(scope);
+	if (escope == NULL)
+		return ENOMEM;
+
+	tlbrace = (checker_tok_t *)cinit->tlbrace.data;
+	rc = checker_check_nbspace_before(scope, tlbrace,
+	    "Expected single space before '{'.");
+	if (rc != EOK)
+		goto error;
+
+	elem = ast_cinit_first(cinit);
+	while (elem != NULL) {
+		afirst = NULL;
+		switch (elem->etype) {
+		case ace_index:
+			afirst = &elem->tlbracket;
+			break;
+		case ace_member:
+			afirst = &elem->tperiod;
+			break;
+		case ace_plain:
+			afirst = ast_tree_first_tok(elem->expr);
+			break;
+		}
+
+		rc = checker_check_lbegin(escope, (checker_tok_t *)afirst->data,
+		    "Initializer must start on a new line.");
+		if (rc != EOK)
+			goto error;
+
+		switch (elem->etype) {
+		case ace_index:
+			tlbracket = (checker_tok_t *)elem->tlbracket.data;
+			trbracket = (checker_tok_t *)elem->trbracket.data;
+
+			checker_check_nows_after(escope, tlbracket,
+			    "Unexpected whitespace after '['.");
+			checker_check_nows_before(escope, trbracket,
+			    "Unexpected whitespace before ']'.");
+			break;
+		case ace_member:
+			tperiod = (checker_tok_t *)elem->tperiod.data;
+			checker_check_nows_after(escope, tperiod,
+			    "Unexpected whitespace after '.'.");
+			afirst = &elem->tperiod;
+			break;
+		case ace_plain:
+			break;
+		}
+
+		if (elem->etype != ace_plain) {
+			tassign = (checker_tok_t *)elem->tassign.data;
+			rc = checker_check_nbspace_before(escope, tassign,
+			    "Single space expected before '='.");
+			if (rc != EOK)
+				goto error;
+
+			rc = checker_check_brkspace_after(escope, tassign,
+			    "Whitespace expected after '='.");
+			if (rc != EOK)
+				goto error;
+		}
+
+		rc = checker_check_expr(escope, elem->expr);
+		if (rc != EOK)
+			goto error;
+
+		if (elem->have_comma) {
+			tcomma = (checker_tok_t *)elem->tcomma.data;
+			checker_check_nows_before(escope, tcomma,
+			    "Unexpected whitespace before ','.");
+			rc = checker_check_brkspace_after(escope, tcomma,
+			    "Expected whitespace after ','.");
+			if (rc != EOK)
+				goto error;
+		}
+
+		elem = ast_cinit_next(elem);
+	}
+
+	trbrace = (checker_tok_t *)cinit->trbrace.data;
+	if (trbrace != NULL) {
+		rc = checker_check_lbegin(scope, trbrace,
+		    "'}' must begin on a new line.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	checker_scope_destroy(escope);
+	return EOK;
+error:
+	checker_scope_destroy(escope);
+	return rc;
+}
+
+
+/** Check initializer.
+ *
+ * @param scope Checker scope
+ * @param init Initializer
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_init(checker_scope_t *scope, ast_node_t *init)
+{
+	switch (init->ntype) {
+	case ant_cinit:
+		return checker_check_cinit(scope, (ast_cinit_t *) init);
+	default:
+		return checker_check_expr(scope, init);
+	}
+
+	return EOK;
+}
+
 /** Run checks on a global declaration.
  *
  * @param scope Checker scope
@@ -2708,6 +2848,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 
 		rc = checker_check_brkspace_after(scope, tassign,
 		    "Whitespace expected after '='.");
+		if (rc != EOK)
+			goto error;
+
+		rc = checker_check_init(scope, gdecln->init);
 		if (rc != EOK)
 			goto error;
 	}

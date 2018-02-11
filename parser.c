@@ -1528,6 +1528,145 @@ static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
 	return parser_process_ecomma(parser, rexpr);
 }
 
+/** Parse compound initializer.
+ *
+ * @param parser Parser
+ * @param rcinit Place to store pointer to new AST compound initializer
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_cinit(parser_t *parser, ast_node_t **rcinit)
+{
+	ast_cinit_t *cinit = NULL;
+	lexer_toktype_t ltt;
+	void *dlbrace;
+	ast_node_t *expr = NULL;
+	ast_node_t *index = NULL;
+	ast_cinit_elem_type_t etype;
+	void *dcomma;
+	void *dlbracket;
+	void *drbracket;
+	void *dperiod;
+	void *dassign;
+	void *dmember;
+	void *drbrace;
+	bool have_comma;
+	int rc;
+
+	rc = parser_match(parser, ltt_lbrace, &dlbrace);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_cinit_create(&cinit);
+	if (rc != EOK)
+		goto error;
+
+	cinit->tlbrace.data = dlbrace;
+
+	ltt = parser_next_ttype(parser);
+	while (ltt != ltt_rbrace) {
+		if (ltt == ltt_lbracket) {
+			parser_skip(parser, &dlbracket);
+			rc = parser_process_expr(parser, &index);
+			if (rc != EOK)
+				goto error;
+			rc = parser_match(parser, ltt_rbracket, &drbracket);
+			if (rc != EOK)
+				goto error;
+
+			etype = ace_index;
+		} else if (ltt == ltt_period) {
+			parser_skip(parser, &dperiod);
+			rc = parser_match(parser, ltt_ident, &dmember);
+			if (rc != EOK)
+				goto error;
+
+			etype = ace_member;
+		} else {
+			etype = ace_plain;
+		}
+
+		/* Designated initializer */
+		if (etype != ace_plain) {
+			rc = parser_match(parser, ltt_assign, &dassign);
+			if (rc != EOK)
+				goto error;
+		}
+
+		/* Initializer expression may not contain a comma */
+		rc = parser_process_eassign(parser, &expr);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_comma) {
+			parser_skip(parser, &dcomma);
+			have_comma = true;
+		} else {
+			have_comma = false;
+		}
+
+		switch (etype) {
+		case ace_index:
+			rc = ast_cinit_append_index(cinit, dlbracket, index,
+			    drbracket, dassign, expr, have_comma, dcomma);
+			break;
+		case ace_member:
+			rc = ast_cinit_append_member(cinit, dperiod, dmember,
+			    dassign, expr, have_comma, dcomma);
+			break;
+		case ace_plain:
+			rc = ast_cinit_append_plain(cinit, expr, have_comma,
+			    dcomma);
+			break;
+		}
+
+		if (rc != EOK)
+			goto error;
+
+		expr = NULL;
+		index = NULL;
+
+		if (ltt != ltt_comma)
+			break;
+
+		ltt = parser_next_ttype(parser);
+	}
+
+	rc = parser_match(parser, ltt_rbrace, &drbrace);
+	if (rc != EOK)
+		goto error;
+
+	cinit->trbrace.data = drbrace;
+
+	*rcinit = &cinit->node;
+	return EOK;
+error:
+	if (cinit != NULL)
+		ast_tree_destroy(&cinit->node);
+	if (expr != NULL)
+		ast_tree_destroy(expr);
+	return rc;
+}
+
+/** Parse initializer.
+ *
+ * @param parser Parser
+ * @param rinit Place to store pointer to new initializer
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_init(parser_t *parser, ast_node_t **rinit)
+{
+	lexer_toktype_t ltt;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lbrace)
+		return parser_process_cinit(parser, rinit);
+	else
+		return parser_process_expr(parser, rinit);
+}
+
 /** Parse break statement.
  *
  * @param parser Parser
@@ -2183,7 +2322,7 @@ static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
 	case ltt_assign:
 		parser_skip(parser, &dassign);
 
-		rc = parser_process_expr(parser, &init);
+		rc = parser_process_init(parser, &init);
 		if (rc != EOK)
 			goto error;
 
@@ -3370,7 +3509,7 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	case ltt_assign:
 		parser_skip(parser, &dassign);
 
-		rc = parser_process_expr(parser, &init);
+		rc = parser_process_init(parser, &init);
 		if (rc != EOK)
 			goto error;
 

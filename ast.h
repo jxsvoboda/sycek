@@ -115,6 +115,14 @@ extern int ast_elnot_create(ast_elnot_t **);
 extern int ast_ebnot_create(ast_ebnot_t **);
 extern int ast_epreadj_create(ast_epreadj_t **);
 extern int ast_epostadj_create(ast_epostadj_t **);
+extern int ast_cinit_create(ast_cinit_t **);
+extern int ast_cinit_append_plain(ast_cinit_t *, ast_node_t *, bool, void *);
+extern int ast_cinit_append_index(ast_cinit_t *, void *, ast_node_t *, void *,
+    void *, ast_node_t *, bool, void *);
+extern int ast_cinit_append_member(ast_cinit_t *, void *, void *, void *,
+    ast_node_t *, bool, void *);
+extern ast_cinit_elem_t *ast_cinit_first(ast_cinit_t *);
+extern ast_cinit_elem_t *ast_cinit_next(ast_cinit_elem_t *);
 extern int ast_break_create(ast_break_t **);
 extern int ast_continue_create(ast_continue_t **);
 extern int ast_goto_create(ast_goto_t **);
