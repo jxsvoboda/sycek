@@ -2363,6 +2363,54 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 	return EOK;
 }
 
+/** Check cast expression.
+ *
+ * @param scope Checker scope
+ * @param ecast Cast expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ecast(checker_scope_t *scope, ast_ecast_t *ecast)
+{
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *tdecl;
+	ast_tok_t *adecl;
+	int rc;
+
+	tlparen = (checker_tok_t *) ecast->tlparen.data;
+	trparen = (checker_tok_t *) ecast->trparen.data;
+
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	rc = checker_check_dspecs(scope, ecast->dspecs);
+	if (rc != EOK)
+		return rc;
+
+	adecl = ast_tree_first_tok(ecast->decl);
+	if (adecl != NULL) {
+		tdecl = (checker_tok_t *)adecl->data;
+		rc = checker_check_brkspace_before(scope, tdecl,
+		    "Expected space before declarator.");
+		if (rc != EOK)
+			return rc;
+	}
+
+	rc = checker_check_decl(scope, ecast->decl);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	rc = checker_check_expr(scope, ecast->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 /** Check member expression.
  *
  * @param scope Checker scope
@@ -2580,6 +2628,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 		return checker_check_eaddr(scope, (ast_eaddr_t *) expr);
 	case ant_esizeof:
 		return checker_check_esizeof(scope, (ast_esizeof_t *) expr);
+	case ant_ecast:
+		return checker_check_ecast(scope, (ast_ecast_t *) expr);
 	case ant_emember:
 		return checker_check_emember(scope, (ast_emember_t *) expr);
 	case ant_eindmember:

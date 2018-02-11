@@ -41,6 +41,7 @@ static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
+static int parser_process_epostfix(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
 
@@ -469,36 +470,82 @@ static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
 {
 	ast_eparen_t *eparen = NULL;
 	ast_node_t *bexpr = NULL;
+	ast_ecast_t *ecast = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_node_t *decl = NULL;
+	parser_t *sparser;
 	void *dlparen;
 	void *drparen;
 	int rc;
-
-	rc = ast_eparen_create(&eparen);
-	if (rc != EOK)
-		return rc;
 
 	rc = parser_match(parser, ltt_lparen, &dlparen);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &bexpr);
+	rc = parser_create_silent_sub(parser, &sparser);
 	if (rc != EOK)
 		goto error;
+
+	/* Try parsing the statement as an expression */
+	rc = parser_process_expr(sparser, &bexpr);
+	if (rc == EOK) {
+		/* It worked */
+		parser->tok = sparser->tok;
+		parser_destroy(sparser);
+	} else {
+		/* Didn't work. Try parsing as a type name instead */
+		parser_destroy(sparser);
+		rc = parser_process_dspecs(parser, &dspecs);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_decl(parser, &decl);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = parser_match(parser, ltt_rparen, &drparen);
 	if (rc != EOK)
 		goto error;
 
-	eparen->tlparen.data = dlparen;
-	eparen->bexpr = bexpr;
-	eparen->trparen.data = drparen;
-	*rexpr = &eparen->node;
+	if (bexpr != NULL) {
+		/* Parenthesized expression */
+		rc = ast_eparen_create(&eparen);
+		if (rc != EOK)
+			goto error;
+
+		eparen->tlparen.data = dlparen;
+		eparen->bexpr = bexpr;
+		eparen->trparen.data = drparen;
+		*rexpr = &eparen->node;
+	} else {
+		/* Type cast */
+		rc = parser_process_epostfix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_ecast_create(&ecast);
+		if (rc != EOK)
+			goto error;
+
+		ecast->tlparen.data = dlparen;
+		ecast->dspecs = dspecs;
+		ecast->decl = decl;
+		ecast->trparen.data = drparen;
+		ecast->bexpr = bexpr;
+		*rexpr = &ecast->node;
+	}
+
 	return EOK;
 error:
 	if (eparen != NULL)
 		ast_tree_destroy(&eparen->node);
 	if (bexpr != NULL)
 		ast_tree_destroy(bexpr);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	if (decl != NULL)
+		ast_tree_destroy(decl);
 	return rc;
 }
 

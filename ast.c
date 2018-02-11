@@ -3503,6 +3503,82 @@ static ast_tok_t *ast_esizeof_last_tok(ast_esizeof_t *esizeof)
 	return ast_tree_last_tok(esizeof->bexpr);
 }
 
+/** Create AST cast expression.
+ *
+ * @param recast Place to store pointer to new cast expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ecast_create(ast_ecast_t **recast)
+{
+	ast_ecast_t *ecast;
+
+	ecast = calloc(1, sizeof(ast_ecast_t));
+	if (ecast == NULL)
+		return ENOMEM;
+
+	ecast->node.ext = ecast;
+	ecast->node.ntype = ant_ecast;
+
+	*recast = ecast;
+	return EOK;
+}
+
+/** Print AST cast expression.
+ *
+ * @param ecast Cast expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ecast_print(ast_ecast_t *ecast, FILE *f)
+{
+	int rc;
+
+	(void) ecast;
+
+	if (fprintf(f, "ecast(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ecast->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST cast expression.
+ *
+ * @param ecast Cast expression
+ */
+static void ast_ecast_destroy(ast_ecast_t *ecast)
+{
+	ast_tree_destroy(ecast->bexpr);
+	free(ecast);
+}
+
+/** Get first token of AST cast expression.
+ *
+ * @param ecast Cast expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ecast_first_tok(ast_ecast_t *ecast)
+{
+	return &ecast->tlparen;
+}
+
+/** Get last token of AST sizeo expression.
+ *
+ * @param eaddr Cast expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ecast_last_tok(ast_ecast_t *ecast)
+{
+	return ast_tree_last_tok(ecast->bexpr);
+}
+
 /** Create AST member expression.
  *
  * @param remember Place to store pointer to new member expression
@@ -5161,6 +5237,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_eaddr_print((ast_eaddr_t *)node->ext, f);
 	case ant_esizeof:
 		return ast_esizeof_print((ast_esizeof_t *)node->ext, f);
+	case ant_ecast:
+		return ast_ecast_print((ast_ecast_t *)node->ext, f);
 	case ant_emember:
 		return ast_emember_print((ast_emember_t *)node->ext, f);
 	case ant_eindmember:
@@ -5315,6 +5393,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_esizeof:
 		ast_esizeof_destroy((ast_esizeof_t *)node->ext);
 		break;
+	case ant_ecast:
+		ast_ecast_destroy((ast_ecast_t *)node->ext);
+		break;
 	case ant_emember:
 		ast_emember_destroy((ast_emember_t *)node->ext);
 		break;
@@ -5437,6 +5518,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_eaddr_first_tok((ast_eaddr_t *)node->ext);
 	case ant_esizeof:
 		return ast_esizeof_first_tok((ast_esizeof_t *)node->ext);
+	case ant_ecast:
+		return ast_ecast_first_tok((ast_ecast_t *)node->ext);
 	case ant_emember:
 		return ast_emember_first_tok((ast_emember_t *)node->ext);
 	case ant_eindmember:
@@ -5552,6 +5635,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_eaddr_last_tok((ast_eaddr_t *)node->ext);
 	case ant_esizeof:
 		return ast_esizeof_last_tok((ast_esizeof_t *)node->ext);
+	case ant_ecast:
+		return ast_ecast_last_tok((ast_ecast_t *)node->ext);
 	case ant_emember:
 		return ast_emember_last_tok((ast_emember_t *)node->ext);
 	case ant_eindmember:

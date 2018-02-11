@@ -89,6 +89,8 @@ typedef enum {
 	ant_eaddr,
 	/** Sizeof expression */
 	ant_esizeof,
+	/** Cast expression */
+	ant_ecast,
 	/** Member expression */
 	ant_emember,
 	/** Indirect member expression */
@@ -689,6 +691,22 @@ typedef struct {
 	/** ')' token */
 	ast_tok_t trparen;
 } ast_esizeof_t;
+
+/** Cast expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Declaration specifiers */
+	ast_dspecs_t *dspecs;
+	/** Declarator */
+	ast_node_t *decl;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_ecast_t;
 
 /** Member expression */
 typedef struct {
