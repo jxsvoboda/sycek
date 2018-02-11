@@ -2896,7 +2896,7 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 	ast_node_t *bdecl = NULL;
 	lexer_toktype_t ltt;
 	void *dlbracket;
-	void *dsize;
+	ast_node_t *asize;
 	void *drbracket;
 	int rc;
 
@@ -2920,18 +2920,16 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 	darray->tlbracket.data = dlbracket;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt != ltt_ident && ltt != ltt_number) {
-		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected number or identifier.\n");
-		}
-		rc = EINVAL;
-		goto error;
+	if (ltt != ltt_rbracket) {
+		rc = parser_process_expr(parser, &asize);
+		if (rc != EOK)
+			goto error;
+	} else {
+		/* No size specified */
+		asize = NULL;
 	}
 
-	parser_skip(parser, &dsize);
-	darray->tsize.data = dsize;
+	darray->asize = asize;
 
 	rc = parser_match(parser, ltt_rbracket, &drbracket);
 	if (rc != EOK)

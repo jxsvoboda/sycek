@@ -477,8 +477,8 @@ typedef struct {
 	ast_node_t *bdecl;
 	/** Left bracket token */
 	ast_tok_t tlbracket;
-	/** Size token */
-	ast_tok_t tsize;
+	/** Array size expression or @c NULL if not present */
+	ast_node_t *asize;
 	/** Right bracket token */
 	ast_tok_t trbracket;
 } ast_darray_t;

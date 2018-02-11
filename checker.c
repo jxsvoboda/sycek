@@ -1488,6 +1488,12 @@ static int checker_check_darray(checker_scope_t *scope,
 	checker_check_nows_after(scope, tlbracket,
 	    "Unexpected whitespace after '['.");
 
+	if (darray->asize != NULL) {
+		rc = checker_check_expr(scope, darray->asize);
+		if (rc != EOK)
+			return rc;
+	}
+
 	trbracket = (checker_tok_t *)darray->trbracket.data;
 	checker_check_nows_before(scope, trbracket,
 	    "Unexpected whitespace before ']'.");
