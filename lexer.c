@@ -480,10 +480,14 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 {
 	char *p;
 	int rc;
+	bool floating;
 
 	lexer_get_pos(lexer, &tok->bpos);
 	p = lexer_chars(lexer);
 
+	floating = false;
+
+	/* Integer part */
 	if (p[1] == 'x' || p[1] == 'X') {
 		/* Hexadecimal constant */
 		rc = lexer_advance(lexer, 1, tok);
@@ -521,6 +525,92 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 		lexer_free_tok(tok);
 		return rc;
 	}
+
+	/* Check for fractional part */
+	p = lexer_chars(lexer);
+	if (p[0] == '.') {
+		floating = true;
+
+		while (is_num(p[1])) {
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
+
+		lexer_get_pos(lexer, &tok->epos);
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+	}
+
+	/* Check for exponent */
+	p = lexer_chars(lexer);
+	if (p[0] == 'e' || p[0] == 'E') {
+		floating = true;
+
+		/* Exponent sign */
+		if (p[1] == '+' || p[1] == '-') {
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
+
+		/* Exponent digits */
+		while (is_num(p[1])) {
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
+
+		/* Last exponent digit */
+		lexer_get_pos(lexer, &tok->epos);
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+	}
+
+	/* Check for suffixes */
+	p = lexer_chars(lexer);
+	if (floating) {
+		if (p[0] == 'f' || p[0] == 'F' || p[0] == 'l' || p[0] == 'L') {
+			lexer_get_pos(lexer, &tok->epos);
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+		}
+	} else {
+		/* XXX Not precise */
+		while (p[0] == 'u' || p[0] == 'U' || p[0] == 'l' ||
+		    p[0] == 'L') {
+			lexer_get_pos(lexer, &tok->epos);
+			rc = lexer_advance(lexer, 1, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+		}
+	}
+
 
 	tok->ttype = ltt_number;
 	return EOK;
