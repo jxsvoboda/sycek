@@ -791,7 +791,7 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 					goto error;
 			}
 
-		    	parser_skip(parser, &drparen);
+			parser_skip(parser, &drparen);
 			efuncall->trparen.data = drparen;
 			break;
 		default:
@@ -1838,7 +1838,7 @@ error:
  */
 static int parser_process_if(parser_t *parser, ast_node_t **rif)
 {
-	lexer_toktype_t ltt;
+	lexer_toktype_t ltt, ltt2;
 	ast_if_t *aif = NULL;
 	void *dif;
 	void *dlparen;
@@ -1847,7 +1847,12 @@ static int parser_process_if(parser_t *parser, ast_node_t **rif)
 	ast_block_t *tbranch = NULL;
 	void *delse;
 	ast_block_t *fbranch = NULL;
+	ast_block_t *ebranch = NULL;
 	int rc;
+
+	rc = ast_if_create(&aif);
+	if (rc != EOK)
+		goto error;
 
 	rc = parser_match(parser, ltt_if, &dif);
 	if (rc != EOK)
@@ -1869,10 +1874,52 @@ static int parser_process_if(parser_t *parser, ast_node_t **rif)
 	if (rc != EOK)
 		goto error;
 
+	aif->tif.data = dif;
+	aif->tlparen.data = dlparen;
+	aif->cond = cond;
+	aif->trparen.data = drparen;
+	aif->tbranch = tbranch;
+
 	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_else) {
+	while (ltt == ltt_else) {
 		parser_skip(parser, &delse);
 
+		ltt2 = parser_next_ttype(parser);
+		if (ltt2 != ltt_if)
+			break;
+
+		/* Else-if part */
+		rc = parser_match(parser, ltt_if, &dif);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_lparen, &dlparen);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_expr(parser, &cond);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_rparen, &drparen);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_block(parser, &ebranch);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_if_append(aif, delse, dif, dlparen, cond, drparen,
+		    ebranch);
+		if (rc != EOK)
+			goto error;
+
+		ebranch = NULL;
+
+		ltt = parser_next_ttype(parser);
+	}
+
+	if (ltt == ltt_else) {
 		rc = parser_process_block(parser, &fbranch);
 		if (rc != EOK)
 			goto error;
@@ -1881,27 +1928,22 @@ static int parser_process_if(parser_t *parser, ast_node_t **rif)
 		fbranch = NULL;
 	}
 
-	rc = ast_if_create(&aif);
-	if (rc != EOK)
-		goto error;
-
-	aif->tif.data = dif;
-	aif->tlparen.data = dlparen;
-	aif->cond = cond;
-	aif->trparen.data = drparen;
-	aif->tbranch = tbranch;
 	aif->telse.data = delse;
 	aif->fbranch = fbranch;
 
 	*rif = &aif->node;
 	return EOK;
 error:
+	if (aif != NULL)
+		ast_tree_destroy(&aif->node);
 	if (cond != NULL)
 		ast_tree_destroy(cond);
 	if (tbranch != NULL)
 		ast_tree_destroy(&tbranch->node);
 	if (fbranch != NULL)
 		ast_tree_destroy(&fbranch->node);
+	if (ebranch != NULL)
+		ast_tree_destroy(&ebranch->node);
 	return rc;
 }
 

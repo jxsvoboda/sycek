@@ -898,11 +898,32 @@ typedef struct {
 	ast_tok_t trparen;
 	/** True branch */
 	ast_block_t *tbranch;
+	/** Else-if parts */
+	list_t elseifs; /* of ast_elseif_t */
 	/** 'else' token */
 	ast_tok_t telse;
 	/** False branch */
 	ast_block_t *fbranch;
 } ast_if_t;
+
+typedef struct {
+	/** Containing if statement */
+	ast_if_t *aif;
+	/** Link to aif->elseifs */
+	link_t lif;
+	/** 'else' token */
+	ast_tok_t telse;
+	/** 'if' token */
+	ast_tok_t tif;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Condition */
+	ast_node_t *cond;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Else-if branch */
+	ast_block_t *ebranch;
+} ast_elseif_t;
 
 /** While loop statement */
 typedef struct {

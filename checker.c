@@ -866,6 +866,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	checker_tok_t *tlparen;
 	checker_tok_t *trparen;
 	checker_tok_t *telse;
+	ast_elseif_t *elseif;
 	int rc;
 
 	tif = (checker_tok_t *)aif->tif.data;
@@ -897,7 +898,43 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	if (rc != EOK)
 		return rc;
 
+	elseif = ast_if_first(aif);
+	while (elseif != NULL) {
+		telse = (checker_tok_t *)elseif->tif.data;
+		tif = (checker_tok_t *)elseif->tif.data;
+		tlparen = (checker_tok_t *)elseif->tlparen.data;
+		trparen = (checker_tok_t *)elseif->trparen.data;
+
+		rc = checker_check_nbspace_before(scope, tif,
+		    "There must be single space between 'else' and 'if'.");
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_check_nbspace_before(scope, tlparen,
+		    "There must be single space between 'if' and '('.");
+		if (rc != EOK)
+			return rc;
+
+		checker_check_nsbrk_after(scope, tlparen,
+		    "There must not be space after '('.");
+
+		rc = checker_check_expr(scope, elseif->cond);
+		if (rc != EOK)
+			return rc;
+
+		checker_check_nows_before(scope, trparen,
+		    "There must not be whitespace before ')'.");
+
+		rc = checker_check_block(scope, elseif->ebranch);
+		if (rc != EOK)
+			return rc;
+
+		elseif = ast_if_next(elseif);
+	}
+
 	if (aif->fbranch != NULL) {
+		telse = (checker_tok_t *)aif->telse.data;
+
 		if (aif->tbranch->braces) {
 			rc = checker_check_nbspace_before(scope, telse,
 			    "There must be single space between '}' and "
@@ -910,9 +947,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 			if (rc != EOK)
 				return rc;
 		}
-	}
 
-	if (aif->fbranch != NULL) {
 		rc = checker_check_block(scope, aif->fbranch);
 		if (rc != EOK)
 			return rc;

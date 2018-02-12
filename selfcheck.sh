@@ -37,7 +37,7 @@ while read fname; do
 			srepcnt=$((srepcnt + 1))
 			cat /tmp/ccheck.out
 		else
-			echo "Succeeded $fname"
+#			echo "Succeeded $fname"
 			snorepcnt=$((snorepcnt + 1))
 		fi
 	else

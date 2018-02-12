@@ -4641,9 +4641,73 @@ int ast_if_create(ast_if_t **rif)
 
 	aif->node.ext = aif;
 	aif->node.ntype = ant_if;
+	list_initialize(&aif->elseifs);
 
 	*rif = aif;
 	return EOK;
+}
+
+/** Append else-if part to if statement.
+ *
+ * @param aif If statement
+ * @param delse Else token data
+ * @param dif If token data
+ * @param dlparen Left parenthesis token data
+ * @param cond Condition expression
+ * @param ebranch Else-if branch
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_if_append(ast_if_t *aif, void *delse, void *dif, void *dlparen,
+    ast_node_t *cond, void *drparen, ast_block_t *ebranch)
+{
+	ast_elseif_t *elseif;
+
+	elseif = calloc(1, sizeof(ast_elseif_t));
+	if (elseif == NULL)
+		return ENOMEM;
+
+	elseif->telse.data = delse;
+	elseif->tif.data = dif;
+	elseif->tlparen.data = dlparen;
+	elseif->cond = cond;
+	elseif->trparen.data = drparen;
+	elseif->ebranch = ebranch;;
+
+	elseif->aif = aif;
+	list_append(&elseif->lif, &aif->elseifs);
+	return EOK;
+}
+
+/** Return first else-if part.
+ *
+ * @param aif If statement
+ * @return First element or @c NULL
+ */
+ast_elseif_t *ast_if_first(ast_if_t *aif)
+{
+	link_t *link;
+
+	link = list_first(&aif->elseifs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_elseif_t, lif);
+}
+
+/** Return next element in record type specifier.
+ *
+ * @param eir Current element
+ * @return Next element or @c NULL
+ */
+ast_elseif_t *ast_if_next(ast_elseif_t *eif)
+{
+	link_t *link;
+
+	link = list_next(&eif->lif, &eif->aif->elseifs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_elseif_t, lif);
 }
 
 /** Print AST if statement.

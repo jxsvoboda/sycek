@@ -128,6 +128,10 @@ extern int ast_continue_create(ast_continue_t **);
 extern int ast_goto_create(ast_goto_t **);
 extern int ast_return_create(ast_return_t **);
 extern int ast_if_create(ast_if_t **);
+extern int ast_if_append(ast_if_t *, void *, void *, void *, ast_node_t *,
+    void *, ast_block_t *);
+extern ast_elseif_t *ast_if_first(ast_if_t *);
+extern ast_elseif_t *ast_if_next(ast_elseif_t *);
 extern int ast_while_create(ast_while_t **);
 extern int ast_do_create(ast_do_t **);
 extern int ast_for_create(ast_for_t **);
