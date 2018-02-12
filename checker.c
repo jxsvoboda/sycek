@@ -1377,7 +1377,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 	case ant_break:
 		return checker_check_break(scope, (ast_break_t *)stmt->ext);
 	case ant_continue:
-		return checker_check_continue(scope, (ast_continue_t *)stmt->ext);
+		return checker_check_continue(scope,
+		    (ast_continue_t *)stmt->ext);
 	case ant_goto:
 		return checker_check_goto(scope, (ast_goto_t *)stmt->ext);
 	case ant_return:
@@ -1750,7 +1751,8 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
 		asqlist = ast_tree_first_tok(&elem->sqlist->node);
-		rc = checker_check_lbegin(escope, (checker_tok_t *)asqlist->data,
+		rc = checker_check_lbegin(escope,
+		    (checker_tok_t *)asqlist->data,
 		    "Record element declaration must start on a new line.");
 		if (rc != EOK)
 			goto error;
@@ -1897,7 +1899,8 @@ static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 		rc = checker_check_tsident(scope, (ast_tsident_t *)tspec->ext);
 		break;
 	case ant_tsrecord:
-		rc = checker_check_tsrecord(scope, (ast_tsrecord_t *)tspec->ext);
+		rc = checker_check_tsrecord(scope,
+		    (ast_tsrecord_t *)tspec->ext);
 		break;
 	case ant_tsenum:
 		rc = checker_check_tsenum(scope, (ast_tsenum_t *)tspec->ext);
@@ -2631,7 +2634,8 @@ static int checker_check_epreadj(checker_scope_t *scope, ast_epreadj_t *epreadj)
  *
  * @return EOK on success or error code
  */
-static int checker_check_epostadj(checker_scope_t *scope, ast_epostadj_t *epostadj)
+static int checker_check_epostadj(checker_scope_t *scope,
+    ast_epostadj_t *epostadj)
 {
 	checker_tok_t *tadj;
 	int rc;
@@ -3084,7 +3088,8 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 
 		if (!tok->lbegin) {
 			for (i = 0; i < cont_indent_spaces; i++) {
-				rc = checker_prepend_wspace(tok, ltt_space, " ");
+				rc = checker_prepend_wspace(tok, ltt_space,
+				    " ");
 				if (rc != EOK)
 					return rc;
 			}

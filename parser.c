@@ -122,7 +122,7 @@ void parser_destroy(parser_t *parser)
 static bool parser_ttype_ignore(lexer_toktype_t ttype)
 {
 	return ttype == ltt_space || ttype == ltt_tab ||
-	    ttype == ltt_newline ||ttype == ltt_comment ||
+	    ttype == ltt_newline || ttype == ltt_comment ||
 	    ttype == ltt_dscomment || ttype == ltt_preproc;
 }
 
@@ -1324,8 +1324,8 @@ error:
  */
 static int parser_process_eband(parser_t *parser, ast_node_t **rexpr)
 {
-	return parser_process_ltr_binop(parser, ltt_amper, parser_process_eequal,
-	    abo_band, rexpr);
+	return parser_process_ltr_binop(parser, ltt_amper,
+	    parser_process_eequal, abo_band, rexpr);
 }
 
 /** Parse bitwise xor expression.
@@ -2323,7 +2323,7 @@ static int parser_process_glabel(parser_t *parser, ast_node_t **rglabel)
 		goto error;
 
 	glabel->tlabel.data = dlabel;
-	glabel->tcolon.data = dcolon; 
+	glabel->tcolon.data = dcolon;
 
 	*rglabel = &glabel->node;
 	return EOK;
@@ -2427,7 +2427,7 @@ static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
 	}
 
 	rc = ast_stdecln_create(&stdecln);
-	if (rc != EOK) 
+	if (rc != EOK)
 		goto error;
 
 	stdecln->dspecs = dspecs;
@@ -2762,7 +2762,8 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			rc = ast_tsrecord_append(precord, sqlist, dlist, dscolon);
+			rc = ast_tsrecord_append(precord, sqlist, dlist,
+			    dscolon);
 			if (rc != EOK)
 				goto error;
 
@@ -2958,7 +2959,10 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 	ltt = parser_next_ttype(parser);
 	do {
 		if (parser_ttype_tspec(ltt)) {
-			/* Stop before identifier if we already have a specifier */
+			/*
+			 * Stop before identifier if we already have
+			 * a specifier
+			 */
 			if (ltt == ltt_ident && have_tspec)
 				break;
 
@@ -3027,7 +3031,10 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 				goto error;
 			elem = &sclass->node;
 		} else if (parser_ttype_tspec(ltt)) {
-			/* Stop before identifier if we already have a specifier */
+			/*
+			 * Stop before identifier if we already have
+			 * a specifier
+			 */
 			if (ltt == ltt_ident && have_tspec)
 				break;
 			rc = parser_process_tspec(parser, &elem);
@@ -3615,7 +3622,7 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	}
 
 	rc = ast_gdecln_create(dspecs, dlist, body, &gdecln);
-	if (rc != EOK) 
+	if (rc != EOK)
 		goto error;
 
 	if (have_init) {

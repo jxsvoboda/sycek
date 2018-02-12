@@ -346,7 +346,10 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 
 	p = lexer_chars(lexer);
 
-	/* Preprocessor frament ends with newline, except for backslash-newline */
+	/*
+	 * Preprocessor frament ends with newline, except for
+	 * backslash-newline
+	 */
 	while (p[1] != '\n' || p[0] == '\\') {
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
@@ -647,8 +650,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case '"':
 		return lexer_charstr(lexer, tok);
 	case '#':
-//		if (1/*XXX*/)
-			return lexer_preproc(lexer, tok);
+		return lexer_preproc(lexer, tok);
 	case '%':
 		if (p[1] == '=')
 			return lexer_keyword(lexer, ltt_modulo_assign, 2, tok);
@@ -844,11 +846,13 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_ident(lexer, tok);
 	case 'r':
 		if (p[1] == 'e' && p[2] == 'g' && p[3] == 'i' && p[4] == 's' &&
-		    p[5] == 't' && p[6] == 'e' && p[7] == 'r' && !is_idcnt(p[8])) {
+		    p[5] == 't' && p[6] == 'e' && p[7] == 'r' &&
+		    !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_register, 8, tok);
 		}
 		if (p[1] == 'e' && p[2] == 's' && p[3] == 't' && p[4] == 'r' &&
-		    p[5] == 'i' && p[6] == 'c' && p[7] == 'r' && !is_idcnt(p[8])) {
+		    p[5] == 'i' && p[6] == 'c' && p[7] == 'r' &&
+		    !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_restrict, 8, tok);
 		}
 		if (p[1] == 'e' && p[2] == 't' && p[3] == 'u' &&
@@ -906,7 +910,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		}
 		if (p[1] == 'o' && p[2] == 'l' && p[3] == 'a' && p[4] == 't' &&
 		    p[5] == 'i' && p[6] == 'l' && p[7] == 'e' &&
-			!is_idcnt(p[8])) {
+		    !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_volatile, 8, tok);
 		}
 		return lexer_ident(lexer, tok);

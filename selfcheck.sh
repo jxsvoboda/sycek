@@ -23,6 +23,7 @@
 #
 
 ccheck=./ccheck
+#ccheck="./ccheck --fix"
 
 srepcnt=0
 snorepcnt=0
