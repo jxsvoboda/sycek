@@ -3859,7 +3859,8 @@ static int ast_elnot_print(ast_elnot_t *elnot, FILE *f)
  */
 static void ast_elnot_destroy(ast_elnot_t *elnot)
 {
-	ast_tree_destroy(elnot->bexpr);
+	if (elnot != NULL)
+		ast_tree_destroy(elnot->bexpr);
 	free(elnot);
 }
 
