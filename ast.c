@@ -4671,7 +4671,7 @@ int ast_if_append(ast_if_t *aif, void *delse, void *dif, void *dlparen,
 	elseif->tlparen.data = dlparen;
 	elseif->cond = cond;
 	elseif->trparen.data = drparen;
-	elseif->ebranch = ebranch;;
+	elseif->ebranch = ebranch;
 
 	elseif->aif = aif;
 	list_append(&elseif->lif, &aif->elseifs);
