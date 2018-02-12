@@ -867,12 +867,12 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	checker_tok_t *trparen;
 	checker_tok_t *telse;
 	ast_elseif_t *elseif;
+	ast_block_t *prev_block;
 	int rc;
 
 	tif = (checker_tok_t *)aif->tif.data;
 	tlparen = (checker_tok_t *)aif->tlparen.data;
 	trparen = (checker_tok_t *)aif->trparen.data;
-	telse = (checker_tok_t *)aif->telse.data;
 
 	rc = checker_check_lbegin(scope, tif,
 	    "Statement must start on a new line.");
@@ -898,12 +898,27 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	if (rc != EOK)
 		return rc;
 
+	prev_block = aif->tbranch;
 	elseif = ast_if_first(aif);
+
 	while (elseif != NULL) {
-		telse = (checker_tok_t *)elseif->tif.data;
+		telse = (checker_tok_t *)elseif->telse.data;
 		tif = (checker_tok_t *)elseif->tif.data;
 		tlparen = (checker_tok_t *)elseif->tlparen.data;
 		trparen = (checker_tok_t *)elseif->trparen.data;
+
+		if (prev_block->braces) {
+			rc = checker_check_nbspace_before(scope, telse,
+			    "There must be single space between '}' and "
+			    "'else'.");
+			if (rc != EOK)
+				return rc;
+		} else {
+			rc = checker_check_lbegin(scope, telse,
+			    "'else' must begin on a new line.");
+			if (rc != EOK)
+				return rc;
+		}
 
 		rc = checker_check_nbspace_before(scope, tif,
 		    "There must be single space between 'else' and 'if'.");
@@ -929,13 +944,14 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		if (rc != EOK)
 			return rc;
 
+		prev_block = elseif->ebranch;
 		elseif = ast_if_next(elseif);
 	}
 
 	if (aif->fbranch != NULL) {
 		telse = (checker_tok_t *)aif->telse.data;
 
-		if (aif->tbranch->braces) {
+		if (prev_block->braces) {
 			rc = checker_check_nbspace_before(scope, telse,
 			    "There must be single space between '}' and "
 			    "'else'.");
