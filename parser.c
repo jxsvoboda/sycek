@@ -1917,6 +1917,8 @@ static int parser_process_if(parser_t *parser, ast_node_t **rif)
 	aif->cond = cond;
 	aif->trparen.data = drparen;
 	aif->tbranch = tbranch;
+	cond = NULL;
+	tbranch = NULL;
 
 	ltt = parser_next_ttype(parser);
 	while (ltt == ltt_else) {
@@ -1952,6 +1954,7 @@ static int parser_process_if(parser_t *parser, ast_node_t **rif)
 		if (rc != EOK)
 			goto error;
 
+		cond = NULL;
 		ebranch = NULL;
 
 		ltt = parser_next_ttype(parser);
