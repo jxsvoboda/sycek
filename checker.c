@@ -2722,6 +2722,7 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 {
 	ast_tok_t *afirst;
+	checker_tok_t *tfirst;
 	checker_tok_t *tlbrace;
 	ast_cinit_elem_t *elem;
 	checker_tok_t *tlbracket;
@@ -2731,6 +2732,7 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 	checker_tok_t *tcomma;
 	checker_tok_t *trbrace;
 	checker_scope_t *escope;
+	bool first_init;
 	int rc;
 
 	escope = checker_scope_nested(scope);
@@ -2743,6 +2745,7 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 	if (rc != EOK)
 		goto error;
 
+	first_init = true;
 	elem = ast_cinit_first(cinit);
 	while (elem != NULL) {
 		afirst = NULL;
@@ -2758,10 +2761,23 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 			break;
 		}
 
-		rc = checker_check_lbegin(escope, (checker_tok_t *)afirst->data,
-		    "Initializer must start on a new line.");
-		if (rc != EOK)
-			goto error;
+		tfirst = (checker_tok_t *)afirst->data;
+
+		if (first_init) {
+			rc = checker_check_lbegin(escope, tfirst,
+			    "First initializer should start on a new line.");
+			if (rc != EOK)
+				goto error;
+		} else {
+			rc = checker_check_brkspace_before(escope, tfirst,
+			    "Whitespace expected before initializer.");
+			if (rc != EOK)
+				goto error;
+		}
+
+		/** Initializers should not be indented as continuation */
+		if (checker_is_tok_lbegin(tfirst))
+			tfirst->lbegin = true;
 
 		switch (elem->etype) {
 		case ace_index:
@@ -2810,6 +2826,7 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 				goto error;
 		}
 
+		first_init = false;
 		elem = ast_cinit_next(elem);
 	}
 
