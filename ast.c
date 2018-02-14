@@ -4138,13 +4138,13 @@ int ast_cinit_create(ast_cinit_t **rcinit)
 /** Append plain element to compound initializer.
  *
  * @param cinit Compound initializer
- * @param expr Initializer value expression
+ * @param init Initializer value (expression or compound initializer)
  * @param have_comma @c true if we have a comma token
  * @param dcomma Comma token data
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_cinit_append_plain(ast_cinit_t *cinit, ast_node_t *expr,
+int ast_cinit_append_plain(ast_cinit_t *cinit, ast_node_t *init,
     bool have_comma, void *dcomma)
 {
 	ast_cinit_elem_t *elem;
@@ -4154,7 +4154,7 @@ int ast_cinit_append_plain(ast_cinit_t *cinit, ast_node_t *expr,
 		return ENOMEM;
 
 	elem->etype = ace_plain;
-	elem->expr = expr;
+	elem->init = init;
 	elem->have_comma = have_comma;
 
 	if (have_comma)
@@ -4172,14 +4172,14 @@ int ast_cinit_append_plain(ast_cinit_t *cinit, ast_node_t *expr,
  * @param index Index expression
  * @param drbracket Right bracket token data
  * @param dassign Assignment token data
- * @param expr Initializer value expression
+ * @param init Initializer value (expression or compound initializer)
  * @param have_comma @c true if we have a comma token
  * @param dcomma Comma token data
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_cinit_append_index(ast_cinit_t *cinit, void *dlbracket,
-    ast_node_t *index, void *drbracket, void *dassign, ast_node_t *expr,
+    ast_node_t *index, void *drbracket, void *dassign, ast_node_t *init,
     bool have_comma, void *dcomma)
 {
 	ast_cinit_elem_t *elem;
@@ -4193,7 +4193,7 @@ int ast_cinit_append_index(ast_cinit_t *cinit, void *dlbracket,
 	elem->index = index;
 	elem->trbracket.data = drbracket;
 	elem->tassign.data = dassign;
-	elem->expr = expr;
+	elem->init = init;
 	elem->have_comma = have_comma;
 
 	if (have_comma)
@@ -4210,14 +4210,14 @@ int ast_cinit_append_index(ast_cinit_t *cinit, void *dlbracket,
  * @param dperiod Period token data
  * @param dmember Member token data
  * @param dassign Assignment token data
- * @param expr Initializer value expression
+ * @param init Initializer value (expression or compound initializer)
  * @param have_comma @c true if we have a comma token
  * @param dcomma Comma token data
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_cinit_append_member(ast_cinit_t *cinit, void *dperiod, void *dmember,
-    void *dassign, ast_node_t *expr, bool have_comma, void *dcomma)
+    void *dassign, ast_node_t *init, bool have_comma, void *dcomma)
 {
 	ast_cinit_elem_t *elem;
 
@@ -4229,7 +4229,7 @@ int ast_cinit_append_member(ast_cinit_t *cinit, void *dperiod, void *dmember,
 	elem->tperiod.data = dperiod;
 	elem->tmember.data = dmember;
 	elem->tassign.data = dassign;
-	elem->expr = expr;
+	elem->init = init;
 	elem->have_comma = have_comma;
 
 	if (have_comma)
@@ -4299,7 +4299,7 @@ static int ast_cinit_print(ast_cinit_t *cinit, FILE *f)
 				return EIO;
 		}
 
-		rc = ast_tree_print(elem->expr, f);
+		rc = ast_tree_print(elem->init, f);
 		if (rc != EOK)
 			return rc;
 
@@ -4325,7 +4325,7 @@ static void ast_cinit_destroy(ast_cinit_t *cinit)
 		list_remove(&elem->lcinit);
 		if (elem->etype == ace_index)
 			ast_tree_destroy(elem->index);
-		ast_tree_destroy(elem->expr);
+		ast_tree_destroy(elem->init);
 		free(elem);
 		elem = ast_cinit_first(cinit);
 	}

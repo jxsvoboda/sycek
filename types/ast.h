@@ -838,8 +838,8 @@ typedef struct {
 	ast_tok_t trbracket;
 	/** '=' token (except for plain element) */
 	ast_tok_t tassign;
-	/** Initializer value expression */
-	ast_node_t *expr;
+	/** Initializer value expression (or nested compound initializer) */
+	ast_node_t *init;
 	/** @c true if we have a comma */
 	bool have_comma;
 	/** Comma (optional for the last element) */

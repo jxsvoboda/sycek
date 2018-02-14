@@ -44,6 +44,7 @@ static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
 static int parser_process_eprefix(parser_t *, ast_node_t **);
 static int parser_process_epostfix(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
+static int parser_process_init(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
 
 /** Create parser.
@@ -1635,8 +1636,8 @@ static int parser_process_cinit(parser_t *parser, ast_node_t **rcinit)
 				goto error;
 		}
 
-		/* Initializer expression may not contain a comma */
-		rc = parser_process_eassign(parser, &expr);
+		/* Initializer expression */
+		rc = parser_process_init(parser, &expr);
 		if (rc != EOK)
 			goto error;
 
@@ -1703,10 +1704,13 @@ static int parser_process_init(parser_t *parser, ast_node_t **rinit)
 	lexer_toktype_t ltt;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_lbrace)
+	if (ltt == ltt_lbrace) {
+		/* Compound initializer */
 		return parser_process_cinit(parser, rinit);
-	else
-		return parser_process_expr(parser, rinit);
+	} else {
+		/* Initializer expression (cannot contain comma) */
+		return parser_process_eassign(parser, rinit);
+	}
 }
 
 /** Parse break statement.

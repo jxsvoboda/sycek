@@ -2761,7 +2761,6 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 {
 	ast_tok_t *afirst;
 	checker_tok_t *tfirst;
-	checker_tok_t *tlbrace;
 	ast_cinit_elem_t *elem;
 	checker_tok_t *tlbracket;
 	checker_tok_t *trbracket;
@@ -2770,20 +2769,12 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 	checker_tok_t *tcomma;
 	checker_tok_t *trbrace;
 	checker_scope_t *escope;
-	bool first_init;
 	int rc;
 
 	escope = checker_scope_nested(scope);
 	if (escope == NULL)
 		return ENOMEM;
 
-	tlbrace = (checker_tok_t *)cinit->tlbrace.data;
-	rc = checker_check_nbspace_before(scope, tlbrace,
-	    "Expected single space before '{'.");
-	if (rc != EOK)
-		goto error;
-
-	first_init = true;
 	elem = ast_cinit_first(cinit);
 	while (elem != NULL) {
 		afirst = NULL;
@@ -2795,23 +2786,16 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 			afirst = &elem->tperiod;
 			break;
 		case ace_plain:
-			afirst = ast_tree_first_tok(elem->expr);
+			afirst = ast_tree_first_tok(elem->init);
 			break;
 		}
 
 		tfirst = (checker_tok_t *)afirst->data;
 
-		if (first_init) {
-			rc = checker_check_lbegin(escope, tfirst,
-			    "First initializer should start on a new line.");
-			if (rc != EOK)
-				goto error;
-		} else {
-			rc = checker_check_brkspace_before(escope, tfirst,
-			    "Whitespace expected before initializer.");
-			if (rc != EOK)
-				goto error;
-		}
+		rc = checker_check_brkspace_before(escope, tfirst,
+		    "Whitespace expected before initializer.");
+		if (rc != EOK)
+			goto error;
 
 		/** Initializers should not be indented as continuation */
 		if (checker_is_tok_lbegin(tfirst))
@@ -2850,7 +2834,7 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 				goto error;
 		}
 
-		rc = checker_check_expr(escope, elem->expr);
+		rc = checker_check_init(escope, elem->init);
 		if (rc != EOK)
 			goto error;
 
@@ -2864,16 +2848,20 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 				goto error;
 		}
 
-		first_init = false;
 		elem = ast_cinit_next(elem);
 	}
 
 	trbrace = (checker_tok_t *)cinit->trbrace.data;
 	if (trbrace != NULL) {
-		rc = checker_check_lbegin(scope, trbrace,
-		    "'}' must begin on a new line.");
+		rc = checker_check_brkspace_before(scope, trbrace,
+		    "Whitespace expected before '}'.");
 		if (rc != EOK)
 			goto error;
+
+		/** '{' should not be indented as continuation */
+		if (checker_is_tok_lbegin(trbrace))
+			trbrace->lbegin = true;
+
 	}
 
 	checker_scope_destroy(escope);
