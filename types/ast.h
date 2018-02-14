@@ -133,8 +133,10 @@ typedef enum {
 	ant_stexpr,
 	/** Declaration statement */
 	ant_stdecln,
-	/* Null statement */
+	/** Null statement */
 	ant_stnull,
+	/** Loop macro invocation */
+	ant_lmacro,
 	/** Statement block */
 	ant_block,
 	/** Global declaration */
@@ -1062,6 +1064,16 @@ typedef struct {
 	/** ';' token */
 	ast_tok_t tscolon;
 } ast_stnull_t;
+
+/** Loop macro invocation */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Macro invocation expression */
+	ast_node_t *expr;
+	/** Function body (if function definition) */
+	ast_block_t *body;
+} ast_lmacro_t;
 
 /** Statement block. */
 struct ast_block {

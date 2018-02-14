@@ -1365,6 +1365,36 @@ error:
 	return rc;
 }
 
+/** Run checks on a loop macro invocation.
+ *
+ * @param scope Checker scope
+ * @param lmacro AST loop macro invocation
+ * @return EOK on success or error code
+ */
+static int checker_check_lmacro(checker_scope_t *scope, ast_lmacro_t *lmacro)
+{
+	int rc;
+	ast_tok_t *almacro;
+
+	almacro = ast_tree_first_tok(&lmacro->node);
+	rc = checker_check_lbegin(scope, (checker_tok_t *)almacro->data,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, lmacro->expr);
+	if (rc != EOK)
+		goto error;
+
+	rc = checker_check_block(scope, lmacro->body);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Run checks on a statement.
  *
  * @param scope Checker scope
@@ -1401,6 +1431,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 		return checker_check_stexpr(scope, (ast_stexpr_t *)stmt->ext);
 	case ant_stdecln:
 		return checker_check_stdecln(scope, (ast_stdecln_t *)stmt->ext);
+	case ant_lmacro:
+		return checker_check_lmacro(scope, (ast_lmacro_t *)stmt->ext);
 	default:
 		assert(false);
 		return EOK;

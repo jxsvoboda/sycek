@@ -5467,6 +5467,91 @@ static ast_tok_t *ast_stnull_last_tok(ast_stnull_t *astnull)
 	return &astnull->tscolon;
 }
 
+/** Create AST loop macro invocation.
+ *
+ * @param rlmacro Place to store pointer to new loop macro invocation
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_lmacro_create(ast_lmacro_t **rlmacro)
+{
+	ast_lmacro_t *lmacro;
+
+	lmacro = calloc(1, sizeof(ast_lmacro_t));
+	if (lmacro == NULL)
+		return ENOMEM;
+
+	lmacro->node.ext = lmacro;
+	lmacro->node.ntype = ant_lmacro;
+
+	*rlmacro = lmacro;
+	return EOK;
+}
+
+/** Print AST loop macro invocation.
+ *
+ * @param lmacro loop macro invocation
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_lmacro_print(ast_lmacro_t *lmacro, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "lmacro(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(lmacro->expr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ", ") < 0)
+		return EIO;
+
+	rc = ast_block_print(lmacro->body, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST loop macro invocation.
+ *
+ * @param lmacro loop macro invocation
+ */
+static void ast_lmacro_destroy(ast_lmacro_t *lmacro)
+{
+	ast_tree_destroy(lmacro->expr);
+	ast_block_destroy(lmacro->body);
+
+	free(lmacro);
+}
+
+/** Get first token of AST loop macro invocation.
+ *
+ * @param lmacro loop macro invocation
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_lmacro_first_tok(ast_lmacro_t *lmacro)
+{
+	return ast_tree_first_tok(lmacro->expr);
+}
+
+/** Get last token of AST loop macro invocation.
+ *
+ * @param lmacro loop macro invocation
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_lmacro_last_tok(ast_lmacro_t *lmacro)
+{
+	return ast_block_last_tok(lmacro->body);
+}
+
+
 /** Print AST tree.
  *
  * @param node Root node
@@ -5587,6 +5672,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_stdecln_print((ast_stdecln_t *)node->ext, f);
 	case ant_stnull:
 		return ast_stnull_print((ast_stnull_t *)node->ext, f);
+	case ant_lmacro:
+		return ast_lmacro_print((ast_lmacro_t *)node->ext, f);
 	}
 
 	return EINVAL;
@@ -5757,6 +5844,8 @@ void ast_tree_destroy(ast_node_t *node)
 		return ast_stdecln_destroy((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_destroy((ast_stnull_t *)node->ext);
+	case ant_lmacro:
+		return ast_lmacro_destroy((ast_lmacro_t *)node->ext);
 	}
 }
 
@@ -5873,6 +5962,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_stdecln_first_tok((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_first_tok((ast_stnull_t *)node->ext);
+	case ant_lmacro:
+		return ast_lmacro_first_tok((ast_lmacro_t *)node->ext);
 	}
 
 	assert(false);
@@ -5992,6 +6083,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_stdecln_last_tok((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_last_tok((ast_stnull_t *)node->ext);
+	case ant_lmacro:
+		return ast_lmacro_last_tok((ast_lmacro_t *)node->ext);
 	}
 
 	assert(false);

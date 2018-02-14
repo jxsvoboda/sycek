@@ -2334,6 +2334,40 @@ error:
 	return rc;
 }
 
+/** Parse loop macro invocation.
+ *
+ * @param parser Parser
+ * @param expr Loop macro invocation expression
+ * @param rstmt Place to store pointer to new statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_lmacro(parser_t *parser, ast_node_t *expr,
+    ast_node_t **rstmt)
+{
+	ast_lmacro_t *lmacro = NULL;
+	ast_block_t *block = NULL;
+	int rc;
+
+	rc = ast_lmacro_create(&lmacro);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_block(parser, &block);
+	if (rc != EOK)
+		goto error;
+
+	lmacro->expr = expr;
+	lmacro->body = block;
+
+	*rstmt = &lmacro->node;
+	return EOK;
+error:
+	if (lmacro != NULL)
+		ast_tree_destroy(&lmacro->node);
+	return rc;
+}
+
 /** Parse expression statement.
  *
  * @param parser Parser
@@ -2343,6 +2377,7 @@ error:
  */
 static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 {
+	lexer_toktype_t ltt;
 	ast_stexpr_t *stexpr = NULL;
 	ast_node_t *expr = NULL;
 	void *dscolon;
@@ -2355,6 +2390,16 @@ static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 	rc = parser_process_expr(parser, &expr);
 	if (rc != EOK)
 		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lbrace) {
+		/* Possibly a loop macro */
+		rc = parser_process_lmacro(parser, expr, rstmt);
+		if (rc != EOK)
+			goto error;
+
+		return EOK;
+	}
 
 	rc = parser_match(parser, ltt_scolon, &dscolon);
 	if (rc != EOK)
@@ -2507,7 +2552,7 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		return rc;
 
-	/* Try parsing the statement as a delcaration */
+	/* Try parsing the statement as a declaration */
 	rc = parser_process_stdecln(sparser, rstmt);
 	if (rc == EOK) {
 		/* It worked */
