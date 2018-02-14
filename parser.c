@@ -2392,7 +2392,7 @@ static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 		goto error;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_lbrace) {
+	if (ltt != ltt_scolon && expr->ntype == ant_efuncall) {
 		/* Possibly a loop macro */
 		rc = parser_process_lmacro(parser, expr, rstmt);
 		if (rc != EOK)
