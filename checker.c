@@ -1474,6 +1474,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 	ast_tok_t *adecl;
 	checker_tok_t *tdecl;
 	checker_tok_t *tcomma;
+	checker_tok_t *tellipsis;
 	checker_tok_t *trparen;
 	int rc;
 
@@ -1515,6 +1516,11 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 		}
 
 		arg = ast_dfun_next(arg);
+	}
+
+	if (dfun->have_ellipsis) {
+		tellipsis = (checker_tok_t *)dfun->tellipsis.data;
+		checker_check_any(scope, tellipsis);
 	}
 
 	trparen = (checker_tok_t *)dfun->trparen.data;

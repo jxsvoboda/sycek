@@ -455,6 +455,10 @@ typedef struct {
 	ast_tok_t tlparen;
 	/** Arguments */
 	list_t args; /* of ast_dfun_arg_t */
+	/** @c true if we have an ellipsis as the last argument */
+	bool have_ellipsis;
+	/** Ellipsis token */
+	ast_tok_t tellipsis;
 	/** Right parenthesis token */
 	ast_tok_t trparen;
 } ast_dfun_t;

@@ -3241,6 +3241,7 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	ast_dspecs_t *dspecs;
 	ast_node_t *decl;
 	void *dcomma;
+	void *dellipsis;
 	void *drparen;
 	int rc;
 
@@ -3267,6 +3268,10 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_rparen) {
 		do {
+			ltt = parser_next_ttype(parser);
+			if (ltt == ltt_ellipsis)
+				break;
+
 			rc = parser_process_dspecs(parser, &dspecs);
 			if (rc != EOK)
 				goto error;
@@ -3292,6 +3297,13 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 			if (rc != EOK)
 				goto error;
 		} while (ltt != ltt_rparen);
+
+		if (ltt == ltt_ellipsis) {
+			parser_skip(parser, &dellipsis);
+
+			dfun->have_ellipsis = true;
+			dfun->tellipsis.data = dellipsis;
+		}
 	}
 
 	rc = parser_match(parser, ltt_rparen, &drparen);

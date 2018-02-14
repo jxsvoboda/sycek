@@ -55,6 +55,7 @@ typedef enum {
 	ltt_scolon,
 	ltt_qmark,
 	ltt_period,
+	ltt_ellipsis,
 	ltt_arrow,
 	ltt_plus,
 	ltt_minus,

@@ -778,6 +778,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_arrow, 2, tok);
 		return lexer_onechar(lexer, ltt_minus, tok);
 	case '.':
+		if (p[1] == '.' && p[2] == '.')
+			return lexer_keyword(lexer, ltt_ellipsis, 3, tok);
 		return lexer_onechar(lexer, ltt_period, tok);
 	case '/':
 		if (p[1] == '*')
@@ -1072,6 +1074,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "?";
 	case ltt_period:
 		return ".";
+	case ltt_ellipsis:
+		return "...";
 	case ltt_arrow:
 		return "->";
 	case ltt_plus:
