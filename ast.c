@@ -35,6 +35,8 @@
 static int ast_block_print(ast_block_t *, FILE *);
 static ast_tok_t *ast_block_last_tok(ast_block_t *);
 static int ast_dlist_print(ast_dlist_t *, FILE *);
+static int ast_idlist_print(ast_idlist_t *, FILE *);
+static void ast_idlist_destroy(ast_idlist_t *);
 static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *);
 static void ast_dspecs_destroy(ast_dspecs_t *);
 static void ast_block_destroy(ast_block_t *);
@@ -315,13 +317,13 @@ static ast_tok_t *ast_sclass_last_tok(ast_sclass_t *sclass)
 /** Create AST global declaration.
  *
  * @param dspecs Declaration specifiers
- * @param dlist Declarator list
+ * @param idlist Init-declarator list
  * @param body Body or @c NULL
  * @param rgdecln Place to store pointer to new global declaration
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_gdecln_create(ast_dspecs_t *dspecs, ast_dlist_t *dlist,
+int ast_gdecln_create(ast_dspecs_t *dspecs, ast_idlist_t *idlist,
     ast_block_t *body, ast_gdecln_t **rgdecln)
 {
 	ast_gdecln_t *gdecln;
@@ -331,7 +333,7 @@ int ast_gdecln_create(ast_dspecs_t *dspecs, ast_dlist_t *dlist,
 		return ENOMEM;
 
 	gdecln->dspecs = dspecs;
-	gdecln->dlist = dlist;
+	gdecln->idlist = idlist;
 	gdecln->body = body;
 
 	gdecln->node.ext = gdecln;
@@ -362,7 +364,7 @@ static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 	if (fprintf(f, ", ") < 0)
 		return EIO;
 
-	rc = ast_dlist_print(gdecln->dlist, f);
+	rc = ast_idlist_print(gdecln->idlist, f);
 	if (rc != EOK)
 		return rc;
 
@@ -370,12 +372,6 @@ static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 		if (fprintf(f, ", ") < 0)
 			return EIO;
 		rc = ast_block_print(gdecln->body, f);
-		if (rc != EOK)
-			return rc;
-	}
-
-	if (gdecln->have_init) {
-		rc = ast_tree_print(gdecln->init, f);
 		if (rc != EOK)
 			return rc;
 	}
@@ -393,9 +389,8 @@ static int ast_gdecln_print(ast_gdecln_t *gdecln, FILE *f)
 static void ast_gdecln_destroy(ast_gdecln_t *gdecln)
 {
 	ast_dspecs_destroy(gdecln->dspecs);
-	ast_dlist_destroy(gdecln->dlist);
+	ast_idlist_destroy(gdecln->idlist);
 	ast_block_destroy(gdecln->body);
-	ast_tree_destroy(gdecln->init);
 
 	free(gdecln);
 }
@@ -2136,17 +2131,17 @@ int ast_dlist_create(ast_dlist_t **rdlist)
  */
 int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl)
 {
-	ast_dlist_entry_t *arg;
+	ast_dlist_entry_t *entry;
 
-	arg = calloc(1, sizeof(ast_dlist_entry_t));
-	if (arg == NULL)
+	entry = calloc(1, sizeof(ast_dlist_entry_t));
+	if (entry == NULL)
 		return ENOMEM;
 
-	arg->tcomma.data = dcomma;
-	arg->decl = decl;
+	entry->tcomma.data = dcomma;
+	entry->decl = decl;
 
-	arg->dlist = dlist;
-	list_append(&arg->ldlist, &dlist->decls);
+	entry->dlist = dlist;
+	list_append(&entry->ldlist, &dlist->decls);
 	return EOK;
 }
 
@@ -2168,14 +2163,14 @@ ast_dlist_entry_t *ast_dlist_first(ast_dlist_t *dlist)
 
 /** Return next declarator list entry.
  *
- * @param arg Current entry
+ * @param entry Current entry
  * @return Next entry or @c NULL
  */
-ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *arg)
+ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *entry)
 {
 	link_t *link;
 
-	link = list_next(&arg->ldlist, &arg->dlist->decls);
+	link = list_next(&entry->ldlist, &entry->dlist->decls);
 	if (link == NULL)
 		return NULL;
 
@@ -2200,14 +2195,14 @@ ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *dlist)
 
 /** Return previous declarator list entry.
  *
- * @param arg Current entry
+ * @param entry Current entry
  * @return Previous entry or @c NULL
  */
-ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *arg)
+ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *entry)
 {
 	link_t *link;
 
-	link = list_prev(&arg->ldlist, &arg->dlist->decls);
+	link = list_prev(&entry->ldlist, &entry->dlist->decls);
 	if (link == NULL)
 		return NULL;
 
@@ -2312,6 +2307,227 @@ static ast_tok_t *ast_dlist_last_tok(ast_dlist_t *dlist)
 
 	/* See if there are at least two entries */
 	if (ast_dlist_prev(entry) == NULL)
+		return NULL;
+
+	/* Return separating comma */
+	return &entry->tcomma;
+}
+
+/** Create AST init-declarator list.
+ *
+ * @param rdfun Place to store pointer to new init-declarator list
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_idlist_create(ast_idlist_t **ridlist)
+{
+	ast_idlist_t *idlist;
+
+	idlist = calloc(1, sizeof(ast_idlist_t));
+	if (idlist == NULL)
+		return ENOMEM;
+
+	list_initialize(&idlist->idecls);
+
+	idlist->node.ext = idlist;
+	idlist->node.ntype = ant_idlist;
+
+	*ridlist = idlist;
+	return EOK;
+}
+
+/** Append entry to init-declarator list.
+ *
+ * @param idlist Init-declarator list
+ * @param dcomma Data for preceding comma token or @c NULL
+ * @param decl Declarator
+ * @param have_init @c true if we have an initializer
+ * @param dassign Data for assign token or @c NULL
+ * @param init Initializer
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_idlist_append(ast_idlist_t *idlist, void *dcomma, ast_node_t *decl,
+    bool have_init, void *dassign, ast_node_t *init)
+{
+	ast_idlist_entry_t *entry;
+
+	entry = calloc(1, sizeof(ast_idlist_entry_t));
+	if (entry == NULL)
+		return ENOMEM;
+
+	entry->tcomma.data = dcomma;
+	entry->decl = decl;
+	entry->have_init = have_init;
+	entry->tassign.data = dassign;
+	entry->init = init;
+
+	entry->idlist = idlist;
+	list_append(&entry->lidlist, &idlist->idecls);
+	return EOK;
+}
+
+/** Return first init-declarator list entry.
+ *
+ * @param idlist Init-declarator list
+ * @return First entry or @c NULL
+ */
+ast_idlist_entry_t *ast_idlist_first(ast_idlist_t *idlist)
+{
+	link_t *link;
+
+	link = list_first(&idlist->idecls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_idlist_entry_t, lidlist);
+}
+
+/** Return next init-declarator list entry.
+ *
+ * @param entry Current entry
+ * @return Next entry or @c NULL
+ */
+ast_idlist_entry_t *ast_idlist_next(ast_idlist_entry_t *entry)
+{
+	link_t *link;
+
+	link = list_next(&entry->lidlist, &entry->idlist->idecls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_idlist_entry_t, lidlist);
+}
+
+/** Return last init-declarator list entry.
+ *
+ * @param idlist Init-declarator list
+ * @return Last entry or @c NULL
+ */
+ast_idlist_entry_t *ast_idlist_last(ast_idlist_t *idlist)
+{
+	link_t *link;
+
+	link = list_last(&idlist->idecls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_idlist_entry_t, lidlist);
+}
+
+/** Return previous init-declarator list entry.
+ *
+ * @param entry Current entry
+ * @return Previous entry or @c NULL
+ */
+ast_idlist_entry_t *ast_idlist_prev(ast_idlist_entry_t *entry)
+{
+	link_t *link;
+
+	link = list_prev(&entry->lidlist, &entry->idlist->idecls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_idlist_entry_t, lidlist);
+}
+
+/** Print AST init-declarator list.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_idlist_print(ast_idlist_t *idlist, FILE *f)
+{
+	ast_idlist_entry_t *entry;
+	int rc;
+
+	if (fprintf(f, "idlist(") < 0)
+		return EIO;
+
+	entry = ast_idlist_first(idlist);
+	while (entry != NULL) {
+		rc = ast_tree_print(entry->decl, f);
+		if (rc != EOK)
+			return EIO;
+
+		entry = ast_idlist_next(entry);
+
+		if (entry != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST init-declarator list.
+ *
+ * @param block Block
+ */
+static void ast_idlist_destroy(ast_idlist_t *idlist)
+{
+	ast_idlist_entry_t *entry;
+
+	entry = ast_idlist_first(idlist);
+	while (entry != NULL) {
+		list_remove(&entry->lidlist);
+		ast_tree_destroy(entry->decl);
+		free(entry);
+
+		entry = ast_idlist_first(idlist);
+	}
+
+	free(idlist);
+}
+
+/** Get first token of AST init-declarator list.
+ *
+ * @param idlist Init-declarator list
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_idlist_first_tok(ast_idlist_t *idlist)
+{
+	ast_idlist_entry_t *entry;
+	ast_tok_t *tok;
+
+	/* Try first token of first entry */
+	entry = ast_idlist_first(idlist);
+	tok = ast_tree_first_tok(entry->decl);
+	if (tok != NULL)
+		return tok;
+
+	/* See if there are at least two entries */
+	entry = ast_idlist_next(entry);
+	if (entry == NULL)
+		return NULL;
+
+	/* Return separating comma */
+	return &entry->tcomma;
+}
+
+/** Get last token of AST init-declarator list.
+ *
+ * @param idlist Init-declarator list
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_idlist_last_tok(ast_idlist_t *idlist)
+{
+	ast_idlist_entry_t *entry;
+	ast_tok_t *tok;
+
+	/* Try last token of last entry */
+	entry = ast_idlist_last(idlist);
+	tok = ast_tree_last_tok(entry->decl);
+	if (tok != NULL)
+		return tok;
+
+	/* See if there are at least two entries */
+	if (ast_idlist_prev(entry) == NULL)
 		return NULL;
 
 	/* Return separating comma */
@@ -5358,7 +5574,7 @@ static int ast_stdecln_print(ast_stdecln_t *stdecln, FILE *f)
 	if (fprintf(f, ", ") < 0)
 		return EIO;
 
-	rc = ast_dlist_print(stdecln->dlist, f);
+	rc = ast_idlist_print(stdecln->idlist, f);
 	if (rc != EOK)
 		return rc;
 
@@ -5375,8 +5591,7 @@ static int ast_stdecln_print(ast_stdecln_t *stdecln, FILE *f)
 static void ast_stdecln_destroy(ast_stdecln_t *stdecln)
 {
 	ast_dspecs_destroy(stdecln->dspecs);
-	ast_dlist_destroy(stdecln->dlist);
-	ast_tree_destroy(stdecln->init);
+	ast_idlist_destroy(stdecln->idlist);
 
 	free(stdecln);
 }
@@ -5600,6 +5815,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_darray_print((ast_darray_t *)node->ext, f);
 	case ant_dlist:
 		return ast_dlist_print((ast_dlist_t *)node->ext, f);
+	case ant_idlist:
+		return ast_idlist_print((ast_idlist_t *)node->ext, f);
 	case ant_eint:
 		return ast_eint_print((ast_eint_t *)node->ext, f);
 	case ant_echar:
@@ -5746,6 +5963,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_dlist:
 		ast_dlist_destroy((ast_dlist_t *)node->ext);
 		break;
+	case ant_idlist:
+		ast_idlist_destroy((ast_idlist_t *)node->ext);
+		break;
 	case ant_eint:
 		ast_eint_destroy((ast_eint_t *)node->ext);
 		break;
@@ -5890,6 +6110,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_darray_first_tok((ast_darray_t *)node->ext);
 	case ant_dlist:
 		return ast_dlist_first_tok((ast_dlist_t *)node->ext);
+	case ant_idlist:
+		return ast_idlist_first_tok((ast_idlist_t *)node->ext);
 	case ant_eint:
 		return ast_eint_first_tok((ast_eint_t *)node->ext);
 	case ant_echar:
@@ -6011,6 +6233,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_darray_last_tok((ast_darray_t *)node->ext);
 	case ant_dlist:
 		return ast_dlist_last_tok((ast_dlist_t *)node->ext);
+	case ant_idlist:
+		return ast_idlist_last_tok((ast_idlist_t *)node->ext);
 	case ant_eint:
 		return ast_eint_last_tok((ast_eint_t *)node->ext);
 	case ant_echar:

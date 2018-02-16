@@ -38,7 +38,7 @@ static int test_ast_module(void)
 	ast_module_t *module;
 	ast_gdecln_t *gdecln;
 	ast_dspecs_t *dspecs;
-	ast_dlist_t *dlist;
+	ast_idlist_t *idlist;
 	int rc;
 
 	rc = ast_module_create(&module);
@@ -49,11 +49,11 @@ static int test_ast_module(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_dlist_create(&dlist);
+	rc = ast_idlist_create(&idlist);
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_gdecln_create(dspecs, dlist, NULL, &gdecln);
+	rc = ast_gdecln_create(dspecs, idlist, NULL, &gdecln);
 	if (rc != EOK)
 		return rc;
 
@@ -74,18 +74,18 @@ static int test_ast_gdecln(void)
 {
 	ast_gdecln_t *gdecln;
 	ast_dspecs_t *dspecs;
-	ast_dlist_t *dlist;
+	ast_idlist_t *idlist;
 	int rc;
 
 	rc = ast_dspecs_create(&dspecs);
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_dlist_create(&dlist);
+	rc = ast_idlist_create(&idlist);
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_gdecln_create(dspecs, dlist, NULL, &gdecln);
+	rc = ast_gdecln_create(dspecs, idlist, NULL, &gdecln);
 	if (rc != EOK)
 		return rc;
 

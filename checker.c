@@ -40,6 +40,7 @@ static void *checker_parser_next_tok(void *, void *);
 static void *checker_parser_tok_data(void *, void *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_dlist(checker_scope_t *, ast_dlist_t *);
+static int checker_check_idlist(checker_scope_t *, ast_idlist_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
@@ -1313,7 +1314,6 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 	ast_tok_t *adecln;
 	ast_tok_t *adecl;
 	checker_tok_t *tdecl;
-	checker_tok_t *tassign;
 	checker_tok_t *tscolon;
 
 	adecln = ast_tree_first_tok(&stdecln->dspecs->node);
@@ -1326,7 +1326,7 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 	if (rc != EOK)
 		goto error;
 
-	adecl = ast_tree_first_tok(&stdecln->dlist->node);
+	adecl = ast_tree_first_tok(&stdecln->idlist->node);
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
@@ -1335,26 +1335,9 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 			goto error;
 	}
 
-	rc = checker_check_dlist(scope, stdecln->dlist);
+	rc = checker_check_idlist(scope, stdecln->idlist);
 	if (rc != EOK)
 		goto error;
-
-	if (stdecln->have_init) {
-		tassign = (checker_tok_t *)stdecln->tassign.data;
-		rc = checker_check_nbspace_before(scope, tassign,
-		    "Single space expected before '='.");
-		if (rc != EOK)
-			goto error;
-
-		rc = checker_check_brkspace_after(scope, tassign,
-		    "Whitespace expected after '='.");
-		if (rc != EOK)
-			goto error;
-
-		rc = checker_check_init(scope, stdecln->init);
-		if (rc != EOK)
-			goto error;
-	}
 
 	tscolon = (checker_tok_t *)stdecln->tscolon.data;
 	checker_check_nows_before(scope, tscolon,
@@ -1662,6 +1645,60 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	}
 
 	return EOK;
+}
+
+/** Run checks on an init-declarator list.
+ *
+ * @param scope Checker scope
+ * @param dlist AST declarator list
+ * @return EOK on success or error code
+ */
+static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist)
+{
+	ast_idlist_entry_t *entry;
+	checker_tok_t *tcomma;
+	checker_tok_t *tassign;
+	int rc;
+
+	entry = ast_idlist_first(idlist);
+	while (entry != NULL) {
+		tcomma = (checker_tok_t *)entry->tcomma.data;
+		if (tcomma != NULL) {
+			checker_check_nows_before(scope, tcomma,
+			    "Unexpected whitespace before ','.");
+			rc = checker_check_brkspace_after(scope, tcomma,
+			    "Whitespace expected after ','.");
+			if (rc != EOK)
+				goto error;
+		}
+
+		rc = checker_check_decl(scope, entry->decl);
+		if (rc != EOK)
+			return rc;
+
+		if (entry->have_init) {
+			tassign = (checker_tok_t *)entry->tassign.data;
+			rc = checker_check_nbspace_before(scope, tassign,
+			    "Single space expected before '='.");
+			if (rc != EOK)
+				goto error;
+
+			rc = checker_check_brkspace_after(scope, tassign,
+			    "Whitespace expected after '='.");
+			if (rc != EOK)
+				goto error;
+
+			rc = checker_check_init(scope, entry->init);
+			if (rc != EOK)
+				goto error;
+		}
+
+		entry = ast_idlist_next(entry);
+	}
+
+	return EOK;
+error:
+	return rc;
 }
 
 /** Run checks on a storage class.
@@ -2907,7 +2944,6 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 	checker_tok_t *tdecl;
 	checker_tok_t *tlbrace;
 	checker_tok_t *trbrace;
-	checker_tok_t *tassign;
 	checker_tok_t *tscolon;
 	checker_scope_t *bscope = NULL;
 
@@ -2924,7 +2960,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 	if (rc != EOK)
 		goto error;
 
-	adecl = ast_tree_first_tok(&gdecln->dlist->node);
+	adecl = ast_tree_first_tok(&gdecln->idlist->node);
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
@@ -2933,26 +2969,9 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 			goto error;
 	}
 
-	rc = checker_check_dlist(scope, gdecln->dlist);
+	rc = checker_check_idlist(scope, gdecln->idlist);
 	if (rc != EOK)
 		goto error;
-
-	if (gdecln->have_init) {
-		tassign = (checker_tok_t *)gdecln->tassign.data;
-		rc = checker_check_nbspace_before(scope, tassign,
-		    "Single space expected before '='.");
-		if (rc != EOK)
-			goto error;
-
-		rc = checker_check_brkspace_after(scope, tassign,
-		    "Whitespace expected after '='.");
-		if (rc != EOK)
-			goto error;
-
-		rc = checker_check_init(scope, gdecln->init);
-		if (rc != EOK)
-			goto error;
-	}
 
 	if (gdecln->body == NULL) {
 		tscolon = (checker_tok_t *)gdecln->tscolon.data;

@@ -38,7 +38,7 @@ extern ast_node_t *ast_module_next(ast_node_t *);
 extern ast_node_t *ast_module_last(ast_module_t *);
 extern ast_node_t *ast_module_prev(ast_node_t *);
 extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
-extern int ast_gdecln_create(ast_dspecs_t *, ast_dlist_t *, ast_block_t *,
+extern int ast_gdecln_create(ast_dspecs_t *, ast_idlist_t *, ast_block_t *,
     ast_gdecln_t **);
 extern int ast_block_create(ast_braces_t, ast_block_t **);
 extern void ast_block_append(ast_block_t *, ast_node_t *);
@@ -86,6 +86,13 @@ extern ast_dlist_entry_t *ast_dlist_first(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *);
 extern ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *);
+extern int ast_idlist_create(ast_idlist_t **);
+extern int ast_idlist_append(ast_idlist_t *, void *, ast_node_t *, bool,
+    void *, ast_node_t *);
+extern ast_idlist_entry_t *ast_idlist_first(ast_idlist_t *);
+extern ast_idlist_entry_t *ast_idlist_next(ast_idlist_entry_t *);
+extern ast_idlist_entry_t *ast_idlist_last(ast_idlist_t *);
+extern ast_idlist_entry_t *ast_idlist_prev(ast_idlist_entry_t *);
 extern bool ast_decl_is_abstract(ast_node_t *);
 extern int ast_eint_create(ast_eint_t **);
 extern int ast_echar_create(ast_echar_t **);

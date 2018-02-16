@@ -40,6 +40,7 @@ static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
+static int parser_process_idlist(parser_t *, ast_abs_allow_t, ast_idlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
 static int parser_process_eprefix(parser_t *, ast_node_t **);
 static int parser_process_epostfix(parser_t *, ast_node_t **);
@@ -2431,65 +2432,31 @@ error:
  */
 static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
 {
-	lexer_toktype_t ltt;
 	ast_stdecln_t *stdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
-	ast_dlist_t *dlist = NULL;
+	ast_idlist_t *idlist = NULL;
 	ast_node_t *init = NULL;
-	bool have_init;
 	void *dscolon;
-	void *dassign;
 	int rc;
 
 	rc = parser_process_dspecs(parser, &dspecs);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_dlist(parser, ast_abs_disallow, &dlist);
+	rc = parser_process_idlist(parser, ast_abs_allow, &idlist);
 	if (rc != EOK)
 		goto error;
 
-	ltt = parser_next_ttype(parser);
-	switch (ltt) {
-	case ltt_scolon:
-		parser_skip(parser, &dscolon);
-		have_init = false;
-		break;
-	case ltt_assign:
-		parser_skip(parser, &dassign);
-
-		rc = parser_process_init(parser, &init);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_match(parser, ltt_scolon, &dscolon);
-		if (rc != EOK)
-			goto error;
-
-		have_init = true;
-		break;
-	default:
-		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected ';' or '='.\n");
-		}
-		rc = EINVAL;
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
 		goto error;
-	}
 
 	rc = ast_stdecln_create(&stdecln);
 	if (rc != EOK)
 		goto error;
 
 	stdecln->dspecs = dspecs;
-	stdecln->dlist = dlist;
-
-	if (have_init) {
-		stdecln->have_init = true;
-		stdecln->tassign.data = dassign;
-		stdecln->init = init;
-	}
+	stdecln->idlist = idlist;
 
 	stdecln->tscolon.data = dscolon;
 
@@ -2500,8 +2467,8 @@ error:
 		ast_tree_destroy(&stdecln->node);
 	if (dspecs != NULL)
 		ast_tree_destroy(&dspecs->node);
-	if (dlist != NULL)
-		ast_tree_destroy(&dlist->node);
+	if (idlist != NULL)
+		ast_tree_destroy(&idlist->node);
 	if (init != NULL)
 		ast_tree_destroy(init);
 	return rc;
@@ -3517,6 +3484,111 @@ error:
 	return rc;
 }
 
+/** Parse init-declarator list.
+ *
+ * @param parser Parser
+ * @param aallow @c ast_abs_allow to allow abstract declarators,
+ *        ast_abs_disallow to disallow them
+ * @param ridlist Place to store pointer to new declarator list
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
+    ast_idlist_t **ridlist)
+{
+	lexer_toktype_t ltt;
+	lexer_tok_t dtok;
+	ast_idlist_t *idlist;
+	ast_node_t *decl = NULL;
+	void *dcomma;
+	bool have_init;
+	void *dassign;
+	ast_node_t *init = NULL;
+	int rc;
+
+	rc = ast_idlist_create(&idlist);
+	if (rc != EOK)
+		goto error;
+
+	dcomma = NULL;
+	while (true) {
+		parser_read_next_tok(parser, &dtok);
+
+		rc = parser_process_decl(parser, &decl);
+		if (rc != EOK)
+			goto error;
+
+		if (ast_decl_is_abstract(decl) && aallow != ast_abs_allow) {
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				lexer_dprint_tok(&dtok, stderr);
+				fprintf(stderr, " unexpected abstract "
+				    "declarator.\n");
+			}
+			rc = EINVAL;
+			goto error;
+		}
+
+		/*
+		 * XXX Hack so as not to produce false warnings for macro declarators
+		 * at the cost of treating declarators that are totally enclosed
+		 * in parentheses as not valid C code even if they are.
+		 */
+		if (decl->ntype == ant_dparen) {
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				lexer_dprint_tok(&dtok, stderr);
+				fprintf(stderr, " parenthesized declarator "
+				    "(cough).\n");
+			}
+			rc = EINVAL;
+			goto error;
+		}
+
+		/* Is there an initialization? */
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_assign) {
+			have_init = true;
+			parser_skip(parser, &dassign);
+
+			rc = parser_process_init(parser, &init);
+			if (rc != EOK)
+				goto error;
+		} else {
+			have_init = false;
+			dassign = NULL;
+			init = NULL;
+		}
+
+		rc = ast_idlist_append(idlist, dcomma, decl, have_init,
+		    dassign, init);
+		if (rc != EOK)
+			goto error;
+
+		decl = NULL;
+		init = NULL;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt != ltt_comma)
+			break;
+
+		rc = parser_match(parser, ltt_comma, &dcomma);
+		if (rc != EOK)
+			goto error;
+	}
+
+	*ridlist = idlist;
+	return EOK;
+error:
+	if (idlist != NULL)
+		ast_tree_destroy(&idlist->node);
+	if (decl != NULL)
+		ast_tree_destroy(decl);
+	if (init != NULL)
+		ast_tree_destroy(init);
+	return rc;
+}
+
 /** Parse storage-class specifier.
  *
  * @param parser Parser
@@ -3610,29 +3682,26 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	lexer_toktype_t ltt;
 	ast_gdecln_t *gdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
-	ast_dlist_t *dlist = NULL;
-	ast_dlist_entry_t *entry;
+	ast_idlist_t *idlist = NULL;
+	ast_idlist_entry_t *entry;
 	bool more_decls;
 	ast_block_t *body = NULL;
-	ast_node_t *init = NULL;
 	bool have_scolon;
-	bool have_init;
 	void *dscolon;
-	void *dassign;
 	int rc;
 
 	rc = parser_process_dspecs(parser, &dspecs);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_dlist(parser, ast_abs_allow, &dlist);
+	rc = parser_process_idlist(parser, ast_abs_allow, &idlist);
 	if (rc != EOK)
 		goto error;
 
 	/* See if we have more than one declarator */
-	entry = ast_dlist_first(dlist);
+	entry = ast_idlist_first(idlist);
 	assert(entry != NULL);
-	more_decls = ast_dlist_next(entry) != NULL;
+	more_decls = ast_idlist_next(entry) != NULL;
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
@@ -3640,7 +3709,6 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		body = NULL;
 		parser_skip(parser, &dscolon);
 		have_scolon = true;
-		have_init = false;
 		break;
 	case ltt_lbrace:
 		if (more_decls) {
@@ -3659,21 +3727,6 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 			goto error;
 		dscolon = NULL;
 		have_scolon = false;
-		have_init = false;
-		break;
-	case ltt_assign:
-		parser_skip(parser, &dassign);
-
-		rc = parser_process_init(parser, &init);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_match(parser, ltt_scolon, &dscolon);
-		if (rc != EOK)
-			goto error;
-
-		have_scolon = true;
-		have_init = true;
 		break;
 	default:
 		if (!parser->silent) {
@@ -3685,15 +3738,9 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		goto error;
 	}
 
-	rc = ast_gdecln_create(dspecs, dlist, body, &gdecln);
+	rc = ast_gdecln_create(dspecs, idlist, body, &gdecln);
 	if (rc != EOK)
 		goto error;
-
-	if (have_init) {
-		gdecln->have_init = true;
-		gdecln->tassign.data = dassign;
-		gdecln->init = init;
-	}
 
 	if (have_scolon) {
 		gdecln->have_scolon = true;
@@ -3707,12 +3754,10 @@ error:
 		ast_tree_destroy(&gdecln->node);
 	if (dspecs != NULL)
 		ast_tree_destroy(&dspecs->node);
-	if (dlist != NULL)
-		ast_tree_destroy(&dlist->node);
+	if (idlist != NULL)
+		ast_tree_destroy(&idlist->node);
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
-	if (init != NULL)
-		ast_tree_destroy(init);
 	return rc;
 }
 

@@ -63,6 +63,8 @@ typedef enum {
 	ant_darray,
 	/** Declarator list */
 	ant_dlist,
+	/** Init-declarator list */
+	ant_idlist,
 	/** Integer literal */
 	ant_eint,
 	/** Character literal */
@@ -498,7 +500,7 @@ typedef struct ast_dlist {
 	/** Base object */
 	ast_node_t node;
 	/** Declarators */
-	list_t decls; /* of ast_decllist_entry_t */
+	list_t decls; /* of ast_dlist_entry_t */
 } ast_dlist_t;
 
 typedef enum {
@@ -510,15 +512,41 @@ typedef enum {
 
 /** Declarator list entry */
 typedef struct {
-	/** Containing type definition */
+	/** Containing declarator list */
 	ast_dlist_t *dlist;
-	/** Link to decllist->decls */
+	/** Link to dlist->decls */
 	link_t ldlist;
 	/** Preceding comma token (if not the first entry */
 	ast_tok_t tcomma;
 	/** Declarator */
 	ast_node_t *decl;
 } ast_dlist_entry_t;
+
+/** Init-declarator list */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Init-declarators */
+	list_t idecls; /* of ast_idlist_entry_t */
+} ast_idlist_t;
+
+/** Init-declarator list entry */
+typedef struct {
+	/** Containing init-declarator list */
+	ast_idlist_t *idlist;
+	/** Link to idlist->idecls */
+	link_t lidlist;
+	/** Preceding comma token (if not the first entry */
+	ast_tok_t tcomma;
+	/** Declarator */
+	ast_node_t *decl;
+	/** @c true if we have an initializer */
+	bool have_init;
+	/** '=' token */
+	ast_tok_t tassign;
+	/** Initializer */
+	ast_node_t *init;
+} ast_idlist_entry_t;
 
 /** Pointer type */
 typedef struct {
@@ -1045,14 +1073,8 @@ typedef struct {
 	ast_node_t node;
 	/** Declaration specifiers */
 	ast_dspecs_t *dspecs;
-	/** Declarator list */
-	ast_dlist_t *dlist;
-	/** @c true if we have an equals token and an initializer */
-	bool have_init;
-	/** Assign token */
-	ast_tok_t tassign;
-	/** Initializer */
-	ast_node_t *init;
+	/** Init-declarator list */
+	ast_idlist_t *idlist;
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_stdecln_t;
@@ -1104,16 +1126,10 @@ typedef struct {
 	ast_node_t node;
 	/** Declaration specifiers */
 	ast_dspecs_t *dspecs;
-	/** Declarator list */
-	ast_dlist_t *dlist;
+	/** Init-declarator list */
+	ast_idlist_t *idlist;
 	/** Function body (if function definition) */
 	ast_block_t *body;
-	/** @c true if we have an equals token and an initializer */
-	bool have_init;
-	/** Assign token */
-	ast_tok_t tassign;
-	/** Initializer */
-	ast_node_t *init;
 	/** @c true if we have a trailing semicolon */
 	bool have_scolon;
 	/** Trailing ';' token (if @c have_scolon is @c true) */
