@@ -3201,39 +3201,39 @@ static int parser_process_darray(parser_t *parser, ast_node_t **rdecl)
 		goto error;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt != ltt_lbracket) {
-		*rdecl = bdecl;
-		return EOK;
-	}
-
-	rc = ast_darray_create(&darray);
-	if (rc != EOK)
-		goto error;
-
-	darray->bdecl = bdecl;
-
-	parser_skip(parser, &dlbracket);
-	darray->tlbracket.data = dlbracket;
-
-	ltt = parser_next_ttype(parser);
-	if (ltt != ltt_rbracket) {
-		rc = parser_process_expr(parser, &asize);
+	while (ltt == ltt_lbracket) {
+		rc = ast_darray_create(&darray);
 		if (rc != EOK)
 			goto error;
-	} else {
-		/* No size specified */
-		asize = NULL;
+
+		darray->bdecl = bdecl;
+
+		parser_skip(parser, &dlbracket);
+		darray->tlbracket.data = dlbracket;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt != ltt_rbracket) {
+			rc = parser_process_expr(parser, &asize);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* No size specified */
+			asize = NULL;
+		}
+
+		darray->asize = asize;
+
+		rc = parser_match(parser, ltt_rbracket, &drbracket);
+		if (rc != EOK)
+			goto error;
+
+		darray->trbracket.data = drbracket;
+		bdecl = &darray->node;
+
+		ltt = parser_next_ttype(parser);
 	}
 
-	darray->asize = asize;
-
-	rc = parser_match(parser, ltt_rbracket, &drbracket);
-	if (rc != EOK)
-		goto error;
-
-	darray->trbracket.data = drbracket;
-
-	*rdecl = &darray->node;
+	*rdecl = bdecl;
 	return EOK;
 error:
 	if (darray != NULL)
