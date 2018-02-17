@@ -868,6 +868,9 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	ast_eaddr_t *eaddr;
 	ast_esizeof_t *esizeof;
 	ast_node_t *bexpr = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_node_t *decl = NULL;
+	parser_t *sparser;
 	void *dop;
 	void *dlparen;
 	void *drparen;
@@ -973,15 +976,7 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	case ltt_sizeof:
 		parser_skip(parser, &dop);
 
-		rc = parser_match(parser, ltt_lparen, &dlparen);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_process_eprefix(parser, &bexpr);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_match(parser, ltt_rparen, &drparen);
+		rc = parser_create_silent_sub(parser, &sparser);
 		if (rc != EOK)
 			goto error;
 
@@ -990,6 +985,36 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 			goto error;
 
 		esizeof->tsizeof.data = dop;
+
+		rc = parser_process_eprefix(sparser, &bexpr);
+		if (rc != EOK) {
+			rc = parser_match(parser, ltt_lparen, &dlparen);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_process_dspecs(parser, &dspecs);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_process_decl(parser, &decl);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_rparen, &drparen);
+			if (rc != EOK)
+				goto error;
+
+			esizeof->tlparen.data = dlparen;
+			esizeof->dspecs = dspecs;
+			esizeof->decl = decl;
+			esizeof->trparen.data = drparen;
+		} else {
+			parser->tok = sparser->tok;
+			parser_destroy(sparser);
+
+			esizeof->bexpr = bexpr;
+		}
+
 		esizeof->tlparen.data = dlparen;
 		esizeof->bexpr = bexpr;
 		esizeof->trparen.data = drparen;
@@ -1003,6 +1028,8 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 error:
 	if (bexpr != NULL)
 		ast_tree_destroy(bexpr);
+	if (esizeof != NULL)
+		ast_tree_destroy(&esizeof->node);
 	return rc;
 }
 

@@ -2481,18 +2481,24 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 	tlparen = (checker_tok_t *) esizeof->tlparen.data;
 	trparen = (checker_tok_t *) esizeof->trparen.data;
 
-	checker_check_nows_after(scope, tsizeof,
-	    "Unexpected whitespace after 'sizeof'.");
 
-	checker_check_nows_after(scope, tlparen,
-	    "Unexpected whitespace after '('.");
+	if (esizeof->bexpr == NULL) {
+		checker_check_nows_after(scope, tsizeof,
+		    "Unexpected whitespace after 'sizeof'.");
+		checker_check_nows_after(scope, tlparen,
+		    "Unexpected whitespace after '('.");
+	}
 
-	rc = checker_check_expr(scope, esizeof->bexpr);
-	if (rc != EOK)
-		return rc;
+	if (esizeof->bexpr != NULL) {
+		rc = checker_check_expr(scope, esizeof->bexpr);
+		if (rc != EOK)
+			return rc;
+	}
 
-	checker_check_nows_before(scope, trparen,
-	    "Unexpected whitespace before ')'.");
+	if (esizeof->bexpr == NULL) {
+		checker_check_nows_before(scope, trparen,
+		    "Unexpected whitespace before ')'.");
+	}
 
 	return EOK;
 }

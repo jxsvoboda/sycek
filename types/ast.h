@@ -714,17 +714,24 @@ typedef struct {
 	ast_node_t *bexpr;
 } ast_eaddr_t;
 
-/** Sizeof expression */
+/** Sizeof expression.
+ *
+ * The argument can either be an expression or a type name
+ */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
 	/** 'sizeof' token */
 	ast_tok_t tsizeof;
-	/** '(' token */
-	ast_tok_t tlparen;
-	/** Base expression */
+	/** Base expression (if argument is expression) */
 	ast_node_t *bexpr;
-	/** ')' token */
+	/** '(' token (if argument is type name) */
+	ast_tok_t tlparen;
+	/** Declaration specifiers (if argument is type name) */
+	ast_dspecs_t *dspecs;
+	/** Declarator (if argument is type name) */
+	ast_node_t *decl;
+	/** ')' token (if argument is type name) */
 	ast_tok_t trparen;
 } ast_esizeof_t;
 
