@@ -46,6 +46,7 @@ static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
 static int parser_process_tqlist(parser_t *, ast_tqlist_t **);
 static int parser_process_eprefix(parser_t *, ast_node_t **);
 static int parser_process_epostfix(parser_t *, ast_node_t **);
+static int parser_process_eassign(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_init(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
@@ -690,6 +691,89 @@ error:
 	return rc;
 }
 
+/** Parse call expression.
+ *
+ * @param parser Parser
+ * @param ea Parsed base expression
+ * @param recall Place to store pointer to new call expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ecall(parser_t *parser, ast_node_t *ea,
+    ast_ecall_t **recall)
+{
+	lexer_toktype_t ltt;
+	ast_ecall_t *ecall = NULL;
+	ast_node_t *arg = NULL;
+	ast_typename_t *atypename;
+	parser_t *sparser;
+	void *dop;
+	void *drparen;
+	void *dcomma;
+	int rc;
+
+	rc = parser_match(parser, ltt_lparen, &dop);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_ecall_create(&ecall);
+	if (rc != EOK)
+		goto error;
+
+	ecall->tlparen.data = dop;
+
+	ltt = parser_next_ttype(parser);
+	dcomma = NULL;
+
+	/* We can only fail this test upon entry */
+	while (ltt != ltt_rparen) {
+		rc = parser_create_silent_sub(parser, &sparser);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_eassign(sparser, &arg);
+		if (rc == EOK) {
+			parser->tok = sparser->tok;
+			parser_destroy(sparser);
+		} else {
+			parser_destroy(sparser);
+			rc = parser_process_typename(parser, &atypename);
+			if (rc != EOK)
+				goto error;
+
+			arg = &atypename->node;
+		}
+
+		rc = ast_ecall_append(ecall, dcomma,
+		    arg);
+		if (rc != EOK)
+			goto error;
+
+		arg = NULL;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_rparen)
+			break;
+
+		rc = parser_match(parser, ltt_comma, &dcomma);
+		if (rc != EOK)
+			goto error;
+	}
+
+	parser_skip(parser, &drparen);
+	ecall->trparen.data = drparen;
+
+	ecall->fexpr = ea;
+	*recall = ecall;
+	return EOK;
+error:
+	if (ecall != NULL)
+		ast_tree_destroy(&ecall->node);
+	if (arg != NULL)
+		ast_tree_destroy(arg);
+	return rc;
+}
+
 /** Parse postfix operator expression.
  *
  * @param parser Parser
@@ -707,12 +791,9 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 	ast_eindmember_t *eindmember = NULL;
 	ast_eindex_t *eindex = NULL;
 	ast_ecall_t *ecall = NULL;
-	ast_node_t *arg = NULL;
 	void *dop;
 	void *dmember;
 	void *drbracket;
-	void *drparen;
-	void *dcomma;
 	int rc;
 
 	rc = parser_process_eterm(parser, &ea);
@@ -798,43 +879,12 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 			eindex = NULL;
 			break;
 		case ltt_lparen:
-			parser_skip(parser, &dop);
-
-			rc = ast_ecall_create(&ecall);
+			rc = parser_process_ecall(parser, ea, &ecall);
 			if (rc != EOK)
 				goto error;
 
-			ecall->fexpr = ea;
-			ecall->tlparen.data = dop;
 			ea = &ecall->node;
-
-			ltt = parser_next_ttype(parser);
-			dcomma = NULL;
-
-			/* We can only fail this test upon entry */
-			while (ltt != ltt_rparen) {
-				rc = parser_process_expr(parser, &arg);
-				if (rc != EOK)
-					goto error;
-
-				rc = ast_ecall_append(ecall, dcomma,
-				    arg);
-				if (rc != EOK)
-					goto error;
-
-				arg = NULL;
-
-				ltt = parser_next_ttype(parser);
-				if (ltt == ltt_rparen)
-					break;
-
-				rc = parser_match(parser, ltt_comma, &dcomma);
-				if (rc != EOK)
-					goto error;
-			}
-
-			parser_skip(parser, &drparen);
-			ecall->trparen.data = drparen;
+			ecall = NULL;
 			break;
 		default:
 			*rexpr = ea;
@@ -847,8 +897,6 @@ error:
 		ast_tree_destroy(ea);
 	if (iexpr != NULL)
 		ast_tree_destroy(iexpr);
-	if (arg != NULL)
-		ast_tree_destroy(arg);
 	return rc;
 }
 

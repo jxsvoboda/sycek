@@ -1703,6 +1703,9 @@ static void ast_dspecs_destroy(ast_dspecs_t *dspecs)
 {
 	ast_node_t *elem;
 
+	if (dspecs == NULL)
+		return;
+
 	elem = ast_dspecs_first(dspecs);
 	while (elem != NULL) {
 		list_remove(&elem->llist);
@@ -3543,23 +3546,22 @@ int ast_ecall_create(ast_ecall_t **recall)
  *
  * @param ecall Call expression
  * @param dcomma Data for preceding comma token or @c NULL
- * @param expr Argument expression
+ * @param arg Argument (expression or type name)
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_ecall_append(ast_ecall_t *ecall, void *dcomma,
-    ast_node_t *expr)
+int ast_ecall_append(ast_ecall_t *ecall, void *dcomma, ast_node_t *arg)
 {
-	ast_ecall_arg_t *arg;
+	ast_ecall_arg_t *earg;
 
-	arg = calloc(1, sizeof(ast_ecall_arg_t));
-	if (arg == NULL)
+	earg = calloc(1, sizeof(ast_ecall_arg_t));
+	if (earg == NULL)
 		return ENOMEM;
 
-	arg->tcomma.data = dcomma;
-	arg->expr = expr;
+	earg->tcomma.data = dcomma;
+	earg->arg = arg;
 
-	arg->ecall = ecall;
-	list_append(&arg->lcall, &ecall->args);
+	earg->ecall = ecall;
+	list_append(&earg->lcall, &ecall->args);
 	return EOK;
 }
 
@@ -3633,7 +3635,7 @@ static void ast_ecall_destroy(ast_ecall_t *ecall)
 	arg = ast_ecall_first(ecall);
 	while (arg != NULL) {
 		list_remove(&arg->lcall);
-		ast_tree_destroy(arg->expr);
+		ast_tree_destroy(arg->arg);
 		free(arg);
 
 		arg = ast_ecall_first(ecall);

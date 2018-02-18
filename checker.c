@@ -2405,9 +2405,18 @@ static int checker_check_ecall(checker_scope_t *scope,
 				return rc;
 		}
 
-		rc = checker_check_expr(scope, arg->expr);
-		if (rc != EOK)
-			return rc;
+		if (arg->arg->ntype == ant_typename) {
+			/* Argument is a type name */
+			rc = checker_check_typename(scope,
+			    (ast_typename_t *) arg->arg->ext);
+			if (rc != EOK)
+				return rc;
+		} else {
+			/* Argument is an expressoin */
+			rc = checker_check_expr(scope, arg->arg);
+			if (rc != EOK)
+				return rc;
+		}
 
 		arg = ast_ecall_next(arg);
 	}

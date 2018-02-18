@@ -700,8 +700,8 @@ typedef struct {
 	link_t lcall;
 	/** Preceding comma (if not first argument) */
 	ast_tok_t tcomma;
-	/** Argument expression */
-	ast_node_t *expr;
+	/** Argument (expression or type name) */
+	ast_node_t *arg;
 } ast_ecall_arg_t;
 
 /** Index expression */
