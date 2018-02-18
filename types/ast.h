@@ -385,8 +385,8 @@ typedef struct {
 	ast_tok_t tident;
 	/** Equals token */
 	ast_tok_t tequals;
-	/** Initializer token */
-	ast_tok_t tinit;
+	/** Initializer expression */
+	ast_node_t *init;
 	/** Comma token */
 	ast_tok_t tcomma;
 } ast_tsenum_elem_t;

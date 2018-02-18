@@ -1015,12 +1015,12 @@ int ast_tsenum_create(ast_tsenum_t **rtsenum)
  * @param tsenum Enum type specifier
  * @param dident Data for identifier token
  * @param dequals Data for equals token or @c NULL
- * @param dinit Data for initializer token or @c NULL
+ * @param init Initializer expression or @c NULL
  * @param dcomma Data for comma token or @c NULL
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_tsenum_append(ast_tsenum_t *tsenum, void *dident, void *dequals,
-    void *dinit, void *dcomma)
+    ast_node_t *init, void *dcomma)
 {
 	ast_tsenum_elem_t *elem;
 
@@ -1030,7 +1030,7 @@ int ast_tsenum_append(ast_tsenum_t *tsenum, void *dident, void *dequals,
 
 	elem->tident.data = dident;
 	elem->tequals.data = dequals;
-	elem->tinit.data = dinit;
+	elem->init = init;
 	elem->tcomma.data = dcomma;
 
 	elem->tsenum = tsenum;

@@ -2848,7 +2848,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 	void *dlbrace;
 	void *delem;
 	void *dequals;
-	void *dinit;
+	ast_node_t *init = NULL;
 	void *dcomma;
 	void *drbrace;
 	int rc;
@@ -2887,24 +2887,16 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 			if (ltt == ltt_assign) {
 				parser_skip(parser, &dequals);
 
-				ltt = parser_next_ttype(parser);
-				if (ltt == ltt_ident || ltt == ltt_number) {
-					parser_skip(parser, &dinit);
-				} else {
-					if (!parser->silent) {
-						fprintf(stderr, "Error: ");
-						parser_dprint_next_tok(parser,
-						    stderr);
-						fprintf(stderr,
-						    " unexpected, expected"
-						    " number or identifier.\n");
-					}
-					rc = EINVAL;
+				/*
+				 * Initializer expression must not contain
+				 * a comma
+				 */
+				rc = parser_process_eassign(parser, &init);
+				if (rc != EOK)
 					goto error;
-				}
 			} else {
 				dequals = NULL;
-				dinit = NULL;
+				init = NULL;
 			}
 
 			ltt = parser_next_ttype(parser);
@@ -2913,10 +2905,12 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 			else
 				dcomma = NULL;
 
-			rc = ast_tsenum_append(penum, delem, dequals, dinit,
+			rc = ast_tsenum_append(penum, delem, dequals, init,
 			    dcomma);
 			if (rc != EOK)
 				goto error;
+
+			init = NULL;
 
 			if (ltt != ltt_comma)
 				break;
@@ -2936,6 +2930,8 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 error:
 	if (penum != NULL)
 		ast_tree_destroy(&penum->node);
+	if (init != NULL)
+		ast_tree_destroy(init);
 	return rc;
 }
 

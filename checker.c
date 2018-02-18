@@ -1885,7 +1885,6 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 	checker_tok_t *tlbrace;
 	checker_tok_t *telem;
 	checker_tok_t *tequals;
-	checker_tok_t *tinit;
 	checker_tok_t *tcomma;
 	checker_tok_t *trbrace;
 	checker_scope_t *escope;
@@ -1925,9 +1924,12 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 			if (rc != EOK)
 				goto error;
 
-			tinit = (checker_tok_t *)elem->tinit.data;
-			rc = checker_check_nbspace_before(escope, tinit,
-			    "Expected whitespace before initializer.");
+			rc = checker_check_brkspace_after(escope, tequals,
+			    "Whitespace expected after '='.");
+			if (rc != EOK)
+				goto error;
+
+			rc = checker_check_expr(escope, elem->init);
 			if (rc != EOK)
 				goto error;
 		}
