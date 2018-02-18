@@ -1385,6 +1385,180 @@ static ast_tok_t *ast_sqlist_last_tok(ast_sqlist_t *sqlist)
 	return ast_tree_last_tok(ast_sqlist_last(sqlist));
 }
 
+/** Create AST type qualifier list.
+ *
+ * @param rtqlist Place to store pointer to new type qualifier list
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tqlist_create(ast_tqlist_t **rtqlist)
+{
+	ast_tqlist_t *tqlist;
+
+	tqlist = calloc(1, sizeof(ast_tqlist_t));
+	if (tqlist == NULL)
+		return ENOMEM;
+
+	list_initialize(&tqlist->elems);
+
+	tqlist->node.ext = tqlist;
+	tqlist->node.ntype = ant_tqlist;
+
+	*rtqlist = tqlist;
+	return EOK;
+}
+
+/** Append element to type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ * @param elem Specifier or qualifier
+ */
+void ast_tqlist_append(ast_tqlist_t *tqlist, ast_node_t *elem)
+{
+	list_append(&elem->llist, &tqlist->elems);
+	elem->lnode = &tqlist->node;
+}
+
+/** Return first element in type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ * @return First element or @c NULL
+ */
+ast_node_t *ast_tqlist_first(ast_tqlist_t *tqlist)
+{
+	link_t *link;
+
+	link = list_first(&tqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return next element in type qualifier list.
+ *
+ * @param node Current element
+ * @return Next element or @c NULL
+ */
+ast_node_t *ast_tqlist_next(ast_node_t *node)
+{
+	link_t *link;
+	ast_tqlist_t *tqlist;
+
+	assert(node->lnode->ntype == ant_tqlist);
+	tqlist = (ast_tqlist_t *) node->lnode->ext;
+
+	link = list_next(&node->llist, &tqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return last element in type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ * @return Last element or @c NULL
+ */
+ast_node_t *ast_tqlist_last(ast_tqlist_t *tqlist)
+{
+	link_t *link;
+
+	link = list_last(&tqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return previous element in type qualifier list.
+ *
+ * @param node Current element
+ * @return Previous element or @c NULL
+ */
+ast_node_t *ast_tqlist_prev(ast_node_t *node)
+{
+	link_t *link;
+	ast_tqlist_t *tqlist;
+
+	assert(node->lnode->ntype == ant_tqlist);
+	tqlist = (ast_tqlist_t *) node->lnode->ext;
+
+	link = list_prev(&node->llist, &tqlist->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Print AST type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_tqlist_print(ast_tqlist_t *tqlist, FILE *f)
+{
+	ast_node_t *elem;
+	int rc;
+
+	if (fprintf(f, "tqlist(") < 0)
+		return EIO;
+
+	elem = ast_tqlist_first(tqlist);
+	while (elem != NULL) {
+		rc = ast_tree_print(elem, f);
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_tqlist_next(elem);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ */
+static void ast_tqlist_destroy(ast_tqlist_t *tqlist)
+{
+	ast_node_t *elem;
+
+	elem = ast_tqlist_first(tqlist);
+	while (elem != NULL) {
+		list_remove(&elem->llist);
+		ast_tree_destroy(elem);
+		elem = ast_tqlist_first(tqlist);
+	}
+
+	free(tqlist);
+}
+
+/** Get first token of AST type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tqlist_first_tok(ast_tqlist_t *tqlist)
+{
+	return ast_tree_first_tok(ast_tqlist_first(tqlist));
+}
+
+/** Get last token of AST type qualifier list.
+ *
+ * @param tqlist Type qualifier list
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tqlist_last_tok(ast_tqlist_t *tqlist)
+{
+	return ast_tree_last_tok(ast_tqlist_last(tqlist));
+}
+
 /** Create AST declaration specifiers.
  *
  * @param rdspecs Place to store pointer to new declaration specifiers
@@ -5799,6 +5973,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_fspec_print((ast_fspec_t *)node->ext, f);
 	case ant_sqlist:
 		return ast_sqlist_print((ast_sqlist_t *)node->ext, f);
+	case ant_tqlist:
+		return ast_tqlist_print((ast_tqlist_t *)node->ext, f);
 	case ant_dspecs:
 		return ast_dspecs_print((ast_dspecs_t *)node->ext, f);
 	case ant_dident:
@@ -5938,6 +6114,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_sqlist:
 		ast_sqlist_destroy((ast_sqlist_t *)node->ext);
+		break;
+	case ant_tqlist:
+		ast_tqlist_destroy((ast_tqlist_t *)node->ext);
 		break;
 	case ant_dspecs:
 		ast_dspecs_destroy((ast_dspecs_t *)node->ext);
@@ -6094,6 +6273,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_fspec_first_tok((ast_fspec_t *)node->ext);
 	case ant_sqlist:
 		return ast_sqlist_first_tok((ast_sqlist_t *)node->ext);
+	case ant_tqlist:
+		return ast_tqlist_first_tok((ast_tqlist_t *)node->ext);
 	case ant_dspecs:
 		return ast_dspecs_first_tok((ast_dspecs_t *)node->ext);
 	case ant_dident:
@@ -6217,6 +6398,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_fspec_last_tok((ast_fspec_t *)node->ext);
 	case ant_sqlist:
 		return ast_sqlist_last_tok((ast_sqlist_t *)node->ext);
+	case ant_tqlist:
+		return ast_tqlist_last_tok((ast_tqlist_t *)node->ext);
 	case ant_dspecs:
 		return ast_dspecs_last_tok((ast_dspecs_t *)node->ext);
 	case ant_dident:

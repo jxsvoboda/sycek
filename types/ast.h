@@ -47,6 +47,8 @@ typedef enum {
 	ant_fspec,
 	/** Specifier-qualifier list */
 	ant_sqlist,
+	/** Type qualifier list */
+	ant_tqlist,
 	/** Declaration specifiers */
 	ant_dspecs,
 	/** Ideintifier declarator */
@@ -402,8 +404,16 @@ typedef struct ast_sqlist {
 	/** Base object */
 	ast_node_t node;
 	/** Specifiers and qualifiers */
-	list_t elems;
+	list_t elems; /* of ast_node_t */
 } ast_sqlist_t;
+
+/** Type qualifier list */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Specifiers and qualifiers */
+	list_t elems; /* of ast_node_t */
+} ast_tqlist_t;
 
 /** Declaration specifiers */
 typedef struct {
@@ -445,6 +455,8 @@ typedef struct {
 	ast_node_t node;
 	/** Asterisk token */
 	ast_tok_t tasterisk;
+	/** Type qualifier list */
+	ast_tqlist_t *tqlist;
 	/** Base declarator */
 	ast_node_t *bdecl;
 } ast_dptr_t;

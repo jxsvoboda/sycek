@@ -42,6 +42,7 @@ static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_idlist(parser_t *, ast_abs_allow_t, ast_idlist_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
+static int parser_process_tqlist(parser_t *, ast_tqlist_t **);
 static int parser_process_eprefix(parser_t *, ast_node_t **);
 static int parser_process_epostfix(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
@@ -3045,6 +3046,44 @@ error:
 	return rc;
 }
 
+/** Parse (possibly empty) type qualifier list.
+ *
+ * @param parser Parser
+ * @param rtqlist Place to store pointer to new AST type qualifier list
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tqlist(parser_t *parser, ast_tqlist_t **rtqlist)
+{
+	lexer_toktype_t ltt;
+	ast_tqlist_t *tqlist;
+	ast_tqual_t *tqual;
+	ast_node_t *elem;
+	int rc;
+
+	rc = ast_tqlist_create(&tqlist);
+	if (rc != EOK)
+		return rc;
+
+	ltt = parser_next_ttype(parser);
+	while (parser_ttype_tqual(ltt)) {
+		rc = parser_process_tqual(parser, &tqual);
+		if (rc != EOK)
+			goto error;
+
+		elem = &tqual->node;
+
+		ast_tqlist_append(tqlist, elem);
+		ltt = parser_next_ttype(parser);
+	}
+
+	*rtqlist = tqlist;
+	return EOK;
+error:
+	ast_tree_destroy(&tqlist->node);
+	return rc;
+}
+
 /** Parse declaration specifiers.
  *
  * @param parser Parser
@@ -3372,7 +3411,8 @@ error:
  */
 static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 {
-	ast_dptr_t *dptr;
+	ast_dptr_t *dptr = NULL;
+	ast_tqlist_t *tqlist = NULL;
 	ast_node_t *bdecl;
 	lexer_toktype_t ltt;
 	void *dasterisk;
@@ -3390,16 +3430,23 @@ static int parser_process_dptr(parser_t *parser, ast_node_t **rdecl)
 
 	dptr->tasterisk.data = dasterisk;
 
-	rc = parser_process_decl(parser, &bdecl);
-	if (rc != EOK) {
-		ast_tree_destroy(&dptr->node);
+	rc = parser_process_tqlist(parser, &tqlist);
+	if (rc != EOK)
 		goto error;
-	}
 
+	rc = parser_process_decl(parser, &bdecl);
+	if (rc != EOK)
+		goto error;
+
+	dptr->tqlist = tqlist;
 	dptr->bdecl = bdecl;
 	*rdecl = &dptr->node;
 	return EOK;
 error:
+	if (dptr != NULL)
+		ast_tree_destroy(&dptr->node);
+	if (tqlist != NULL)
+		ast_tree_destroy(&tqlist->node);
 	return rc;
 }
 
