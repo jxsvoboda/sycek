@@ -85,8 +85,8 @@ typedef enum {
 	ant_etcond,
 	/** Comma expression */
 	ant_ecomma,
-	/** Function call expression */
-	ant_efuncall,
+	/** Call expression */
+	ant_ecall,
 	/** Index expression */
 	ant_eindex,
 	/** Dereference expression */
@@ -678,7 +678,7 @@ typedef struct {
 	ast_node_t *rarg;
 } ast_ecomma_t;
 
-/** Function call expression */
+/** Call expression */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
@@ -687,22 +687,22 @@ typedef struct {
 	/** Left parenthesis token */
 	ast_tok_t tlparen;
 	/*( Arguments */
-	list_t args; /* of ast_efuncall_arg_t */
+	list_t args; /* of ast_ecall_arg_t */
 	/** Right parenthesis token */
 	ast_tok_t trparen;
-} ast_efuncall_t;
+} ast_ecall_t;
 
 /** Function call argument */
 typedef struct {
 	/** Containing function call expression */
-	ast_efuncall_t *efuncall;
-	/** Link to @c efuncall->args */
-	link_t lfuncall;
+	ast_ecall_t *ecall;
+	/** Link to @c ecall->args */
+	link_t lcall;
 	/** Preceding comma (if not first argument) */
 	ast_tok_t tcomma;
 	/** Argument expression */
 	ast_node_t *expr;
-} ast_efuncall_arg_t;
+} ast_ecall_arg_t;
 
 /** Index expression */
 typedef struct {

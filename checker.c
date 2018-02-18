@@ -2366,31 +2366,31 @@ static int checker_check_ecomma(checker_scope_t *scope, ast_ecomma_t *ecomma)
 	return EOK;
 }
 
-/** Check function call expression.
+/** Check call expression.
  *
  * @param scope Checker scope
- * @param efuncall Function call expression
+ * @param ecall Call expression
  *
  * @return EOK on success or error code
  */
-static int checker_check_efuncall(checker_scope_t *scope,
-    ast_efuncall_t *efuncall)
+static int checker_check_ecall(checker_scope_t *scope,
+    ast_ecall_t *ecall)
 {
 	checker_tok_t *tlparen;
-	ast_efuncall_arg_t *arg;
+	ast_ecall_arg_t *arg;
 	checker_tok_t *tcomma;
 	checker_tok_t *trparen;
 	int rc;
 
-	rc = checker_check_expr(scope, efuncall->fexpr);
+	rc = checker_check_expr(scope, ecall->fexpr);
 	if (rc != EOK)
 		return rc;
 
-	tlparen = (checker_tok_t *) efuncall->tlparen.data;
+	tlparen = (checker_tok_t *) ecall->tlparen.data;
 	checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
 
-	arg = ast_efuncall_first(efuncall);
+	arg = ast_ecall_first(ecall);
 	while (arg != NULL) {
 		tcomma = (checker_tok_t *) arg->tcomma.data;
 		if (tcomma != NULL) {
@@ -2409,10 +2409,10 @@ static int checker_check_efuncall(checker_scope_t *scope,
 		if (rc != EOK)
 			return rc;
 
-		arg = ast_efuncall_next(arg);
+		arg = ast_ecall_next(arg);
 	}
 
-	trparen = (checker_tok_t *) efuncall->trparen.data;
+	trparen = (checker_tok_t *) ecall->trparen.data;
 	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
 	return EOK;
@@ -2799,8 +2799,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 		return checker_check_etcond(scope, (ast_etcond_t *) expr);
 	case ant_ecomma:
 		return checker_check_ecomma(scope, (ast_ecomma_t *) expr);
-	case ant_efuncall:
-		return checker_check_efuncall(scope, (ast_efuncall_t *) expr);
+	case ant_ecall:
+		return checker_check_ecall(scope, (ast_ecall_t *) expr);
 	case ant_eindex:
 		return checker_check_eindex(scope, (ast_eindex_t *) expr);
 	case ant_ederef:

@@ -706,7 +706,7 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 	ast_emember_t *emember = NULL;
 	ast_eindmember_t *eindmember = NULL;
 	ast_eindex_t *eindex = NULL;
-	ast_efuncall_t *efuncall = NULL;
+	ast_ecall_t *ecall = NULL;
 	ast_node_t *arg = NULL;
 	void *dop;
 	void *dmember;
@@ -800,13 +800,13 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 		case ltt_lparen:
 			parser_skip(parser, &dop);
 
-			rc = ast_efuncall_create(&efuncall);
+			rc = ast_ecall_create(&ecall);
 			if (rc != EOK)
 				goto error;
 
-			efuncall->fexpr = ea;
-			efuncall->tlparen.data = dop;
-			ea = &efuncall->node;
+			ecall->fexpr = ea;
+			ecall->tlparen.data = dop;
+			ea = &ecall->node;
 
 			ltt = parser_next_ttype(parser);
 			dcomma = NULL;
@@ -817,7 +817,7 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 				if (rc != EOK)
 					goto error;
 
-				rc = ast_efuncall_append(efuncall, dcomma,
+				rc = ast_ecall_append(ecall, dcomma,
 				    arg);
 				if (rc != EOK)
 					goto error;
@@ -834,7 +834,7 @@ static int parser_process_epostfix(parser_t *parser, ast_node_t **rexpr)
 			}
 
 			parser_skip(parser, &drparen);
-			efuncall->trparen.data = drparen;
+			ecall->trparen.data = drparen;
 			break;
 		default:
 			*rexpr = ea;
@@ -2422,7 +2422,7 @@ static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 		goto error;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt != ltt_scolon && expr->ntype == ant_efuncall) {
+	if (ltt != ltt_scolon && expr->ntype == ant_ecall) {
 		/* Possibly a loop macro */
 		rc = parser_process_lmacro(parser, expr, rstmt);
 		if (rc != EOK)

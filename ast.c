@@ -3517,101 +3517,101 @@ static ast_tok_t *ast_ecomma_last_tok(ast_ecomma_t *ecomma)
 	return ast_tree_last_tok(ecomma->rarg);
 }
 
-/** Create AST function call expression.
+/** Create AST call expression.
  *
- * @param refuncall Place to store pointer to new function call expression
+ * @param recall Place to store pointer to new call expression
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_efuncall_create(ast_efuncall_t **refuncall)
+int ast_ecall_create(ast_ecall_t **recall)
 {
-	ast_efuncall_t *efuncall;
+	ast_ecall_t *ecall;
 
-	efuncall = calloc(1, sizeof(ast_efuncall_t));
-	if (efuncall == NULL)
+	ecall = calloc(1, sizeof(ast_ecall_t));
+	if (ecall == NULL)
 		return ENOMEM;
 
-	efuncall->node.ext = efuncall;
-	efuncall->node.ntype = ant_efuncall;
-	list_initialize(&efuncall->args);
+	ecall->node.ext = ecall;
+	ecall->node.ntype = ant_ecall;
+	list_initialize(&ecall->args);
 
-	*refuncall = efuncall;
+	*recall = ecall;
 	return EOK;
 }
 
-/** Append entry to function call argument list.
+/** Append entry to call argument list.
  *
- * @param efuncall Function call expression
+ * @param ecall Call expression
  * @param dcomma Data for preceding comma token or @c NULL
  * @param expr Argument expression
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_efuncall_append(ast_efuncall_t *efuncall, void *dcomma,
+int ast_ecall_append(ast_ecall_t *ecall, void *dcomma,
     ast_node_t *expr)
 {
-	ast_efuncall_arg_t *arg;
+	ast_ecall_arg_t *arg;
 
-	arg = calloc(1, sizeof(ast_efuncall_arg_t));
+	arg = calloc(1, sizeof(ast_ecall_arg_t));
 	if (arg == NULL)
 		return ENOMEM;
 
 	arg->tcomma.data = dcomma;
 	arg->expr = expr;
 
-	arg->efuncall = efuncall;
-	list_append(&arg->lfuncall, &efuncall->args);
+	arg->ecall = ecall;
+	list_append(&arg->lcall, &ecall->args);
 	return EOK;
 }
 
-/** Return first argument in function call expression.
+/** Return first argument in call expression.
  *
- * @param efuncall Function call expression
+ * @param ecall Call expression
  * @return First argument or @c NULL
  */
-ast_efuncall_arg_t *ast_efuncall_first(ast_efuncall_t *efuncall)
+ast_ecall_arg_t *ast_ecall_first(ast_ecall_t *ecall)
 {
 	link_t *link;
 
-	link = list_first(&efuncall->args);
+	link = list_first(&ecall->args);
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, ast_efuncall_arg_t, lfuncall);
+	return list_get_instance(link, ast_ecall_arg_t, lcall);
 }
 
-/** Return next argument in function call expression.
+/** Return next argument in call expression.
  *
- * @param arg Function call argument
+ * @param arg Call argument
  * @return Next argument or @c NULL
  */
-ast_efuncall_arg_t *ast_efuncall_next(ast_efuncall_arg_t *arg)
+ast_ecall_arg_t *ast_ecall_next(ast_ecall_arg_t *arg)
 {
 	link_t *link;
 
-	link = list_next(&arg->lfuncall, &arg->efuncall->args);
+	link = list_next(&arg->lcall, &arg->ecall->args);
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, ast_efuncall_arg_t, lfuncall);
+	return list_get_instance(link, ast_ecall_arg_t, lcall);
 }
 
-/** Print AST function call expression.
+/** Print AST call expression.
  *
- * @param efuncall Function call expression
+ * @param ecall Call expression
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
  */
-static int ast_efuncall_print(ast_efuncall_t *efuncall, FILE *f)
+static int ast_ecall_print(ast_ecall_t *ecall, FILE *f)
 {
 	int rc;
 
-	(void) efuncall;
+	(void) ecall;
 
-	if (fprintf(f, "efuncall(") < 0)
+	if (fprintf(f, "ecall(") < 0)
 		return EIO;
 
-	rc = ast_tree_print(efuncall->fexpr, f);
+	rc = ast_tree_print(ecall->fexpr, f);
 	if (rc != EOK)
 		return rc;
 
@@ -3620,46 +3620,46 @@ static int ast_efuncall_print(ast_efuncall_t *efuncall, FILE *f)
 	return EOK;
 }
 
-/** Destroy AST function call expression.
+/** Destroy AST call expression.
  *
- * @param efuncall Function call expression
+ * @param ecall Call expression
  */
-static void ast_efuncall_destroy(ast_efuncall_t *efuncall)
+static void ast_ecall_destroy(ast_ecall_t *ecall)
 {
-	ast_efuncall_arg_t *arg;
+	ast_ecall_arg_t *arg;
 
-	ast_tree_destroy(efuncall->fexpr);
+	ast_tree_destroy(ecall->fexpr);
 
-	arg = ast_efuncall_first(efuncall);
+	arg = ast_ecall_first(ecall);
 	while (arg != NULL) {
-		list_remove(&arg->lfuncall);
+		list_remove(&arg->lcall);
 		ast_tree_destroy(arg->expr);
 		free(arg);
 
-		arg = ast_efuncall_first(efuncall);
+		arg = ast_ecall_first(ecall);
 	}
 
-	free(efuncall);
+	free(ecall);
 }
 
-/** Get first token of AST function call expression.
+/** Get first token of AST call expression.
  *
- * @param efuncall Function call expression
+ * @param ecall Call expression
  * @return First token or @c NULL
  */
-static ast_tok_t *ast_efuncall_first_tok(ast_efuncall_t *efuncall)
+static ast_tok_t *ast_ecall_first_tok(ast_ecall_t *ecall)
 {
-	return ast_tree_first_tok(efuncall->fexpr);
+	return ast_tree_first_tok(ecall->fexpr);
 }
 
-/** Get last token of AST function call expression.
+/** Get last token of AST call expression.
  *
- * @param efuncall Function call expression
+ * @param ecall Call expression
  * @return Last token or @c NULL
  */
-static ast_tok_t *ast_efuncall_last_tok(ast_efuncall_t *efuncall)
+static ast_tok_t *ast_ecall_last_tok(ast_ecall_t *ecall)
 {
-	return &efuncall->trparen;
+	return &ecall->trparen;
 }
 
 /** Create AST index expression.
@@ -6100,8 +6100,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_etcond_print((ast_etcond_t *)node->ext, f);
 	case ant_ecomma:
 		return ast_ecomma_print((ast_ecomma_t *)node->ext, f);
-	case ant_efuncall:
-		return ast_efuncall_print((ast_efuncall_t *)node->ext, f);
+	case ant_ecall:
+		return ast_ecall_print((ast_ecall_t *)node->ext, f);
 	case ant_eindex:
 		return ast_eindex_print((ast_eindex_t *)node->ext, f);
 	case ant_ederef:
@@ -6263,8 +6263,8 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_ecomma:
 		ast_ecomma_destroy((ast_ecomma_t *)node->ext);
 		break;
-	case ant_efuncall:
-		ast_efuncall_destroy((ast_efuncall_t *)node->ext);
+	case ant_ecall:
+		ast_ecall_destroy((ast_ecall_t *)node->ext);
 		break;
 	case ant_eindex:
 		ast_eindex_destroy((ast_eindex_t *)node->ext);
@@ -6405,8 +6405,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_etcond_first_tok((ast_etcond_t *)node->ext);
 	case ant_ecomma:
 		return ast_ecomma_first_tok((ast_ecomma_t *)node->ext);
-	case ant_efuncall:
-		return ast_efuncall_first_tok((ast_efuncall_t *)node->ext);
+	case ant_ecall:
+		return ast_ecall_first_tok((ast_ecall_t *)node->ext);
 	case ant_eindex:
 		return ast_eindex_first_tok((ast_eindex_t *)node->ext);
 	case ant_ederef:
@@ -6532,8 +6532,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_etcond_last_tok((ast_etcond_t *)node->ext);
 	case ant_ecomma:
 		return ast_ecomma_last_tok((ast_ecomma_t *)node->ext);
-	case ant_efuncall:
-		return ast_efuncall_last_tok((ast_efuncall_t *)node->ext);
+	case ant_ecall:
+		return ast_ecall_last_tok((ast_ecall_t *)node->ext);
 	case ant_eindex:
 		return ast_eindex_last_tok((ast_eindex_t *)node->ext);
 	case ant_ederef:
