@@ -1701,6 +1701,40 @@ error:
 	return rc;
 }
 
+/** Run checks on a type name.
+ *
+ * @param scope Checker scope
+ * @param atypename AST type name
+ * @return EOK on success or error code
+ */
+static int checker_check_typename(checker_scope_t *scope,
+    ast_typename_t *atypename)
+{
+	int rc;
+	ast_tok_t *adecl;
+	checker_tok_t *tdecl;
+
+	rc = checker_check_dspecs(scope, atypename->dspecs);
+	if (rc != EOK)
+		goto error;
+
+	adecl = ast_tree_first_tok(atypename->decl);
+	if (adecl != NULL) {
+		tdecl = (checker_tok_t *)adecl->data;
+		rc = checker_check_brkspace_before(scope, tdecl,
+		    "Expected space before declarator.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = checker_check_decl(scope, atypename->decl);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
 /** Run checks on a storage class.
  *
  * @param scope Checker scope
@@ -2493,6 +2527,10 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 
 	if (esizeof->bexpr != NULL) {
 		rc = checker_check_expr(scope, esizeof->bexpr);
+		if (rc != EOK)
+			return rc;
+	} else if (esizeof->atypename != NULL) {
+		rc = checker_check_typename(scope, esizeof->atypename);
 		if (rc != EOK)
 			return rc;
 	}

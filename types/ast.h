@@ -67,6 +67,8 @@ typedef enum {
 	ant_dlist,
 	/** Init-declarator list */
 	ant_idlist,
+	/** Type name */
+	ant_typename,
 	/** Integer literal */
 	ant_eint,
 	/** Character literal */
@@ -560,6 +562,16 @@ typedef struct {
 	ast_node_t *init;
 } ast_idlist_entry_t;
 
+/** Type name. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Declaration specifiers */
+	ast_dspecs_t *dspecs;
+	/** Declarator (abstract) */
+	ast_node_t *decl;
+} ast_typename_t;
+
 /** Pointer type */
 typedef struct {
 	/** Base object */
@@ -739,10 +751,8 @@ typedef struct {
 	ast_node_t *bexpr;
 	/** '(' token (if argument is type name) */
 	ast_tok_t tlparen;
-	/** Declaration specifiers (if argument is type name) */
-	ast_dspecs_t *dspecs;
-	/** Declarator (if argument is type name) */
-	ast_node_t *decl;
+	/** Type name (if argument is type name) */
+	ast_typename_t *atypename;
 	/** ')' token (if argument is type name) */
 	ast_tok_t trparen;
 } ast_esizeof_t;

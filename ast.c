@@ -2708,6 +2708,87 @@ static ast_tok_t *ast_idlist_last_tok(ast_idlist_t *idlist)
 	return &entry->tcomma;
 }
 
+/** Create AST type name.
+ *
+ * @param rtypename Place to store pointer to new type name
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_typename_create(ast_typename_t **rtypename)
+{
+	ast_typename_t *atypename;
+
+	atypename = calloc(1, sizeof(ast_typename_t));
+	if (atypename == NULL)
+		return ENOMEM;
+
+	atypename->node.ext = atypename;
+	atypename->node.ntype = ant_typename;
+
+	*rtypename = atypename;
+	return EOK;
+}
+
+/** Print AST type name.
+ *
+ * @param atypename Type name
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_typename_print(ast_typename_t *atypename, FILE *f)
+{
+	int rc;
+
+	(void) atypename;
+
+	if (fprintf(f, "typename(") < 0)
+		return EIO;
+
+	rc = ast_dspecs_print(atypename->dspecs, f);
+	if (rc != EOK)
+		return rc;
+
+	rc = ast_tree_print(atypename->decl, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST type name.
+ *
+ * @param atypename Type name
+ */
+static void ast_typename_destroy(ast_typename_t *atypename)
+{
+	ast_dspecs_destroy(atypename->dspecs);
+	ast_tree_destroy(atypename->decl);
+	free(atypename);
+}
+
+/** Get first token of AST type name.
+ *
+ * @param atypename Type name
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_typename_first_tok(ast_typename_t *atypename)
+{
+	return ast_dspecs_first_tok(atypename->dspecs);
+}
+
+/** Get last token of AST type name
+ *
+ * @param eaddr Type name
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_typename_last_tok(ast_typename_t *atypename)
+{
+	return ast_tree_last_tok(atypename->decl);
+}
+
 bool ast_decl_is_abstract(ast_node_t *node)
 {
 	switch (node->ntype) {
@@ -3764,7 +3845,7 @@ int ast_eaddr_create(ast_eaddr_t **readdr)
 
 /** Print AST address expression.
  *
- * @param eaddr Sizeof expression
+ * @param eaddr Address expression
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
@@ -3789,7 +3870,7 @@ static int ast_eaddr_print(ast_eaddr_t *eaddr, FILE *f)
 
 /** Destroy AST address expression.
  *
- * @param eaddr Sizeof expression
+ * @param eaddr Address expression
  */
 static void ast_eaddr_destroy(ast_eaddr_t *eaddr)
 {
@@ -3854,9 +3935,17 @@ static int ast_esizeof_print(ast_esizeof_t *esizeof, FILE *f)
 	if (fprintf(f, "esizeof(") < 0)
 		return EIO;
 
-	rc = ast_tree_print(esizeof->bexpr, f);
-	if (rc != EOK)
-		return rc;
+	if (esizeof->bexpr != NULL) {
+		rc = ast_tree_print(esizeof->bexpr, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (esizeof->atypename != NULL) {
+		rc = ast_typename_print(esizeof->atypename, f);
+		if (rc != EOK)
+			return rc;
+	}
 
 	if (fprintf(f, ")") < 0)
 		return EIO;
@@ -3883,7 +3972,7 @@ static ast_tok_t *ast_esizeof_first_tok(ast_esizeof_t *esizeof)
 	return &esizeof->tsizeof;
 }
 
-/** Get last token of AST sizeo expression.
+/** Get last token of AST sizeof expression.
  *
  * @param eaddr Sizeof expression
  * @return Last token or @c NULL
@@ -5993,6 +6082,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_dlist_print((ast_dlist_t *)node->ext, f);
 	case ant_idlist:
 		return ast_idlist_print((ast_idlist_t *)node->ext, f);
+	case ant_typename:
+		return ast_typename_print((ast_typename_t *)node->ext, f);
 	case ant_eint:
 		return ast_eint_print((ast_eint_t *)node->ext, f);
 	case ant_echar:
@@ -6145,6 +6236,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_idlist:
 		ast_idlist_destroy((ast_idlist_t *)node->ext);
 		break;
+	case ant_typename:
+		ast_typename_destroy((ast_typename_t *)node->ext);
+		break;
 	case ant_eint:
 		ast_eint_destroy((ast_eint_t *)node->ext);
 		break;
@@ -6293,6 +6387,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_dlist_first_tok((ast_dlist_t *)node->ext);
 	case ant_idlist:
 		return ast_idlist_first_tok((ast_idlist_t *)node->ext);
+	case ant_typename:
+		return ast_typename_first_tok((ast_typename_t *)node->ext);
 	case ant_eint:
 		return ast_eint_first_tok((ast_eint_t *)node->ext);
 	case ant_echar:
@@ -6418,6 +6514,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_dlist_last_tok((ast_dlist_t *)node->ext);
 	case ant_idlist:
 		return ast_idlist_last_tok((ast_idlist_t *)node->ext);
+	case ant_typename:
+		return ast_typename_last_tok((ast_typename_t *)node->ext);
 	case ant_eint:
 		return ast_eint_last_tok((ast_eint_t *)node->ext);
 	case ant_echar:

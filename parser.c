@@ -41,6 +41,7 @@ static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_idlist(parser_t *, ast_abs_allow_t, ast_idlist_t **);
+static int parser_process_typename(parser_t *, ast_typename_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
 static int parser_process_tqlist(parser_t *, ast_tqlist_t **);
 static int parser_process_eprefix(parser_t *, ast_node_t **);
@@ -869,8 +870,7 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	ast_eaddr_t *eaddr;
 	ast_esizeof_t *esizeof;
 	ast_node_t *bexpr = NULL;
-	ast_dspecs_t *dspecs = NULL;
-	ast_node_t *decl = NULL;
+	ast_typename_t *atypename = NULL;
 	parser_t *sparser;
 	void *dop;
 	void *dlparen;
@@ -993,11 +993,7 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 			if (rc != EOK)
 				goto error;
 
-			rc = parser_process_dspecs(parser, &dspecs);
-			if (rc != EOK)
-				goto error;
-
-			rc = parser_process_decl(parser, &decl);
+			rc = parser_process_typename(parser, &atypename);
 			if (rc != EOK)
 				goto error;
 
@@ -1006,8 +1002,7 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 				goto error;
 
 			esizeof->tlparen.data = dlparen;
-			esizeof->dspecs = dspecs;
-			esizeof->decl = decl;
+			esizeof->atypename = atypename;
 			esizeof->trparen.data = drparen;
 		} else {
 			parser->tok = sparser->tok;
@@ -1031,6 +1026,8 @@ error:
 		ast_tree_destroy(bexpr);
 	if (esizeof != NULL)
 		ast_tree_destroy(&esizeof->node);
+	if (atypename != NULL)
+		ast_tree_destroy(&atypename->node);
 	return rc;
 }
 
@@ -3658,6 +3655,48 @@ error:
 		ast_tree_destroy(init);
 	return rc;
 }
+
+/** Parse type name.
+ *
+ * @param parser Parser
+ * @param rtypename Place to store pointer to new type name
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_typename(parser_t *parser, ast_typename_t **rtypename)
+{
+	ast_typename_t *atypename = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_node_t *decl = NULL;
+	int rc;
+
+	rc = ast_typename_create(&atypename);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_dspecs(parser, &dspecs);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_decl(parser, &decl);
+	if (rc != EOK)
+		goto error;
+
+	atypename->dspecs = dspecs;
+	atypename->decl = decl;
+	*rtypename = atypename;
+
+	return EOK;
+error:
+	if (atypename != NULL)
+		ast_tree_destroy(&atypename->node);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	if (decl != NULL)
+		ast_tree_destroy(decl);
+	return rc;
+}
+
 
 /** Parse storage-class specifier.
  *
