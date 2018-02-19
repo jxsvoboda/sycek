@@ -45,6 +45,8 @@ typedef enum {
 	ant_tsenum,
 	/** Function specifier */
 	ant_fspec,
+	/** Attribute specifier */
+	ant_aspec,
 	/** Specifier-qualifier list */
 	ant_sqlist,
 	/** Type qualifier list */
@@ -400,6 +402,56 @@ typedef struct {
 	/** Function specifier token */
 	ast_tok_t tfspec;
 } ast_fspec_t;
+
+/** Attribute specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '__attribute__' token */
+	ast_tok_t tattr;
+	/** First '(' token */
+	ast_tok_t tlparen1;
+	/** Second '(' token */
+	ast_tok_t tlparen2;
+	/** Attributes */
+	list_t attrs; /* of ast_attr_t */
+	/** First ')' token */
+	ast_tok_t trparen1;
+	/** Second ')' token */
+	ast_tok_t trparen2;
+} ast_aspec_t;
+
+/** Attribute */
+typedef struct {
+	/** Containing attribute specifier */
+	ast_aspec_t *aspec;
+	/** Link to @c aspec->attrs */
+	link_t lspec;
+	/** Attribute name token */
+	ast_tok_t tname;
+	/** @c true if we have perenthesized parameter list */
+	bool have_params;
+	/** Left parenthesis token */
+	ast_tok_t tlparen;
+	/** Parameters */
+	list_t params; /* of ast_aspec_param_t */
+	/** Right parenthesis token */
+	ast_tok_t trparen;
+	/** Separating ',' token (except for the last element) */
+	ast_tok_t tcomma;
+} ast_aspec_attr_t;
+
+/** Attribute parameter */
+typedef struct {
+	/** Containing attribute */
+	ast_aspec_attr_t *attr;
+	/** Link to @c attr->params */
+	link_t lattr;
+	/** Parameter expression */
+	ast_node_t *expr;
+	/** Separating ',' token (except for the last parameter) */
+	ast_tok_t tcomma;
+} ast_aspec_param_t;
 
 /** Specifier-qualifier list */
 typedef struct ast_sqlist {

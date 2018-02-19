@@ -37,6 +37,7 @@ static bool parser_ttype_ignore(lexer_toktype_t);
 static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
+static int parser_process_aspec(parser_t *, ast_aspec_t **);
 static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
@@ -332,6 +333,16 @@ static bool parser_ttype_sclass(lexer_toktype_t ttype)
 static bool parser_ttype_fspec(lexer_toktype_t ttype)
 {
 	return ttype == ltt_inline;
+}
+
+/** Return @c true if token type is an attribute specifier
+ *
+ * @param ttype Token type
+ * @return @c true iff token of type @a ttype is an attribute specifier
+ */
+static bool parser_ttype_aspec(lexer_toktype_t ttype)
+{
+	return ttype == ltt_attribute;
 }
 
 /** Parse integer literal.
@@ -3139,6 +3150,7 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 	ast_dspecs_t *dspecs;
 	ast_tqual_t *tqual;
 	ast_fspec_t *fspec;
+	ast_aspec_t *aspec;
 	ast_node_t *elem;
 	bool have_tspec;
 	int rc;
@@ -3178,6 +3190,12 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 			if (rc != EOK)
 				goto error;
 			elem = &fspec->node;
+		} else if (parser_ttype_aspec(ltt)) {
+			/* Attribute specifier */
+			rc = parser_process_aspec(parser, &aspec);
+			if (rc != EOK)
+				goto error;
+			elem = &aspec->node;
 		} else {
 			/* Unexpected */
 			if (!parser->silent) {
@@ -3825,6 +3843,162 @@ static int parser_process_fspec(parser_t *parser, ast_fspec_t **rfspec)
 
 	*rfspec = fspec;
 	return EOK;
+}
+
+/** Parse attribute.
+ *
+ * @param parser Parser
+ * @param rattr Place to store pointer to new attribute
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_aspec_attr(parser_t *parser, ast_aspec_attr_t **rattr)
+{
+	lexer_toktype_t ltt;
+	ast_aspec_attr_t *attr = NULL;
+	ast_node_t *expr = NULL;
+	void *dname;
+	void *dlparen;
+	void *dcomma;
+	void *drparen;
+	int rc;
+
+	rc = ast_aspec_attr_create(&attr);
+	if (rc != EOK)
+		goto error;
+
+	/* XXX Attribute name can also be a reserved word */
+	rc = parser_match(parser, ltt_ident, &dname);
+	if (rc != EOK)
+		goto error;
+
+	attr->tname.data = dname;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lparen) {
+		parser_skip(parser, &dlparen);
+
+		ltt = parser_next_ttype(parser);
+		dcomma = NULL;
+
+		/* We can only fail this test upon entry */
+		while (ltt != ltt_rparen) {
+			rc = parser_process_eassign(parser, &expr);
+			if (rc != EOK)
+				goto error;
+
+			rc = ast_aspec_attr_append(attr, expr, dcomma);
+			if (rc != EOK)
+				goto error;
+
+			expr = NULL;
+
+			ltt = parser_next_ttype(parser);
+			if (ltt == ltt_rparen)
+				break;
+
+			rc = parser_match(parser, ltt_comma, &dcomma);
+			if (rc != EOK)
+				goto error;
+		}
+
+		rc = parser_match(parser, ltt_rparen, &drparen);
+		if (rc != EOK)
+			goto error;
+
+		attr->have_params = true;
+		attr->tlparen.data = dlparen;
+		attr->trparen.data = drparen;
+	}
+
+	*rattr = attr;
+	return EOK;
+error:
+	if (attr != NULL)
+		ast_aspec_attr_destroy(attr);
+	if (expr != NULL)
+		ast_tree_destroy(expr);
+	return rc;
+}
+
+/** Parse attribute specifier.
+ *
+ * @param parser Parser
+ * @param raspec Place to store pointer to new attribute specifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_aspec(parser_t *parser, ast_aspec_t **raspec)
+{
+	lexer_toktype_t ltt;
+	ast_aspec_t *aspec = NULL;
+	ast_aspec_attr_t *attr = NULL;
+	void *dattr;
+	void *dlparen1;
+	void *dlparen2;
+	void *dcomma;
+	void *drparen1;
+	void *drparen2;
+	int rc;
+
+	rc = parser_match(parser, ltt_attribute, &dattr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen1);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen2);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_aspec_create(&aspec);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	dcomma = NULL;
+
+	/* We can only fail this test upon entry */
+	while (ltt != ltt_rparen) {
+		rc = parser_process_aspec_attr(parser, &attr);
+		if (rc != EOK)
+			goto error;
+
+		attr->tcomma.data = dcomma;
+		ast_aspec_append(aspec, attr);
+		attr = NULL;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_rparen)
+			break;
+
+		rc = parser_match(parser, ltt_comma, &dcomma);
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = parser_match(parser, ltt_rparen, &drparen1);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen2);
+	if (rc != EOK)
+		goto error;
+
+	aspec->tattr.data = dattr;
+	aspec->tlparen1.data = dlparen1;
+	aspec->tlparen2.data = dlparen2;
+	aspec->trparen1.data = drparen1;
+	aspec->trparen2.data = drparen2;
+
+	*raspec = aspec;
+	return EOK;
+error:
+	if (aspec != NULL)
+		ast_tree_destroy(&aspec->node);
+	return rc;
 }
 
 /** Parse global declaration.

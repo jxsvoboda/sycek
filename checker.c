@@ -1767,6 +1767,120 @@ static int checker_check_fspec(checker_scope_t *scope, ast_fspec_t *fspec)
 	return EOK;
 }
 
+/** Run checks on an attribute.
+ *
+ * @param scope Checker scope
+ * @param attr AST attribute
+ * @return EOK on success or error code
+ */
+static int checker_check_aspec_attr(checker_scope_t *scope,
+    ast_aspec_attr_t *attr)
+{
+	ast_aspec_param_t *param;
+	checker_tok_t *tname;
+	checker_tok_t *tlparen;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen;
+	int rc;
+
+	tname = (checker_tok_t *) attr->tname.data;
+	checker_check_any(scope, tname);
+
+	if (attr->have_params) {
+		tlparen = (checker_tok_t *)attr->tlparen.data;
+		checker_check_nows_before(scope, tlparen,
+		    "Unexpected whitespace before '('.");
+		checker_check_nows_after(scope, tlparen,
+		    "Unexpected whitespace after '('.");
+
+		param = ast_aspec_attr_first(attr);
+		while (param != NULL) {
+			rc = checker_check_expr(scope, param->expr);
+			if (rc != EOK)
+				return rc;
+
+			tcomma = (checker_tok_t *)param->tcomma.data;
+
+			if (tcomma != NULL) {
+				checker_check_nows_before(scope, tcomma,
+				    "Unexpected whitespace before ','.");
+				rc = checker_check_brkspace_after(scope, tcomma,
+				    "Expected whitespace after ','.");
+				if (rc != EOK)
+					return rc;
+			}
+
+			param = ast_aspec_attr_next(param);
+		}
+
+		trparen = (checker_tok_t *)attr->trparen.data;
+		checker_check_nows_before(scope, trparen,
+		    "Unexpected whitespace before ')'.");
+	}
+
+	return EOK;
+}
+
+/** Run checks on an attribute specifier.
+ *
+ * @param scope Checker scope
+ * @param aspec AST attribute specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_aspec(checker_scope_t *scope, ast_aspec_t *aspec)
+{
+	ast_aspec_attr_t *attr;
+	checker_tok_t *tattr;
+	checker_tok_t *tlparen1;
+	checker_tok_t *tlparen2;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen1;
+	checker_tok_t *trparen2;
+	int rc;
+
+	tattr = (checker_tok_t *) aspec->tattr.data;
+	checker_check_nows_after(scope, tattr,
+	    "Unexpected whitespace after '__attribute__'.");
+
+	tlparen1 = (checker_tok_t *)aspec->tlparen1.data;
+	checker_check_nows_after(scope, tlparen1,
+	    "Unexpected whitespace after '('.");
+
+	tlparen2 = (checker_tok_t *)aspec->tlparen2.data;
+	checker_check_nows_after(scope, tlparen2,
+	    "Unexpected whitespace after '('.");
+
+	attr = ast_aspec_first(aspec);
+	while (attr != NULL) {
+		rc = checker_check_aspec_attr(scope, attr);
+		if (rc != EOK)
+			return rc;
+
+		tcomma = (checker_tok_t *)attr->tcomma.data;
+
+		if (tcomma != NULL) {
+			checker_check_nows_before(scope, tcomma,
+			    "Unexpected whitespace before ','.");
+			rc = checker_check_brkspace_after(scope, tcomma,
+			    "Expected whitespace after ','.");
+			if (rc != EOK)
+				return rc;
+		}
+
+		attr = ast_aspec_next(attr);
+	}
+
+	trparen1 = (checker_tok_t *)aspec->trparen1.data;
+	checker_check_nows_before(scope, trparen1,
+	    "Unexpected whitespace before ')'.");
+
+	trparen2 = (checker_tok_t *)aspec->trparen2.data;
+	checker_check_nows_before(scope, trparen2,
+	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+}
+
 /** Run checks on a type qualifier.
  *
  * @param scope Checker scope
@@ -2067,6 +2181,7 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 	ast_tqual_t *tqual;
 	ast_sclass_t *sclass;
 	ast_fspec_t *fspec;
+	ast_aspec_t *aspec;
 	int rc;
 
 	elem = ast_dspecs_first(dspecs);
@@ -2080,6 +2195,9 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 		} else if (elem->ntype == ant_fspec) {
 			fspec = (ast_fspec_t *) elem->ext;
 			rc = checker_check_fspec(scope, fspec);
+		} else if (elem->ntype == ant_aspec) {
+			aspec = (ast_aspec_t *) elem->ext;
+			rc = checker_check_aspec(scope, aspec);
 		} else {
 			/* Type specifier */
 			rc = checker_check_tspec(scope, elem);

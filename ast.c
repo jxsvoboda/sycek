@@ -1211,6 +1211,331 @@ static ast_tok_t *ast_fspec_last_tok(ast_fspec_t *fspec)
 	return &fspec->tfspec;
 }
 
+/** Create AST attribute specifier.
+ *
+ * @param raspec Place to store pointer to new attribute specifier
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_aspec_create(ast_aspec_t **raspec)
+{
+	ast_aspec_t *aspec;
+
+	aspec = calloc(1, sizeof(ast_aspec_t));
+	if (aspec == NULL)
+		return ENOMEM;
+
+	list_initialize(&aspec->attrs);
+
+	aspec->node.ext = aspec;
+	aspec->node.ntype = ant_aspec;
+
+	*raspec = aspec;
+	return EOK;
+}
+
+/** Append attribute to attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ * @param attr Attribute
+ */
+void ast_aspec_append(ast_aspec_t *aspec, ast_aspec_attr_t *attr)
+{
+	attr->aspec = aspec;
+	list_append(&attr->lspec, &aspec->attrs);
+}
+
+/** Return first attribute in attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ * @return First attribute or @c NULL
+ */
+ast_aspec_attr_t *ast_aspec_first(ast_aspec_t *aspec)
+{
+	link_t *link;
+
+	link = list_first(&aspec->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_attr_t, lspec);
+}
+
+/** Return next attribute in attribute specifier.
+ *
+ * @param attr Current attribute
+ * @return Next attribute or @c NULL
+ */
+ast_aspec_attr_t *ast_aspec_next(ast_aspec_attr_t *attr)
+{
+	link_t *link;
+
+	link = list_next(&attr->lspec, &attr->aspec->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_attr_t, lspec);
+}
+
+/** Return last attribute in attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ * @return Last attribute or @c NULL
+ */
+ast_aspec_attr_t *ast_aspec_last(ast_aspec_t *aspec)
+{
+	link_t *link;
+
+	link = list_last(&aspec->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_attr_t, lspec);
+}
+
+/** Return previous attribute in attribute specifier.
+ *
+ * @param attr Current attribute
+ * @return Previous attribute or @c NULL
+ */
+ast_aspec_attr_t *ast_aspec_prev(ast_aspec_attr_t *attr)
+{
+	link_t *link;
+
+	link = list_prev(&attr->lspec, &attr->aspec->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_attr_t, lspec);
+}
+
+/** Print AST attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_aspec_print(ast_aspec_t *aspec, FILE *f)
+{
+	ast_aspec_attr_t *attr;
+	ast_aspec_param_t *param;
+	bool first;
+	bool first_p;
+
+	if (fprintf(f, "aspec(") < 0)
+		return EIO;
+
+	first = true;
+	attr = ast_aspec_first(aspec);
+	while (attr != NULL) {
+		if (!first) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+
+		if (fprintf(f, "attr(") < 0)
+			return EIO;
+
+		first_p = true;
+		param = ast_aspec_attr_first(attr);
+		while (param != NULL) {
+			if (!first_p) {
+				if (fprintf(f, ", ") < 0)
+					return EIO;
+			}
+			if (fprintf(f, "param") < 0)
+				return EIO;
+
+			param = ast_aspec_attr_next(param);
+		}
+
+		if (fprintf(f, ")") < 0)
+			return EIO;
+
+		first = false;
+		attr = ast_aspec_next(attr);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ */
+static void ast_aspec_destroy(ast_aspec_t *aspec)
+{
+	ast_aspec_attr_t *attr;
+
+	if (aspec == NULL)
+		return;
+
+	attr = ast_aspec_first(aspec);
+	while (attr != NULL) {
+		list_remove(&attr->lspec);
+		ast_aspec_attr_destroy(attr);
+
+		attr = ast_aspec_first(aspec);
+	}
+
+	free(aspec);
+}
+
+/** Get first token of AST attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_aspec_first_tok(ast_aspec_t *aspec)
+{
+	return &aspec->tattr;
+}
+
+/** Get last token of AST attribute specifier.
+ *
+ * @param aspec Attribute specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_aspec_last_tok(ast_aspec_t *aspec)
+{
+	return &aspec->trparen2;
+}
+
+/** Create attribute.
+ *
+ * @param rattr Place to store pointer to new attribute
+ * @return EOK on success or error code
+ */
+int ast_aspec_attr_create(ast_aspec_attr_t **rattr)
+{
+	ast_aspec_attr_t *attr;
+
+	attr = calloc(1, sizeof(ast_aspec_attr_t));
+	if (attr == NULL)
+		return ENOMEM;
+
+	list_initialize(&attr->params);
+
+	*rattr = attr;
+	return EOK;
+}
+
+/** Destroy attribute.
+ *
+ * @param rattr Place to store pointer to new attribute
+ * @return EOK on success or error code
+ */
+void ast_aspec_attr_destroy(ast_aspec_attr_t *attr)
+{
+	ast_aspec_param_t *param;
+
+	if (attr == NULL)
+		return;
+
+	param = ast_aspec_attr_first(attr);
+	while (param != NULL) {
+		list_remove(&param->lattr);
+		free(param);
+		param = ast_aspec_attr_first(attr);
+	}
+
+	free(attr);
+}
+
+/** Append parameter to attribute.
+ *
+ * @param attr Attribute
+ * @param expr Parameter expression
+ * @param dcomma Data for separating comma token (except for the last
+ *               parameter)
+ * @return EOK on success or error code
+ */
+int ast_aspec_attr_append(ast_aspec_attr_t *attr, ast_node_t *expr,
+    void *dcomma)
+{
+	ast_aspec_param_t *param;
+
+	param = calloc(1, sizeof(ast_aspec_param_t));
+	if (param == NULL)
+		return ENOMEM;
+
+	param->attr = attr;
+	list_append(&param->lattr, &attr->params);
+
+	param->expr = expr;
+	param->tcomma.data = dcomma;
+
+	return EOK;
+}
+
+/** Return first attribute parameter.
+ *
+ * @param attr Attribute
+ * @return First parameter or @c NULL
+ */
+ast_aspec_param_t *ast_aspec_attr_first(ast_aspec_attr_t *attr)
+{
+	link_t *link;
+
+	link = list_first(&attr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_param_t, lattr);
+}
+
+/** Return next attribute parameter.
+ *
+ * @param param Current parameter
+ * @return Next attribute or @c NULL
+ */
+ast_aspec_param_t *ast_aspec_attr_next(ast_aspec_param_t *param)
+{
+	link_t *link;
+
+	link = list_next(&param->lattr, &param->attr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_param_t, lattr);
+}
+
+/** Return last attribute parameter.
+ *
+ * @param attr Attribute
+ * @return Last parameter or @c NULL
+ */
+ast_aspec_param_t *ast_aspec_attr_last(ast_aspec_attr_t *attr)
+{
+	link_t *link;
+
+	link = list_last(&attr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_param_t, lattr);
+}
+
+/** Return previous attribute parameter.
+ *
+ * @param param Current parameter
+ * @return Previous parameter or @c NULL
+ */
+ast_aspec_param_t *ast_aspec_attr_prev(ast_aspec_param_t *param)
+{
+	link_t *link;
+
+	link = list_prev(&param->lattr, &param->attr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_param_t, lattr);
+}
+
 /** Create AST specifier-qualifier list.
  *
  * @param rsqlist Place to store pointer to new specifier-qualifier list
@@ -1735,7 +2060,6 @@ static ast_tok_t *ast_dspecs_last_tok(ast_dspecs_t *dspecs)
 {
 	return ast_tree_last_tok(ast_dspecs_last(dspecs));
 }
-
 
 /** Create AST identifier declarator.
  *
@@ -6062,6 +6386,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
 	case ant_fspec:
 		return ast_fspec_print((ast_fspec_t *)node->ext, f);
+	case ant_aspec:
+		return ast_aspec_print((ast_aspec_t *)node->ext, f);
 	case ant_sqlist:
 		return ast_sqlist_print((ast_sqlist_t *)node->ext, f);
 	case ant_tqlist:
@@ -6204,6 +6530,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_fspec:
 		ast_fspec_destroy((ast_fspec_t *)node->ext);
+		break;
+	case ant_aspec:
+		ast_aspec_destroy((ast_aspec_t *)node->ext);
 		break;
 	case ant_sqlist:
 		ast_sqlist_destroy((ast_sqlist_t *)node->ext);
@@ -6367,6 +6696,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_tsenum_first_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_first_tok((ast_fspec_t *)node->ext);
+	case ant_aspec:
+		return ast_aspec_first_tok((ast_aspec_t *)node->ext);
 	case ant_sqlist:
 		return ast_sqlist_first_tok((ast_sqlist_t *)node->ext);
 	case ant_tqlist:
@@ -6494,6 +6825,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_tsenum_last_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_last_tok((ast_fspec_t *)node->ext);
+	case ant_aspec:
+		return ast_aspec_last_tok((ast_aspec_t *)node->ext);
 	case ant_sqlist:
 		return ast_sqlist_last_tok((ast_sqlist_t *)node->ext);
 	case ant_tqlist:
