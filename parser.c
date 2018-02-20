@@ -38,6 +38,7 @@ static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_aspec(parser_t *, ast_aspec_t **);
+static int parser_process_aslist(parser_t *, ast_aslist_t **);
 static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
@@ -2812,6 +2813,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	void *dlbrace;
 	ast_sqlist_t *sqlist;
 	ast_dlist_t *dlist;
+	ast_aslist_t *aslist;
 	void *dscolon;
 	void *drbrace;
 	int rc;
@@ -2878,7 +2880,18 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			goto error;
 
 		precord->trbrace.data = drbrace;
+
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_attribute) {
+			rc = parser_process_aslist(parser, &aslist);
+			if (rc != EOK)
+				goto error;
+
+			precord->aslist = aslist;
+			aslist = NULL;
+		}
 	}
+
 
 	*rtype = &precord->node;
 	return EOK;
@@ -3210,7 +3223,8 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 		ast_dspecs_append(dspecs, elem);
 		ltt = parser_next_ttype(parser);
 	} while (parser_ttype_sclass(ltt) || parser_ttype_tspec(ltt) ||
-	    parser_ttype_tqual(ltt) || parser_ttype_fspec(ltt));
+	    parser_ttype_tqual(ltt) || parser_ttype_fspec(ltt) ||
+	    parser_ttype_aspec(ltt));
 
 	*rdspecs = dspecs;
 	return EOK;
@@ -4000,6 +4014,54 @@ error:
 		ast_tree_destroy(&aspec->node);
 	return rc;
 }
+
+/** Parse attribute specifier list.
+ *
+ * @param parser Parser
+ * @param raslist Place to store pointer to new AST attribute specifier list
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_aslist(parser_t *parser, ast_aslist_t **raslist)
+{
+	lexer_toktype_t ltt;
+	ast_aslist_t *aslist;
+	ast_aspec_t *aspec;
+	int rc;
+
+	rc = ast_aslist_create(&aslist);
+	if (rc != EOK)
+		return rc;
+
+	ltt = parser_next_ttype(parser);
+	do {
+		if (parser_ttype_aspec(ltt)) {
+			/* Attribute specifier */
+			rc = parser_process_aspec(parser, &aspec);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* Unexpected */
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, " unexpected, expected "
+				    "attribute specifier.\n");
+			}
+			return EINVAL;
+		}
+
+		ast_aslist_append(aslist, aspec);
+		ltt = parser_next_ttype(parser);
+	} while (parser_ttype_aspec(ltt));
+
+	*raslist = aslist;
+	return EOK;
+error:
+	ast_tree_destroy(&aslist->node);
+	return rc;
+}
+
 
 /** Parse global declaration.
  *

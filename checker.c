@@ -1881,6 +1881,29 @@ static int checker_check_aspec(checker_scope_t *scope, ast_aspec_t *aspec)
 	return EOK;
 }
 
+/** Run checks on attribute specifier list.
+ *
+ * @param scope Checker scope
+ * @param aslist AST attribute specifier list
+ * @return EOK on success or error code
+ */
+static int checker_check_aslist(checker_scope_t *scope, ast_aslist_t *aslist)
+{
+	ast_aspec_t *aspec;
+	int rc;
+
+	aspec = ast_aslist_first(aslist);
+	while (aspec != NULL) {
+		rc = checker_check_aspec(scope, aspec);
+		if (rc != EOK)
+			return rc;
+
+		aspec = ast_aslist_next(aspec);
+	}
+
+	return EOK;
+}
+
 /** Run checks on a type qualifier.
  *
  * @param scope Checker scope
@@ -1949,6 +1972,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	checker_tok_t *tscolon;
 	checker_scope_t *escope;
 	ast_tok_t *adecl;
+	ast_tok_t *aaslist;
 	checker_tok_t *tdecl;
 	int rc;
 
@@ -2008,6 +2032,19 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	if (trbrace != NULL) {
 		rc = checker_check_lbegin(scope, trbrace,
 		    "'}' must begin on a new line.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	if (tsrecord->aslist != NULL) {
+		aaslist = ast_tree_first_tok(&tsrecord->aslist->node);
+		rc = checker_check_brkspace_before(scope,
+		    (checker_tok_t *)aaslist->data,
+		    "Expected whitespace before '__attribute__'.");
+		if (rc != EOK)
+			goto error;
+
+		rc = checker_check_aslist(scope, tsrecord->aslist);
 		if (rc != EOK)
 			goto error;
 	}

@@ -47,6 +47,8 @@ typedef enum {
 	ant_fspec,
 	/** Attribute specifier */
 	ant_aspec,
+	/** Attribute specifier list */
+	ant_aslist,
 	/** Specifier-qualifier list */
 	ant_sqlist,
 	/** Type qualifier list */
@@ -343,6 +345,8 @@ typedef struct {
 	list_t elems; /* of ast_tsrecord_elem_t */
 	/** Right brace token */
 	ast_tok_t trbrace;
+	/** Attribute specifier list */
+	struct ast_aslist *aslist;
 } ast_tsrecord_t;
 
 /** Record element */
@@ -403,10 +407,22 @@ typedef struct {
 	ast_tok_t tfspec;
 } ast_fspec_t;
 
+/** Attribute specifier list */
+typedef struct ast_aslist {
+	/** Base object */
+	ast_node_t node;
+	/** Attribute specifiers */
+	list_t aspecs; /* of ast_aspec_t */
+} ast_aslist_t;
+
 /** Attribute specifier */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
+	/** Containing attribute specifier list or @c NULL */
+	ast_aslist_t *aslist;
+	/** Link to aslist->aspecs */
+	link_t laslist;
 	/** '__attribute__' token */
 	ast_tok_t tattr;
 	/** First '(' token */
@@ -474,7 +490,7 @@ typedef struct {
 	/** Base object */
 	ast_node_t node;
 	/** Declaration specifiers */
-	list_t dspecs;
+	list_t dspecs; /* of ast_node_t */
 } ast_dspecs_t;
 
 /** Declarator - identifier */

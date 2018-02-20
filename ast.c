@@ -32,6 +32,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static int ast_aspec_print(ast_aspec_t *, FILE *);
+static int ast_aslist_print(ast_aslist_t *, FILE *);
+static void ast_aslist_destroy(ast_aslist_t *);
 static int ast_block_print(ast_block_t *, FILE *);
 static ast_tok_t *ast_block_last_tok(ast_block_t *);
 static int ast_dlist_print(ast_dlist_t *, FILE *);
@@ -39,6 +42,9 @@ static int ast_idlist_print(ast_idlist_t *, FILE *);
 static void ast_idlist_destroy(ast_idlist_t *);
 static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *);
 static void ast_dspecs_destroy(ast_dspecs_t *);
+static ast_tok_t *ast_aspec_first_tok(ast_aspec_t *);
+static ast_tok_t *ast_aspec_last_tok(ast_aspec_t *);
+static void ast_aspec_destroy(ast_aspec_t *);
 static void ast_block_destroy(ast_block_t *);
 static void ast_sqlist_destroy(ast_sqlist_t *);
 static void ast_dlist_destroy(ast_dlist_t *);
@@ -936,6 +942,15 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 		elem = ast_tsrecord_next(elem);
 	}
 
+	if (tsrecord->aslist != NULL) {
+		if (fprintf(f, ", ") < 0)
+			return EIO;
+
+		rc = ast_aslist_print(tsrecord->aslist, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ")") < 0)
 		return EIO;
 
@@ -959,6 +974,7 @@ static void ast_tsrecord_destroy(ast_tsrecord_t *tsrecord)
 		elem = ast_tsrecord_first(tsrecord);
 	}
 
+	ast_aslist_destroy(tsrecord->aslist);
 	free(tsrecord);
 }
 
@@ -1209,6 +1225,202 @@ static ast_tok_t *ast_fspec_first_tok(ast_fspec_t *fspec)
 static ast_tok_t *ast_fspec_last_tok(ast_fspec_t *fspec)
 {
 	return &fspec->tfspec;
+}
+
+/** Create AST attribute specifier list.
+ *
+ * @param raslist Place to store pointer to new attribute specifier list
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_aslist_create(ast_aslist_t **raslist)
+{
+	ast_aslist_t *aslist;
+
+	aslist = calloc(1, sizeof(ast_aslist_t));
+	if (aslist == NULL)
+		return ENOMEM;
+
+	list_initialize(&aslist->aspecs);
+
+	aslist->node.ext = aslist;
+	aslist->node.ntype = ant_aslist;
+
+	*raslist = aslist;
+	return EOK;
+}
+
+/** Append attribute specifier to attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ * @param aspec Attribute specifier
+ */
+void ast_aslist_append(ast_aslist_t *aslist, ast_aspec_t *aspec)
+{
+	aspec->aslist = aslist;
+	list_append(&aspec->laslist, &aslist->aspecs);
+}
+
+/** Return first attribute specifier in attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ * @return First attribute specifier or @c NULL
+ */
+ast_aspec_t *ast_aslist_first(ast_aslist_t *aslist)
+{
+	link_t *link;
+
+	link = list_first(&aslist->aspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_t, laslist);
+}
+
+/** Return next attribute specifier in attribute specifier list.
+ *
+ * @param aspec Current attribute specifier
+ * @return Next attribute specifier or @c NULL
+ */
+ast_aspec_t *ast_aslist_next(ast_aspec_t *aspec)
+{
+	link_t *link;
+
+	link = list_next(&aspec->laslist, &aspec->aslist->aspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_t, laslist);
+}
+
+/** Return last attribute specifier in attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ * @return Last attribute specifier or @c NULL
+ */
+ast_aspec_t *ast_aslist_last(ast_aslist_t *aslist)
+{
+	link_t *link;
+
+	link = list_last(&aslist->aspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_t, laslist);
+}
+
+/** Return previous attribute specifier in attribute specifier list.
+ *
+ * @param aspec Current attribute specifier
+ * @return Previous attribute specifier or @c NULL
+ */
+ast_aspec_t *ast_aslist_prev(ast_aspec_t *aspec)
+{
+	link_t *link;
+
+	link = list_prev(&aspec->laslist, &aspec->aslist->aspecs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_aspec_t, laslist);
+}
+
+/** Print AST attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_aslist_print(ast_aslist_t *aslist, FILE *f)
+{
+	ast_aspec_t *aspec;
+	bool first;
+	int rc;
+
+	if (fprintf(f, "aslist(") < 0)
+		return EIO;
+
+	first = true;
+	aspec = ast_aslist_first(aslist);
+	while (aspec != NULL) {
+		if (!first) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+
+		if (fprintf(f, "aspec(") < 0)
+			return EIO;
+
+		rc = ast_aspec_print(aspec, f);
+		if (rc != EOK)
+			return rc;
+
+		if (fprintf(f, ")") < 0)
+			return EIO;
+
+		first = false;
+		aspec = ast_aslist_next(aspec);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ */
+static void ast_aslist_destroy(ast_aslist_t *aslist)
+{
+	ast_aspec_t *aspec;
+
+	if (aslist == NULL)
+		return;
+
+	aspec = ast_aslist_first(aslist);
+	while (aspec != NULL) {
+		list_remove(&aspec->laslist);
+		ast_aspec_destroy(aspec);
+
+		aspec = ast_aslist_first(aslist);
+	}
+
+	free(aslist);
+}
+
+/** Get first token of AST attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_aslist_first_tok(ast_aslist_t *aslist)
+{
+	ast_aspec_t *aspec;
+
+	aspec = ast_aslist_first(aslist);
+	if (aspec == NULL)
+		return NULL;
+
+	return ast_aspec_first_tok(aspec);
+}
+
+/** Get last token of AST attribute specifier list.
+ *
+ * @param aslist Attribute specifier list
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_aslist_last_tok(ast_aslist_t *aslist)
+{
+	ast_aspec_t *aspec;
+
+	aspec = ast_aslist_last(aslist);
+	if (aspec == NULL)
+		return NULL;
+
+	return ast_aspec_last_tok(aspec);
 }
 
 /** Create AST attribute specifier.
@@ -6386,6 +6598,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
 	case ant_fspec:
 		return ast_fspec_print((ast_fspec_t *)node->ext, f);
+	case ant_aslist:
+		return ast_aslist_print((ast_aslist_t *)node->ext, f);
 	case ant_aspec:
 		return ast_aspec_print((ast_aspec_t *)node->ext, f);
 	case ant_sqlist:
@@ -6530,6 +6744,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_fspec:
 		ast_fspec_destroy((ast_fspec_t *)node->ext);
+		break;
+	case ant_aslist:
+		ast_aslist_destroy((ast_aslist_t *)node->ext);
 		break;
 	case ant_aspec:
 		ast_aspec_destroy((ast_aspec_t *)node->ext);
@@ -6696,6 +6913,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_tsenum_first_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_first_tok((ast_fspec_t *)node->ext);
+	case ant_aslist:
+		return ast_aslist_first_tok((ast_aslist_t *)node->ext);
 	case ant_aspec:
 		return ast_aspec_first_tok((ast_aspec_t *)node->ext);
 	case ant_sqlist:
@@ -6825,6 +7044,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_tsenum_last_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_last_tok((ast_fspec_t *)node->ext);
+	case ant_aslist:
+		return ast_aslist_last_tok((ast_aslist_t *)node->ext);
 	case ant_aspec:
 		return ast_aspec_last_tok((ast_aspec_t *)node->ext);
 	case ant_sqlist:
