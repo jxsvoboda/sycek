@@ -933,6 +933,15 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 	    "union") < 0)
 		return EIO;
 
+	if (tsrecord->aslist1 != NULL) {
+		if (fprintf(f, ", ") < 0)
+			return EIO;
+
+		rc = ast_aslist_print(tsrecord->aslist1, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
 		rc = ast_tree_print(&elem->sqlist->node, f);
@@ -942,11 +951,11 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 		elem = ast_tsrecord_next(elem);
 	}
 
-	if (tsrecord->aslist != NULL) {
+	if (tsrecord->aslist2 != NULL) {
 		if (fprintf(f, ", ") < 0)
 			return EIO;
 
-		rc = ast_aslist_print(tsrecord->aslist, f);
+		rc = ast_aslist_print(tsrecord->aslist2, f);
 		if (rc != EOK)
 			return rc;
 	}
@@ -965,6 +974,8 @@ static void ast_tsrecord_destroy(ast_tsrecord_t *tsrecord)
 {
 	ast_tsrecord_elem_t *elem;
 
+	ast_aslist_destroy(tsrecord->aslist1);
+
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
 		list_remove(&elem->ltsrecord);
@@ -974,7 +985,7 @@ static void ast_tsrecord_destroy(ast_tsrecord_t *tsrecord)
 		elem = ast_tsrecord_first(tsrecord);
 	}
 
-	ast_aslist_destroy(tsrecord->aslist);
+	ast_aslist_destroy(tsrecord->aslist2);
 	free(tsrecord);
 }
 

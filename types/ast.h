@@ -333,6 +333,8 @@ typedef struct {
 	ast_rtype_t rtype;
 	/** Struct or union token */
 	ast_tok_t tsu;
+	/** Attribute specifier list after struct/union keyword */
+	struct ast_aslist *aslist1;
 	/** @c true if we have an identifier */
 	bool have_ident;
 	/** Record type identifier */
@@ -345,8 +347,8 @@ typedef struct {
 	list_t elems; /* of ast_tsrecord_elem_t */
 	/** Right brace token */
 	ast_tok_t trbrace;
-	/** Attribute specifier list */
-	struct ast_aslist *aslist;
+	/** Trailing attribute specifier list after '}' */
+	struct ast_aslist *aslist2;
 } ast_tsrecord_t;
 
 /** Record element */

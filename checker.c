@@ -1983,6 +1983,13 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	tsu = (checker_tok_t *)tsrecord->tsu.data;
 	checker_check_any(scope, tsu);
 
+	if (tsrecord->aslist1 != NULL) {
+		rc = checker_check_aslist(scope, tsrecord->aslist1);
+		if (rc != EOK)
+			goto error;
+	}
+
+
 	tident = (checker_tok_t *)tsrecord->tident.data;
 	if (tident != NULL)
 		checker_check_any(scope, tident);
@@ -2036,15 +2043,15 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 			goto error;
 	}
 
-	if (tsrecord->aslist != NULL) {
-		aaslist = ast_tree_first_tok(&tsrecord->aslist->node);
+	if (tsrecord->aslist2 != NULL) {
+		aaslist = ast_tree_first_tok(&tsrecord->aslist2->node);
 		rc = checker_check_brkspace_before(scope,
 		    (checker_tok_t *)aaslist->data,
 		    "Expected whitespace before '__attribute__'.");
 		if (rc != EOK)
 			goto error;
 
-		rc = checker_check_aslist(scope, tsrecord->aslist);
+		rc = checker_check_aslist(scope, tsrecord->aslist2);
 		if (rc != EOK)
 			goto error;
 	}

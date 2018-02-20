@@ -2839,6 +2839,16 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	precord->tsu.data = dsu;
 
 	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_attribute) {
+		rc = parser_process_aslist(parser, &aslist);
+		if (rc != EOK)
+			goto error;
+
+		precord->aslist1 = aslist;
+		aslist = NULL;
+	}
+
+	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_ident) {
 		parser_skip(parser, &dident);
 		precord->have_ident = true;
@@ -2887,7 +2897,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			precord->aslist = aslist;
+			precord->aslist2 = aslist;
 			aslist = NULL;
 		}
 	}
