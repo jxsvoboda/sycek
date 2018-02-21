@@ -113,8 +113,8 @@ extern ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *);
 extern ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *);
 extern int ast_idlist_create(ast_idlist_t **);
-extern int ast_idlist_append(ast_idlist_t *, void *, ast_node_t *, bool,
-    void *, ast_node_t *);
+extern int ast_idlist_append(ast_idlist_t *, void *, ast_node_t *,
+    ast_aslist_t *, bool, void *, ast_node_t *);
 extern int ast_typename_create(ast_typename_t **);
 extern ast_idlist_entry_t *ast_idlist_first(ast_idlist_t *);
 extern ast_idlist_entry_t *ast_idlist_next(ast_idlist_entry_t *);

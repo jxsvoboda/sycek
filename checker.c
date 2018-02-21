@@ -44,6 +44,7 @@ static int checker_check_idlist(checker_scope_t *, ast_idlist_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
+static int checker_check_aslist(checker_scope_t *, ast_aslist_t *);
 static int checker_check_block(checker_scope_t *, ast_block_t *);
 static int checker_check_expr(checker_scope_t *, ast_node_t *);
 static int checker_check_init(checker_scope_t *, ast_node_t *);
@@ -1675,6 +1676,12 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist)
 		rc = checker_check_decl(scope, entry->decl);
 		if (rc != EOK)
 			return rc;
+
+		if (entry->aslist != NULL) {
+			rc = checker_check_aslist(scope, entry->aslist);
+			if (rc != EOK)
+				return rc;
+		}
 
 		if (entry->have_init) {
 			tassign = (checker_tok_t *)entry->tassign.data;

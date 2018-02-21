@@ -3658,6 +3658,7 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 	ast_idlist_t *idlist;
 	ast_node_t *decl = NULL;
 	void *dcomma;
+	ast_aslist_t *aslist;
 	bool have_init;
 	void *dassign;
 	ast_node_t *init = NULL;
@@ -3702,6 +3703,16 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 			goto error;
 		}
 
+		/* Are there any attribute specifiers? */
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_attribute) {
+			rc = parser_process_aslist(parser, &aslist);
+			if (rc != EOK)
+				goto error;
+		} else {
+			aslist = NULL;
+		}
+
 		/* Is there an initialization? */
 		ltt = parser_next_ttype(parser);
 		if (ltt == ltt_assign) {
@@ -3717,7 +3728,7 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 			init = NULL;
 		}
 
-		rc = ast_idlist_append(idlist, dcomma, decl, have_init,
+		rc = ast_idlist_append(idlist, dcomma, decl, aslist, have_init,
 		    dassign, init);
 		if (rc != EOK)
 			goto error;

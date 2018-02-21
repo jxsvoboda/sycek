@@ -3065,13 +3065,14 @@ int ast_idlist_create(ast_idlist_t **ridlist)
  * @param idlist Init-declarator list
  * @param dcomma Data for preceding comma token or @c NULL
  * @param decl Declarator
+ * @param aslist Attribute specifier list or @c NULL
  * @param have_init @c true if we have an initializer
  * @param dassign Data for assign token or @c NULL
  * @param init Initializer
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_idlist_append(ast_idlist_t *idlist, void *dcomma, ast_node_t *decl,
-    bool have_init, void *dassign, ast_node_t *init)
+    ast_aslist_t *aslist, bool have_init, void *dassign, ast_node_t *init)
 {
 	ast_idlist_entry_t *entry;
 
@@ -3081,6 +3082,7 @@ int ast_idlist_append(ast_idlist_t *idlist, void *dcomma, ast_node_t *decl,
 
 	entry->tcomma.data = dcomma;
 	entry->decl = decl;
+	entry->aslist = aslist;
 	entry->have_init = have_init;
 	entry->tassign.data = dassign;
 	entry->init = init;
@@ -3201,6 +3203,7 @@ static void ast_idlist_destroy(ast_idlist_t *idlist)
 	while (entry != NULL) {
 		list_remove(&entry->lidlist);
 		ast_tree_destroy(entry->decl);
+		ast_aslist_destroy(entry->aslist);
 		free(entry);
 
 		entry = ast_idlist_first(idlist);

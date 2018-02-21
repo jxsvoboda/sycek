@@ -624,6 +624,8 @@ typedef struct {
 	ast_tok_t tcomma;
 	/** Declarator */
 	ast_node_t *decl;
+	/** Attribute specifier list or @c NULL */
+	ast_aslist_t *aslist;
 	/** @c true if we have an initializer */
 	bool have_init;
 	/** '=' token */
