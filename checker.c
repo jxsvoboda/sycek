@@ -1521,6 +1521,12 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 		if (rc != EOK)
 			return rc;
 
+		if (arg->aslist != NULL) {
+			rc = checker_check_aslist(scope, arg->aslist);
+			if (rc != EOK)
+				return rc;
+		}
+
 		tcomma = (checker_tok_t *)arg->tcomma.data;
 		if (tcomma != NULL) {
 			checker_check_nows_before(scope, tcomma,

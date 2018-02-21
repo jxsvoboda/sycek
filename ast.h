@@ -102,7 +102,8 @@ extern int ast_dnoident_create(ast_dnoident_t **);
 extern int ast_dparen_create(ast_dparen_t **);
 extern int ast_dptr_create(ast_dptr_t **);
 extern int ast_dfun_create(ast_dfun_t **);
-extern int ast_dfun_append(ast_dfun_t *, ast_dspecs_t *, ast_node_t *, void *);
+extern int ast_dfun_append(ast_dfun_t *, ast_dspecs_t *, ast_node_t *,
+    ast_aslist_t *, void *);
 extern ast_dfun_arg_t *ast_dfun_first(ast_dfun_t *);
 extern ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *);
 extern int ast_darray_create(ast_darray_t **);

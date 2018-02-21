@@ -2598,11 +2598,12 @@ int ast_dfun_create(ast_dfun_t **rdfun)
  * @param dfun Function declarator
  * @param dspecs Declaration specifiers
  * @param decl Argument declarator
+ * @param aslist Attribute specifier list or @c NULL
  * @param dcomma Data for comma token or @c NULL
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dfun_append(ast_dfun_t *dfun, ast_dspecs_t *dspecs, ast_node_t *decl,
-    void *dcomma)
+    ast_aslist_t *aslist, void *dcomma)
 {
 	ast_dfun_arg_t *arg;
 
@@ -2612,6 +2613,7 @@ int ast_dfun_append(ast_dfun_t *dfun, ast_dspecs_t *dspecs, ast_node_t *decl,
 
 	arg->dspecs = dspecs;
 	arg->decl = decl;
+	arg->aslist = aslist;
 	arg->tcomma.data = dcomma;
 
 	arg->dfun = dfun;
@@ -2679,6 +2681,15 @@ static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 		if (rc != EOK)
 			return rc;
 
+		if (arg->aslist != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+
+			rc = ast_aslist_print(arg->aslist, f);
+			if (rc != EOK)
+				return rc;
+		}
+
 		arg = ast_dfun_next(arg);
 
 		if (arg != NULL) {
@@ -2707,6 +2718,7 @@ static void ast_dfun_destroy(ast_dfun_t *dfun)
 	while (arg != NULL) {
 		list_remove(&arg->ldfun);
 		ast_dspecs_destroy(arg->dspecs);
+		ast_aslist_destroy(arg->aslist);
 		ast_tree_destroy(arg->decl);
 		free(arg);
 
@@ -3176,6 +3188,15 @@ static int ast_idlist_print(ast_idlist_t *idlist, FILE *f)
 		rc = ast_tree_print(entry->decl, f);
 		if (rc != EOK)
 			return EIO;
+
+		if (entry->aslist != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+
+			rc = ast_aslist_print(entry->aslist, f);
+			if (rc != EOK)
+				return EIO;
+		}
 
 		entry = ast_idlist_next(entry);
 

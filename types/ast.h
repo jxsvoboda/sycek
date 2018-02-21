@@ -561,6 +561,8 @@ typedef struct {
 	ast_dspecs_t *dspecs;
 	/** Declarator */
 	ast_node_t *decl;
+	/** Attribute specifier list or @c NULL */
+	ast_aslist_t *aslist;
 	/** Comma token (except for last argument) */
 	ast_tok_t tcomma;
 } ast_dfun_arg_t;

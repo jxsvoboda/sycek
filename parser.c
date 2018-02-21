@@ -755,7 +755,6 @@ static int parser_process_ecall(parser_t *parser, ast_node_t *ea,
 
 			arg = &atypename->node;
 		}
-
 		rc = ast_ecall_append(ecall, dcomma,
 		    arg);
 		if (rc != EOK)
@@ -3405,6 +3404,7 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	void *dlparen;
 	ast_dspecs_t *dspecs;
 	ast_node_t *decl;
+	ast_aslist_t *aslist;
 	void *dcomma;
 	void *dellipsis;
 	void *drparen;
@@ -3448,6 +3448,15 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 			}
 
 			ltt = parser_next_ttype(parser);
+			if (ltt == ltt_attribute) {
+				rc = parser_process_aslist(parser, &aslist);
+				if (rc != EOK)
+					goto error;
+			} else {
+				aslist = NULL;
+			}
+
+			ltt = parser_next_ttype(parser);
 			if (ltt != ltt_rparen) {
 				rc = parser_match(parser, ltt_comma, &dcomma);
 				if (rc != EOK) {
@@ -3458,7 +3467,8 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 				dcomma = NULL;
 			}
 
-			rc = ast_dfun_append(dfun, dspecs, decl, dcomma);
+			rc = ast_dfun_append(dfun, dspecs, decl, aslist,
+			    dcomma);
 			if (rc != EOK)
 				goto error;
 		} while (ltt != ltt_rparen);
