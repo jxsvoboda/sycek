@@ -424,6 +424,100 @@ static ast_tok_t *ast_gdecln_last_tok(ast_gdecln_t *gdecln)
 		return ast_block_last_tok(gdecln->body);
 }
 
+/** Create AST global macro-based declaration.
+ *
+ * @param dspecs Declaration specifiers or @c NULL
+ * @param dname Data for macro name token
+ * @param dlparen Data for left parenthesis token
+ * @param dvarname Data for variable name token
+ * @param drparen Data for right parenthesis token
+ * @param dscolon Data for trailing semicolon
+ * @param rgmdecln Place to store pointer to new global macro-based declaration
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_gmdecln_create(ast_dspecs_t *dspecs, void *dname, void *dlparen,
+    void *dvarname, void *drparen, void *dscolon, ast_gmdecln_t **rgmdecln)
+{
+	ast_gmdecln_t *gmdecln;
+
+	gmdecln = calloc(1, sizeof(ast_gmdecln_t));
+	if (gmdecln == NULL)
+		return ENOMEM;
+
+	gmdecln->dspecs = dspecs;
+	gmdecln->tname.data = dname;
+	gmdecln->tlparen.data = dlparen;
+	gmdecln->tvarname.data = dvarname;
+	gmdecln->trparen.data = drparen;
+	gmdecln->tscolon.data = dscolon;
+
+	gmdecln->node.ext = gmdecln;
+	gmdecln->node.ntype = ant_gmdecln;
+
+	*rgmdecln = gmdecln;
+	return EOK;
+}
+
+/** Print AST global macro-based declaration.
+ *
+ * @param gmdecln Global macro-based declaration
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_gmdecln_print(ast_gmdecln_t *gmdecln, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "gmdecln(") < 0)
+		return EIO;
+
+	if (gmdecln->dspecs != NULL) {
+		rc = ast_tree_print(&gmdecln->dspecs->node, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST global macro-based declaration.
+ *
+ * @param gmdecln Global macro-based declaration
+ */
+static void ast_gmdecln_destroy(ast_gmdecln_t *gmdecln)
+{
+	ast_dspecs_destroy(gmdecln->dspecs);
+	free(gmdecln);
+}
+
+/** Get first token of AST global macro-based declaration.
+ *
+ * @param gmdecln Global macro-based declaration
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_gmdecln_first_tok(ast_gmdecln_t *gmdecln)
+{
+	if (gmdecln->dspecs != NULL)
+		return ast_dspecs_first_tok(gmdecln->dspecs);
+	else
+		return &gmdecln->tname;
+}
+
+/** Get last token of AST global macro-based declaration.
+ *
+ * @param gmdecln Global macro-based declaration
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_gmdecln_last_tok(ast_gmdecln_t *gmdecln)
+{
+	return &gmdecln->tscolon;
+}
+
 /** Create AST block.
  *
  * @param braces Whether the block has braces or not
@@ -6617,6 +6711,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_block_print((ast_block_t *)node->ext, f);
 	case ant_gdecln:
 		return ast_gdecln_print((ast_gdecln_t *)node->ext, f);
+	case ant_gmdecln:
+		return ast_gmdecln_print((ast_gmdecln_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
 	case ant_sclass:
@@ -6755,6 +6851,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_gdecln:
 		ast_gdecln_destroy((ast_gdecln_t *)node->ext);
+		break;
+	case ant_gmdecln:
+		ast_gmdecln_destroy((ast_gmdecln_t *)node->ext);
 		break;
 	case ant_module:
 		ast_module_destroy((ast_module_t *)node->ext);
@@ -6932,6 +7031,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_block_first_tok((ast_block_t *)node->ext);
 	case ant_gdecln:
 		return ast_gdecln_first_tok((ast_gdecln_t *)node->ext);
+	case ant_gmdecln:
+		return ast_gmdecln_first_tok((ast_gmdecln_t *)node->ext);
 	case ant_module:
 		return ast_module_first_tok((ast_module_t *)node->ext);
 	case ant_sclass:
@@ -7063,6 +7164,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_block_last_tok((ast_block_t *)node->ext);
 	case ant_gdecln:
 		return ast_gdecln_last_tok((ast_gdecln_t *)node->ext);
+	case ant_gmdecln:
+		return ast_gmdecln_last_tok((ast_gmdecln_t *)node->ext);
 	case ant_module:
 		return ast_module_last_tok((ast_module_t *)node->ext);
 	case ant_sclass:

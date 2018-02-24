@@ -151,6 +151,8 @@ typedef enum {
 	ant_block,
 	/** Global declaration */
 	ant_gdecln,
+	/** Global macro-based declaration */
+	ant_gmdecln,
 	/** Module */
 	ant_module,
 	/** Storage-class specifier */
@@ -1238,6 +1240,29 @@ typedef struct {
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_gdecln_t;
+
+/** Global macro-based declaration
+ *
+ * Global variable declaration using a macro call that expands to both
+ * the declaration specifier(s) and the declarator.
+ * e.g. GIMMICK_INITIALIZE(foo);
+ */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Declaration specifiers or @c NULL if none */
+	ast_dspecs_t *dspecs;
+	/** Macro name token */
+	ast_tok_t tname;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Variable name (macro argument) token */
+	ast_tok_t tvarname;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Trailing ';' token */
+	ast_tok_t tscolon;
+} ast_gmdecln_t;
 
 /** Module.
  *

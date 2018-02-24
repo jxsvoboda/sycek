@@ -3244,6 +3244,47 @@ error:
 	return rc;
 }
 
+/** Run checks on a global macro-based declaration.
+ *
+ * @param scope Checker scope
+ * @param gmdecln AST global macro-based declaration
+ * @return EOK on success or error code
+ */
+static int checker_check_gmdecln(checker_scope_t *scope,
+    ast_gmdecln_t *gmdecln)
+{
+	int rc;
+	ast_tok_t *adecln;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *tscolon;
+
+	adecln = ast_tree_first_tok(&gmdecln->dspecs->node);
+	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,
+	    "Declaration must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+ 	rc = checker_check_dspecs(scope, gmdecln->dspecs);
+	if (rc != EOK)
+		goto error;
+
+	tlparen = (checker_tok_t *)gmdecln->tlparen.data;
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	trparen = (checker_tok_t *)gmdecln->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	tscolon = (checker_tok_t *)gmdecln->tscolon.data;
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+	return EOK;
+error:
+	return rc;
+}
+
 /** Run checks on a module.
  *
  * @param mod Checker module
@@ -3265,6 +3306,10 @@ static int checker_module_check(checker_module_t *mod, bool fix)
 		switch (decl->ntype) {
 		case ant_gdecln:
 			rc = checker_check_gdecln(scope, decl);
+			break;
+		case ant_gmdecln:
+			rc = checker_check_gmdecln(scope,
+			    (ast_gmdecln_t *) decl->ext);
 			break;
 		default:
 			assert(false);

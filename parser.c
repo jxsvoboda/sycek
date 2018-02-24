@@ -4093,7 +4093,6 @@ error:
 	return rc;
 }
 
-
 /** Parse global declaration.
  *
  * @param parser Parser
@@ -4185,6 +4184,57 @@ error:
 	return rc;
 }
 
+/** Parse global macro-based declaration.
+ *
+ * @param parser Parser
+ * @param rgmdecln Place to store pointer to new macro-based declaration
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
+{
+	ast_gmdecln_t *gmdecln = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	void *dlparen;
+	void *dvarname;
+	void *drparen;
+	void *dscolon;
+	int rc;
+
+	rc = parser_process_dspecs(parser, &dspecs);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_ident, &dvarname);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	/* XXX Dig out macro name from dspecs */
+	rc = ast_gmdecln_create(dspecs, NULL, dlparen, dvarname, drparen,
+	    dscolon, &gmdecln);
+	if (rc != EOK)
+		goto error;
+
+	*rgmdecln = gmdecln;
+	return EOK;
+error:
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	return rc;
+}
+
 /** Parse module.
  *
  * @param parser Parser
@@ -4197,6 +4247,9 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 	lexer_toktype_t ltt;
 	ast_module_t *module;
 	ast_node_t *decln;
+	ast_node_t *node;
+	ast_gmdecln_t *gmdecln;
+	parser_t *sparser;
 	int rc;
 
 	(void)parser;
@@ -4207,11 +4260,26 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 
 	ltt = parser_next_ttype(parser);
 	while (ltt != ltt_eof) {
-		rc = parser_process_gdecln(parser, &decln);
+		rc = parser_create_silent_sub(parser, &sparser);
 		if (rc != EOK)
 			goto error;
 
-		ast_module_append(module, decln);
+		rc = parser_process_gmdecln(sparser, &gmdecln);
+		if (rc == EOK) {
+			parser->tok = sparser->tok;
+			parser_destroy(sparser);
+			node = &gmdecln->node;
+		} else {
+			parser_destroy(sparser);
+
+			rc = parser_process_gdecln(parser, &decln);
+			if (rc != EOK)
+				goto error;
+
+			node = decln;
+		}
+
+		ast_module_append(module, node);
 		ltt = parser_next_ttype(parser);
 	}
 
