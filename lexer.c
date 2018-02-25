@@ -625,6 +625,7 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
  */
 static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 {
+	lexer_toktype_t ltt;
 	char *p;
 	char delim;
 	int rc;
@@ -632,8 +633,35 @@ static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 	lexer_get_pos(lexer, &tok->bpos);
 
 	p = lexer_chars(lexer);
-	delim = p[0];
-	assert(delim == '\'' || delim == '"');
+	switch (p[0]) {
+	case '\'':
+		delim = '\'';
+		ltt = ltt_charlit;
+		break;
+	case 'L':
+		assert(p[1] == '\'');
+		delim = '\'';
+		ltt = ltt_charlit;
+		break;
+	case '"':
+		delim = '"';
+		ltt = ltt_strlit;
+		break;
+	default:
+		assert(false);
+		return EINVAL;
+	}
+
+	assert(delim == '\'' || delim == '"' ||
+	    (delim == 'L' && p[1] == '\''));
+
+	if (p[0] == 'L') {
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+	}
 
 	while (true) {
 		rc = lexer_advance(lexer, 1, tok);
@@ -674,7 +702,7 @@ static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 		return rc;
 	}
 
-	tok->ttype = delim == '"' ? ltt_strlit : ltt_charlit;
+	tok->ttype = ltt;
 	return EOK;
 }
 
@@ -823,6 +851,10 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_greater, tok);
 	case '?':
 		return lexer_onechar(lexer, ltt_qmark, tok);
+	case 'L':
+		if (p[1] == '\'')
+			return lexer_charstr(lexer, tok);
+		return lexer_ident(lexer, tok); 
 	case '~':
 		return lexer_onechar(lexer, ltt_bnot, tok);
 	case '^':
