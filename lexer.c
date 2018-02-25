@@ -883,6 +883,11 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		    !is_idcnt(p[13])) {
 			return lexer_keyword(lexer, ltt_attribute, 13, tok);
 		}
+		if (p[1] == '_' && p[2] == 'i' && p[3] == 'n' &&
+		    p[4] == 't' && p[5] == '1' && p[6] == '2' &&
+		    p[7] == '8' && !is_idcnt(p[8])) {
+			return lexer_keyword(lexer, ltt_int128, 8, tok);
+		}
 		return lexer_ident(lexer, tok);
 	case 'a':
 		if (p[1] == 'u' && p[2] == 't' && p[3] == 'o' &&
@@ -1216,6 +1221,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "inline";
 	case ltt_int:
 		return "int";
+	case ltt_int128:
+		return "__int128";
 	case ltt_long:
 		return "long";
 	case ltt_register:

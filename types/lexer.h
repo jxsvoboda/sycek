@@ -108,6 +108,7 @@ typedef enum {
 	ltt_if,
 	ltt_inline,
 	ltt_int,
+	ltt_int128,
 	ltt_long,
 	ltt_register,
 	ltt_restrict,

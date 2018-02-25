@@ -299,8 +299,8 @@ static bool parser_ttype_tqual(lexer_toktype_t ttype)
 static bool parser_ttype_tsbasic(lexer_toktype_t ttype)
 {
 	return ttype == ltt_void || ttype == ltt_char || ttype == ltt_short ||
-	    ttype == ltt_int || ttype == ltt_long || ttype == ltt_float ||
-	    ttype == ltt_double || ttype == ltt_signed ||
+	    ttype == ltt_int || ttype == ltt_long || ttype == ltt_int128 ||
+	    ttype == ltt_float || ttype == ltt_double || ttype == ltt_signed ||
 	    ttype == ltt_unsigned;
 }
 
