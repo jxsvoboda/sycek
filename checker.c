@@ -1092,6 +1092,8 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 {
 	checker_tok_t *tfor;
 	checker_tok_t *tlparen;
+	ast_tok_t *adecl;
+	checker_tok_t *tdecl;
 	checker_tok_t *tscolon1;
 	checker_tok_t *tscolon2;
 	checker_tok_t *trparen;
@@ -1116,9 +1118,31 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	checker_check_nsbrk_after(scope, tlparen,
 	    "There must not be space after '('.");
 
-	rc = checker_check_expr(scope, afor->linit);
-	if (rc != EOK)
-		return rc;
+	if (afor->linit != NULL) {
+		rc = checker_check_expr(scope, afor->linit);
+		if (rc != EOK)
+    			return rc;
+    	} else {
+    		assert(afor->dspecs != NULL);
+    		assert(afor->idlist != NULL);
+
+		rc = checker_check_dspecs(scope, afor->dspecs);
+		if (rc != EOK)
+			return rc;
+
+		adecl = ast_tree_first_tok(&afor->idlist->node);
+		if (adecl != NULL) {
+			tdecl = (checker_tok_t *)adecl->data;
+			rc = checker_check_brkspace_before(scope, tdecl,
+			    "Expected space before declarator.");
+			if (rc != EOK)
+				return rc;
+		}
+
+		rc = checker_check_idlist(scope, afor->idlist);
+		if (rc != EOK)
+			return rc;
+    	}
 
 	checker_check_nows_before(scope, tscolon1,
 	    "Unexpected whitespace before ';'.");

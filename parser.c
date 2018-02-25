@@ -2222,9 +2222,12 @@ error:
 static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 {
 	ast_for_t *afor = NULL;
+	parser_t *sparser;
 	void *dfor;
 	void *dlparen;
 	ast_node_t *linit = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_idlist_t *idlist = NULL;
 	void *dscolon1;
 	ast_node_t *lcond = NULL;
 	void *dscolon2;
@@ -2241,9 +2244,27 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &linit);
+	rc = parser_create_silent_sub(parser, &sparser);
 	if (rc != EOK)
 		goto error;
+
+	rc = parser_process_expr(sparser, &linit);
+	if (rc == EOK) {
+		parser->tok = sparser->tok;
+		parser_destroy(sparser);
+		sparser = NULL;
+	} else {
+		parser_destroy(sparser);
+		sparser = NULL;
+
+		rc = parser_process_dspecs(parser, &dspecs);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_idlist(parser, ast_abs_disallow, &idlist);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = parser_match(parser, ltt_scolon, &dscolon1);
 	if (rc != EOK)
@@ -2276,6 +2297,8 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	afor->tfor.data = dfor;
 	afor->tlparen.data = dlparen;
 	afor->linit = linit;
+	afor->dspecs = dspecs;
+	afor->idlist = idlist;
 	afor->tscolon1.data = dscolon1;
 	afor->lcond = lcond;
 	afor->tscolon2.data = dscolon2;
@@ -2288,6 +2311,10 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 error:
 	if (linit != NULL)
 		ast_tree_destroy(linit);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	if (idlist != NULL)
+		ast_tree_destroy(&idlist->node);
 	if (lcond != NULL)
 		ast_tree_destroy(lcond);
 	if (lnext != NULL)

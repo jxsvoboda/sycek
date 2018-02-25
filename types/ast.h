@@ -1108,8 +1108,12 @@ typedef struct {
 	ast_tok_t tfor;
 	/** '(' token */
 	ast_tok_t tlparen;
-	/** Loop initialization */
+	/** Loop initialization or @c NULL if using dspecs/idlist */
 	ast_node_t *linit;
+	/** Declaration specifiers or @c NULL if using linit */
+	ast_dspecs_t *dspecs;
+	/** Init-declarator list or @c NULL if using linit */
+	ast_idlist_t *idlist;
 	/** ';' token */
 	ast_tok_t tscolon1;
 	/** Loop condition */
