@@ -2350,11 +2350,22 @@ static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 {
 	ast_estring_lit_t *lit;
 	checker_tok_t *tlit;
+	const char *msg;
+	int rc;
 
 	lit = ast_estring_first(estring);
+	tlit = (checker_tok_t *) lit->tlit.data;
+	checker_check_any(scope, tlit);
+
+	lit = ast_estring_next(lit);
 	while (lit != NULL) {
 		tlit = (checker_tok_t *) lit->tlit.data;
-		checker_check_any(scope, tlit);
+		msg = tlit->tok.ttype == ltt_strlit ?
+		    "Whitespace expected before string literal." :
+		    "Whitespace expected before identifier.";
+		rc = checker_check_brkspace_before(scope, tlit, msg);
+		if (rc != EOK)
+			return rc;
 
 		lit = ast_estring_next(lit);
 	}
@@ -3265,7 +3276,7 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 	if (rc != EOK)
 		return rc;
 
- 	rc = checker_check_dspecs(scope, gmdecln->dspecs);
+	rc = checker_check_dspecs(scope, gmdecln->dspecs);
 	if (rc != EOK)
 		goto error;
 

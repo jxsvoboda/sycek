@@ -394,16 +394,21 @@ static int parser_process_estring(parser_t *parser, ast_node_t **rexpr)
 	if (rc != EOK)
 		return rc;
 
-	rc = parser_match(parser, ltt_strlit, &dlit);
-	if (rc != EOK)
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_strlit && ltt != ltt_ident) {
+		/* Should not happen */
+		rc = EINVAL;
 		goto error;
+	}
+
+	parser_skip(parser, &dlit);
 
 	rc = ast_estring_append(estring, dlit);
 	if (rc != EOK)
 		goto error;
 
 	ltt = parser_next_ttype(parser);
-	while (ltt == ltt_strlit) {
+	while (ltt == ltt_strlit || ltt == ltt_ident) {
 		parser_skip(parser, &dlit);
 
 		rc = ast_estring_append(estring, dlit);
@@ -617,7 +622,7 @@ error:
  */
 static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 {
-	lexer_toktype_t ltt;
+	lexer_toktype_t ltt, ltt2;
 
 	ltt = parser_next_ttype(parser);
 
@@ -629,7 +634,11 @@ static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 	case ltt_charlit:
 		return parser_process_echar(parser, rexpr);
 	case ltt_ident:
-		return parser_process_eident(parser, rexpr);
+		ltt2 = parser_next_next_ttype(parser);
+		if (ltt2 == ltt_strlit || ltt2 == ltt_ident)
+			return parser_process_estring(parser, rexpr);
+		else
+			return parser_process_eident(parser, rexpr);
 	case ltt_lparen:
 		return parser_process_eparen(parser, rexpr);
 	default:
