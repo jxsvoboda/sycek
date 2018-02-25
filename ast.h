@@ -110,7 +110,8 @@ extern ast_dfun_arg_t *ast_dfun_first(ast_dfun_t *);
 extern ast_dfun_arg_t *ast_dfun_next(ast_dfun_arg_t *);
 extern int ast_darray_create(ast_darray_t **);
 extern int ast_dlist_create(ast_dlist_t **);
-extern int ast_dlist_append(ast_dlist_t *, void *, ast_node_t *);
+extern int ast_dlist_append(ast_dlist_t *, void *, ast_node_t *, bool, void *,
+    ast_node_t *);
 extern ast_dlist_entry_t *ast_dlist_first(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_next(ast_dlist_entry_t *);
 extern ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *);

@@ -2957,9 +2957,13 @@ int ast_dlist_create(ast_dlist_t **rdlist)
  * @param dlist Declarator list
  * @param dcomma Data for preceding comma token or @c NULL
  * @param decl Declarator
+ * @param have_bitwidth @c true if we havee dcolon and bitwidth
+ * @param dcolon Colon token data or @c NULL
+ * @param bitwidth Bit width expression or @c NULL
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl)
+int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl,
+    bool have_bitwidth, void *dcolon, ast_node_t *bitwidth)
 {
 	ast_dlist_entry_t *entry;
 
@@ -2969,6 +2973,9 @@ int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl)
 
 	entry->tcomma.data = dcomma;
 	entry->decl = decl;
+	entry->have_bitwidth = have_bitwidth;
+	entry->tcolon.data = dcolon;
+	entry->bitwidth = bitwidth;
 
 	entry->dlist = dlist;
 	list_append(&entry->ldlist, &dlist->decls);

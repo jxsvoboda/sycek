@@ -2846,8 +2846,8 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	void *dsu;
 	void *dident;
 	void *dlbrace;
-	ast_sqlist_t *sqlist;
-	ast_dlist_t *dlist;
+	ast_sqlist_t *sqlist = NULL;
+	ast_dlist_t *dlist = NULL;
 	ast_aslist_t *aslist;
 	void *dscolon;
 	void *drbrace;
@@ -2917,6 +2917,9 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
+			sqlist = NULL;
+			dlist = NULL;
+
 			ltt = parser_next_ttype(parser);
 		}
 
@@ -2943,6 +2946,10 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 error:
 	if (precord != NULL)
 		ast_tree_destroy(&precord->node);
+	if (sqlist != NULL)
+		ast_tree_destroy(&sqlist->node);
+	if (dlist != NULL)
+		ast_tree_destroy(&dlist->node);
 	return rc;
 }
 
@@ -3608,56 +3615,60 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 	ast_dlist_t *dlist;
 	ast_node_t *decl = NULL;
 	void *dcomma;
+	bool have_bitwidth;
+	void *dcolon;
+	ast_node_t *bitwidth = NULL;
+	bool first;
 	int rc;
 
 	rc = ast_dlist_create(&dlist);
 	if (rc != EOK)
 		goto error;
 
-	parser_read_next_tok(parser, &dtok);
-
-	rc = parser_process_decl(parser, &decl);
-	if (rc != EOK)
-		goto error;
-
-	if (ast_decl_is_abstract(decl) && aallow != ast_abs_allow) {
-		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			lexer_dprint_tok(&dtok, stderr);
-			fprintf(stderr, " unexpected abstract declarator.\n");
+	first = true;
+	do {
+		if (first) {
+			dcomma = NULL;
+		} else {
+			rc = parser_match(parser, ltt_comma, &dcomma);
+			if (rc != EOK)
+				goto error;
 		}
-		rc = EINVAL;
-		goto error;
-	}
 
-	/*
-	 * XXX Hack so as not to produce false warnings for macro declarators
-	 * at the cost of treating declarators that are totally enclosed
-	 * in parentheses as not valid C code even if they are.
-	 */
-	if (decl->ntype == ant_dparen) {
-		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			lexer_dprint_tok(&dtok, stderr);
-			fprintf(stderr, " parenthesized declarator (cough).\n");
-		}
-		rc = EINVAL;
-		goto error;
-	}
-
-	rc = ast_dlist_append(dlist, NULL, decl);
-	if (rc != EOK)
-		goto error;
-
-	ltt = parser_next_ttype(parser);
-	while (ltt == ltt_comma) {
-		rc = parser_match(parser, ltt_comma, &dcomma);
-		if (rc != EOK)
-			goto error;
+		parser_read_next_tok(parser, &dtok);
 
 		rc = parser_process_decl(parser, &decl);
 		if (rc != EOK)
 			goto error;
+
+		if (first && ast_decl_is_abstract(decl) &&
+		    aallow != ast_abs_allow) {
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				lexer_dprint_tok(&dtok, stderr);
+				fprintf(stderr, " unexpected abstract "
+				    "declarator.\n");
+			}
+			rc = EINVAL;
+			goto error;
+		}
+
+		/*
+		 * XXX Hack so as not to produce false warnings for macro
+		 * declarators at the cost of treating declarators that are
+		 * totally enclosed in parentheses as not valid C code even
+		 * if they are.
+		 */
+		if (first && decl->ntype == ant_dparen) {
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				lexer_dprint_tok(&dtok, stderr);
+				fprintf(stderr, " parenthesized declarator "
+				    "(cough).\n");
+			}
+			rc = EINVAL;
+			goto error;
+		}
 
 		if (ast_decl_is_abstract(decl)) {
 			if (!parser->silent) {
@@ -3668,14 +3679,32 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			goto error;
 		}
 
-		rc = ast_dlist_append(dlist, dcomma, decl);
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_colon) {
+			/* Bit width */
+			have_bitwidth = true;
+			parser_skip(parser, &dcolon);
+
+			rc = parser_process_eassign(parser, &bitwidth);
+			if (rc != EOK)
+				goto error;
+		} else {
+			have_bitwidth = false;
+			dcolon = NULL;
+			bitwidth = NULL;
+		}
+
+		rc = ast_dlist_append(dlist, dcomma, decl, have_bitwidth,
+		    dcolon, bitwidth);
 		if (rc != EOK)
 			goto error;
 
 		decl = NULL;
+		bitwidth = NULL;
 
+		first = false;
 		ltt = parser_next_ttype(parser);
-	}
+	} while (ltt == ltt_comma);
 
 	*rdlist = dlist;
 	return EOK;
@@ -3684,6 +3713,8 @@ error:
 		ast_tree_destroy(&dlist->node);
 	if (decl != NULL)
 		ast_tree_destroy(decl);
+	if (bitwidth != NULL)
+		ast_tree_destroy(bitwidth);
 	return rc;
 }
 

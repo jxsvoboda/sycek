@@ -1658,6 +1658,7 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 {
 	ast_dlist_entry_t *entry;
 	checker_tok_t *tcomma;
+	checker_tok_t *tcolon;
 	int rc;
 
 	entry = ast_dlist_first(dlist);
@@ -1671,6 +1672,23 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 		rc = checker_check_decl(scope, entry->decl);
 		if (rc != EOK)
 			return rc;
+
+		if (entry->have_bitwidth) {
+			tcolon = (checker_tok_t *)entry->tcolon.data;
+			rc = checker_check_nbspace_before(scope, tcolon,
+			    "Expected space before ':'.");
+			if (rc != EOK)
+				return rc;
+
+			rc = checker_check_brkspace_after(scope, tcolon,
+			    "Expected whitespace after ':'.");
+			if (rc != EOK)
+				return rc;
+
+			rc = checker_check_expr(scope, entry->bitwidth);
+			if (rc != EOK)
+				return rc;
+		}
 
 		entry = ast_dlist_next(entry);
 	}

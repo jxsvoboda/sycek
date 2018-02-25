@@ -608,6 +608,12 @@ typedef struct {
 	ast_tok_t tcomma;
 	/** Declarator */
 	ast_node_t *decl;
+	/** @c true if we have a colon and a bit width field */
+	bool have_bitwidth;
+	/** ':' token if @c have_bidwidth is true */
+	ast_tok_t tcolon;
+	/** Bit width expression if @c have_bitwidth is true */
+	ast_node_t *bitwidth;
 } ast_dlist_entry_t;
 
 /** Init-declarator list */
