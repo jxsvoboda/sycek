@@ -61,7 +61,9 @@ enum {
 	/** Maximum number of characters on a line */
 	line_length_limit = 80,
 	/** Number of spaces used to indent a continuation line */
-	cont_indent_spaces = 4
+	cont_indent_spaces = 4,
+	/** Number of spaces used to indent a secondary continuation line */
+	seccont_indent_spaces = 6
 };
 
 /** Create checker module.
@@ -279,6 +281,12 @@ static checker_tok_t *checker_prev_tok(checker_tok_t *tok)
 static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 {
 	tok->indlvl = scope->indlvl;
+
+	if (!scope->secindent) {
+		tok->seccont = false;
+	} else {
+		tok->seccont = true;
+	}
 }
 
 /** Determine if token is the first non-whitespace token on a line
@@ -453,7 +461,13 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 	size_t i;
 
 	checker_check_any(scope, tok);
-	tok->lbegin = true;
+	if (!scope->secindent) {
+		tok->lbegin = true;
+		tok->seccont = false;
+	} else {
+		tok->lbegin = false;
+		tok->seccont = false;
+	}
 
 	if (!checker_is_tok_lbegin(tok)) {
 		if (scope->fix) {
@@ -694,6 +708,27 @@ static checker_scope_t *checker_scope_nested(checker_scope_t *scope)
 	return nscope;
 }
 
+/** Create secondary indentation scope.
+ *
+ * @param scope Containing scope
+ * @return New scope or @c NULL if out of memory
+ */
+static checker_scope_t *checker_scope_secindent(checker_scope_t *scope)
+{
+	checker_scope_t *nscope;
+
+	nscope = calloc(1, sizeof(checker_scope_t));
+	if (nscope == NULL)
+		return NULL;
+
+	nscope->mod = scope->mod;
+	nscope->indlvl = scope->indlvl;
+	nscope->secindent = true;
+	nscope->fix = scope->fix;
+
+	return nscope;
+}
+
 /** Destroy scope.
  *
  * @param scope Checker scope
@@ -877,6 +912,7 @@ static int checker_check_asm_label(checker_scope_t *scope,
  */
 static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 {
+	checker_scope_t *siscope = NULL;
 	checker_tok_t *tasm;
 	checker_tok_t *tvolatile;
 	checker_tok_t *tgoto;
@@ -893,6 +929,10 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	checker_tok_t *tscolon;
 	int rc;
 
+	siscope = checker_scope_secindent(scope);
+	if (siscope == NULL)
+		return ENOMEM;
+
 	tasm = (checker_tok_t *)aasm->tasm.data;
 	tlparen = (checker_tok_t *)aasm->tlparen.data;
 	trparen = (checker_tok_t *)aasm->trparen.data;
@@ -901,7 +941,7 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	rc = checker_check_lbegin(scope, tasm,
 	    "Statement must start on a new line.");
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	if (aasm->have_volatile) {
 		tvolatile = (checker_tok_t *)aasm->tvolatile.data;
@@ -916,11 +956,11 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	rc = checker_check_nbspace_before(scope, tlparen,
 	    "Space expected before '('.");
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	rc = checker_check_expr(scope, aasm->atemplate);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	tcolon1 = (checker_tok_t *)aasm->tcolon1.data;
 	checker_check_any(scope, tcolon1);
@@ -928,9 +968,9 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	/* Check output operands */
 	out_op = ast_asm_first_out_op(aasm);
 	while (out_op != NULL) {
-		rc = checker_check_asm_op(scope, out_op);
+		rc = checker_check_asm_op(siscope, out_op);
 		if (rc != EOK)
-			return rc;
+			goto error;
 		out_op = ast_asm_next_out_op(out_op);
 	}
 
@@ -941,9 +981,9 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 		/* Check input operands */
 		in_op = ast_asm_first_in_op(aasm);
 		while (in_op != NULL) {
-			rc = checker_check_asm_op(scope, in_op);
+			rc = checker_check_asm_op(siscope, in_op);
 			if (rc != EOK)
-				return rc;
+				goto error;
 			in_op = ast_asm_next_in_op(in_op);
 		}
 	}
@@ -955,9 +995,9 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 		/* Check clobber list */
 		clobber = ast_asm_first_clobber(aasm);
 		while (clobber != NULL) {
-			rc = checker_check_asm_clobber(scope, clobber);
+			rc = checker_check_asm_clobber(siscope, clobber);
 			if (rc != EOK)
-				return rc;
+				goto error;
 			clobber = ast_asm_next_clobber(clobber);
 		}
 	}
@@ -969,9 +1009,9 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 		/* Check label list */
 		label = ast_asm_first_label(aasm);
 		while (label != NULL) {
-			rc = checker_check_asm_label(scope, label);
+			rc = checker_check_asm_label(siscope, label);
 			if (rc != EOK)
-				return rc;
+				goto error;
 			label = ast_asm_next_label(label);
 		}
 	}
@@ -979,12 +1019,16 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	rc = checker_check_lbegin(scope, trparen,
 	    "')' must start on a new line.");
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
 	return EOK;
+error:
+	if (siscope != NULL)
+		checker_scope_destroy(siscope);
+	return rc;
 }
 
 /** Run checks on a break statement.
@@ -3678,7 +3722,7 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		}
 	}
 
-	if (!tok->lbegin && spaces != cont_indent_spaces) {
+	if (!tok->lbegin && !tok->seccont && spaces != cont_indent_spaces) {
 		if (fix) {
 			need_fix = true;
 		} else {
@@ -3686,6 +3730,17 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 			printf(": Continuation is indented by %u "
 			    "spaces (should be %u)\n",
 			    spaces, cont_indent_spaces);
+		}
+	}
+
+	if (!tok->lbegin && tok->seccont && spaces != seccont_indent_spaces) {
+		if (fix) {
+			need_fix = true;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Secondary continuation is indented by %u "
+			    "spaces (should be %u)\n",
+			    spaces, seccont_indent_spaces);
 		}
 	}
 
@@ -3724,8 +3779,15 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 				return rc;
 		}
 
-		if (!tok->lbegin) {
+		if (!tok->lbegin && !tok->seccont) {
 			for (i = 0; i < cont_indent_spaces; i++) {
+				rc = checker_prepend_wspace(tok, ltt_space,
+				    " ");
+				if (rc != EOK)
+					return rc;
+			}
+		} else if (!tok->lbegin && tok->seccont) {
+			for (i = 0; i < seccont_indent_spaces; i++) {
 				rc = checker_prepend_wspace(tok, ltt_space,
 				    " ");
 				if (rc != EOK)

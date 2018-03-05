@@ -44,6 +44,8 @@ typedef struct {
 	unsigned indlvl;
 	/** Token is supposed to begin a new line */
 	bool lbegin;
+	/** Token, if begginning a line, is a secondary continuation */
+	bool seccont;
 } checker_tok_t;
 
 /** Checker module */
@@ -57,6 +59,8 @@ typedef struct checker_module {
 typedef struct {
 	/** Scope indentation level, starting from zero */
 	unsigned indlvl;
+	/** This scope uses secondary indentation */
+	bool secindent;
 	/** Module */
 	checker_module_t *mod;
 	/** @c true to attempt to fix issues instead of reporting them */
