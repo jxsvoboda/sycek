@@ -854,7 +854,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case 'L':
 		if (p[1] == '\'')
 			return lexer_charstr(lexer, tok);
-		return lexer_ident(lexer, tok); 
+		return lexer_ident(lexer, tok);
 	case '~':
 		return lexer_onechar(lexer, ltt_bnot, tok);
 	case '^':
@@ -890,6 +890,9 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		}
 		return lexer_ident(lexer, tok);
 	case 'a':
+		if (p[1] == 's' && p[2] == 'm' && !is_idcnt(p[3])) {
+			return lexer_keyword(lexer, ltt_asm, 3, tok);
+		}
 		if (p[1] == 'u' && p[2] == 't' && p[3] == 'o' &&
 		    !is_idcnt(p[4])) {
 			return lexer_keyword(lexer, ltt_auto, 4, tok);
@@ -1187,6 +1190,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "]";
 	case ltt_attribute:
 		return "__attribute__";
+	case ltt_asm:
+		return "asm";
 	case ltt_auto:
 		return "auto";
 	case ltt_break:

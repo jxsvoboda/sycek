@@ -741,6 +741,252 @@ error:
 	return rc;
 }
 
+/** Run checks on an asm statement operand.
+ *
+ * @param scope Checker scope
+ * @param aop AST asm statement operand
+ * @return EOK on success or error code
+ */
+static int checker_check_asm_op(checker_scope_t *scope, ast_asm_op_t *aop)
+{
+	checker_tok_t *tlbracket;
+	checker_tok_t *tsymname;
+	checker_tok_t *trbracket;
+	checker_tok_t *tconstraint;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *tcomma;
+	int rc;
+
+	if (aop->have_symname) {
+		tlbracket = (checker_tok_t *)aop->tlbracket.data;
+		tsymname = (checker_tok_t *)aop->tsymname.data;
+		trbracket = (checker_tok_t *)aop->trbracket.data;
+
+		rc = checker_check_brkspace_before(scope, tlbracket,
+		    "Whitespace expected before '['.");
+		if (rc != EOK)
+			return rc;
+
+		checker_check_nows_before(scope, tsymname,
+		    "Unexpected whitespace before symbolic name.");
+		if (rc != EOK)
+			return rc;
+
+		checker_check_nows_before(scope, trbracket,
+		    "Unexpected whitespace before ']'.");
+	}
+
+	tconstraint = (checker_tok_t *)aop->tconstraint.data;
+	tlparen = (checker_tok_t *)aop->tlparen.data;
+	trparen = (checker_tok_t *)aop->trparen.data;
+	tcomma = (checker_tok_t *)aop->tcomma.data;
+
+	rc = checker_check_brkspace_before(scope, tconstraint,
+	    "Whitespace expected before '('.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_brkspace_before(scope, tlparen,
+	    "Whitespace expected before '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	rc = checker_check_expr(scope, aop->expr);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	if (tcomma != NULL) {
+		checker_check_nows_before(scope, tcomma,
+		    "Unexpected whitespace before ','.");
+	}
+
+	return EOK;
+
+}
+
+/** Run checks on an asm clobber list element.
+ *
+ * @param scope Checker scope
+ * @param clobber AST asm clobber list element
+ * @return EOK on success or error code
+ */
+static int checker_check_asm_clobber(checker_scope_t *scope,
+    ast_asm_clobber_t *clobber)
+{
+	checker_tok_t *tclobber;
+	checker_tok_t *tcomma;
+	int rc;
+
+	tclobber = (checker_tok_t *)clobber->tclobber.data;
+	tcomma = (checker_tok_t *)clobber->tcomma.data;
+
+	rc = checker_check_brkspace_before(scope, tclobber,
+	    "Whitespace expected before clobber list element.");
+	if (rc != EOK)
+		return rc;
+
+	if (tcomma != NULL) {
+		checker_check_nows_before(scope, tcomma,
+		    "Unexpected whitespace before ','.");
+	}
+
+	return EOK;
+}
+
+/** Run checks on an asm label list element.
+ *
+ * @param scope Checker scope
+ * @param label AST asm label list element
+ * @return EOK on success or error code
+ */
+static int checker_check_asm_label(checker_scope_t *scope,
+    ast_asm_label_t *label)
+{
+	checker_tok_t *tlabel;
+	checker_tok_t *tcomma;
+	int rc;
+
+	tlabel = (checker_tok_t *)label->tlabel.data;
+	tcomma = (checker_tok_t *)label->tcomma.data;
+
+	rc = checker_check_brkspace_before(scope, tlabel,
+	    "Whitespace expected before label.");
+	if (rc != EOK)
+		return rc;
+
+	if (tcomma != NULL) {
+		checker_check_nows_before(scope, tcomma,
+		    "Unexpected whitespace before ','.");
+	}
+
+	return EOK;
+}
+
+/** Run checks on an asm statement.
+ *
+ * @param scope Checker scope
+ * @param aasm AST asm statement
+ * @return EOK on success or error code
+ */
+static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
+{
+	checker_tok_t *tasm;
+	checker_tok_t *tvolatile;
+	checker_tok_t *tgoto;
+	checker_tok_t *tlparen;
+	checker_tok_t *tcolon1;
+	ast_asm_op_t *out_op;
+	checker_tok_t *tcolon2;
+	ast_asm_op_t *in_op;
+	checker_tok_t *tcolon3;
+	ast_asm_clobber_t *clobber;
+	checker_tok_t *tcolon4;
+	ast_asm_label_t *label;
+	checker_tok_t *trparen;
+	checker_tok_t *tscolon;
+	int rc;
+
+	tasm = (checker_tok_t *)aasm->tasm.data;
+	tlparen = (checker_tok_t *)aasm->tlparen.data;
+	trparen = (checker_tok_t *)aasm->trparen.data;
+	tscolon = (checker_tok_t *)aasm->tscolon.data;
+
+	rc = checker_check_lbegin(scope, tasm,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	if (aasm->have_volatile) {
+		tvolatile = (checker_tok_t *)aasm->tvolatile.data;
+		checker_check_any(scope, tvolatile);
+	}
+
+	if (aasm->have_goto) {
+		tgoto = (checker_tok_t *)aasm->tgoto.data;
+		checker_check_any(scope, tgoto);
+	}
+
+	rc = checker_check_nbspace_before(scope, tlparen,
+	    "Space expected before '('.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, aasm->atemplate);
+	if (rc != EOK)
+		return rc;
+
+	tcolon1 = (checker_tok_t *)aasm->tcolon1.data;
+	checker_check_any(scope, tcolon1);
+
+	/* Check output operands */
+	out_op = ast_asm_first_out_op(aasm);
+	while (out_op != NULL) {
+		rc = checker_check_asm_op(scope, out_op);
+		if (rc != EOK)
+			return rc;
+		out_op = ast_asm_next_out_op(out_op);
+	}
+
+	if (aasm->have_in_ops) {
+		tcolon2 = (checker_tok_t *)aasm->tcolon2.data;
+		checker_check_any(scope, tcolon2);
+
+		/* Check input operands */
+		in_op = ast_asm_first_in_op(aasm);
+		while (in_op != NULL) {
+			rc = checker_check_asm_op(scope, in_op);
+			if (rc != EOK)
+				return rc;
+			in_op = ast_asm_next_in_op(in_op);
+		}
+	}
+
+	if (aasm->have_clobbers) {
+		tcolon3 = (checker_tok_t *)aasm->tcolon3.data;
+		checker_check_any(scope, tcolon3);
+
+		/* Check clobber list */
+		clobber = ast_asm_first_clobber(aasm);
+		while (clobber != NULL) {
+			rc = checker_check_asm_clobber(scope, clobber);
+			if (rc != EOK)
+				return rc;
+			clobber = ast_asm_next_clobber(clobber);
+		}
+	}
+
+	if (aasm->have_labels) {
+		tcolon4 = (checker_tok_t *)aasm->tcolon4.data;
+		checker_check_any(scope, tcolon4);
+
+		/* Check label list */
+		label = ast_asm_first_label(aasm);
+		while (label != NULL) {
+			rc = checker_check_asm_label(scope, label);
+			if (rc != EOK)
+				return rc;
+			label = ast_asm_next_label(label);
+		}
+	}
+
+	rc = checker_check_lbegin(scope, trparen,
+	    "')' must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
 /** Run checks on a break statement.
  *
  * @param scope Checker scope
@@ -1121,10 +1367,10 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	if (afor->linit != NULL) {
 		rc = checker_check_expr(scope, afor->linit);
 		if (rc != EOK)
-    			return rc;
-    	} else {
-    		assert(afor->dspecs != NULL);
-    		assert(afor->idlist != NULL);
+			return rc;
+	} else {
+		assert(afor->dspecs != NULL);
+		assert(afor->idlist != NULL);
 
 		rc = checker_check_dspecs(scope, afor->dspecs);
 		if (rc != EOK)
@@ -1142,7 +1388,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		rc = checker_check_idlist(scope, afor->idlist);
 		if (rc != EOK)
 			return rc;
-    	}
+	}
 
 	checker_check_nows_before(scope, tscolon1,
 	    "Unexpected whitespace before ';'.");
@@ -1412,6 +1658,8 @@ error:
 static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 {
 	switch (stmt->ntype) {
+	case ant_asm:
+		return checker_check_asm(scope, (ast_asm_t *)stmt->ext);
 	case ant_break:
 		return checker_check_break(scope, (ast_break_t *)stmt->ext);
 	case ant_continue:

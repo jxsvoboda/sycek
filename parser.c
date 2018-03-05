@@ -1807,6 +1807,422 @@ static int parser_process_init(parser_t *parser, ast_node_t **rinit)
 	}
 }
 
+/** Parse asm statement output operands.
+ *
+ * @param parser Parser
+ * @param aasm Asm statement to add the output operands to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_asm_out_ops(parser_t *parser, ast_asm_t *aasm)
+{
+	lexer_toktype_t ltt;
+	bool have_symname;
+	void *dlbracket;
+	void *dsymname;
+	void *drbracket;
+	void *dconstraint;
+	void *dlparen;
+	ast_node_t *expr = NULL;
+	void *drparen;
+	void *dcomma;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon || ltt == ltt_rparen)
+		return EOK;
+
+	while (true) {
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_lbracket) {
+			have_symname = true;
+			parser_skip(parser, &dlbracket);
+
+			rc = parser_match(parser, ltt_ident, &dsymname);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_rbracket, &drbracket);
+			if (rc != EOK)
+				goto error;
+		} else {
+			have_symname = false;
+			dlbracket = NULL;
+			dsymname = NULL;
+			drbracket = NULL;
+		}
+
+		rc = parser_match(parser, ltt_strlit, &dconstraint);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_lparen, &dlparen);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_expr(parser, &expr);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_rparen, &drparen);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+
+		if (ltt == ltt_comma)
+			parser_skip(parser, &dcomma);
+		else
+			dcomma = NULL;
+
+		rc = ast_asm_append_out_op(aasm, have_symname, dlbracket,
+		    dsymname, drbracket, dconstraint, dlparen, expr, drparen,
+		    dcomma);
+		if (rc != EOK)
+			goto error;
+
+		expr = NULL;
+
+		if (ltt != ltt_comma)
+			break;
+	}
+
+	return EOK;
+error:
+	if (expr != NULL)
+		ast_tree_destroy(expr);
+	return rc;
+}
+
+/** Parse asm statement input operands.
+ *
+ * @param parser Parser
+ * @param aasm Asm statement to add the input operands to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_asm_in_ops(parser_t *parser, ast_asm_t *aasm)
+{
+	lexer_toktype_t ltt;
+	bool have_symname;
+	void *dlbracket;
+	void *dsymname;
+	void *drbracket;
+	void *dconstraint;
+	void *dlparen;
+	ast_node_t *expr = NULL;
+	void *drparen;
+	void *dcomma;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon || ltt == ltt_rparen)
+		return EOK;
+
+	while (true) {
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_lbracket) {
+			have_symname = true;
+			parser_skip(parser, &dlbracket);
+
+			rc = parser_match(parser, ltt_ident, &dsymname);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_rbracket, &drbracket);
+			if (rc != EOK)
+				goto error;
+		} else {
+			have_symname = false;
+			dlbracket = NULL;
+			dsymname = NULL;
+			drbracket = NULL;
+		}
+
+		rc = parser_match(parser, ltt_strlit, &dconstraint);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_lparen, &dlparen);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_expr(parser, &expr);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_match(parser, ltt_rparen, &drparen);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+
+		if (ltt == ltt_comma)
+			parser_skip(parser, &dcomma);
+		else
+			dcomma = NULL;
+
+		rc = ast_asm_append_in_op(aasm, have_symname, dlbracket,
+		    dsymname, drbracket, dconstraint, dlparen, expr, drparen,
+		    dcomma);
+		if (rc != EOK)
+			goto error;
+
+		expr = NULL;
+
+		if (ltt != ltt_comma)
+			break;
+	}
+
+	return EOK;
+error:
+	if (expr != NULL)
+		ast_tree_destroy(expr);
+	return rc;
+}
+
+/** Parse asm statement clobber list.
+ *
+ * @param parser Parser
+ * @param aasm Asm statement to add the clobber list elements to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_asm_clobbers(parser_t *parser, ast_asm_t *aasm)
+{
+	lexer_toktype_t ltt;
+	void *dclobber;
+	void *dcomma;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon || ltt == ltt_rparen)
+		return EOK;
+
+	while (true) {
+		rc = parser_match(parser, ltt_strlit, &dclobber);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+
+		if (ltt == ltt_comma)
+			parser_skip(parser, &dcomma);
+		else
+			dcomma = NULL;
+
+		rc = ast_asm_append_clobber(aasm, dclobber, dcomma);
+		if (rc != EOK)
+			goto error;
+
+		if (ltt != ltt_comma)
+			break;
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Parse asm statement label list.
+ *
+ * @param parser Parser
+ * @param aasm Asm statement to add the label list elements to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_asm_labels(parser_t *parser, ast_asm_t *aasm)
+{
+	lexer_toktype_t ltt;
+	void *dlabel;
+	void *dcomma;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon || ltt == ltt_rparen)
+		return EOK;
+
+	while (true) {
+		rc = parser_match(parser, ltt_ident, &dlabel);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+
+		if (ltt == ltt_comma)
+			parser_skip(parser, &dcomma);
+		else
+			dcomma = NULL;
+
+		rc = ast_asm_append_label(aasm, dlabel, dcomma);
+		if (rc != EOK)
+			goto error;
+
+		if (ltt != ltt_comma)
+			break;
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Parse asm statement.
+ *
+ * @param parser Parser
+ * @param rasm Place to store pointer to new asm statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
+{
+	ast_asm_t *aasm = NULL;
+	lexer_toktype_t ltt;
+	void *dasm;
+	bool have_volatile;
+	void *dvolatile;
+	bool have_goto;
+	void *dgoto;
+	void *dlparen;
+	ast_node_t *atemplate = NULL;
+	void *dcolon1;
+	bool have_in_ops;
+	void *dcolon2;
+	bool have_clobbers;
+	void *dcolon3;
+	bool have_labels;
+	void *dcolon4;
+	void *drparen;
+	void *dscolon;
+	int rc;
+
+	rc = ast_asm_create(&aasm);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_asm, &dasm);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_volatile) {
+		have_volatile = true;
+		parser_skip(parser, &dvolatile);
+	} else {
+		have_volatile = false;
+	}
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_goto) {
+		have_goto = true;
+		parser_skip(parser, &dgoto);
+	} else {
+		have_goto = false;
+	}
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_eassign(parser, &atemplate);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_colon, &dcolon1);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_asm_out_ops(parser, aasm);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon) {
+		parser_skip(parser, &dcolon2);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_asm_in_ops(parser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		have_in_ops = true;
+	} else {
+		have_in_ops = false;
+	}
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon) {
+		parser_skip(parser, &dcolon3);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_asm_clobbers(parser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		have_clobbers = true;
+	} else {
+		have_clobbers = false;
+	}
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon) {
+		parser_skip(parser, &dcolon4);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_asm_labels(parser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		have_labels = true;
+	} else {
+		have_labels = false;
+	}
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	aasm->tasm.data = dasm;
+	aasm->have_volatile = have_volatile;
+	if (have_volatile)
+		aasm->tvolatile.data = dvolatile;
+	aasm->have_goto = have_goto;
+	if (have_goto)
+		aasm->tgoto.data = dgoto;
+
+	aasm->tlparen.data = dlparen;
+	aasm->atemplate = atemplate;
+	aasm->tcolon1.data = dcolon1;
+	aasm->have_in_ops = have_in_ops;
+	if (have_in_ops)
+		aasm->tcolon2.data = dcolon2;
+	aasm->have_clobbers = have_clobbers;
+	if (have_clobbers)
+		aasm->tcolon3.data = dcolon3;
+	aasm->have_labels = have_labels;
+	if (have_labels)
+		aasm->tcolon4.data = dcolon4;
+	aasm->trparen.data = drparen;
+	aasm->tscolon.data = dscolon;
+
+	*rasm = &aasm->node;
+	return EOK;
+error:
+	if (aasm != NULL)
+		ast_tree_destroy(&aasm->node);
+	if (atemplate != NULL)
+		ast_tree_destroy(atemplate);
+	return rc;
+}
+
+
 /** Parse break statement.
  *
  * @param parser Parser
@@ -2610,6 +3026,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	ltt = parser_next_ttype(parser);
 
 	switch (ltt) {
+	case ltt_asm:
+		return parser_process_asm(parser, rstmt);
 	case ltt_break:
 		return parser_process_break(parser, rstmt);
 	case ltt_continue:

@@ -117,6 +117,8 @@ typedef enum {
 	ant_epostadj,
 	/** Compound initializer */
 	ant_cinit,
+	/** Assembler */
+	ant_asm,
 	/** Break statement */
 	ant_break,
 	/** Continue statement */
@@ -984,6 +986,102 @@ typedef struct {
 	/** Comma (optional for the last element) */
 	ast_tok_t tcomma;
 } ast_cinit_elem_t;
+
+/** Asm statement (GCC style) */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'asm' token */
+	ast_tok_t tasm;
+	/** @c true if we have a volatile keyword */
+	bool have_volatile;
+	/** 'volatile' token (if @c have_volatile is true) */
+	ast_tok_t tvolatile;
+	/** @c true if we have a volatile keyword */
+	bool have_goto;
+	/** 'volatile' token (if @c have_volatile is true) */
+	ast_tok_t tgoto;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Assembler template */
+	ast_node_t *atemplate;
+	/** First ':' token */
+	ast_tok_t tcolon1;
+	/** Output operands */
+	list_t out_ops; /* of ast_asm_op_t */
+	/** @c true if we have @c tcolon2 and @c in_ops */
+	bool have_in_ops;
+	/** Second ':' token */
+	ast_tok_t tcolon2;
+	/** Input operands */
+	list_t in_ops; /* of ast_asm_op_t */
+	/** @c true if we have @c tcolon3 and @c clobbers */
+	bool have_clobbers;
+	/** Third ':' token */
+	ast_tok_t tcolon3;
+	/** Input operands */
+	list_t clobbers; /* of ast_asm_clobber_t */
+	/** @c true if we have @c tcolon4 and @c labels */
+	bool have_labels;
+	/** Fourth ':' token */
+	ast_tok_t tcolon4;
+	/** Input operands */
+	list_t labels; /* of ast_asm_label_t */
+	/** ')' token */
+	ast_tok_t trparen;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_asm_t;
+
+/** Asm statement operand (input or output) */
+typedef struct {
+	/** Containing assembler statement */
+	ast_asm_t *aasm;
+	/** Link to aasm->in_ops or aasm->out_ops */
+	link_t lasm;
+	/** @c true if we have a symbolic name in brackets */
+	bool have_symname;
+	/** '[' token (if @c have_symname is true) */
+	ast_tok_t tlbracket;
+	/** Symbolic name token (if @c have_symname is true) */
+	ast_tok_t tsymname;
+	/** ']' token (if @c have_symname is true) */
+	ast_tok_t trbracket;
+	/** Constraint token */
+	ast_tok_t tconstraint;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Expression */
+	ast_node_t *expr;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** ',' token (except for the last operand) */
+	ast_tok_t tcomma;
+} ast_asm_op_t;
+
+/** Asm clobber list element */
+typedef struct {
+	/** Containing assembler statement */
+	ast_asm_t *aasm;
+	/** Link to aasm->clobbers */
+	link_t lasm;
+	/** Clobber token */
+	ast_tok_t tclobber;
+	/** ',' token (except for the last element) */
+	ast_tok_t tcomma;
+} ast_asm_clobber_t;
+
+/** Asm label list element */
+typedef struct {
+	/** Containing assembler statement */
+	ast_asm_t *aasm;
+	/** Link to aasm->labels */
+	link_t lasm;
+	/** Label token */
+	ast_tok_t tlabel;
+	/** ',' token (except for the last element) */
+	ast_tok_t tcomma;
+} ast_asm_label_t;
 
 /** Break statement. */
 typedef struct {

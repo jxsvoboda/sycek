@@ -91,6 +91,7 @@ typedef enum {
 	ltt_bor_assign,
 	ltt_bxor_assign,
 	ltt_attribute,
+	ltt_asm,
 	ltt_auto,
 	ltt_break,
 	ltt_case,

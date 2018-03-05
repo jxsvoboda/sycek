@@ -161,6 +161,21 @@ extern int ast_cinit_append_member(ast_cinit_t *, void *, void *, void *,
     ast_node_t *, bool, void *);
 extern ast_cinit_elem_t *ast_cinit_first(ast_cinit_t *);
 extern ast_cinit_elem_t *ast_cinit_next(ast_cinit_elem_t *);
+extern int ast_asm_create(ast_asm_t **);
+extern int ast_asm_append_out_op(ast_asm_t *, bool, void *, void *, void *,
+    void *, void *, ast_node_t *, void *, void *);
+extern int ast_asm_append_in_op(ast_asm_t *, bool, void *, void *, void *,
+    void *, void *, ast_node_t *, void *, void *);
+extern int ast_asm_append_clobber(ast_asm_t *, void *, void *);
+extern int ast_asm_append_label(ast_asm_t *, void *, void *);
+extern ast_asm_op_t *ast_asm_first_out_op(ast_asm_t *);
+extern ast_asm_op_t *ast_asm_next_out_op(ast_asm_op_t *);
+extern ast_asm_op_t *ast_asm_first_in_op(ast_asm_t *);
+extern ast_asm_op_t *ast_asm_next_in_op(ast_asm_op_t *);
+extern ast_asm_clobber_t *ast_asm_first_clobber(ast_asm_t *);
+extern ast_asm_clobber_t *ast_asm_next_clobber(ast_asm_clobber_t *);
+extern ast_asm_label_t *ast_asm_first_label(ast_asm_t *);
+extern ast_asm_label_t *ast_asm_next_label(ast_asm_label_t *);
 extern int ast_break_create(ast_break_t **);
 extern int ast_continue_create(ast_continue_t **);
 extern int ast_goto_create(ast_goto_t **);

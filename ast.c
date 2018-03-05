@@ -5506,6 +5506,442 @@ static ast_tok_t *ast_cinit_last_tok(ast_cinit_t *cinit)
 	return &cinit->trbrace;
 }
 
+/** Create AST asm statement.
+ *
+ * @param rasm Place to store pointer to new asm statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_asm_create(ast_asm_t **rasm)
+{
+	ast_asm_t *aasm;
+
+	aasm = calloc(1, sizeof(ast_asm_t));
+	if (aasm == NULL)
+		return ENOMEM;
+
+	list_initialize(&aasm->out_ops);
+	list_initialize(&aasm->in_ops);
+	list_initialize(&aasm->clobbers);
+	list_initialize(&aasm->labels);
+
+	aasm->node.ext = aasm;
+	aasm->node.ntype = ant_asm;
+
+	*rasm = aasm;
+	return EOK;
+}
+
+/** Append output operand to asm statement.
+ *
+ * @param aasm Asm statement
+ * @param have_symname @c true if we have a symbolic name in brackets
+ * @param dlbracket '[' token data (if @c have_symname is true)
+ * @param dsymname Symbolic name token data (if @c have_symname is true)
+ * @param drbracket ']' token data (if @c have_symname is true)
+ * @param dconstraint Constraint token data
+ * @param dlparen '(' token data
+ * @param expr Expression
+ * @param drparen ')' token data
+ * @param dcomma ',' token data (except for the last operand)
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_asm_append_out_op(ast_asm_t *aasm, bool have_symname, void *dlbracket,
+    void *dsymname, void *drbracket, void *dconstraint, void *dlparen,
+    ast_node_t *expr, void *drparen, void *dcomma)
+{
+	ast_asm_op_t *aop;
+
+	aop = calloc(1, sizeof(ast_asm_op_t));
+	if (aop == NULL)
+		return ENOMEM;
+
+	aop->have_symname = have_symname;
+	if (have_symname) {
+		aop->tlbracket.data = dlbracket;
+		aop->tsymname.data = dsymname;
+		aop->trbracket.data = drbracket;
+	}
+
+	aop->tconstraint.data = dconstraint;
+	aop->tlparen.data = dlparen;
+	aop->expr = expr;
+	aop->trparen.data = drparen;
+	aop->tcomma.data = dcomma;
+
+	aop->aasm = aasm;
+	list_append(&aop->lasm, &aasm->out_ops);
+	return EOK;
+}
+
+/** Append input operand to asm statement.
+ *
+ * @param aasm Asm statement
+ * @param have_symname @c true if we have a symbolic name in brackets
+ * @param dlbracket '[' token data (if @c have_symname is true)
+ * @param dsymname Symbolic name token data (if @c have_symname is true)
+ * @param drbracket ']' token data (if @c have_symname is true)
+ * @param dconstraint Constraint token data
+ * @param dlparen '(' token data
+ * @param expr Expression
+ * @param drparen ')' token data
+ * @param dcomma ',' token data (except for the last operand)
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_asm_append_in_op(ast_asm_t *aasm, bool have_symname, void *dlbracket,
+    void *dsymname, void *drbracket, void *dconstraint, void *dlparen,
+    ast_node_t *expr, void *drparen, void *dcomma)
+{
+	ast_asm_op_t *aop;
+
+	aop = calloc(1, sizeof(ast_asm_op_t));
+	if (aop == NULL)
+		return ENOMEM;
+
+	aop->have_symname = have_symname;
+	if (have_symname) {
+		aop->tlbracket.data = dlbracket;
+		aop->tsymname.data = dsymname;
+		aop->trbracket.data = drbracket;
+	}
+
+	aop->tconstraint.data = dconstraint;
+	aop->tlparen.data = dlparen;
+	aop->expr = expr;
+	aop->trparen.data = drparen;
+	aop->tcomma.data = dcomma;
+
+	aop->aasm = aasm;
+	list_append(&aop->lasm, &aasm->in_ops);
+	return EOK;
+}
+
+/** Append clobber list element to asm statement.
+ *
+ * @param aasm Asm statement
+ * @param dclobber Clobber token data
+ * @param dcomma ',' token data
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_asm_append_clobber(ast_asm_t *aasm, void *dclobber, void *dcomma)
+{
+	ast_asm_clobber_t *aclobber;
+
+	aclobber = calloc(1, sizeof(ast_asm_clobber_t));
+	if (aclobber == NULL)
+		return ENOMEM;
+
+	aclobber->tclobber.data = dclobber;
+	aclobber->tcomma.data = dcomma;
+
+	aclobber->aasm = aasm;
+	list_append(&aclobber->lasm, &aasm->clobbers);
+	return EOK;
+}
+
+/** Append label list element to asm statement.
+ *
+ * @param aasm Asm statement
+ * @param dlabel Label token data
+ * @param dcomma ',' token data
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_asm_append_label(ast_asm_t *aasm, void *dlabel, void *dcomma)
+{
+	ast_asm_label_t *alabel;
+
+	alabel = calloc(1, sizeof(ast_asm_label_t));
+	if (alabel == NULL)
+		return ENOMEM;
+
+	alabel->tlabel.data = dlabel;
+	alabel->tcomma.data = dcomma;
+
+	alabel->aasm = aasm;
+	list_append(&alabel->lasm, &aasm->labels);
+	return EOK;
+}
+
+/** Return first output operand in asm statement.
+ *
+ * @param aasm Asm statement
+ * @return First output operand or @c NULL
+ */
+ast_asm_op_t *ast_asm_first_out_op(ast_asm_t *aasm)
+{
+	link_t *link;
+
+	link = list_first(&aasm->out_ops);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_op_t, lasm);
+}
+
+/** Return next output operand in asm statement.
+ *
+ * @param op Current operand
+ * @return Next operand or @c NULL
+ */
+ast_asm_op_t *ast_asm_next_out_op(ast_asm_op_t *op)
+{
+	link_t *link;
+
+	link = list_next(&op->lasm, &op->aasm->out_ops);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_op_t, lasm);
+}
+
+/** Return first input operand in asm statement.
+ *
+ * @param aasm Asm statement
+ * @return First input operand or @c NULL
+ */
+ast_asm_op_t *ast_asm_first_in_op(ast_asm_t *aasm)
+{
+	link_t *link;
+
+	link = list_first(&aasm->in_ops);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_op_t, lasm);
+}
+
+/** Return next input operand in asm statement.
+ *
+ * @param op Current operand
+ * @return Next operand or @c NULL
+ */
+ast_asm_op_t *ast_asm_next_in_op(ast_asm_op_t *op)
+{
+	link_t *link;
+
+	link = list_next(&op->lasm, &op->aasm->in_ops);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_op_t, lasm);
+}
+
+/** Return first clobber list element in asm statement.
+ *
+ * @param aasm Asm statement
+ * @return First clobber list element or @c NULL
+ */
+ast_asm_clobber_t *ast_asm_first_clobber(ast_asm_t *aasm)
+{
+	link_t *link;
+
+	link = list_first(&aasm->clobbers);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_clobber_t, lasm);
+}
+
+/** Return next clobber list element in asm statement.
+ *
+ * @param clobber Current clobber list element
+ * @return Next clobber list element or @c NULL
+ */
+ast_asm_clobber_t *ast_asm_next_clobber(ast_asm_clobber_t *clobber)
+{
+	link_t *link;
+
+	link = list_next(&clobber->lasm, &clobber->aasm->clobbers);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_clobber_t, lasm);
+}
+
+/** Return first label list element in asm statement.
+ *
+ * @param aasm Asm statement
+ * @return First label list element or @c NULL
+ */
+ast_asm_label_t *ast_asm_first_label(ast_asm_t *aasm)
+{
+	link_t *link;
+
+	link = list_first(&aasm->labels);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_label_t, lasm);
+}
+
+/** Return next label list element in asm statement.
+ *
+ * @param label Current label list element
+ * @return Next label list element or @c NULL
+ */
+ast_asm_label_t *ast_asm_next_label(ast_asm_label_t *label)
+{
+	link_t *link;
+
+	link = list_next(&label->lasm, &label->aasm->labels);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_asm_label_t, lasm);
+}
+
+/** Print AST asm statement.
+ *
+ * @param block Block
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_asm_print(ast_asm_t *aasm, FILE *f)
+{
+	ast_asm_op_t *out_op;
+	ast_asm_op_t *in_op;
+	ast_asm_clobber_t *clobber;
+	ast_asm_label_t *label;
+	int rc;
+
+	if (fprintf(f, "asm(") < 0)
+		return EIO;
+
+	out_op = ast_asm_first_out_op(aasm);
+	while (out_op != NULL) {
+		if (fprintf(f, "out(") < 0)
+			return EIO;
+
+		rc = ast_tree_print(out_op->expr, f);
+		if (rc != EOK)
+			return EIO;
+
+		if (fprintf(f, ")") < 0)
+			return EIO;
+
+		out_op = ast_asm_next_out_op(out_op);
+
+		if (out_op != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	in_op = ast_asm_first_in_op(aasm);
+	while (in_op != NULL) {
+		if (fprintf(f, "in(") < 0)
+			return EIO;
+
+		rc = ast_tree_print(in_op->expr, f);
+		if (rc != EOK)
+			return EIO;
+
+		if (fprintf(f, ")") < 0)
+			return EIO;
+
+		in_op = ast_asm_next_out_op(in_op);
+
+		if (in_op != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	clobber = ast_asm_first_clobber(aasm);
+	while (clobber != NULL) {
+		if (fprintf(f, "clobber()") < 0)
+			return EIO;
+
+		clobber = ast_asm_next_clobber(clobber);
+
+		if (clobber != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	label = ast_asm_first_label(aasm);
+	while (label != NULL) {
+		if (fprintf(f, "in()") < 0)
+			return EIO;
+
+		label = ast_asm_next_label(label);
+
+		if (label != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST asm statement.
+ *
+ * @param block Block
+ */
+static void ast_asm_destroy(ast_asm_t *aasm)
+{
+	ast_asm_op_t *out_op;
+	ast_asm_op_t *in_op;
+	ast_asm_clobber_t *clobber;
+	ast_asm_label_t *label;
+
+	out_op = ast_asm_first_out_op(aasm);
+	while (out_op != NULL) {
+		list_remove(&out_op->lasm);
+		ast_tree_destroy(out_op->expr);
+		free(out_op);
+		out_op = ast_asm_first_out_op(aasm);
+	}
+
+	in_op = ast_asm_first_in_op(aasm);
+	while (in_op != NULL) {
+		list_remove(&in_op->lasm);
+		ast_tree_destroy(in_op->expr);
+		free(in_op);
+		in_op = ast_asm_first_in_op(aasm);
+	}
+
+	clobber = ast_asm_first_clobber(aasm);
+	while (clobber != NULL) {
+		list_remove(&clobber->lasm);
+		free(clobber);
+		clobber = ast_asm_first_clobber(aasm);
+	}
+
+	label = ast_asm_first_label(aasm);
+	while (label != NULL) {
+		list_remove(&label->lasm);
+		free(label);
+		label = ast_asm_first_label(aasm);
+	}
+}
+
+/** Get first token of AST enum type specifier.
+ *
+ * @param aasm enum type specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_asm_first_tok(ast_asm_t *aasm)
+{
+	return &aasm->tasm;
+}
+
+/** Get last token of AST enum type specifier.
+ *
+ * @param aasm enum type specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_asm_last_tok(ast_asm_t *aasm)
+{
+	return &aasm->tscolon;
+}
+
 /** Create AST break.
  *
  * @param rbreak Place to store pointer to new break
@@ -6808,6 +7244,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_epostadj_print((ast_epostadj_t *)node->ext, f);
 	case ant_cinit:
 		return ast_cinit_print((ast_cinit_t *)node->ext, f);
+	case ant_asm:
+		return ast_asm_print((ast_asm_t *)node->ext, f);
 	case ant_break:
 		return ast_break_print((ast_break_t *)node->ext, f);
 	case ant_continue:
@@ -6994,6 +7432,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_cinit:
 		ast_cinit_destroy((ast_cinit_t *)node->ext);
 		break;
+	case ant_asm:
+		ast_asm_destroy((ast_asm_t *)node->ext);
+		break;
 	case ant_break:
 		ast_break_destroy((ast_break_t *)node->ext);
 		break;
@@ -7128,6 +7569,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_epostadj_first_tok((ast_epostadj_t *)node->ext);
 	case ant_cinit:
 		return ast_cinit_first_tok((ast_cinit_t *)node->ext);
+	case ant_asm:
+		return ast_asm_first_tok((ast_asm_t *)node->ext);
 	case ant_break:
 		return ast_break_first_tok((ast_break_t *)node->ext);
 	case ant_continue:
@@ -7261,6 +7704,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_epostadj_last_tok((ast_epostadj_t *)node->ext);
 	case ant_cinit:
 		return ast_cinit_last_tok((ast_cinit_t *)node->ext);
+	case ant_asm:
+		return ast_asm_last_tok((ast_asm_t *)node->ext);
 	case ant_break:
 		return ast_break_last_tok((ast_break_t *)node->ext);
 	case ant_continue:
