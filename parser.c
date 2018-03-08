@@ -4087,8 +4087,10 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 		if (rc != EOK)
 			goto error;
 
+		ltt = parser_next_ttype(parser);
+
 		if (first && ast_decl_is_abstract(decl) &&
-		    aallow != ast_abs_allow) {
+		    aallow != ast_abs_allow && ltt != ltt_colon) {
 			if (!parser->silent) {
 				fprintf(stderr, "Error: ");
 				lexer_dprint_tok(&dtok, stderr);
@@ -4116,16 +4118,6 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			goto error;
 		}
 
-		if (ast_decl_is_abstract(decl)) {
-			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				fprintf(stderr, " Abstract declarator.\n");
-			}
-			rc = EINVAL;
-			goto error;
-		}
-
-		ltt = parser_next_ttype(parser);
 		if (ltt == ltt_colon) {
 			/* Bit width */
 			have_bitwidth = true;
