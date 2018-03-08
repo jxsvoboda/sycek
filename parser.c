@@ -39,7 +39,7 @@ static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_aspec(parser_t *, ast_aspec_t **);
 static int parser_process_aslist(parser_t *, ast_aslist_t **);
-static int parser_process_dspecs(parser_t *, ast_dspecs_t **);
+static int parser_process_dspecs(parser_t *, unsigned, bool *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
 static int parser_process_idlist(parser_t *, ast_abs_allow_t, ast_idlist_t **);
@@ -509,7 +509,7 @@ static int parser_process_ecast(parser_t *parser, ast_node_t **rexpr)
 		goto error;
 
 	/* Try parsing as a type cast */
-	rc = parser_process_dspecs(parser, &dspecs);
+	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 	if (rc != EOK)
 		goto error;
 
@@ -2673,7 +2673,7 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 		parser_destroy(sparser);
 		sparser = NULL;
 
-		rc = parser_process_dspecs(parser, &dspecs);
+		rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 		if (rc != EOK)
 			goto error;
 
@@ -2975,7 +2975,7 @@ static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
 	void *dscolon;
 	int rc;
 
-	rc = parser_process_dspecs(parser, &dspecs);
+	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 	if (rc != EOK)
 		goto error;
 
@@ -3622,11 +3622,16 @@ error:
 /** Parse declaration specifiers.
  *
  * @param parser Parser
+ * @param add_idents Number of additional identifiers allowes (these are
+ *                   assumed to be macro specifiers).
+ * @param more_idents Place to store @c true if we stopped because of finding
+ *                    another identifier or @c NULL if not interested
  * @param rdspecs Place to store pointer to new AST declaration specifiers
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
+static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
+    bool *more_idents, ast_dspecs_t **rdspecs)
 {
 	lexer_toktype_t ltt;
 	ast_sclass_t *sclass;
@@ -3635,14 +3640,19 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 	ast_fspec_t *fspec;
 	ast_aspec_t *aspec;
 	ast_node_t *elem;
+	unsigned idcnt;
 	bool have_tspec;
 	int rc;
+
+	if (more_idents != NULL)
+		*more_idents = false;
 
 	rc = ast_dspecs_create(&dspecs);
 	if (rc != EOK)
 		return rc;
 
 	have_tspec = false;
+	idcnt = 0;
 
 	ltt = parser_next_ttype(parser);
 	do {
@@ -3656,11 +3666,19 @@ static int parser_process_dspecs(parser_t *parser, ast_dspecs_t **rdspecs)
 			 * Stop before identifier if we already have
 			 * a specifier
 			 */
-			if (ltt == ltt_ident && have_tspec)
+			if (ltt == ltt_ident && have_tspec &&
+			    idcnt >= add_idents) {
+				if (more_idents != NULL)
+					*more_idents = true;
 				break;
+			}
+
 			rc = parser_process_tspec(parser, &elem);
 			if (rc != EOK)
 				goto error;
+
+			if (ltt == ltt_ident && have_tspec)
+				++idcnt;
 			have_tspec = true;
 		} else if (parser_ttype_tqual(ltt)) {
 			rc = parser_process_tqual(parser, &tqual);
@@ -3898,7 +3916,7 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 			if (ltt == ltt_ellipsis)
 				break;
 
-			rc = parser_process_dspecs(parser, &dspecs);
+			rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 			if (rc != EOK)
 				goto error;
 
@@ -4270,7 +4288,7 @@ static int parser_process_typename(parser_t *parser, ast_typename_t **rtypename)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_dspecs(parser, &dspecs);
+	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 	if (rc != EOK)
 		goto error;
 
@@ -4595,13 +4613,21 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	bool more_decls;
 	ast_block_t *body = NULL;
 	bool have_scolon;
+	unsigned add_idents;
+	bool more_idents;
 	void *dscolon;
+	void *old_tok;
 	int rc;
 
-	rc = parser_process_dspecs(parser, &dspecs);
+	add_idents = 0;
+	old_tok = parser->tok;
+again:
+	parser->tok = old_tok;
+
+	rc = parser_process_dspecs(parser, add_idents, &more_idents, &dspecs);
 	if (rc != EOK)
 		goto error;
-
+//	printf("more_idents:%d\n", more_idents);
 	rc = parser_process_idlist(parser, ast_abs_allow, &idlist);
 	if (rc != EOK)
 		goto error;
@@ -4637,6 +4663,12 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 		have_scolon = false;
 		break;
 	default:
+		if (more_idents) {
+			++add_idents;
+//			printf("try again with add_idents=%d\n", add_idents);
+			goto again;
+		}
+
 		if (!parser->silent) {
 			fprintf(stderr, "Error: ");
 			parser_dprint_next_tok(parser, stderr);
@@ -4686,7 +4718,7 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 	void *dscolon;
 	int rc;
 
-	rc = parser_process_dspecs(parser, &dspecs);
+	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 	if (rc != EOK)
 		goto error;
 
