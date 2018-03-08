@@ -1665,6 +1665,26 @@ error:
 	return rc;
 }
 
+/** Run checks on a null statement.
+ *
+ * @param scope Checker scope
+ * @param stnull AST null statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull)
+{
+	int rc;
+	checker_tok_t *tscolon;
+
+	tscolon = (checker_tok_t *)stnull->tscolon.data;
+	rc = checker_check_lbegin(scope, tscolon,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 /** Run checks on a loop macro invocation.
  *
  * @param scope Checker scope
@@ -1733,6 +1753,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 		return checker_check_stexpr(scope, (ast_stexpr_t *)stmt->ext);
 	case ant_stdecln:
 		return checker_check_stdecln(scope, (ast_stdecln_t *)stmt->ext);
+	case ant_stnull:
+		return checker_check_stnull(scope, (ast_stnull_t *)stmt->ext);
 	case ant_lmacro:
 		return checker_check_lmacro(scope, (ast_lmacro_t *)stmt->ext);
 	default:

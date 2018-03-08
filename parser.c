@@ -2521,12 +2521,15 @@ error:
  */
 static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 {
+	lexer_toktype_t ltt;
 	ast_while_t *awhile = NULL;
 	void *dwhile;
 	void *dlparen;
 	ast_node_t *cond = NULL;
 	void *drparen;
+	void *dscolon;
 	ast_block_t *body = NULL;
+	ast_stnull_t *stnull = NULL;
 	int rc;
 
 	rc = parser_match(parser, ltt_while, &dwhile);
@@ -2545,9 +2548,28 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_block(parser, &body);
-	if (rc != EOK)
-		goto error;
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_scolon) {
+		/* Empty body */
+		parser_skip(parser, &dscolon);
+
+		rc = ast_block_create(ast_nobraces, &body);
+		if (rc != EOK)
+			goto error;
+
+		rc = ast_stnull_create(&stnull);
+		if (rc != EOK)
+			goto error;
+
+		stnull->tscolon.data = dscolon;
+
+		ast_block_append(body, &stnull->node);
+		stnull = NULL;
+	} else {
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = ast_while_create(&awhile);
 	if (rc != EOK)
@@ -2566,6 +2588,8 @@ error:
 		ast_tree_destroy(cond);
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
+	if (stnull != NULL)
+		ast_tree_destroy(&stnull->node);
 	return rc;
 }
 
