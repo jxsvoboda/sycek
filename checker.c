@@ -962,16 +962,18 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	if (rc != EOK)
 		goto error;
 
-	tcolon1 = (checker_tok_t *)aasm->tcolon1.data;
-	checker_check_any(scope, tcolon1);
+	if (aasm->have_out_ops) {
+		tcolon1 = (checker_tok_t *)aasm->tcolon1.data;
+		checker_check_any(scope, tcolon1);
 
-	/* Check output operands */
-	out_op = ast_asm_first_out_op(aasm);
-	while (out_op != NULL) {
-		rc = checker_check_asm_op(siscope, out_op);
-		if (rc != EOK)
-			goto error;
-		out_op = ast_asm_next_out_op(out_op);
+		/* Check output operands */
+		out_op = ast_asm_first_out_op(aasm);
+		while (out_op != NULL) {
+			rc = checker_check_asm_op(siscope, out_op);
+			if (rc != EOK)
+				goto error;
+			out_op = ast_asm_next_out_op(out_op);
+		}
 	}
 
 	if (aasm->have_in_ops) {

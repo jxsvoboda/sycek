@@ -2085,6 +2085,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	void *dgoto;
 	void *dlparen;
 	ast_node_t *atemplate = NULL;
+	bool have_out_ops;
 	void *dcolon1;
 	bool have_in_ops;
 	void *dcolon2;
@@ -2128,13 +2129,20 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_colon, &dcolon1);
-	if (rc != EOK)
-		goto error;
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_colon) {
+		parser_skip(parser, &dcolon1);
+		if (rc != EOK)
+			goto error;
 
-	rc = parser_process_asm_out_ops(parser, aasm);
-	if (rc != EOK)
-		goto error;
+		rc = parser_process_asm_out_ops(parser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		have_out_ops = true;
+	} else {
+		have_out_ops = false;
+	}
 
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_colon) {
@@ -2199,7 +2207,9 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 
 	aasm->tlparen.data = dlparen;
 	aasm->atemplate = atemplate;
-	aasm->tcolon1.data = dcolon1;
+	aasm->have_out_ops = have_out_ops;
+	if (have_out_ops)
+		aasm->tcolon1.data = dcolon1;
 	aasm->have_in_ops = have_in_ops;
 	if (have_in_ops)
 		aasm->tcolon2.data = dcolon2;

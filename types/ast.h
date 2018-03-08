@@ -1005,6 +1005,8 @@ typedef struct {
 	ast_tok_t tlparen;
 	/** Assembler template */
 	ast_node_t *atemplate;
+	/** @c true if we have @c tcolon1 and @c out_ops */
+	bool have_out_ops;
 	/** First ':' token */
 	ast_tok_t tcolon1;
 	/** Output operands */
