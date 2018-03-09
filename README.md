@@ -214,9 +214,26 @@ the example C source file, type
 
     $ ./syc example/test.c
 
-which will produce `example/test.asm`. Note that this cannot be used to
-produce a working binary yet! Also, this is a minimal example and trying
-to compile any other file will most probably fail.
+which will produce `example/test.asm`. We can convert it to a tape file
+using tools from the z88dk project
+
+    $ z80asm -b example/test.asm
+    $ appmake +zx --org=32768 -b example/test.bin
+
+This produces the file `example/test.tap`. We can transfer that to a real
+Spectrum or open it in an emulator (such as [GZX][4]). To load the binary
+use the BASIC command
+
+    LOAD ""CODE
+
+this skips the BASIC loader and loads just the machine code block.
+Function `foo` starts at address 32768, computes the value of 1 + 2 + 3
+and returns it in the BC register, so it can be used as a User Service
+Routine. We can test it with the basic command
+
+    PRINT USR 32768
+
+this should print `6`.
 
 There are options available to print out the
 program in various compilation stages to the standard output:
@@ -258,3 +275,4 @@ which must finish without any bugs found.
 [1]: http://www.helenos.org/wiki/CStyle
 [2]: http://www.helenos.org/
 [3]: https://github.com/jxsvoboda/timrec
+[4]: https://github.com/jxsvoboda/gzx
