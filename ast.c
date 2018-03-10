@@ -2027,6 +2027,26 @@ static ast_tok_t *ast_sqlist_last_tok(ast_sqlist_t *sqlist)
 	return ast_tree_last_tok(ast_sqlist_last(sqlist));
 }
 
+/** Determine if specifier-qualifier list contains a record type specifier.
+ *
+ * @param sqlist Specifier-qualifier list
+ * @return @c true if @a sqlist contains a record type specifier, @c false
+ *         otherwise
+ */
+bool ast_sqlist_has_tsrecord(ast_sqlist_t *sqlist)
+{
+	ast_node_t *sq;
+
+	sq = ast_sqlist_first(sqlist);
+	while (sq != NULL) {
+		if (sq->ntype == ant_tsrecord)
+			return true;
+		sq = ast_sqlist_next(sq);
+	}
+
+	return false;
+}
+
 /** Create AST type qualifier list.
  *
  * @param rtqlist Place to store pointer to new type qualifier list

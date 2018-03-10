@@ -87,6 +87,7 @@ extern ast_node_t *ast_sqlist_first(ast_sqlist_t *);
 extern ast_node_t *ast_sqlist_next(ast_node_t *);
 extern ast_node_t *ast_sqlist_last(ast_sqlist_t *);
 extern ast_node_t *ast_sqlist_prev(ast_node_t *);
+extern bool ast_sqlist_has_tsrecord(ast_sqlist_t *);
 extern int ast_tqlist_create(ast_tqlist_t **);
 extern void ast_tqlist_append(ast_tqlist_t *, ast_node_t *);
 extern ast_node_t *ast_tqlist_first(ast_tqlist_t *);

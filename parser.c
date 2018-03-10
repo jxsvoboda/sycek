@@ -3303,6 +3303,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	ast_aslist_t *aslist;
 	void *dscolon;
 	void *drbrace;
+	ast_abs_allow_t allow;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
@@ -3355,8 +3356,16 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			if (rc != EOK)
 				goto error;
 
-			rc = parser_process_dlist(parser, ast_abs_disallow,
-			    &dlist);
+			ltt = parser_next_ttype(parser);
+			if (ast_sqlist_has_tsrecord(sqlist) &&
+			    ltt == ltt_scolon) {
+				/* Allow anonymous sub-struct or sub-union */
+				allow = ast_abs_allow;
+			} else {
+				allow = ast_abs_disallow;
+			}
+
+			rc = parser_process_dlist(parser, allow, &dlist);
 			if (rc != EOK)
 				goto error;
 
