@@ -2673,6 +2673,7 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 {
 	ast_for_t *afor = NULL;
 	parser_t *sparser;
+	lexer_toktype_t ltt;
 	void *dfor;
 	void *dlparen;
 	ast_node_t *linit = NULL;
@@ -2698,12 +2699,14 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	if (rc != EOK)
 		goto error;
 
+	ltt = parser_next_ttype(parser);
+
 	rc = parser_process_expr(sparser, &linit);
 	if (rc == EOK) {
 		parser->tok = sparser->tok;
 		parser_destroy(sparser);
 		sparser = NULL;
-	} else {
+	} else if (ltt != ltt_scolon) {
 		parser_destroy(sparser);
 		sparser = NULL;
 
@@ -2720,9 +2723,13 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &lcond);
-	if (rc != EOK)
-		goto error;
+	ltt = parser_next_ttype(parser);
+
+	if (ltt != ltt_scolon) {
+		rc = parser_process_expr(parser, &lcond);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = parser_match(parser, ltt_scolon, &dscolon2);
 	if (rc != EOK)

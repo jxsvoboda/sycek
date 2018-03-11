@@ -1206,7 +1206,11 @@ typedef struct {
 	ast_tok_t tscolon;
 } ast_do_t;
 
-/** For loop statement */
+/** For loop statement.
+ *
+ * For loop initialization we can use either linit or dspecs + idlist
+ * or neither if it is empty.
+ */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
@@ -1214,15 +1218,15 @@ typedef struct {
 	ast_tok_t tfor;
 	/** '(' token */
 	ast_tok_t tlparen;
-	/** Loop initialization or @c NULL if using dspecs/idlist */
+	/** Loop initialization or @c NULL */
 	ast_node_t *linit;
-	/** Declaration specifiers or @c NULL if using linit */
+	/** Declaration specifiers or @c NULL*/
 	ast_dspecs_t *dspecs;
-	/** Init-declarator list or @c NULL if using linit */
+	/** Init-declarator list or @c NULL */
 	ast_idlist_t *idlist;
 	/** ';' token */
 	ast_tok_t tscolon1;
-	/** Loop condition */
+	/** Loop condition or @c NULL */
 	ast_node_t *lcond;
 	/** ';' token */
 	ast_tok_t tscolon2;

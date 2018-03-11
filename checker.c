@@ -1414,8 +1414,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		rc = checker_check_expr(scope, afor->linit);
 		if (rc != EOK)
 			return rc;
-	} else {
-		assert(afor->dspecs != NULL);
+	} else if (afor->dspecs != NULL) {
 		assert(afor->idlist != NULL);
 
 		rc = checker_check_dspecs(scope, afor->dspecs);
@@ -1444,12 +1443,15 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_check_expr(scope, afor->lcond);
-	if (rc != EOK)
-		return rc;
+	if (afor->lcond != NULL) {
+		rc = checker_check_expr(scope, afor->lcond);
+		if (rc != EOK)
+			return rc;
 
-	checker_check_nows_before(scope, tscolon2,
-	    "Unexpected whitespace before ';'.");
+		checker_check_nows_before(scope, tscolon2,
+		    "Unexpected whitespace before ';'.");
+	}
+
 
 	rc = checker_check_brkspace_after(scope, tscolon2,
 	    "Expected space after ';'.");
