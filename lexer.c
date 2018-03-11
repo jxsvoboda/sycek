@@ -888,6 +888,12 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		    p[7] == '8' && !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_int128, 8, tok);
 		}
+		if (p[1] == '_' && p[2] == 'r' && p[3] == 'e' &&
+		    p[4] == 's' && p[5] == 't' && p[6] == 'r' &&
+		    p[7] == 'i' && p[8] == 'c' && p[9] == 't' &&
+		    p[10] == '_' && p[11] == '_' && !is_idcnt(p[12])) {
+			return lexer_keyword(lexer, ltt_restrict_alt, 12, tok);
+		}
 		return lexer_ident(lexer, tok);
 	case 'a':
 		if (p[1] == 's' && p[2] == 'm' && !is_idcnt(p[3])) {
@@ -983,7 +989,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_keyword(lexer, ltt_register, 8, tok);
 		}
 		if (p[1] == 'e' && p[2] == 's' && p[3] == 't' && p[4] == 'r' &&
-		    p[5] == 'i' && p[6] == 'c' && p[7] == 'r' &&
+		    p[5] == 'i' && p[6] == 'c' && p[7] == 't' &&
 		    !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_restrict, 8, tok);
 		}
@@ -1234,6 +1240,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "register";
 	case ltt_restrict:
 		return "restrict";
+	case ltt_restrict_alt:
+		return "__restrict__";
 	case ltt_return:
 		return "return";
 	case ltt_signed:

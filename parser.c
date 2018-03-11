@@ -288,7 +288,7 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 static bool parser_ttype_tqual(lexer_toktype_t ttype)
 {
 	return ttype == ltt_const || ttype == ltt_restrict ||
-	    ttype == ltt_volatile;
+	    ttype == ltt_restrict_alt || ttype == ltt_volatile;
 }
 
 /** Return @c true if token type is a basic type specifier
@@ -3198,6 +3198,9 @@ static int parser_process_tqual(parser_t *parser, ast_tqual_t **rtqual)
 		qtype = aqt_const;
 		break;
 	case ltt_restrict:
+		qtype = aqt_restrict;
+		break;
+	case ltt_restrict_alt:
 		qtype = aqt_restrict;
 		break;
 	case ltt_volatile:

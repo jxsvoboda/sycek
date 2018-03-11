@@ -113,6 +113,7 @@ typedef enum {
 	ltt_long,
 	ltt_register,
 	ltt_restrict,
+	ltt_restrict_alt,
 	ltt_return,
 	ltt_short,
 	ltt_signed,
