@@ -1374,7 +1374,11 @@ typedef struct {
 	ast_tok_t tvarname;
 	/** ')' token */
 	ast_tok_t trparen;
-	/** Trailing ';' token */
+	/** Function body (if function definition) */
+	ast_block_t *body;
+	/** @c true if we have a trailing semicolon */
+	bool have_scolon;
+	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_gmdecln_t;
 

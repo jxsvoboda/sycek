@@ -3626,9 +3626,13 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 {
 	int rc;
 	ast_tok_t *adecln;
+	ast_node_t *stmt;
 	checker_tok_t *tlparen;
 	checker_tok_t *trparen;
+	checker_tok_t *tlbrace;
+	checker_tok_t *trbrace;
 	checker_tok_t *tscolon;
+	checker_scope_t *bscope = NULL;
 
 	adecln = ast_tree_first_tok(&gmdecln->dspecs->node);
 	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,
@@ -3648,11 +3652,44 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
 
-	tscolon = (checker_tok_t *)gmdecln->tscolon.data;
-	checker_check_nows_before(scope, tscolon,
-	    "Unexpected whitespace before ';'.");
+	if (gmdecln->body == NULL) {
+		tscolon = (checker_tok_t *)gmdecln->tscolon.data;
+		checker_check_nows_before(scope, tscolon,
+		    "Unexpected whitespace before ';'.");
+		return EOK;
+	}
+
+	assert(gmdecln->body->braces);
+	tlbrace = (checker_tok_t *)gmdecln->body->topen.data;
+	rc = checker_check_lbegin(scope, tlbrace,
+	    "Function opening brace must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	bscope = checker_scope_nested(scope);
+	if (bscope == NULL)
+		return ENOMEM;
+
+	stmt = ast_block_first(gmdecln->body);
+	while (stmt != NULL) {
+		rc = checker_check_stmt(bscope, stmt);
+		if (rc != EOK)
+			goto error;
+
+		stmt = ast_block_next(stmt);
+	}
+
+	trbrace = (checker_tok_t *)gmdecln->body->tclose.data;
+	rc = checker_check_lbegin(scope, trbrace,
+	    "Function closing brace must start on a new line.");
+	if (rc != EOK)
+		goto error;
+
+	checker_scope_destroy(bscope);
 	return EOK;
 error:
+	if (bscope != NULL)
+		checker_scope_destroy(bscope);
 	return rc;
 }
 

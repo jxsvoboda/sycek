@@ -431,13 +431,16 @@ static ast_tok_t *ast_gdecln_last_tok(ast_gdecln_t *gdecln)
  * @param dlparen Data for left parenthesis token
  * @param dvarname Data for variable name token
  * @param drparen Data for right parenthesis token
+ * @param body Function body or @c NULL
+ * @param have_scolon @c true if we have a trailing semicolon
  * @param dscolon Data for trailing semicolon
  * @param rgmdecln Place to store pointer to new global macro-based declaration
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_gmdecln_create(ast_dspecs_t *dspecs, void *dname, void *dlparen,
-    void *dvarname, void *drparen, void *dscolon, ast_gmdecln_t **rgmdecln)
+    void *dvarname, void *drparen, ast_block_t *body, bool have_scolon,
+    void *dscolon, ast_gmdecln_t **rgmdecln)
 {
 	ast_gmdecln_t *gmdecln;
 
@@ -450,6 +453,8 @@ int ast_gmdecln_create(ast_dspecs_t *dspecs, void *dname, void *dlparen,
 	gmdecln->tlparen.data = dlparen;
 	gmdecln->tvarname.data = dvarname;
 	gmdecln->trparen.data = drparen;
+	gmdecln->body = body;
+	gmdecln->have_scolon = have_scolon;
 	gmdecln->tscolon.data = dscolon;
 
 	gmdecln->node.ext = gmdecln;
@@ -479,6 +484,14 @@ static int ast_gmdecln_print(ast_gmdecln_t *gmdecln, FILE *f)
 			return rc;
 	}
 
+	if (gmdecln->body != NULL) {
+		if (fprintf(f, ", ") < 0)
+			return EIO;
+		rc = ast_block_print(gmdecln->body, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ")") < 0)
 		return EIO;
 
@@ -492,6 +505,7 @@ static int ast_gmdecln_print(ast_gmdecln_t *gmdecln, FILE *f)
 static void ast_gmdecln_destroy(ast_gmdecln_t *gmdecln)
 {
 	ast_dspecs_destroy(gmdecln->dspecs);
+	ast_block_destroy(gmdecln->body);
 	free(gmdecln);
 }
 

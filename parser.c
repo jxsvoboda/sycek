@@ -4755,11 +4755,14 @@ error:
  */
 static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 {
+	lexer_toktype_t ltt;
 	ast_gmdecln_t *gmdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
 	void *dlparen;
 	void *dvarname;
 	void *drparen;
+	ast_block_t *body;
+	bool have_scolon;
 	void *dscolon;
 	int rc;
 
@@ -4779,13 +4782,34 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_scolon, &dscolon);
-	if (rc != EOK)
+	ltt = parser_next_ttype(parser);
+	switch (ltt) {
+	case ltt_scolon:
+		body = NULL;
+		parser_skip(parser, &dscolon);
+		have_scolon = true;
+		break;
+	case ltt_lbrace:
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+		dscolon = NULL;
+		have_scolon = false;
+		break;
+	default:
+		if (!parser->silent) {
+			fprintf(stderr, "Error: ");
+			parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+		}
+		rc = EINVAL;
 		goto error;
+	}
+
 
 	/* XXX Dig out macro name from dspecs */
 	rc = ast_gmdecln_create(dspecs, NULL, dlparen, dvarname, drparen,
-	    dscolon, &gmdecln);
+	    body, have_scolon, dscolon, &gmdecln);
 	if (rc != EOK)
 		goto error;
 
