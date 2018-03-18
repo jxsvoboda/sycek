@@ -40,8 +40,10 @@ extern ast_node_t *ast_module_prev(ast_node_t *);
 extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
 extern int ast_gdecln_create(ast_dspecs_t *, ast_idlist_t *, ast_block_t *,
     ast_gdecln_t **);
-extern int ast_gmdecln_create(ast_dspecs_t *, void *, void *, void *, void *,
-    ast_block_t *, bool, void *, ast_gmdecln_t **);
+extern int ast_gmdecln_create(ast_gmdecln_t **);
+extern int ast_gmdecln_append(ast_gmdecln_t *, void *, void *);
+extern ast_gmdecln_arg_t *ast_gmdecln_first(ast_gmdecln_t *);
+extern ast_gmdecln_arg_t *ast_gmdecln_next(ast_gmdecln_arg_t *);
 extern int ast_block_create(ast_braces_t, ast_block_t **);
 extern void ast_block_append(ast_block_t *, ast_node_t *);
 extern ast_node_t *ast_block_first(ast_block_t *);

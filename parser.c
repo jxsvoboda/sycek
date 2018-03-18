@@ -4760,11 +4760,16 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 	ast_dspecs_t *dspecs = NULL;
 	void *dlparen;
 	void *dvarname;
+	void *dcomma;
 	void *drparen;
 	ast_block_t *body;
 	bool have_scolon;
 	void *dscolon;
 	int rc;
+
+	rc = ast_gmdecln_create(&gmdecln);
+	if (rc != EOK)
+		goto error;
 
 	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
 	if (rc != EOK)
@@ -4774,9 +4779,31 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_ident, &dvarname);
-	if (rc != EOK)
-		goto error;
+	dvarname = NULL;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_rparen) {
+		do {
+			rc = parser_match(parser, ltt_ident, &dvarname);
+			if (rc != EOK)
+				goto error;
+
+			ltt = parser_next_ttype(parser);
+
+			if (ltt == ltt_comma) {
+				rc = parser_match(parser, ltt_comma, &dcomma);
+				if (rc != EOK)
+					goto error;
+			} else {
+				dcomma = NULL;
+			}
+
+			rc = ast_gmdecln_append(gmdecln, dvarname, dcomma);
+			if (rc != EOK)
+				goto error;
+
+		} while (ltt == ltt_comma);
+	}
 
 	rc = parser_match(parser, ltt_rparen, &drparen);
 	if (rc != EOK)
@@ -4806,16 +4833,23 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 		goto error;
 	}
 
+	gmdecln->dspecs = dspecs;
+	dspecs = NULL;
 
 	/* XXX Dig out macro name from dspecs */
-	rc = ast_gmdecln_create(dspecs, NULL, dlparen, dvarname, drparen,
-	    body, have_scolon, dscolon, &gmdecln);
-	if (rc != EOK)
-		goto error;
+	gmdecln->tname.data = NULL;
+	gmdecln->tlparen.data = dlparen;
+	gmdecln->trparen.data = drparen;
+	gmdecln->body = body;
+	gmdecln->have_scolon = have_scolon;
+	if (have_scolon)
+		gmdecln->tscolon.data = dscolon;
 
 	*rgmdecln = gmdecln;
 	return EOK;
 error:
+	if (gmdecln != NULL)
+		ast_tree_destroy(&gmdecln->node);
 	if (dspecs != NULL)
 		ast_tree_destroy(&dspecs->node);
 	return rc;

@@ -3626,8 +3626,11 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 {
 	int rc;
 	ast_tok_t *adecln;
+	ast_gmdecln_arg_t *arg;
 	ast_node_t *stmt;
 	checker_tok_t *tlparen;
+	checker_tok_t *targ;
+	checker_tok_t *tcomma;
 	checker_tok_t *trparen;
 	checker_tok_t *tlbrace;
 	checker_tok_t *trbrace;
@@ -3647,6 +3650,24 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 	tlparen = (checker_tok_t *)gmdecln->tlparen.data;
 	checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+
+	arg = ast_gmdecln_first(gmdecln);
+	while (arg != NULL) {
+		targ = (checker_tok_t *)arg->targ.data;
+		checker_check_any(scope, targ);
+		tcomma = (checker_tok_t *)arg->tcomma.data;
+		if (tcomma != NULL) {
+			rc = checker_check_brkspace_after(scope, tcomma,
+			    "Whitespace expected after ','.");
+			if (rc != EOK)
+				goto error;
+
+			checker_check_nows_before(scope, tcomma,
+			    "Unexpected whitespace before ','.");
+		}
+
+		arg = ast_gmdecln_next(arg);
+	}
 
 	trparen = (checker_tok_t *)gmdecln->trparen.data;
 	checker_check_nows_before(scope, trparen,

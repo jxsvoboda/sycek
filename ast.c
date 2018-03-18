@@ -426,21 +426,11 @@ static ast_tok_t *ast_gdecln_last_tok(ast_gdecln_t *gdecln)
 
 /** Create AST global macro-based declaration.
  *
- * @param dspecs Declaration specifiers or @c NULL
- * @param dname Data for macro name token
- * @param dlparen Data for left parenthesis token
- * @param dvarname Data for variable name token
- * @param drparen Data for right parenthesis token
- * @param body Function body or @c NULL
- * @param have_scolon @c true if we have a trailing semicolon
- * @param dscolon Data for trailing semicolon
  * @param rgmdecln Place to store pointer to new global macro-based declaration
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_gmdecln_create(ast_dspecs_t *dspecs, void *dname, void *dlparen,
-    void *dvarname, void *drparen, ast_block_t *body, bool have_scolon,
-    void *dscolon, ast_gmdecln_t **rgmdecln)
+int ast_gmdecln_create(ast_gmdecln_t **rgmdecln)
 {
 	ast_gmdecln_t *gmdecln;
 
@@ -448,14 +438,7 @@ int ast_gmdecln_create(ast_dspecs_t *dspecs, void *dname, void *dlparen,
 	if (gmdecln == NULL)
 		return ENOMEM;
 
-	gmdecln->dspecs = dspecs;
-	gmdecln->tname.data = dname;
-	gmdecln->tlparen.data = dlparen;
-	gmdecln->tvarname.data = dvarname;
-	gmdecln->trparen.data = drparen;
-	gmdecln->body = body;
-	gmdecln->have_scolon = have_scolon;
-	gmdecln->tscolon.data = dscolon;
+	list_initialize(&gmdecln->args);
 
 	gmdecln->node.ext = gmdecln;
 	gmdecln->node.ntype = ant_gmdecln;
@@ -463,6 +446,62 @@ int ast_gmdecln_create(ast_dspecs_t *dspecs, void *dname, void *dlparen,
 	*rgmdecln = gmdecln;
 	return EOK;
 }
+
+/** Append entry to global macro-based declaration argument list.
+ *
+ * @param gmdecln Global macro-based declaration
+ * @param drag Data for argument token
+ * @param dcomma Data for separating comma token or @c NULL
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_gmdecln_append(ast_gmdecln_t *gmdecln, void *darg, void *dcomma)
+{
+	ast_gmdecln_arg_t *arg;
+
+	arg = calloc(1, sizeof(ast_gmdecln_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->targ.data = darg;
+	arg->tcomma.data = dcomma;
+
+	arg->gmdecln = gmdecln;
+	list_append(&arg->lgmdecln, &gmdecln->args);
+	return EOK;
+}
+
+/** Return first argument in global macro-based declaration.
+ *
+ * @param gmdecln Global macro-based declaration
+ * @return First argument or @c NULL
+ */
+ast_gmdecln_arg_t *ast_gmdecln_first(ast_gmdecln_t *gmdecln)
+{
+	link_t *link;
+
+	link = list_first(&gmdecln->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_gmdecln_arg_t, lgmdecln);
+}
+
+/** Return next argument in global macro-based declaration.
+ *
+ * @param arg Call argument
+ * @return Next argument or @c NULL
+ */
+ast_gmdecln_arg_t *ast_gmdecln_next(ast_gmdecln_arg_t *arg)
+{
+	link_t *link;
+
+	link = list_next(&arg->lgmdecln, &arg->gmdecln->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_gmdecln_arg_t, lgmdecln);
+}
+
 
 /** Print AST global macro-based declaration.
  *

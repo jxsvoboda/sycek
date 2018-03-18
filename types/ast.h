@@ -770,7 +770,7 @@ typedef struct {
 	ast_node_t *fexpr;
 	/** Left parenthesis token */
 	ast_tok_t tlparen;
-	/*( Arguments */
+	/** Arguments */
 	list_t args; /* of ast_ecall_arg_t */
 	/** Right parenthesis token */
 	ast_tok_t trparen;
@@ -1370,8 +1370,8 @@ typedef struct {
 	ast_tok_t tname;
 	/** '(' token */
 	ast_tok_t tlparen;
-	/** Variable name (macro argument) token */
-	ast_tok_t tvarname;
+	/** Arguments */
+	list_t args; /* of ast_gmdecln_arg_t */
 	/** ')' token */
 	ast_tok_t trparen;
 	/** Function body (if function definition) */
@@ -1381,6 +1381,18 @@ typedef struct {
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_gmdecln_t;
+
+/** Global macro-based declaration argument */
+typedef struct {
+	/** Containing global macro-based declaration */
+	ast_gmdecln_t *gmdecln;
+	/** Link to @c gmdecln->args */
+	link_t lgmdecln;
+	/** Argument token */
+	ast_tok_t targ;
+	/** Separation comma (except for the last argument) */
+	ast_tok_t tcomma;
+} ast_gmdecln_arg_t;
 
 /** Module.
  *
