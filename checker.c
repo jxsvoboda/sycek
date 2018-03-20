@@ -3615,43 +3615,40 @@ error:
 	return rc;
 }
 
-/** Run checks on a global macro-based declaration.
+/** Run checks on a macro-based declaration.
  *
  * @param scope Checker scope
- * @param gmdecln AST global macro-based declaration
+ * @param mdecln AST macro-based declaration
  * @return EOK on success or error code
  */
-static int checker_check_gmdecln(checker_scope_t *scope,
-    ast_gmdecln_t *gmdecln)
+static int checker_check_mdecln(checker_scope_t *scope,
+    ast_mdecln_t *mdecln)
 {
 	int rc;
 	ast_tok_t *adecln;
-	ast_gmdecln_arg_t *arg;
-	ast_node_t *stmt;
+	ast_mdecln_arg_t *arg;
 	checker_tok_t *tlparen;
 	checker_tok_t *targ;
 	checker_tok_t *tcomma;
 	checker_tok_t *trparen;
-	checker_tok_t *tlbrace;
-	checker_tok_t *trbrace;
-	checker_tok_t *tscolon;
-	checker_scope_t *bscope = NULL;
 
-	adecln = ast_tree_first_tok(&gmdecln->dspecs->node);
+	adecln = ast_tree_first_tok(&mdecln->node);
 	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,
 	    "Declaration must start on a new line.");
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_check_dspecs(scope, gmdecln->dspecs);
+	rc = checker_check_dspecs(scope, mdecln->dspecs);
 	if (rc != EOK)
 		goto error;
 
-	tlparen = (checker_tok_t *)gmdecln->tlparen.data;
+	tlparen = (checker_tok_t *)mdecln->tlparen.data;
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
 	checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
 
-	arg = ast_gmdecln_first(gmdecln);
+	arg = ast_mdecln_first(mdecln);
 	while (arg != NULL) {
 		targ = (checker_tok_t *)arg->targ.data;
 		checker_check_any(scope, targ);
@@ -3666,12 +3663,44 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 			    "Unexpected whitespace before ','.");
 		}
 
-		arg = ast_gmdecln_next(arg);
+		arg = ast_mdecln_next(arg);
 	}
 
-	trparen = (checker_tok_t *)gmdecln->trparen.data;
+	trparen = (checker_tok_t *)mdecln->trparen.data;
 	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Run checks on a global macro-based declaration.
+ *
+ * @param scope Checker scope
+ * @param gmdecln AST global macro-based declaration
+ * @return EOK on success or error code
+ */
+static int checker_check_gmdecln(checker_scope_t *scope,
+    ast_gmdecln_t *gmdecln)
+{
+	int rc;
+	ast_tok_t *adecln;
+	ast_node_t *stmt;
+	checker_tok_t *tlbrace;
+	checker_tok_t *trbrace;
+	checker_tok_t *tscolon;
+	checker_scope_t *bscope = NULL;
+
+	adecln = ast_tree_first_tok(&gmdecln->node);
+	rc = checker_check_lbegin(scope, (checker_tok_t *)adecln->data,
+	    "Declaration must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_mdecln(scope, gmdecln->mdecln);
+	if (rc != EOK)
+		goto error;
 
 	if (gmdecln->body == NULL) {
 		tscolon = (checker_tok_t *)gmdecln->tscolon.data;

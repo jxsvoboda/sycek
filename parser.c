@@ -4150,8 +4150,8 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 		 * totally enclosed in parentheses as not valid C code even
 		 * if they are.
 		 */
-		if (first && decl->ntype == ant_dparen) {
-			if (!parser->silent) {
+/*		if (first && decl->ntype == ant_dparen) {
+			if (!parser->sile4nt) {
 				fprintf(stderr, "Error: ");
 				lexer_dprint_tok(&dtok, stderr);
 				fprintf(stderr, " parenthesized declarator "
@@ -4159,7 +4159,7 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			}
 			rc = EINVAL;
 			goto error;
-		}
+		}*/
 
 		if (ltt == ltt_colon) {
 			/* Bit width */
@@ -4746,28 +4746,25 @@ error:
 	return rc;
 }
 
-/** Parse global macro-based declaration.
+/** Parse macro-based declaration.
  *
  * @param parser Parser
- * @param rgmdecln Place to store pointer to new macro-based declaration
+ * @param rmdecln Place to store pointer to new macro-based declaration
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
+static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 {
 	lexer_toktype_t ltt;
-	ast_gmdecln_t *gmdecln = NULL;
+	ast_mdecln_t *mdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
 	void *dlparen;
 	void *dvarname;
 	void *dcomma;
 	void *drparen;
-	ast_block_t *body;
-	bool have_scolon;
-	void *dscolon;
 	int rc;
 
-	rc = ast_gmdecln_create(&gmdecln);
+	rc = ast_mdecln_create(&mdecln);
 	if (rc != EOK)
 		goto error;
 
@@ -4798,7 +4795,7 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 				dcomma = NULL;
 			}
 
-			rc = ast_gmdecln_append(gmdecln, dvarname, dcomma);
+			rc = ast_mdecln_append(mdecln, dvarname, dcomma);
 			if (rc != EOK)
 				goto error;
 
@@ -4806,6 +4803,50 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 	}
 
 	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	mdecln->dspecs = dspecs;
+	dspecs = NULL;
+
+	/* XXX Dig out macro name from dspecs */
+	mdecln->tname.data = NULL;
+	mdecln->tlparen.data = dlparen;
+	mdecln->trparen.data = drparen;
+
+	*rmdecln = mdecln;
+	return EOK;
+error:
+	if (mdecln != NULL)
+		ast_tree_destroy(&mdecln->node);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	return rc;
+}
+
+/** Parse global macro-based declaration.
+ *
+ * @param parser Parser
+ * @param rgmdecln Place to store pointer to new macro-based declaration
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
+{
+	lexer_toktype_t ltt;
+	ast_gmdecln_t *gmdecln = NULL;
+	ast_mdecln_t *mdecln = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_block_t *body;
+	bool have_scolon;
+	void *dscolon;
+	int rc;
+
+	rc = ast_gmdecln_create(&gmdecln);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_mdecln(parser, &mdecln);
 	if (rc != EOK)
 		goto error;
 
@@ -4833,13 +4874,8 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 		goto error;
 	}
 
-	gmdecln->dspecs = dspecs;
-	dspecs = NULL;
+	gmdecln->mdecln = mdecln;
 
-	/* XXX Dig out macro name from dspecs */
-	gmdecln->tname.data = NULL;
-	gmdecln->tlparen.data = dlparen;
-	gmdecln->trparen.data = drparen;
 	gmdecln->body = body;
 	gmdecln->have_scolon = have_scolon;
 	if (have_scolon)
@@ -4848,6 +4884,8 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 	*rgmdecln = gmdecln;
 	return EOK;
 error:
+	if (mdecln != NULL)
+		ast_tree_destroy(&mdecln->node);
 	if (gmdecln != NULL)
 		ast_tree_destroy(&gmdecln->node);
 	if (dspecs != NULL)

@@ -153,6 +153,8 @@ typedef enum {
 	ant_block,
 	/** Global declaration */
 	ant_gdecln,
+	/** Macro-based declaration */
+	ant_mdecln,
 	/** Global macro-based declaration */
 	ant_gmdecln,
 	/** Module */
@@ -1355,11 +1357,11 @@ typedef struct {
 	ast_tok_t tscolon;
 } ast_gdecln_t;
 
-/** Global macro-based declaration
+/** Macro-based declaration
  *
- * Global variable declaration using a macro call that expands to both
+ * Declaration using a macro call that expands to both
  * the declaration specifier(s) and the declarator.
- * e.g. GIMMICK_INITIALIZE(foo);
+ * e.g. GIMMICK_INITIALIZE(foo)
  */
 typedef struct {
 	/** Base object */
@@ -1374,6 +1376,31 @@ typedef struct {
 	list_t args; /* of ast_gmdecln_arg_t */
 	/** ')' token */
 	ast_tok_t trparen;
+} ast_mdecln_t;
+
+/** Macro-based declaration argument */
+typedef struct {
+	/** Containing macro-based declaration */
+	ast_mdecln_t *mdecln;
+	/** Link to @c mdecln->args */
+	link_t lmdecln;
+	/** Argument token */
+	ast_tok_t targ;
+	/** Separation comma (except for the last argument) */
+	ast_tok_t tcomma;
+} ast_mdecln_arg_t;
+
+/** Global macro-based declaration
+ *
+ * Global variable declaration using a macro call that expands to both
+ * the declaration specifier(s) and the declarator.
+ * e.g. GIMMICK_INITIALIZE(foo);
+ */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Macro-based declaration */
+	ast_mdecln_t *mdecln;
 	/** Function body (if function definition) */
 	ast_block_t *body;
 	/** @c true if we have a trailing semicolon */
@@ -1381,18 +1408,6 @@ typedef struct {
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_gmdecln_t;
-
-/** Global macro-based declaration argument */
-typedef struct {
-	/** Containing global macro-based declaration */
-	ast_gmdecln_t *gmdecln;
-	/** Link to @c gmdecln->args */
-	link_t lgmdecln;
-	/** Argument token */
-	ast_tok_t targ;
-	/** Separation comma (except for the last argument) */
-	ast_tok_t tcomma;
-} ast_gmdecln_arg_t;
 
 /** Module.
  *
