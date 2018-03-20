@@ -42,6 +42,7 @@ static int parser_process_aslist(parser_t *, ast_aslist_t **);
 static int parser_process_dspecs(parser_t *, unsigned, bool *, ast_dspecs_t **);
 static int parser_process_decl(parser_t *, ast_node_t **);
 static int parser_process_dlist(parser_t *, ast_abs_allow_t, ast_dlist_t **);
+static int parser_process_mdecln(parser_t *, ast_mdecln_t **);
 static int parser_process_idlist(parser_t *, ast_abs_allow_t, ast_idlist_t **);
 static int parser_process_typename(parser_t *, ast_typename_t **);
 static int parser_process_sqlist(parser_t *, ast_sqlist_t **);
@@ -3293,6 +3294,94 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 	return EOK;
 }
 
+/** Parse record type specifier element.
+ *
+ * @param parser Parser
+ * @param tsrecord Record type specifier to append element to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsrecord_elem(parser_t *parser,
+    ast_tsrecord_t *tsrecord)
+{
+	lexer_toktype_t ltt;
+	ast_sqlist_t *sqlist = NULL;
+	ast_dlist_t *dlist = NULL;
+	void *dscolon;
+	ast_abs_allow_t allow;
+	int rc;
+
+	rc = parser_process_sqlist(parser, &sqlist);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ast_sqlist_has_tsrecord(sqlist) &&
+	    ltt == ltt_scolon) {
+		/* Allow anonymous sub-struct or sub-union */
+		allow = ast_abs_allow;
+	} else {
+		allow = ast_abs_disallow;
+	}
+
+	rc = parser_process_dlist(parser, allow, &dlist);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_tsrecord_append(tsrecord, sqlist, dlist, dscolon);
+	if (rc != EOK)
+		goto error;
+
+	sqlist = NULL;
+	dlist = NULL;
+
+	return EOK;
+error:
+	if (sqlist != NULL)
+		ast_tree_destroy(&sqlist->node);
+	if (dlist != NULL)
+		ast_tree_destroy(&dlist->node);
+	return rc;
+}
+
+/** Parse record type specifier element using a macro declaration.
+ *
+ * @param parser Parser
+ * @param tsrecord Record type specifier to append element to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsrecord_elem_mdecln(parser_t *parser,
+    ast_tsrecord_t *tsrecord)
+{
+	ast_mdecln_t *mdecln = NULL;
+	void *dscolon;
+	int rc;
+
+	rc = parser_process_mdecln(parser, &mdecln);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_tsrecord_append_mdecln(tsrecord, mdecln, dscolon);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (mdecln != NULL)
+		ast_tree_destroy(&mdecln->node);
+	return rc;
+}
+
+
 /** Parse record type specifier.
  *
  * @param parser Parser
@@ -3311,9 +3400,8 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	ast_sqlist_t *sqlist = NULL;
 	ast_dlist_t *dlist = NULL;
 	ast_aslist_t *aslist;
-	void *dscolon;
 	void *drbrace;
-	ast_abs_allow_t allow;
+	parser_t *sparser = NULL;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
@@ -3362,34 +3450,31 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 
 		ltt = parser_next_ttype(parser);
 		while (ltt != ltt_rbrace) {
-			rc = parser_process_sqlist(parser, &sqlist);
+			rc = parser_create_silent_sub(parser, &sparser);
 			if (rc != EOK)
 				goto error;
 
-			ltt = parser_next_ttype(parser);
-			if (ast_sqlist_has_tsrecord(sqlist) &&
-			    ltt == ltt_scolon) {
-				/* Allow anonymous sub-struct or sub-union */
-				allow = ast_abs_allow;
+			rc = parser_process_tsrecord_elem(sparser, precord);
+			if (rc == EOK) {
+				parser->tok = sparser->tok;
 			} else {
-				allow = ast_abs_disallow;
+				sparser->tok = parser->tok;
+
+				rc = parser_process_tsrecord_elem_mdecln(
+				    sparser, precord);
+				if (rc == EOK) {
+					parser->tok = sparser->tok;
+				} else {
+					/* To get a good error message */
+					rc = parser_process_tsrecord_elem(
+					    parser, precord);
+					if (rc != EOK)
+						goto error;
+				}
 			}
 
-			rc = parser_process_dlist(parser, allow, &dlist);
-			if (rc != EOK)
-				goto error;
-
-			rc = parser_match(parser, ltt_scolon, &dscolon);
-			if (rc != EOK)
-				goto error;
-
-			rc = ast_tsrecord_append(precord, sqlist, dlist,
-			    dscolon);
-			if (rc != EOK)
-				goto error;
-
-			sqlist = NULL;
-			dlist = NULL;
+			parser_destroy(sparser);
+			sparser = NULL;
 
 			ltt = parser_next_ttype(parser);
 		}
@@ -3411,10 +3496,13 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 		}
 	}
 
+	parser_destroy(sparser);
 
 	*rtype = &precord->node;
 	return EOK;
 error:
+	if (sparser != NULL)
+		parser_destroy(sparser);
 	if (precord != NULL)
 		ast_tree_destroy(&precord->node);
 	if (sqlist != NULL)
@@ -4150,8 +4238,8 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 		 * totally enclosed in parentheses as not valid C code even
 		 * if they are.
 		 */
-/*		if (first && decl->ntype == ant_dparen) {
-			if (!parser->sile4nt) {
+		if (first && decl->ntype == ant_dparen) {
+			if (!parser->silent) {
 				fprintf(stderr, "Error: ");
 				lexer_dprint_tok(&dtok, stderr);
 				fprintf(stderr, " parenthesized declarator "
@@ -4159,7 +4247,7 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			}
 			rc = EINVAL;
 			goto error;
-		}*/
+		}
 
 		if (ltt == ltt_colon) {
 			/* Bit width */

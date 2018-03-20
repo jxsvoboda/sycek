@@ -1112,6 +1112,30 @@ int ast_tsrecord_append(ast_tsrecord_t *tsrecord, ast_sqlist_t *sqlist,
 	return EOK;
 }
 
+/** Append element using macro declaration to record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ * @param mdecln Macro declaration
+ * @param dscolon Semicolon token data
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tsrecord_append_mdecln(ast_tsrecord_t *tsrecord, ast_mdecln_t *mdecln,
+    void *dscolon)
+{
+	ast_tsrecord_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_tsrecord_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->mdecln = mdecln;
+	elem->tscolon.data = dscolon;
+
+	elem->tsrecord = tsrecord;
+	list_append(&elem->ltsrecord, &tsrecord->elems);
+	return EOK;
+}
+
 /** Return first element in record type specifier.
  *
  * @param tsrecord Record type specifier
@@ -1208,6 +1232,7 @@ static void ast_tsrecord_destroy(ast_tsrecord_t *tsrecord)
 		list_remove(&elem->ltsrecord);
 		ast_sqlist_destroy(elem->sqlist);
 		ast_dlist_destroy(elem->dlist);
+		ast_mdecln_destroy(elem->mdecln);
 		free(elem);
 		elem = ast_tsrecord_first(tsrecord);
 	}
@@ -2129,6 +2154,9 @@ static int ast_sqlist_print(ast_sqlist_t *sqlist, FILE *f)
 static void ast_sqlist_destroy(ast_sqlist_t *sqlist)
 {
 	ast_node_t *elem;
+
+	if (sqlist == NULL)
+		return;
 
 	elem = ast_sqlist_first(sqlist);
 	while (elem != NULL) {
@@ -3241,6 +3269,9 @@ static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
 static void ast_dlist_destroy(ast_dlist_t *dlist)
 {
 	ast_dlist_entry_t *entry;
+
+	if (dlist == NULL)
+		return;
 
 	entry = ast_dlist_first(dlist);
 	while (entry != NULL) {

@@ -48,6 +48,7 @@ static int checker_check_aslist(checker_scope_t *, ast_aslist_t *);
 static int checker_check_block(checker_scope_t *, ast_block_t *);
 static int checker_check_expr(checker_scope_t *, ast_node_t *);
 static int checker_check_init(checker_scope_t *, ast_node_t *);
+static int checker_check_mdecln(checker_scope_t *, ast_mdecln_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
 
@@ -2377,29 +2378,38 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		asqlist = ast_tree_first_tok(&elem->sqlist->node);
-		rc = checker_check_lbegin(escope,
-		    (checker_tok_t *)asqlist->data,
-		    "Record element declaration must start on a new line.");
-		if (rc != EOK)
-			goto error;
+		if (elem->sqlist != NULL) {
+			asqlist = ast_tree_first_tok(&elem->sqlist->node);
+			rc = checker_check_lbegin(escope,
+			    (checker_tok_t *)asqlist->data,
+			    "Record element declaration must start "
+			    "on a new line.");
+			if (rc != EOK)
+				goto error;
 
-		rc = checker_check_sqlist(escope, elem->sqlist);
-		if (rc != EOK)
-			goto error;
+			rc = checker_check_sqlist(escope, elem->sqlist);
+			if (rc != EOK)
+				goto error;
 
-		adecl = ast_tree_first_tok(&elem->dlist->node);
-		if (adecl != NULL) {
-			tdecl = (checker_tok_t *)adecl->data;
-			rc = checker_check_brkspace_before(escope, tdecl,
-			    "Expected space before declarator.");
+			adecl = ast_tree_first_tok(&elem->dlist->node);
+			if (adecl != NULL) {
+				tdecl = (checker_tok_t *)adecl->data;
+				rc = checker_check_brkspace_before(escope,
+				    tdecl, "Expected space before declarator.");
+				if (rc != EOK)
+					goto error;
+			}
+
+			rc = checker_check_dlist(escope, elem->dlist);
 			if (rc != EOK)
 				goto error;
 		}
 
-		rc = checker_check_dlist(escope, elem->dlist);
-		if (rc != EOK)
-			goto error;
+		if (elem->mdecln != NULL) {
+			rc = checker_check_mdecln(escope, elem->mdecln);
+			if (rc != EOK)
+				goto error;
+		}
 
 		tscolon = (checker_tok_t *)elem->tscolon.data;
 		checker_check_nows_before(escope, tscolon,

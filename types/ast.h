@@ -363,10 +363,12 @@ typedef struct {
 	ast_tsrecord_t *tsrecord;
 	/** Link to tsrecord->elems */
 	link_t ltsrecord;
-	/** Specifier-qualifier list */
+	/** Specifier-qualifier list or @c NULL if using @c mdecln */
 	struct ast_sqlist *sqlist;
-	/** Declarator list */
+	/** Declarator list or @c NULL if using @c mdecln */
 	struct ast_dlist *dlist;
+	/** Macro declaration or @c NULL if using @c sqlist and @c dlist */
+	struct ast_mdecln *mdecln;
 	/** Semicolon token */
 	ast_tok_t tscolon;
 } ast_tsrecord_elem_t;
@@ -1363,7 +1365,7 @@ typedef struct {
  * the declaration specifier(s) and the declarator.
  * e.g. GIMMICK_INITIALIZE(foo)
  */
-typedef struct {
+typedef struct ast_mdecln {
 	/** Base object */
 	ast_node_t node;
 	/** Declaration specifiers or @c NULL if none */
