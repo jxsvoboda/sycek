@@ -39,6 +39,9 @@ static int ast_block_print(ast_block_t *, FILE *);
 static ast_tok_t *ast_block_last_tok(ast_block_t *);
 static int ast_dlist_print(ast_dlist_t *, FILE *);
 static int ast_idlist_print(ast_idlist_t *, FILE *);
+static int ast_cinit_print(ast_cinit_t *, FILE *);
+static void ast_cinit_destroy(ast_cinit_t *);
+static ast_tok_t *ast_cinit_last_tok(ast_cinit_t *);
 static void ast_idlist_destroy(ast_idlist_t *);
 static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *);
 static void ast_dspecs_destroy(ast_dspecs_t *);
@@ -4906,14 +4909,91 @@ static ast_tok_t *ast_ecast_first_tok(ast_ecast_t *ecast)
 	return &ecast->tlparen;
 }
 
-/** Get last token of AST sizeo expression.
+/** Get last token of AST cast expression.
  *
- * @param eaddr Cast expression
+ * @param ecast Cast expression
  * @return Last token or @c NULL
  */
 static ast_tok_t *ast_ecast_last_tok(ast_ecast_t *ecast)
 {
 	return ast_tree_last_tok(ecast->bexpr);
+}
+
+
+/** Create AST compound literal expression.
+ *
+ * @param recliteral Place to store pointer to new compound literal expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ecliteral_create(ast_ecliteral_t **recliteral)
+{
+	ast_ecliteral_t *ecliteral;
+
+	ecliteral = calloc(1, sizeof(ast_ecliteral_t));
+	if (ecliteral == NULL)
+		return ENOMEM;
+
+	ecliteral->node.ext = ecliteral;
+	ecliteral->node.ntype = ant_ecliteral;
+
+	*recliteral = ecliteral;
+	return EOK;
+}
+
+/** Print AST compound literal expression.
+ *
+ * @param ecliteral Compound literal expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ecliteral_print(ast_ecliteral_t *ecliteral, FILE *f)
+{
+	int rc;
+
+	(void) ecliteral;
+
+	if (fprintf(f, "ecliteral(") < 0)
+		return EIO;
+
+	rc = ast_cinit_print(ecliteral->cinit, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST compound literal expression.
+ *
+ * @param ecliteral Compound literal expression
+ */
+static void ast_ecliteral_destroy(ast_ecliteral_t *ecliteral)
+{
+	ast_cinit_destroy(ecliteral->cinit);
+	free(ecliteral);
+}
+
+/** Get first token of AST compound literal expression.
+ *
+ * @param ecliteral Compound literal expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ecliteral_first_tok(ast_ecliteral_t *ecliteral)
+{
+	return &ecliteral->tlparen;
+}
+
+/** Get last token of AST compound literal expression.
+ *
+ * @param ecliteral Compound literal expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ecliteral_last_tok(ast_ecliteral_t *ecliteral)
+{
+	return ast_cinit_last_tok(ecliteral->cinit);
 }
 
 /** Create AST member expression.
@@ -7416,6 +7496,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_esizeof_print((ast_esizeof_t *)node->ext, f);
 	case ant_ecast:
 		return ast_ecast_print((ast_ecast_t *)node->ext, f);
+	case ant_ecliteral:
+		return ast_ecliteral_print((ast_ecliteral_t *)node->ext, f);
 	case ant_emember:
 		return ast_emember_print((ast_emember_t *)node->ext, f);
 	case ant_eindmember:
@@ -7600,6 +7682,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_ecast:
 		ast_ecast_destroy((ast_ecast_t *)node->ext);
 		break;
+	case ant_ecliteral:
+		ast_ecliteral_destroy((ast_ecliteral_t *)node->ext);
+		break;
 	case ant_emember:
 		ast_emember_destroy((ast_emember_t *)node->ext);
 		break;
@@ -7746,6 +7831,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_esizeof_first_tok((ast_esizeof_t *)node->ext);
 	case ant_ecast:
 		return ast_ecast_first_tok((ast_ecast_t *)node->ext);
+	case ant_ecliteral:
+		return ast_ecliteral_first_tok((ast_ecliteral_t *)node->ext);
 	case ant_emember:
 		return ast_emember_first_tok((ast_emember_t *)node->ext);
 	case ant_eindmember:
@@ -7883,6 +7970,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_esizeof_last_tok((ast_esizeof_t *)node->ext);
 	case ant_ecast:
 		return ast_ecast_last_tok((ast_ecast_t *)node->ext);
+	case ant_ecliteral:
+		return ast_ecliteral_last_tok((ast_ecliteral_t *)node->ext);
 	case ant_emember:
 		return ast_emember_last_tok((ast_emember_t *)node->ext);
 	case ant_eindmember:

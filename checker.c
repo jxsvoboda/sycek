@@ -47,6 +47,7 @@ static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
 static int checker_check_aslist(checker_scope_t *, ast_aslist_t *);
 static int checker_check_block(checker_scope_t *, ast_block_t *);
 static int checker_check_expr(checker_scope_t *, ast_node_t *);
+static int checker_check_cinit(checker_scope_t *, ast_cinit_t *);
 static int checker_check_init(checker_scope_t *, ast_node_t *);
 static int checker_check_mdecln(checker_scope_t *, ast_mdecln_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
@@ -3156,6 +3157,55 @@ static int checker_check_ecast(checker_scope_t *scope, ast_ecast_t *ecast)
 	return EOK;
 }
 
+/** Check compound literal expression.
+ *
+ * @param scope Checker scope
+ * @param ecliteral Compound literal expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ecliteral(checker_scope_t *scope,
+    ast_ecliteral_t *ecliteral)
+{
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *tdecl;
+	ast_tok_t *adecl;
+	int rc;
+
+	tlparen = (checker_tok_t *) ecliteral->tlparen.data;
+	trparen = (checker_tok_t *) ecliteral->trparen.data;
+
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	rc = checker_check_dspecs(scope, ecliteral->dspecs);
+	if (rc != EOK)
+		return rc;
+
+	adecl = ast_tree_first_tok(ecliteral->decl);
+	if (adecl != NULL) {
+		tdecl = (checker_tok_t *)adecl->data;
+		rc = checker_check_brkspace_before(scope, tdecl,
+		    "Expected space before declarator.");
+		if (rc != EOK)
+			return rc;
+	}
+
+	rc = checker_check_decl(scope, ecliteral->decl);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	rc = checker_check_cinit(scope, ecliteral->cinit);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 /** Check member expression.
  *
  * @param scope Checker scope
@@ -3376,6 +3426,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 		return checker_check_esizeof(scope, (ast_esizeof_t *) expr);
 	case ant_ecast:
 		return checker_check_ecast(scope, (ast_ecast_t *) expr);
+	case ant_ecliteral:
+		return checker_check_ecliteral(scope, (ast_ecliteral_t *) expr);
 	case ant_emember:
 		return checker_check_emember(scope, (ast_emember_t *) expr);
 	case ant_eindmember:

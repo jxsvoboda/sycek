@@ -152,6 +152,7 @@ extern int ast_ederef_create(ast_ederef_t **);
 extern int ast_eaddr_create(ast_eaddr_t **);
 extern int ast_esizeof_create(ast_esizeof_t **);
 extern int ast_ecast_create(ast_ecast_t **);
+extern int ast_ecliteral_create(ast_ecliteral_t **);
 extern int ast_emember_create(ast_emember_t **);
 extern int ast_eindmember_create(ast_eindmember_t **);
 extern int ast_eusign_create(ast_eusign_t **);

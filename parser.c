@@ -51,6 +51,7 @@ static int parser_process_eprefix(parser_t *, ast_node_t **);
 static int parser_process_epostfix(parser_t *, ast_node_t **);
 static int parser_process_eassign(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
+static int parser_process_cinit(parser_t *, ast_cinit_t **);
 static int parser_process_init(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
 
@@ -550,6 +551,69 @@ error:
 	return rc;
 }
 
+/** Parse compound literal expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new compound literal expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ecliteral(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_eparen_t *eparen = NULL;
+	ast_cinit_t *cinit = NULL;
+	ast_ecliteral_t *ecliteral = NULL;
+	ast_dspecs_t *dspecs = NULL;
+	ast_node_t *decl = NULL;
+	void *dlparen;
+	void *drparen;
+	int rc;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	/* Try parsing as a type cast */
+	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_decl(parser, &decl);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_cinit(parser, &cinit);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_ecliteral_create(&ecliteral);
+	if (rc != EOK)
+		goto error;
+
+	ecliteral->tlparen.data = dlparen;
+	ecliteral->dspecs = dspecs;
+	ecliteral->decl = decl;
+	ecliteral->trparen.data = drparen;
+	ecliteral->cinit = cinit;
+	*rexpr = &ecliteral->node;
+
+	return EOK;
+error:
+	if (eparen != NULL)
+		ast_tree_destroy(&eparen->node);
+	if (cinit != NULL)
+		ast_tree_destroy(&cinit->node);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	if (decl != NULL)
+		ast_tree_destroy(decl);
+	return rc;
+}
+
 /** Parse parenthesized expression.
  *
  * @param parser Parser
@@ -572,6 +636,21 @@ static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
 
 	/* Try parsing as a type cast */
 	rc = parser_process_ecast(sparser, rexpr);
+	if (rc == EOK) {
+		/* It worked */
+		parser->tok = sparser->tok;
+		parser_destroy(sparser);
+		return EOK;
+	}
+
+	parser_destroy(sparser);
+
+	rc = parser_create_silent_sub(parser, &sparser);
+	if (rc != EOK)
+		goto error;
+
+	/* Try parsing as a compound literal */
+	rc = parser_process_ecliteral(sparser, rexpr);
 	if (rc == EOK) {
 		/* It worked */
 		parser->tok = sparser->tok;
@@ -1673,7 +1752,7 @@ static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_cinit(parser_t *parser, ast_node_t **rcinit)
+static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 {
 	ast_cinit_t *cinit = NULL;
 	lexer_toktype_t ltt;
@@ -1777,7 +1856,7 @@ static int parser_process_cinit(parser_t *parser, ast_node_t **rcinit)
 
 	cinit->trbrace.data = drbrace;
 
-	*rcinit = &cinit->node;
+	*rcinit = cinit;
 	return EOK;
 error:
 	if (cinit != NULL)
@@ -1797,11 +1876,18 @@ error:
 static int parser_process_init(parser_t *parser, ast_node_t **rinit)
 {
 	lexer_toktype_t ltt;
+	ast_cinit_t *cinit;
+	int rc;
 
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_lbrace) {
 		/* Compound initializer */
-		return parser_process_cinit(parser, rinit);
+		rc = parser_process_cinit(parser, &cinit);
+		if (rc != EOK)
+			return rc;
+
+		*rinit = &cinit->node;
+		return EOK;
 	} else {
 		/* Initializer expression (cannot contain comma) */
 		return parser_process_eassign(parser, rinit);

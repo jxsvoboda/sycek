@@ -101,6 +101,8 @@ typedef enum {
 	ant_esizeof,
 	/** Cast expression */
 	ant_ecast,
+	/** Compound literal expression */
+	ant_ecliteral,
 	/** Member expression */
 	ant_emember,
 	/** Indirect member expression */
@@ -861,6 +863,22 @@ typedef struct {
 	ast_node_t *bexpr;
 } ast_ecast_t;
 
+/** Compound literal expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Declaration specifiers */
+	ast_dspecs_t *dspecs;
+	/** Declarator */
+	ast_node_t *decl;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** Compound initializer */
+	struct ast_cinit *cinit;
+} ast_ecliteral_t;
+
 /** Member expression */
 typedef struct {
 	/** Base object */
@@ -942,7 +960,7 @@ typedef struct {
 } ast_epostadj_t;
 
 /** Compound initializer */
-typedef struct {
+typedef struct ast_cinit {
 	/** Base object */
 	ast_node_t node;
 	/** '{' token */
