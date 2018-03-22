@@ -161,13 +161,16 @@ extern int ast_ebnot_create(ast_ebnot_t **);
 extern int ast_epreadj_create(ast_epreadj_t **);
 extern int ast_epostadj_create(ast_epostadj_t **);
 extern int ast_cinit_create(ast_cinit_t **);
-extern int ast_cinit_append_plain(ast_cinit_t *, ast_node_t *, bool, void *);
-extern int ast_cinit_append_index(ast_cinit_t *, void *, ast_node_t *, void *,
-    void *, ast_node_t *, bool, void *);
-extern int ast_cinit_append_member(ast_cinit_t *, void *, void *, void *,
-    ast_node_t *, bool, void *);
+extern void ast_cinit_append(ast_cinit_t *, ast_cinit_elem_t *);
 extern ast_cinit_elem_t *ast_cinit_first(ast_cinit_t *);
 extern ast_cinit_elem_t *ast_cinit_next(ast_cinit_elem_t *);
+extern int ast_cinit_elem_create(ast_cinit_elem_t **);
+extern void ast_cinit_elem_destroy(ast_cinit_elem_t *);
+extern int ast_cinit_elem_append_index(ast_cinit_elem_t *, void *,
+    ast_node_t *, void *);
+extern int ast_cinit_elem_append_member(ast_cinit_elem_t *, void *, void *);
+extern ast_cinit_acc_t *ast_cinit_elem_first(ast_cinit_elem_t *);
+extern ast_cinit_acc_t *ast_cinit_elem_next(ast_cinit_acc_t *);
 extern int ast_asm_create(ast_asm_t **);
 extern int ast_asm_append_out_op(ast_asm_t *, bool, void *, void *, void *,
     void *, void *, ast_node_t *, void *, void *);

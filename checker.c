@@ -544,6 +544,31 @@ static void checker_check_nows_after(checker_scope_t *scope,
 	}
 }
 
+/** Check non-spacing break before.
+ *
+ * There should be either non-whitespace or a line break before the token.
+ */
+static void checker_check_nsbrk_before(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
+{
+	checker_tok_t *p;
+
+	checker_check_any(scope, tok);
+
+	assert(tok != NULL);
+	p = checker_prev_tok(tok);
+	assert(p != NULL);
+
+	if (lexer_is_wspace(p->tok.ttype) && p->tok.ttype != ltt_newline) {
+		if (scope->fix) {
+			checker_remove_ws_before(tok);
+		} else {
+			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
+	}
+}
+
 /** Check non-spacing break after.
  *
  * There should be either non-whitespace or a line break after the token.
@@ -3451,7 +3476,118 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 	return EOK;
 }
 
-/** Run checks on a compound initialixzer.
+/** Run checks on a compound initializer element.
+ *
+ * @param scope Checker scope
+ * @param elem AST compound initializer element
+ * @return EOK on success or error code
+ */
+static int checker_check_cinit_elem(checker_scope_t *scope,
+    ast_cinit_elem_t *elem)
+{
+	ast_tok_t *afirst;
+	checker_tok_t *tfirst;
+	ast_cinit_acc_t *acc;
+	checker_tok_t *tlbracket;
+	checker_tok_t *trbracket;
+	checker_tok_t *tperiod;
+	checker_tok_t *tassign;
+	checker_tok_t *tcomma;
+	bool first;
+	int rc;
+
+	afirst = ast_tree_first_tok(elem->init);
+
+	acc = ast_cinit_elem_first(elem);
+	if (acc != NULL) {
+		switch (acc->atype) {
+		case aca_index:
+			afirst = &acc->tlbracket;
+			break;
+		case aca_member:
+			afirst = &acc->tperiod;
+			break;
+		}
+	}
+
+	tfirst = (checker_tok_t *)afirst->data;
+
+	rc = checker_check_brkspace_before(scope, tfirst,
+	    "Whitespace expected before initializer.");
+	if (rc != EOK)
+		goto error;
+
+	/** Initializers should not be indented as continuation */
+	if (checker_is_tok_lbegin(tfirst))
+		tfirst->lbegin = true;
+
+	first = true;
+	while (acc != NULL) {
+		switch (acc->atype) {
+		case aca_index:
+			tlbracket = (checker_tok_t *) acc->tlbracket.data;
+			trbracket = (checker_tok_t *) acc->trbracket.data;
+
+			if (!first) {
+				checker_check_nsbrk_before(scope, tlbracket,
+				    "Unexpected whitespace before '['.");
+			}
+
+			checker_check_nows_after(scope, tlbracket,
+			    "Unexpected whitespace after '['.");
+			checker_check_nows_before(scope, trbracket,
+			    "Unexpected whitespace before ']'.");
+			break;
+		case aca_member:
+			tperiod = (checker_tok_t *)acc->tperiod.data;
+
+			if (!first) {
+				checker_check_nsbrk_before(scope, tperiod,
+				    "Unexpected whitespace before '.'.");
+			}
+
+			checker_check_nows_after(scope, tperiod,
+			    "Unexpected whitespace after '.'.");
+			break;
+		}
+
+		first = false;
+		acc = ast_cinit_elem_next(acc);
+	}
+
+	if (!list_empty(&elem->accs)) {
+		tassign = (checker_tok_t *)elem->tassign.data;
+		rc = checker_check_nbspace_before(scope, tassign,
+		    "Single space expected before '='.");
+		if (rc != EOK)
+			goto error;
+
+		rc = checker_check_brkspace_after(scope, tassign,
+		    "Whitespace expected after '='.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = checker_check_init(scope, elem->init);
+	if (rc != EOK)
+		goto error;
+
+	if (elem->have_comma) {
+		tcomma = (checker_tok_t *)elem->tcomma.data;
+		checker_check_nows_before(scope, tcomma,
+		    "Unexpected whitespace before ','.");
+		rc = checker_check_brkspace_after(scope, tcomma,
+		    "Expected whitespace after ','.");
+		if (rc != EOK)
+			goto error;
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Run checks on a compound initializer.
  *
  * @param scope Checker scope
  * @param cinit AST compound initializer
@@ -3459,14 +3595,7 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
  */
 static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 {
-	ast_tok_t *afirst;
-	checker_tok_t *tfirst;
 	ast_cinit_elem_t *elem;
-	checker_tok_t *tlbracket;
-	checker_tok_t *trbracket;
-	checker_tok_t *tperiod;
-	checker_tok_t *tassign;
-	checker_tok_t *tcomma;
 	checker_tok_t *trbrace;
 	checker_scope_t *escope;
 	int rc;
@@ -3477,76 +3606,9 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 
 	elem = ast_cinit_first(cinit);
 	while (elem != NULL) {
-		afirst = NULL;
-		switch (elem->etype) {
-		case ace_index:
-			afirst = &elem->tlbracket;
-			break;
-		case ace_member:
-			afirst = &elem->tperiod;
-			break;
-		case ace_plain:
-			afirst = ast_tree_first_tok(elem->init);
-			break;
-		}
-
-		tfirst = (checker_tok_t *)afirst->data;
-
-		rc = checker_check_brkspace_before(escope, tfirst,
-		    "Whitespace expected before initializer.");
+		rc = checker_check_cinit_elem(escope, elem);
 		if (rc != EOK)
 			goto error;
-
-		/** Initializers should not be indented as continuation */
-		if (checker_is_tok_lbegin(tfirst))
-			tfirst->lbegin = true;
-
-		switch (elem->etype) {
-		case ace_index:
-			tlbracket = (checker_tok_t *)elem->tlbracket.data;
-			trbracket = (checker_tok_t *)elem->trbracket.data;
-
-			checker_check_nows_after(escope, tlbracket,
-			    "Unexpected whitespace after '['.");
-			checker_check_nows_before(escope, trbracket,
-			    "Unexpected whitespace before ']'.");
-			break;
-		case ace_member:
-			tperiod = (checker_tok_t *)elem->tperiod.data;
-			checker_check_nows_after(escope, tperiod,
-			    "Unexpected whitespace after '.'.");
-			afirst = &elem->tperiod;
-			break;
-		case ace_plain:
-			break;
-		}
-
-		if (elem->etype != ace_plain) {
-			tassign = (checker_tok_t *)elem->tassign.data;
-			rc = checker_check_nbspace_before(escope, tassign,
-			    "Single space expected before '='.");
-			if (rc != EOK)
-				goto error;
-
-			rc = checker_check_brkspace_after(escope, tassign,
-			    "Whitespace expected after '='.");
-			if (rc != EOK)
-				goto error;
-		}
-
-		rc = checker_check_init(escope, elem->init);
-		if (rc != EOK)
-			goto error;
-
-		if (elem->have_comma) {
-			tcomma = (checker_tok_t *)elem->tcomma.data;
-			checker_check_nows_before(escope, tcomma,
-			    "Unexpected whitespace before ','.");
-			rc = checker_check_brkspace_after(escope, tcomma,
-			    "Expected whitespace after ','.");
-			if (rc != EOK)
-				goto error;
-		}
 
 		elem = ast_cinit_next(elem);
 	}

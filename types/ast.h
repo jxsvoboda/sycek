@@ -971,15 +971,13 @@ typedef struct ast_cinit {
 	ast_tok_t trbrace;
 } ast_cinit_t;
 
-/** Compound initializer element type */
+/** Compound initializer accesor type */
 typedef enum {
-	/** Plain element (expr) */
-	ace_plain,
-	/** Indexed element ([expr] = expr) */
-	ace_index,
-	/** Member element (.member = expr) */
-	ace_member
-} ast_cinit_elem_type_t;
+	/** Index accessor ([expr]) */
+	aca_index,
+	/** Member accessor (.member) */
+	aca_member
+} ast_cinit_acc_type_t;
 
 /** Compound initializer element */
 typedef struct {
@@ -987,19 +985,9 @@ typedef struct {
 	ast_cinit_t *cinit;
 	/** Link to cinit->elems */
 	link_t lcinit;
-	/** Element type */
-	ast_cinit_elem_type_t etype;
-	/** '.' token (member element only) */
-	ast_tok_t tperiod;
-	/** Member name (member element only) */
-	ast_tok_t tmember;
-	/** '[' token (index element only) */
-	ast_tok_t tlbracket;
-	/** Index expression (index element only) */
-	ast_node_t *index;
-	/** ']' token (index element only) */
-	ast_tok_t trbracket;
-	/** '=' token (except for plain element) */
+	/** Accessors */
+	list_t accs; /* of ast_cinit_acc_t */
+	/** '=' token (if accs is non-empty) */
 	ast_tok_t tassign;
 	/** Initializer value expression (or nested compound initializer) */
 	ast_node_t *init;
@@ -1008,6 +996,26 @@ typedef struct {
 	/** Comma (optional for the last element) */
 	ast_tok_t tcomma;
 } ast_cinit_elem_t;
+
+/** Compound initializer accessor */
+typedef struct {
+	/** Containing compound initializer element */
+	ast_cinit_elem_t *elem;
+	/** Link to elem->accs */
+	link_t laccs;
+	/** Accessor type */
+	ast_cinit_acc_type_t atype;
+	/** '.' token (member accessor only) */
+	ast_tok_t tperiod;
+	/** Member name (member accessor only) */
+	ast_tok_t tmember;
+	/** '[' token (index accessor only) */
+	ast_tok_t tlbracket;
+	/** Index expression (index accesor only) */
+	ast_node_t *index;
+	/** ']' token (index accessor only) */
+	ast_tok_t trbracket;
+} ast_cinit_acc_t;
 
 /** Asm statement (GCC style) */
 typedef struct {

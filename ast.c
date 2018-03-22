@@ -5552,109 +5552,15 @@ int ast_cinit_create(ast_cinit_t **rcinit)
 	return EOK;
 }
 
-/** Append plain element to compound initializer.
+/** Append element to compound initializer.
  *
  * @param cinit Compound initializer
- * @param init Initializer value (expression or compound initializer)
- * @param have_comma @c true if we have a comma token
- * @param dcomma Comma token data
- *
- * @return EOK on success, ENOMEM if out of memory
+ * @param elem Compound initializer element
  */
-int ast_cinit_append_plain(ast_cinit_t *cinit, ast_node_t *init,
-    bool have_comma, void *dcomma)
+void ast_cinit_append(ast_cinit_t *cinit, ast_cinit_elem_t *elem)
 {
-	ast_cinit_elem_t *elem;
-
-	elem = calloc(1, sizeof(ast_cinit_elem_t));
-	if (elem == NULL)
-		return ENOMEM;
-
-	elem->etype = ace_plain;
-	elem->init = init;
-	elem->have_comma = have_comma;
-
-	if (have_comma)
-		elem->tcomma.data = dcomma;
-
 	elem->cinit = cinit;
 	list_append(&elem->lcinit, &cinit->elems);
-	return EOK;
-}
-
-/** Append index element to compound initializer.
- *
- * @param cinit Compound initializer
- * @param dlbracket Left bracket token data
- * @param index Index expression
- * @param drbracket Right bracket token data
- * @param dassign Assignment token data
- * @param init Initializer value (expression or compound initializer)
- * @param have_comma @c true if we have a comma token
- * @param dcomma Comma token data
- *
- * @return EOK on success, ENOMEM if out of memory
- */
-int ast_cinit_append_index(ast_cinit_t *cinit, void *dlbracket,
-    ast_node_t *index, void *drbracket, void *dassign, ast_node_t *init,
-    bool have_comma, void *dcomma)
-{
-	ast_cinit_elem_t *elem;
-
-	elem = calloc(1, sizeof(ast_cinit_elem_t));
-	if (elem == NULL)
-		return ENOMEM;
-
-	elem->etype = ace_index;
-	elem->tlbracket.data = dlbracket;
-	elem->index = index;
-	elem->trbracket.data = drbracket;
-	elem->tassign.data = dassign;
-	elem->init = init;
-	elem->have_comma = have_comma;
-
-	if (have_comma)
-		elem->tcomma.data = dcomma;
-
-	elem->cinit = cinit;
-	list_append(&elem->lcinit, &cinit->elems);
-	return EOK;
-}
-
-/** Append member element to compound initializer.
- *
- * @param cinit Compound initializer
- * @param dperiod Period token data
- * @param dmember Member token data
- * @param dassign Assignment token data
- * @param init Initializer value (expression or compound initializer)
- * @param have_comma @c true if we have a comma token
- * @param dcomma Comma token data
- *
- * @return EOK on success, ENOMEM if out of memory
- */
-int ast_cinit_append_member(ast_cinit_t *cinit, void *dperiod, void *dmember,
-    void *dassign, ast_node_t *init, bool have_comma, void *dcomma)
-{
-	ast_cinit_elem_t *elem;
-
-	elem = calloc(1, sizeof(ast_cinit_elem_t));
-	if (elem == NULL)
-		return ENOMEM;
-
-	elem->etype = ace_member;
-	elem->tperiod.data = dperiod;
-	elem->tmember.data = dmember;
-	elem->tassign.data = dassign;
-	elem->init = init;
-	elem->have_comma = have_comma;
-
-	if (have_comma)
-		elem->tcomma.data = dcomma;
-
-	elem->cinit = cinit;
-	list_append(&elem->lcinit, &cinit->elems);
-	return EOK;
 }
 
 /** Return first element in compound initializer.
@@ -5689,6 +5595,136 @@ ast_cinit_elem_t *ast_cinit_next(ast_cinit_elem_t *elem)
 	return list_get_instance(link, ast_cinit_elem_t, lcinit);
 }
 
+/** Create compound initializer element.
+ *
+ * @param relem Place to store pointer to new compound initializer element
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_elem_create(ast_cinit_elem_t **relem)
+{
+	ast_cinit_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_cinit_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	list_initialize(&elem->accs);
+
+	*relem = elem;
+	return EOK;
+}
+
+/** Destroy AST compound initializer element.
+ *
+ * @param elem Compound initializer element
+ */
+void ast_cinit_elem_destroy(ast_cinit_elem_t *elem)
+{
+	ast_cinit_acc_t *acc;
+
+	if (elem == NULL)
+		return;
+
+	acc = ast_cinit_elem_first(elem);
+	while (acc != NULL) {
+		if (acc->atype == aca_index)
+			ast_tree_destroy(acc->index);
+		list_remove(&acc->laccs);
+		free(acc);
+		acc = ast_cinit_elem_first(elem);
+	}
+
+	ast_tree_destroy(elem->init);
+	free(elem);
+}
+
+/** Append index accessor to compound initializer element.
+ *
+ * @param elem Compound initializer element
+ * @param dlbracket Left bracket token data
+ * @param index Index expression
+ * @param drbracket Right bracket token data
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_elem_append_index(ast_cinit_elem_t *elem, void *dlbracket,
+    ast_node_t *index, void *drbracket)
+{
+	ast_cinit_acc_t *acc;
+
+	acc = calloc(1, sizeof(ast_cinit_acc_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	acc->atype = aca_index;
+	acc->tlbracket.data = dlbracket;
+	acc->index = index;
+	acc->trbracket.data = drbracket;
+
+	acc->elem = elem;
+	list_append(&acc->laccs, &elem->accs);
+	return EOK;
+}
+
+/** Append member accessor to compound initializer element.
+ *
+ * @param elem Compound initializer element
+ * @param dperiod Period token data
+ * @param dmember Member token data
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_cinit_elem_append_member(ast_cinit_elem_t *elem, void *dperiod,
+    void *dmember)
+{
+	ast_cinit_acc_t *acc;
+
+	acc = calloc(1, sizeof(ast_cinit_acc_t));
+	if (acc == NULL)
+		return ENOMEM;
+
+	acc->atype = aca_member;
+	acc->tperiod.data = dperiod;
+	acc->tmember.data = dmember;
+
+	acc->elem = elem;
+	list_append(&acc->laccs, &elem->accs);
+	return EOK;
+}
+
+/** Return first accessor in compound initializer element.
+ *
+ * @param elem Compound initializer element
+ * @return First accessor or @c NULL
+ */
+ast_cinit_acc_t *ast_cinit_elem_first(ast_cinit_elem_t *elem)
+{
+	link_t *link;
+
+	link = list_first(&elem->accs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_cinit_acc_t, laccs);
+}
+
+/** Return next accessor in compound initializer element.
+ *
+ * @param acc Current accessor
+ * @return Next element or @c NULL
+ */
+ast_cinit_acc_t *ast_cinit_elem_next(ast_cinit_acc_t *acc)
+{
+	link_t *link;
+
+	link = list_next(&acc->laccs, &acc->elem->accs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_cinit_acc_t, laccs);
+}
+
 /** Print AST compound initializer.
  *
  * @param cinit Compound initializer
@@ -5699,6 +5735,7 @@ ast_cinit_elem_t *ast_cinit_next(ast_cinit_elem_t *elem)
 static int ast_cinit_print(ast_cinit_t *cinit, FILE *f)
 {
 	ast_cinit_elem_t *elem;
+	ast_cinit_acc_t *acc;
 	int rc;
 
 	if (fprintf(f, "cinit(") < 0)
@@ -5706,14 +5743,22 @@ static int ast_cinit_print(ast_cinit_t *cinit, FILE *f)
 
 	elem = ast_cinit_first(cinit);
 	while (elem != NULL) {
-		if (elem->etype == ace_index) {
-			if (fprintf(f, "[") < 0)
-				return EIO;
-			rc = ast_tree_print(elem->index, f);
-			if (rc != EOK)
-				return rc;
-			if (fprintf(f, "]") < 0)
-				return EIO;
+		acc = ast_cinit_elem_first(elem);
+		while (acc != NULL) {
+			if (acc->atype == aca_index) {
+				if (fprintf(f, "[") < 0)
+					return EIO;
+				rc = ast_tree_print(acc->index, f);
+				if (rc != EOK)
+					return rc;
+				if (fprintf(f, "]") < 0)
+					return EIO;
+			} else {
+				if (fprintf(f, ".member") < 0)
+					return EIO;
+			}
+
+			acc = ast_cinit_elem_next(acc);
 		}
 
 		rc = ast_tree_print(elem->init, f);
@@ -5740,10 +5785,7 @@ static void ast_cinit_destroy(ast_cinit_t *cinit)
 	elem = ast_cinit_first(cinit);
 	while (elem != NULL) {
 		list_remove(&elem->lcinit);
-		if (elem->etype == ace_index)
-			ast_tree_destroy(elem->index);
-		ast_tree_destroy(elem->init);
-		free(elem);
+		ast_cinit_elem_destroy(elem);
 		elem = ast_cinit_first(cinit);
 	}
 
