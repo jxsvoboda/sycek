@@ -41,7 +41,7 @@ extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
 extern int ast_gdecln_create(ast_dspecs_t *, ast_idlist_t *, ast_block_t *,
     ast_gdecln_t **);
 extern int ast_mdecln_create(ast_mdecln_t **);
-extern int ast_mdecln_append(ast_mdecln_t *, void *, void *);
+extern int ast_mdecln_append(ast_mdecln_t *, ast_node_t *, void *);
 extern ast_mdecln_arg_t *ast_mdecln_first(ast_mdecln_t *);
 extern ast_mdecln_arg_t *ast_mdecln_next(ast_mdecln_arg_t *);
 extern int ast_gmdecln_create(ast_gmdecln_t **);

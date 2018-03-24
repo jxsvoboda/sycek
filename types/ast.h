@@ -1412,8 +1412,8 @@ typedef struct {
 	ast_mdecln_t *mdecln;
 	/** Link to @c mdecln->args */
 	link_t lmdecln;
-	/** Argument token */
-	ast_tok_t targ;
+	/** Argument expression */
+	ast_node_t *expr;
 	/** Separation comma (except for the last argument) */
 	ast_tok_t tcomma;
 } ast_mdecln_arg_t;

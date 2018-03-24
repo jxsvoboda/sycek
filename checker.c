@@ -3752,7 +3752,6 @@ static int checker_check_mdecln(checker_scope_t *scope,
 	ast_tok_t *adecln;
 	ast_mdecln_arg_t *arg;
 	checker_tok_t *tlparen;
-	checker_tok_t *targ;
 	checker_tok_t *tcomma;
 	checker_tok_t *trparen;
 
@@ -3774,8 +3773,10 @@ static int checker_check_mdecln(checker_scope_t *scope,
 
 	arg = ast_mdecln_first(mdecln);
 	while (arg != NULL) {
-		targ = (checker_tok_t *)arg->targ.data;
-		checker_check_any(scope, targ);
+		rc = checker_check_expr(scope, arg->expr);
+		if (rc != EOK)
+			goto error;
+
 		tcomma = (checker_tok_t *)arg->tcomma.data;
 		if (tcomma != NULL) {
 			rc = checker_check_brkspace_after(scope, tcomma,

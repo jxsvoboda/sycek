@@ -453,11 +453,11 @@ int ast_mdecln_create(ast_mdecln_t **rmdecln)
 /** Append entry to macro-based declaration argument list.
  *
  * @param mdecln Macro-based declaration
- * @param drag Data for argument token
+ * @param expr Argument expression
  * @param dcomma Data for separating comma token or @c NULL
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_mdecln_append(ast_mdecln_t *mdecln, void *darg, void *dcomma)
+int ast_mdecln_append(ast_mdecln_t *mdecln, ast_node_t *expr, void *dcomma)
 {
 	ast_mdecln_arg_t *arg;
 
@@ -465,7 +465,7 @@ int ast_mdecln_append(ast_mdecln_t *mdecln, void *darg, void *dcomma)
 	if (arg == NULL)
 		return ENOMEM;
 
-	arg->targ.data = darg;
+	arg->expr = expr;
 	arg->tcomma.data = dcomma;
 
 	arg->mdecln = mdecln;
@@ -538,8 +538,19 @@ static int ast_mdecln_print(ast_mdecln_t *mdecln, FILE *f)
  */
 static void ast_mdecln_destroy(ast_mdecln_t *mdecln)
 {
+	ast_mdecln_arg_t *arg;
+
 	if (mdecln == NULL)
 		return;
+
+	arg = ast_mdecln_first(mdecln);
+	while (arg != NULL) {
+		list_remove(&arg->lmdecln);
+		ast_tree_destroy(arg->expr);
+		free(arg);
+
+		arg = ast_mdecln_first(mdecln);
+	}
 
 	ast_dspecs_destroy(mdecln->dspecs);
 	free(mdecln);

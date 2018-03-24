@@ -4966,7 +4966,7 @@ static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 	ast_mdecln_t *mdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
 	void *dlparen;
-	void *dvarname;
+	ast_node_t *expr;
 	void *dcomma;
 	void *drparen;
 	int rc;
@@ -4983,12 +4983,10 @@ static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 	if (rc != EOK)
 		goto error;
 
-	dvarname = NULL;
-
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_rparen) {
 		do {
-			rc = parser_match(parser, ltt_ident, &dvarname);
+			rc = parser_process_eassign(parser, &expr);
 			if (rc != EOK)
 				goto error;
 
@@ -5002,9 +5000,11 @@ static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 				dcomma = NULL;
 			}
 
-			rc = ast_mdecln_append(mdecln, dvarname, dcomma);
+			rc = ast_mdecln_append(mdecln, expr, dcomma);
 			if (rc != EOK)
 				goto error;
+
+			expr = NULL;
 
 		} while (ltt == ltt_comma);
 	}
@@ -5024,6 +5024,8 @@ static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 	*rmdecln = mdecln;
 	return EOK;
 error:
+	if (expr != NULL)
+		ast_tree_destroy(expr);
 	if (mdecln != NULL)
 		ast_tree_destroy(&mdecln->node);
 	if (dspecs != NULL)
