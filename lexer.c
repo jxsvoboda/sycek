@@ -99,6 +99,17 @@ static bool is_alnum(char c)
 	return is_alpha(c) || is_num(c);
 }
 
+/** Determine if character is an octal digit
+ *
+ * @param c Character
+ *
+ * @return @c true if @a c is a octal digit, @c false otherwise
+ */
+static bool is_octdigit(char c)
+{
+	return c >= '0' && c <= '7';
+}
+
 /** Determine if character is a hexadecimal digit
  *
  * @param c Character
@@ -108,6 +119,28 @@ static bool is_alnum(char c)
 static bool is_hexdigit(char c)
 {
 	return is_num(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+}
+
+/** Determine if character is a digit in the specified base
+ *
+ * @param c Character
+ * @param b Base (8, 10 or 16)
+ *
+ * @return @c true if @a c is a hexadecimal digit, @c false otherwise
+ */
+static bool is_digit(char c, int base)
+{
+	switch (base) {
+	case 8:
+		return is_octdigit(c);
+	case 10:
+		return is_num(c);
+	case 16:
+		return is_hexdigit(c);
+	default:
+		assert(false);
+		return false;
+	}
 }
 
 /** Determine if character can begin a C identifier
@@ -481,6 +514,9 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 	char *p;
 	int rc;
 	bool floating;
+	int base;
+	char exp_marker;
+	char exp_cmarker;
 
 	lexer_get_pos(lexer, &tok->bpos);
 	p = lexer_chars(lexer);
@@ -490,6 +526,10 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 	/* Integer part */
 	if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
 		/* Hexadecimal constant */
+		base = 16;
+		exp_marker = 'p';
+		exp_cmarker = 'P';
+
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			lexer_free_tok(tok);
@@ -507,8 +547,12 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 			p = lexer_chars(lexer);
 		}
 	} else if (is_num(p[0])) {
+		base = (p[0] == '0' && is_num(p[1])) ? 8 : 10;
+		exp_marker = 'e';
+		exp_cmarker = 'E';
+
 		/* Octal or decimal constant */
-		while (is_num(p[1])) {
+		while (is_digit(p[1], base)) {
 			rc = lexer_advance(lexer, 1, tok);
 			if (rc != EOK) {
 				lexer_free_tok(tok);
@@ -518,6 +562,10 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 			p = lexer_chars(lexer);
 		}
 	} else {
+		base = 10;
+		exp_marker = 'e';
+		exp_cmarker = 'E';
+
 		/* Starting with '.' */
 		goto dec_point;
 	}
@@ -535,7 +583,7 @@ dec_point:
 	if (p[0] == '.') {
 		floating = true;
 
-		while (is_num(p[1])) {
+		while (is_digit(p[1], base)) {
 			rc = lexer_advance(lexer, 1, tok);
 			if (rc != EOK) {
 				lexer_free_tok(tok);
@@ -555,7 +603,7 @@ dec_point:
 
 	/* Check for exponent */
 	p = lexer_chars(lexer);
-	if (p[0] == 'e' || p[0] == 'E') {
+	if (p[0] == exp_marker || p[0] == exp_cmarker) {
 		floating = true;
 
 		/* Exponent sign */
