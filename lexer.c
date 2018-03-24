@@ -488,7 +488,7 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 	floating = false;
 
 	/* Integer part */
-	if (p[1] == 'x' || p[1] == 'X') {
+	if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
 		/* Hexadecimal constant */
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
@@ -506,7 +506,7 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 
 			p = lexer_chars(lexer);
 		}
-	} else {
+	} else if (is_num(p[0])) {
 		/* Octal or decimal constant */
 		while (is_num(p[1])) {
 			rc = lexer_advance(lexer, 1, tok);
@@ -517,6 +517,9 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 
 			p = lexer_chars(lexer);
 		}
+	} else {
+		/* Starting with '.' */
+		goto dec_point;
 	}
 
 	lexer_get_pos(lexer, &tok->epos);
@@ -526,6 +529,7 @@ static int lexer_number(lexer_t *lexer, lexer_tok_t *tok)
 		return rc;
 	}
 
+dec_point:
 	/* Check for fractional part */
 	p = lexer_chars(lexer);
 	if (p[0] == '.') {
@@ -808,6 +812,8 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case '.':
 		if (p[1] == '.' && p[2] == '.')
 			return lexer_keyword(lexer, ltt_ellipsis, 3, tok);
+		if (is_num(p[1]))
+			return lexer_number(lexer, tok);
 		return lexer_onechar(lexer, ltt_period, tok);
 	case '/':
 		if (p[1] == '*')
