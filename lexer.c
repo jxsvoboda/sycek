@@ -361,8 +361,6 @@ static int lexer_dscomment(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
-
-
 /** Lex preprocessor line.
  *
  * @param lexer Lexer
@@ -384,6 +382,26 @@ static int lexer_preproc(lexer_t *lexer, lexer_tok_t *tok)
 	 * backslash-newline
 	 */
 	while (p[1] != '\n' || p[0] == '\\') {
+		if (p[0] == '/' && p[1] == '*') {
+			/* Comment inside prerocessor line */
+			rc = lexer_advance(lexer, 2, tok);
+			if (rc != EOK) {
+				lexer_free_tok(tok);
+				return rc;
+			}
+
+			p = lexer_chars(lexer);
+			while (p[0] != '*' || p[1] != '/') {
+				rc = lexer_advance(lexer, 1, tok);
+				if (rc != EOK) {
+					lexer_free_tok(tok);
+					return rc;
+				}
+
+				p = lexer_chars(lexer);
+			}
+		}
+
 		rc = lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			lexer_free_tok(tok);
