@@ -1407,7 +1407,23 @@ int lexer_print_tok(lexer_tok_t *tok, FILE *f)
 	return EOK;
 }
 
+/** Determine if token type is a whitespace token.
+ *
+ * @param ltt Token type
+ * @return @c true if ltt is a whitespace token type
+ */
 bool lexer_is_wspace(lexer_toktype_t ltt)
 {
 	return ltt == ltt_space || ltt == ltt_tab || ltt == ltt_newline;
+}
+
+/** Determine if token type is a reserved word token.
+ *
+ * @param ltt Token type
+ * @return @c true if ltt is a reserved word token type
+ */
+bool lexer_is_resword(lexer_toktype_t ltt)
+{
+	return ltt >= ltt_resword_first &&
+	    ltt <= ltt_resword_last;
 }

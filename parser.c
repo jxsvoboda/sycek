@@ -4668,10 +4668,18 @@ static int parser_process_aspec_attr(parser_t *parser, ast_aspec_attr_t **rattr)
 		goto error;
 
 	/* XXX Attribute name can also be a reserved word */
-	rc = parser_match(parser, ltt_ident, &dname);
-	if (rc != EOK)
-		goto error;
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_ident && !lexer_is_resword(ltt)) {
+		fprintf(stderr, "Error: ");
+		parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected identifier or "
+		    "reserved word.\n");
 
+		rc = EINVAL;
+		goto error;
+	}
+
+	parser_skip(parser, &dname);
 	attr->tname.data = dname;
 
 	ltt = parser_next_ttype(parser);

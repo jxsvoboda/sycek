@@ -90,6 +90,7 @@ typedef enum {
 	ltt_band_assign,
 	ltt_bor_assign,
 	ltt_bxor_assign,
+
 	ltt_attribute,
 	ltt_asm,
 	ltt_auto,
@@ -137,6 +138,9 @@ typedef enum {
 	ltt_eof,
 	ltt_error
 } lexer_toktype_t;
+
+#define ltt_resword_first ltt_attribute
+#define ltt_resword_last ltt_while
 
 /** Lexer token */
 typedef struct {
