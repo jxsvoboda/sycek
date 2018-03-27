@@ -3019,7 +3019,7 @@ static int checker_check_ecall(checker_scope_t *scope,
 		return rc;
 
 	tlparen = (checker_tok_t *) ecall->tlparen.data;
-	checker_check_nows_after(scope, tlparen,
+	checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
 
 	arg = ast_ecall_first(ecall);
