@@ -73,6 +73,7 @@ extern ast_aspec_attr_t *ast_aspec_first(ast_aspec_t *);
 extern ast_aspec_attr_t *ast_aspec_next(ast_aspec_attr_t *);
 extern ast_aspec_attr_t *ast_aspec_last(ast_aspec_t *);
 extern ast_aspec_attr_t *ast_aspec_prev(ast_aspec_attr_t *);
+extern int ast_regassign_create(ast_regassign_t **);
 extern int ast_aspec_attr_create(ast_aspec_attr_t **);
 extern void ast_aspec_attr_destroy(ast_aspec_attr_t *);
 extern int ast_aspec_attr_append(ast_aspec_attr_t *, ast_node_t *, void *);
@@ -124,7 +125,7 @@ extern ast_dlist_entry_t *ast_dlist_last(ast_dlist_t *);
 extern ast_dlist_entry_t *ast_dlist_prev(ast_dlist_entry_t *);
 extern int ast_idlist_create(ast_idlist_t **);
 extern int ast_idlist_append(ast_idlist_t *, void *, ast_node_t *,
-    ast_aslist_t *, bool, void *, ast_node_t *);
+    ast_regassign_t *, ast_aslist_t *, bool, void *, ast_node_t *);
 extern int ast_typename_create(ast_typename_t **);
 extern ast_idlist_entry_t *ast_idlist_first(ast_idlist_t *);
 extern ast_idlist_entry_t *ast_idlist_next(ast_idlist_entry_t *);

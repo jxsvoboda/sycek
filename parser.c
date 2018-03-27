@@ -37,6 +37,7 @@ static bool parser_ttype_ignore(lexer_toktype_t);
 static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
+static int parser_process_regassign(parser_t *, ast_regassign_t **);
 static int parser_process_aspec(parser_t *, ast_aspec_t **);
 static int parser_process_aslist(parser_t *, ast_aslist_t **);
 static int parser_process_dspecs(parser_t *, unsigned, bool *, ast_dspecs_t **);
@@ -4423,6 +4424,7 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 	ast_idlist_t *idlist;
 	ast_node_t *decl = NULL;
 	void *dcomma;
+	ast_regassign_t *regassign;
 	ast_aslist_t *aslist;
 	bool have_init;
 	void *dassign;
@@ -4468,6 +4470,16 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 			goto error;
 		}
 
+		/* Is there register assignment? */
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_asm) {
+			rc = parser_process_regassign(parser, &regassign);
+			if (rc != EOK)
+				goto error;
+		} else {
+			regassign = NULL;
+		}
+
 		/* Are there any attribute specifiers? */
 		ltt = parser_next_ttype(parser);
 		if (ltt == ltt_attribute) {
@@ -4493,8 +4505,8 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 			init = NULL;
 		}
 
-		rc = ast_idlist_append(idlist, dcomma, decl, aslist, have_init,
-		    dassign, init);
+		rc = ast_idlist_append(idlist, dcomma, decl, regassign, aslist,
+		    have_init, dassign, init);
 		if (rc != EOK)
 			goto error;
 
@@ -4644,6 +4656,55 @@ static int parser_process_fspec(parser_t *parser, ast_fspec_t **rfspec)
 	*rfspec = fspec;
 	return EOK;
 }
+
+/** Parse register assignment.
+ *
+ * @param parser Parser
+ * @param rregassign Place to store pointer to new register assignment
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_regassign(parser_t *parser,
+    ast_regassign_t **rregassign)
+{
+	ast_regassign_t *regassign = NULL;
+	void *dasm;
+	void *dlparen;
+	void *dreg;
+	void *drparen;
+	int rc;
+
+	rc = parser_match(parser, ltt_asm, &dasm);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_strlit, &dreg);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_regassign_create(&regassign);
+	if (rc != EOK)
+		goto error;
+
+	regassign->tasm.data = dasm;
+	regassign->tlparen.data = dlparen;
+	regassign->treg.data = dreg;
+	regassign->trparen.data = drparen;
+
+	*rregassign = regassign;
+	return EOK;
+error:
+	return rc;
+}
+
 
 /** Parse attribute.
  *

@@ -44,6 +44,7 @@ static int checker_check_idlist(checker_scope_t *, ast_idlist_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
+static int checker_check_regassign(checker_scope_t *, ast_regassign_t *);
 static int checker_check_aslist(checker_scope_t *, ast_aslist_t *);
 static int checker_check_block(checker_scope_t *, ast_block_t *);
 static int checker_check_expr(checker_scope_t *, ast_node_t *);
@@ -2070,6 +2071,12 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist)
 		if (rc != EOK)
 			return rc;
 
+		if (entry->regassign != NULL) {
+			rc = checker_check_regassign(scope, entry->regassign);
+			if (rc != EOK)
+				return rc;
+		}
+
 		if (entry->aslist != NULL) {
 			rc = checker_check_aslist(scope, entry->aslist);
 			if (rc != EOK)
@@ -2166,6 +2173,49 @@ static int checker_check_fspec(checker_scope_t *scope, ast_fspec_t *fspec)
 
 	return EOK;
 }
+
+/** Run checks on a register assignment.
+ *
+ * @param scope Checker scope
+ * @param regassign Register assignment
+ * @return EOK on success or error code
+ */
+static int checker_check_regassign(checker_scope_t *scope,
+    ast_regassign_t *regassign)
+{
+	checker_tok_t *tasm;
+	checker_tok_t *tlparen;
+	checker_tok_t *treg;
+	checker_tok_t *trparen;
+	int rc;
+
+	tasm = (checker_tok_t *)regassign->tasm.data;
+	tlparen = (checker_tok_t *)regassign->tlparen.data;
+	treg = (checker_tok_t *)regassign->treg.data;
+	trparen = (checker_tok_t *)regassign->trparen.data;
+
+	rc = checker_check_brkspace_before(scope, tasm,
+	    "Whitespace expected before 'asm'.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+
+	checker_check_any(scope, treg);
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+}
+
+
 
 /** Run checks on an attribute.
  *

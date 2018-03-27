@@ -74,6 +74,7 @@ Examples of bad style that triggers a parse error include:
 ccheck also understands some compiler-specific extensions, such as
 
   * GCC inline assembler
+  * GCC `register ... asm(...)` variable register assignment
   * GCC attribute syntax
   * GCC's `__int128`, `__restrict__`
 

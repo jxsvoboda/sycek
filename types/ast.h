@@ -45,6 +45,8 @@ typedef enum {
 	ant_tsenum,
 	/** Function specifier */
 	ant_fspec,
+	/** Register assignment */
+	ant_regassign,
 	/** Attribute specifier */
 	ant_aspec,
 	/** Attribute specifier list */
@@ -419,6 +421,20 @@ typedef struct {
 	ast_tok_t tfspec;
 } ast_fspec_t;
 
+/** Register assignment */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'asm' token */
+	ast_tok_t tasm;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Register token */
+	ast_tok_t treg;
+	/** ')' token */
+	ast_tok_t trparen;
+} ast_regassign_t;
+
 /** Attribute specifier list */
 typedef struct ast_aslist {
 	/** Base object */
@@ -642,6 +658,8 @@ typedef struct {
 	ast_tok_t tcomma;
 	/** Declarator */
 	ast_node_t *decl;
+	/** Register assignment or @c NULL */
+	ast_regassign_t *regassign;
 	/** Attribute specifier list or @c NULL */
 	ast_aslist_t *aslist;
 	/** @c true if we have an initializer */

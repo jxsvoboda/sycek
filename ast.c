@@ -1504,6 +1504,73 @@ static ast_tok_t *ast_fspec_last_tok(ast_fspec_t *fspec)
 	return &fspec->tfspec;
 }
 
+/** Create AST register assignment.
+ *
+ * @param rregassign Place to store pointer to new register assignment
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_regassign_create(ast_regassign_t **rregassign)
+{
+	ast_regassign_t *regassign;
+
+	regassign = calloc(1, sizeof(ast_regassign_t));
+	if (regassign == NULL)
+		return ENOMEM;
+
+	regassign->node.ext = regassign;
+	regassign->node.ntype = ant_regassign;
+
+	*rregassign = regassign;
+	return EOK;
+}
+
+/** Print AST register assignment.
+ *
+ * @param regassign Register assignment
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_regassign_print(ast_regassign_t *regassign, FILE *f)
+{
+	(void) regassign;
+
+	if (fprintf(f, "regassign()") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST register assignment.
+ *
+ * @param regassign Register assignment
+ */
+static void ast_regassign_destroy(ast_regassign_t *regassign)
+{
+	free(regassign);
+}
+
+/** Get first token of AST register assignment.
+ *
+ * @param regassign Register assignment
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_regassign_first_tok(ast_regassign_t *regassign)
+{
+	return &regassign->tasm;
+}
+
+/** Get last token of AST register assignment.
+ *
+ * @param regassign Register assignment
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_regassign_last_tok(ast_regassign_t *regassign)
+{
+	return &regassign->trparen;
+}
+
 /** Create AST attribute specifier list.
  *
  * @param raslist Place to store pointer to new attribute specifier list
@@ -3376,6 +3443,7 @@ int ast_idlist_create(ast_idlist_t **ridlist)
  * @param idlist Init-declarator list
  * @param dcomma Data for preceding comma token or @c NULL
  * @param decl Declarator
+ * @param regassign Register assignment or @c NULL
  * @param aslist Attribute specifier list or @c NULL
  * @param have_init @c true if we have an initializer
  * @param dassign Data for assign token or @c NULL
@@ -3383,7 +3451,8 @@ int ast_idlist_create(ast_idlist_t **ridlist)
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_idlist_append(ast_idlist_t *idlist, void *dcomma, ast_node_t *decl,
-    ast_aslist_t *aslist, bool have_init, void *dassign, ast_node_t *init)
+    ast_regassign_t *regassign, ast_aslist_t *aslist, bool have_init,
+    void *dassign, ast_node_t *init)
 {
 	ast_idlist_entry_t *entry;
 
@@ -3393,6 +3462,7 @@ int ast_idlist_append(ast_idlist_t *idlist, void *dcomma, ast_node_t *decl,
 
 	entry->tcomma.data = dcomma;
 	entry->decl = decl;
+	entry->regassign = regassign;
 	entry->aslist = aslist;
 	entry->have_init = have_init;
 	entry->tassign.data = dassign;
@@ -7491,6 +7561,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
 	case ant_fspec:
 		return ast_fspec_print((ast_fspec_t *)node->ext, f);
+	case ant_regassign:
+		return ast_regassign_print((ast_regassign_t *)node->ext, f);
 	case ant_aslist:
 		return ast_aslist_print((ast_aslist_t *)node->ext, f);
 	case ant_aspec:
@@ -7647,6 +7719,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_fspec:
 		ast_fspec_destroy((ast_fspec_t *)node->ext);
+		break;
+	case ant_regassign:
+		ast_regassign_destroy((ast_regassign_t *)node->ext);
 		break;
 	case ant_aslist:
 		ast_aslist_destroy((ast_aslist_t *)node->ext);
@@ -7826,6 +7901,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_tsenum_first_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_first_tok((ast_fspec_t *)node->ext);
+	case ant_regassign:
+		return ast_regassign_first_tok((ast_regassign_t *)node->ext);
 	case ant_aslist:
 		return ast_aslist_first_tok((ast_aslist_t *)node->ext);
 	case ant_aspec:
@@ -7965,6 +8042,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_tsenum_last_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_last_tok((ast_fspec_t *)node->ext);
+	case ant_regassign:
+		return ast_regassign_last_tok((ast_regassign_t *)node->ext);
 	case ant_aslist:
 		return ast_aslist_last_tok((ast_aslist_t *)node->ext);
 	case ant_aspec:
