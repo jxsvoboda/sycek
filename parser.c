@@ -51,6 +51,7 @@ static int parser_process_tqlist(parser_t *, ast_tqlist_t **);
 static int parser_process_eprefix(parser_t *, ast_node_t **);
 static int parser_process_epostfix(parser_t *, ast_node_t **);
 static int parser_process_eassign(parser_t *, ast_node_t **);
+static int parser_process_econcat(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_cinit(parser_t *, ast_cinit_t **);
 static int parser_process_init(parser_t *, ast_node_t **);
@@ -833,7 +834,7 @@ static int parser_process_ecall(parser_t *parser, ast_node_t *ea,
 		if (rc != EOK)
 			goto error;
 
-		rc = parser_process_eassign(sparser, &arg);
+		rc = parser_process_econcat(sparser, &arg);
 		if (rc == EOK) {
 			parser->tok = sparser->tok;
 			parser_destroy(sparser);
@@ -1017,7 +1018,7 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	ast_ebnot_t *ebnot;
 	ast_ederef_t *ederef;
 	ast_eaddr_t *eaddr;
-	ast_esizeof_t *esizeof;
+	ast_esizeof_t *esizeof = NULL;
 	ast_node_t *bexpr = NULL;
 	ast_typename_t *atypename = NULL;
 	parser_t *sparser;
@@ -1676,6 +1677,74 @@ error:
 	return rc;
 }
 
+/** Parse concatenation expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_econcat(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_econcat_t *econcat = NULL;
+	ast_node_t *ea = NULL;
+	ast_node_t *eb = NULL;
+	parser_t *sparser = NULL;
+	int rc;
+
+	rc = parser_process_eassign(parser, &ea);
+	if (rc != EOK)
+		goto error;
+
+	while (true) {
+		rc = parser_create_silent_sub(parser, &sparser);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_eassign(sparser, &eb);
+		if (rc != EOK)
+			break;
+
+		/* Success */
+		parser->tok = sparser->tok;
+		free(sparser);
+		sparser = NULL;
+
+		if (econcat == NULL) {
+			rc = ast_econcat_create(&econcat);
+			if (rc != EOK)
+				goto error;
+
+			rc = ast_econcat_append(econcat, ea);
+			if (rc != EOK)
+				goto error;
+
+			ea = NULL;
+		}
+
+		rc = ast_econcat_append(econcat, eb);
+		if (rc != EOK)
+			goto error;
+
+		eb = NULL;
+	}
+
+	parser_destroy(sparser);
+
+	*rexpr = econcat != NULL ? &econcat->node : ea;
+	return EOK;
+error:
+	if (sparser != NULL)
+		parser_destroy(sparser);
+	if (ea != NULL)
+		ast_tree_destroy(ea);
+	if (eb != NULL)
+		ast_tree_destroy(eb);
+	if (econcat != NULL)
+		ast_tree_destroy(&econcat->node);
+	return rc;
+}
+
 /** Parse comma expression.
  *
  * A comma expression consists of one or more assignment expressions
@@ -1695,7 +1764,7 @@ static int parser_process_ecomma(parser_t *parser, ast_node_t **rexpr)
 	void *dcomma;
 	int rc;
 
-	rc = parser_process_eassign(parser, &ea);
+	rc = parser_process_econcat(parser, &ea);
 	if (rc != EOK)
 		goto error;
 
@@ -1703,7 +1772,7 @@ static int parser_process_ecomma(parser_t *parser, ast_node_t **rexpr)
 	while (ltt == ltt_comma) {
 		parser_skip(parser, &dcomma);
 
-		rc = parser_process_eassign(parser, &eb);
+		rc = parser_process_econcat(parser, &eb);
 		if (rc != EOK)
 			goto error;
 
@@ -1924,7 +1993,7 @@ static int parser_process_init(parser_t *parser, ast_node_t **rinit)
 		return EOK;
 	} else {
 		/* Initializer expression (cannot contain comma) */
-		return parser_process_eassign(parser, rinit);
+		return parser_process_econcat(parser, rinit);
 	}
 }
 
@@ -2246,7 +2315,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_eassign(parser, &atemplate);
+	rc = parser_process_econcat(parser, &atemplate);
 	if (rc != EOK)
 		goto error;
 
@@ -3691,7 +3760,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 				 * Initializer expression must not contain
 				 * a comma
 				 */
-				rc = parser_process_eassign(parser, &init);
+				rc = parser_process_econcat(parser, &init);
 				if (rc != EOK)
 					goto error;
 			} else {
@@ -4374,7 +4443,7 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			have_bitwidth = true;
 			parser_skip(parser, &dcolon);
 
-			rc = parser_process_eassign(parser, &bitwidth);
+			rc = parser_process_econcat(parser, &bitwidth);
 			if (rc != EOK)
 				goto error;
 		} else {
@@ -4752,7 +4821,7 @@ static int parser_process_aspec_attr(parser_t *parser, ast_aspec_attr_t **rattr)
 
 		/* We can only fail this test upon entry */
 		while (ltt != ltt_rparen) {
-			rc = parser_process_eassign(parser, &expr);
+			rc = parser_process_econcat(parser, &expr);
 			if (rc != EOK)
 				goto error;
 
@@ -5055,7 +5124,7 @@ static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_rparen) {
 		do {
-			rc = parser_process_eassign(parser, &expr);
+			rc = parser_process_econcat(parser, &expr);
 			if (rc != EOK)
 				goto error;
 

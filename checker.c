@@ -2878,6 +2878,41 @@ static int checker_check_eparen(checker_scope_t *scope, ast_eparen_t *eparen)
 	return EOK;
 }
 
+/** Check concatenation expression.
+ *
+ * @param scope Checker scope
+ * @param econcat Concatenation expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_econcat(checker_scope_t *scope, ast_econcat_t *econcat)
+{
+	ast_econcat_elem_t *elem;
+	ast_tok_t *aexpr;
+	checker_tok_t *texpr;
+	int rc;
+
+	elem = ast_econcat_first(econcat);
+	rc = checker_check_expr(scope, elem->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	elem = ast_econcat_next(elem);
+	while (elem != NULL) {
+		aexpr = ast_tree_first_tok(elem->bexpr);
+		texpr = (checker_tok_t *) aexpr->data;
+		rc = checker_check_brkspace_before(scope, texpr,
+		    "Whitespace expected before expression.");
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_econcat_next(elem);
+	}
+
+	return EOK;
+}
+
+
 /** Check binary operator expression.
  *
  * @param scope Checker scope
@@ -3483,6 +3518,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 		return checker_check_eident(scope, (ast_eident_t *) expr);
 	case ant_eparen:
 		return checker_check_eparen(scope, (ast_eparen_t *) expr);
+	case ant_econcat:
+		return checker_check_econcat(scope, (ast_econcat_t *) expr);
 	case ant_ebinop:
 		return checker_check_ebinop(scope, (ast_ebinop_t *) expr);
 	case ant_etcond:

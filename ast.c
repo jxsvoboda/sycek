@@ -4199,6 +4199,175 @@ static ast_tok_t *ast_eparen_last_tok(ast_eparen_t *eparen)
 	return &eparen->trparen;
 }
 
+/** Create AST concatenation expression.
+ *
+ * @param reconcat Place to store pointer to new concatenation expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_econcat_create(ast_econcat_t **reconcat)
+{
+	ast_econcat_t *econcat;
+
+	econcat = calloc(1, sizeof(ast_econcat_t));
+	if (econcat == NULL)
+		return ENOMEM;
+
+	econcat->node.ext = econcat;
+	econcat->node.ntype = ant_econcat;
+	list_initialize(&econcat->elems);
+
+	*reconcat = econcat;
+	return EOK;
+}
+
+/** Append literal to concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ * @param bexpr Base expression
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_econcat_append(ast_econcat_t *econcat, ast_node_t *bexpr)
+{
+	ast_econcat_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_econcat_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->bexpr = bexpr;
+	elem->econcat = econcat;
+
+	list_append(&elem->lelems, &econcat->elems);
+	return EOK;
+}
+
+/** Return first element in concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ * @return First element or @c NULL
+ */
+ast_econcat_elem_t *ast_econcat_first(ast_econcat_t *econcat)
+{
+	link_t *link;
+
+	link = list_first(&econcat->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_econcat_elem_t, lelems);
+}
+
+/** Return next element in concatenation expression.
+ *
+ * @param elem Current element
+ * @return Next element or @c NULL
+ */
+ast_econcat_elem_t *ast_econcat_next(ast_econcat_elem_t *elem)
+{
+	link_t *link;
+
+	link = list_next(&elem->lelems, &elem->econcat->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_econcat_elem_t, lelems);
+}
+
+/** Return last element in concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ * @return First element or @c NULL
+ */
+ast_econcat_elem_t *ast_econcat_last(ast_econcat_t *econcat)
+{
+	link_t *link;
+
+	link = list_last(&econcat->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_econcat_elem_t, lelems);
+}
+
+/** Print AST concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_econcat_print(ast_econcat_t *econcat, FILE *f)
+{
+	ast_econcat_elem_t *elem;
+
+	if (fprintf(f, "econcat(") < 0)
+		return EIO;
+
+	elem = ast_econcat_first(econcat);
+	if (elem != NULL) {
+		if (fprintf(f, "elem") < 0)
+			return EIO;
+	}
+
+	elem = ast_econcat_next(elem);
+	while (elem != NULL) {
+		if (fprintf(f, ", elem") < 0)
+			return EIO;
+		elem = ast_econcat_next(elem);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ */
+static void ast_econcat_destroy(ast_econcat_t *econcat)
+{
+	ast_econcat_elem_t *elem;
+
+	elem = ast_econcat_first(econcat);
+	while (elem != NULL) {
+		list_remove(&elem->lelems);
+		ast_tree_destroy(elem->bexpr);
+		free(elem);
+		elem = ast_econcat_first(econcat);
+	}
+
+	free(econcat);
+}
+
+/** Get first token of AST concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_econcat_first_tok(ast_econcat_t *econcat)
+{
+	ast_econcat_elem_t *elem;
+
+	elem = ast_econcat_first(econcat);
+	return ast_tree_first_tok(elem->bexpr);
+}
+
+/** Get last token of AST concatenation expression.
+ *
+ * @param econcat Concatenation expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_econcat_last_tok(ast_econcat_t *econcat)
+{
+	ast_econcat_elem_t *elem;
+
+	elem = ast_econcat_last(econcat);
+	return ast_tree_last_tok(elem->bexpr);
+}
+
+
 /** Create AST binary operator expression.
  *
  * @param rebinop Place to store pointer to new binary operator expression
@@ -7601,6 +7770,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_eident_print((ast_eident_t *)node->ext, f);
 	case ant_eparen:
 		return ast_eparen_print((ast_eparen_t *)node->ext, f);
+	case ant_econcat:
+		return ast_econcat_print((ast_econcat_t *)node->ext, f);
 	case ant_ebinop:
 		return ast_ebinop_print((ast_ebinop_t *)node->ext, f);
 	case ant_etcond:
@@ -7780,6 +7951,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_eparen:
 		ast_eparen_destroy((ast_eparen_t *)node->ext);
 		break;
+	case ant_econcat:
+		ast_econcat_destroy((ast_econcat_t *)node->ext);
+		break;
 	case ant_ebinop:
 		ast_ebinop_destroy((ast_ebinop_t *)node->ext);
 		break;
@@ -7941,6 +8115,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_eident_first_tok((ast_eident_t *)node->ext);
 	case ant_eparen:
 		return ast_eparen_first_tok((ast_eparen_t *)node->ext);
+	case ant_econcat:
+		return ast_econcat_first_tok((ast_econcat_t *)node->ext);
 	case ant_ebinop:
 		return ast_ebinop_first_tok((ast_ebinop_t *)node->ext);
 	case ant_etcond:
@@ -8082,6 +8258,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_eident_last_tok((ast_eident_t *)node->ext);
 	case ant_eparen:
 		return ast_eparen_last_tok((ast_eparen_t *)node->ext);
+	case ant_econcat:
+		return ast_econcat_last_tok((ast_econcat_t *)node->ext);
 	case ant_ebinop:
 		return ast_ebinop_last_tok((ast_ebinop_t *)node->ext);
 	case ant_etcond:

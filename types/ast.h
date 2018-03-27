@@ -85,6 +85,8 @@ typedef enum {
 	ant_eident,
 	/** Parenthesized expression */
 	ant_eparen,
+	/** String concatenation expression */
+	ant_econcat,
 	/** Binary operator expression */
 	ant_ebinop,
 	/** Ternary conditional expression */
@@ -743,6 +745,24 @@ typedef struct {
 	/** ')' token */
 	ast_tok_t trparen;
 } ast_eparen_t;
+
+/** Concatenation expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** List of elements */
+	list_t elems; /* of ast_econcat_elem_t */
+} ast_econcat_t;
+
+/** Concatenation expression element */
+typedef struct {
+	/** Containing concatenation expression */
+	ast_econcat_t *econcat;
+	/** Link to @c econcat->elems */
+	link_t lelems;
+	/** Base expression */
+	ast_node_t *bexpr;
+} ast_econcat_elem_t;
 
 /** Binary operator expression */
 typedef struct {
