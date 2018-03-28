@@ -1593,7 +1593,7 @@ static int parser_process_etcond(parser_t *parser, ast_node_t **rexpr)
 
 	parser_skip(parser, &dqmark);
 
-	rc = parser_process_etcond(parser, &targ);
+	rc = parser_process_eassign(parser, &targ);
 	if (rc != EOK)
 		goto error;
 
@@ -1601,7 +1601,7 @@ static int parser_process_etcond(parser_t *parser, ast_node_t **rexpr)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_elor(parser, &farg);
+	rc = parser_process_etcond(parser, &farg);
 	if (rc != EOK)
 		goto error;
 
