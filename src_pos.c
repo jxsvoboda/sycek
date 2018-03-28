@@ -68,7 +68,7 @@ int src_pos_print_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
  */
 void src_pos_set(src_pos_t *pos, const char *fname, size_t line, size_t col)
 {
-	snprintf(pos->file, src_pos_fname_max, fname);
+	snprintf(pos->file, src_pos_fname_max, "%s", fname);
 	pos->line = line;
 	pos->col = col;
 }
