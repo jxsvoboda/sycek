@@ -38,8 +38,8 @@ extern ast_node_t *ast_module_next(ast_node_t *);
 extern ast_node_t *ast_module_last(ast_module_t *);
 extern ast_node_t *ast_module_prev(ast_node_t *);
 extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
-extern int ast_gdecln_create(ast_dspecs_t *, ast_idlist_t *, ast_block_t *,
-    ast_gdecln_t **);
+extern int ast_gdecln_create(ast_dspecs_t *, ast_idlist_t *, ast_malist_t *,
+    ast_block_t *, ast_gdecln_t **);
 extern int ast_mdecln_create(ast_mdecln_t **);
 extern int ast_mdecln_append(ast_mdecln_t *, ast_node_t *, void *);
 extern ast_mdecln_arg_t *ast_mdecln_first(ast_mdecln_t *);
@@ -87,6 +87,20 @@ extern ast_aspec_t *ast_aslist_first(ast_aslist_t *);
 extern ast_aspec_t *ast_aslist_next(ast_aspec_t *);
 extern ast_aspec_t *ast_aslist_last(ast_aslist_t *);
 extern ast_aspec_t *ast_aslist_prev(ast_aspec_t *);
+
+extern int ast_mattr_create(ast_mattr_t **);
+extern int ast_mattr_append(ast_mattr_t *, ast_node_t *, void *);
+extern ast_mattr_param_t *ast_mattr_first(ast_mattr_t *);
+extern ast_mattr_param_t *ast_mattr_next(ast_mattr_param_t *);
+extern ast_mattr_param_t *ast_mattr_last(ast_mattr_t *);
+extern ast_mattr_param_t *ast_mattr_prev(ast_mattr_param_t *);
+extern int ast_malist_create(ast_malist_t **);
+extern void ast_malist_append(ast_malist_t *, ast_mattr_t *);
+extern ast_mattr_t *ast_malist_first(ast_malist_t *);
+extern ast_mattr_t *ast_malist_next(ast_mattr_t *);
+extern ast_mattr_t *ast_malist_last(ast_malist_t *);
+extern ast_mattr_t *ast_malist_prev(ast_mattr_t *);
+
 extern int ast_sqlist_create(ast_sqlist_t **);
 extern void ast_sqlist_append(ast_sqlist_t *, ast_node_t *);
 extern ast_node_t *ast_sqlist_first(ast_sqlist_t *);

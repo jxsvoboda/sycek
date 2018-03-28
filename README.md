@@ -92,6 +92,8 @@ Examples of supported macro-based C syntax extensions include:
  * Macros that declare a struct or union member
  * Macros that stand as the header of a function definition
  * Symbolic variables used as a type specifier/qualifier
+ * Symbolic variable or macro call used as attribute at the end of a global
+   declaration header
 
 Using ccheck for your project
 -----------------------------

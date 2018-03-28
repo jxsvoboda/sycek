@@ -2215,8 +2215,6 @@ static int checker_check_regassign(checker_scope_t *scope,
 	return EOK;
 }
 
-
-
 /** Run checks on an attribute.
  *
  * @param scope Checker scope
@@ -2349,6 +2347,93 @@ static int checker_check_aslist(checker_scope_t *scope, ast_aslist_t *aslist)
 			return rc;
 
 		aspec = ast_aslist_next(aspec);
+	}
+
+	return EOK;
+}
+
+/** Run checks on a macro attribute.
+ *
+ * @param scope Checker scope
+ * @param mattr AST macro attribute
+ * @return EOK on success or error code
+ */
+static int checker_check_mattr(checker_scope_t *scope,
+    ast_mattr_t *mattr)
+{
+	ast_mattr_param_t *param;
+	checker_tok_t *tname;
+	checker_tok_t *tlparen;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen;
+	int rc;
+
+	tname = (checker_tok_t *) mattr->tname.data;
+	checker_check_any(scope, tname);
+
+	if (mattr->have_params) {
+		tlparen = (checker_tok_t *)mattr->tlparen.data;
+		checker_check_nows_before(scope, tlparen,
+		    "Unexpected whitespace before '('.");
+		checker_check_nows_after(scope, tlparen,
+		    "Unexpected whitespace after '('.");
+
+		param = ast_mattr_first(mattr);
+		while (param != NULL) {
+			rc = checker_check_expr(scope, param->expr);
+			if (rc != EOK)
+				return rc;
+
+			tcomma = (checker_tok_t *)param->tcomma.data;
+
+			if (tcomma != NULL) {
+				checker_check_nows_before(scope, tcomma,
+				    "Unexpected whitespace before ','.");
+				rc = checker_check_brkspace_after(scope, tcomma,
+				    "Expected whitespace after ','.");
+				if (rc != EOK)
+					return rc;
+			}
+
+			param = ast_mattr_next(param);
+		}
+
+		trparen = (checker_tok_t *)mattr->trparen.data;
+		checker_check_nows_before(scope, trparen,
+		    "Unexpected whitespace before ')'.");
+	}
+
+	return EOK;
+}
+
+/** Run checks on macro attribute list.
+ *
+ * @param scope Checker scope
+ * @param malist AST macro attribute list
+ * @return EOK on success or error code
+ */
+static int checker_check_malist(checker_scope_t *scope, ast_malist_t *malist)
+{
+	ast_mattr_t *mattr;
+	ast_tok_t *aattr;
+	checker_tok_t *tattr;
+	int rc;
+
+	mattr = ast_malist_first(malist);
+	while (mattr != NULL) {
+		aattr = ast_tree_first_tok(&mattr->node);
+		tattr = (checker_tok_t *)aattr->data;
+
+		rc = checker_check_brkspace_before(scope, tattr,
+		    "Whitespace expected before identifier.");
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_check_mattr(scope, mattr);
+		if (rc != EOK)
+			return rc;
+
+		mattr = ast_malist_next(mattr);
 	}
 
 	return EOK;
@@ -3784,6 +3869,12 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 	rc = checker_check_idlist(scope, gdecln->idlist);
 	if (rc != EOK)
 		goto error;
+
+	if (gdecln->malist != NULL) {
+		rc = checker_check_malist(scope, gdecln->malist);
+		if (rc != EOK)
+			goto error;
+	}
 
 	if (gdecln->body == NULL) {
 		tscolon = (checker_tok_t *)gdecln->tscolon.data;

@@ -35,6 +35,10 @@
 static int ast_aspec_print(ast_aspec_t *, FILE *);
 static int ast_aslist_print(ast_aslist_t *, FILE *);
 static void ast_aslist_destroy(ast_aslist_t *);
+static int ast_mattr_print(ast_mattr_t *, FILE *);
+static void ast_mattr_destroy(ast_mattr_t *);
+static ast_tok_t *ast_mattr_first_tok(ast_mattr_t *);
+static ast_tok_t *ast_mattr_last_tok(ast_mattr_t *);
 static int ast_block_print(ast_block_t *, FILE *);
 static ast_tok_t *ast_block_last_tok(ast_block_t *);
 static int ast_dlist_print(ast_dlist_t *, FILE *);
@@ -327,13 +331,14 @@ static ast_tok_t *ast_sclass_last_tok(ast_sclass_t *sclass)
  *
  * @param dspecs Declaration specifiers
  * @param idlist Init-declarator list
+ * @param malist Macro attribute list or @c NULL
  * @param body Body or @c NULL
  * @param rgdecln Place to store pointer to new global declaration
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_gdecln_create(ast_dspecs_t *dspecs, ast_idlist_t *idlist,
-    ast_block_t *body, ast_gdecln_t **rgdecln)
+    ast_malist_t *malist, ast_block_t *body, ast_gdecln_t **rgdecln)
 {
 	ast_gdecln_t *gdecln;
 
@@ -343,6 +348,7 @@ int ast_gdecln_create(ast_dspecs_t *dspecs, ast_idlist_t *idlist,
 
 	gdecln->dspecs = dspecs;
 	gdecln->idlist = idlist;
+	gdecln->malist = malist;
 	gdecln->body = body;
 
 	gdecln->node.ext = gdecln;
@@ -2090,6 +2096,390 @@ ast_aspec_param_t *ast_aspec_attr_prev(ast_aspec_param_t *param)
 		return NULL;
 
 	return list_get_instance(link, ast_aspec_param_t, lattr);
+}
+
+/** Create AST macro attribute list.
+ *
+ * @param rmalist Place to store pointer to new macro attribute list
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_malist_create(ast_malist_t **rmalist)
+{
+	ast_malist_t *malist;
+
+	malist = calloc(1, sizeof(ast_malist_t));
+	if (malist == NULL)
+		return ENOMEM;
+
+	list_initialize(&malist->mattrs);
+
+	malist->node.ext = malist;
+	malist->node.ntype = ant_malist;
+
+	*rmalist = malist;
+	return EOK;
+}
+
+/** Append attribute specifier to macro attribute list.
+ *
+ * @param malist Macro attribute list
+ * @param mattr Macro attribute
+ */
+void ast_malist_append(ast_malist_t *malist, ast_mattr_t *mattr)
+{
+	mattr->malist = malist;
+	list_append(&mattr->lmattrs, &malist->mattrs);
+}
+
+/** Return first macro attribute in macro attribute list.
+ *
+ * @param malist Macro attribute list
+ * @return First macro attribute or @c NULL
+ */
+ast_mattr_t *ast_malist_first(ast_malist_t *malist)
+{
+	link_t *link;
+
+	link = list_first(&malist->mattrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_t, lmattrs);
+}
+
+/** Return next macro attribute in macro attribute list.
+ *
+ * @param mattr Current maccro attribute
+ * @return Next macro attribute or @c NULL
+ */
+ast_mattr_t *ast_malist_next(ast_mattr_t *mattr)
+{
+	link_t *link;
+
+	link = list_next(&mattr->lmattrs, &mattr->malist->mattrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_t, lmattrs);
+}
+
+/** Return last macro attribute in macro attribute list.
+ *
+ * @param malist Macro attribute list
+ * @return First macro attribute or @c NULL
+ */
+ast_mattr_t *ast_malist_last(ast_malist_t *malist)
+{
+	link_t *link;
+
+	link = list_last(&malist->mattrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_t, lmattrs);
+}
+
+/** Return previous macro attribute in macro attribute list.
+ *
+ * @param mattr Current maccro attribute
+ * @return Previous macro attribute or @c NULL
+ */
+ast_mattr_t *ast_malist_prev(ast_mattr_t *mattr)
+{
+	link_t *link;
+
+	link = list_prev(&mattr->lmattrs, &mattr->malist->mattrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_t, lmattrs);
+}
+
+/** Print AST macro attribute list.
+ *
+ * @param malist Macro attribute list
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_malist_print(ast_malist_t *malist, FILE *f)
+{
+	ast_mattr_t *mattr;
+	bool first;
+	int rc;
+
+	if (fprintf(f, "malist(") < 0)
+		return EIO;
+
+	first = true;
+	mattr = ast_malist_first(malist);
+	while (mattr != NULL) {
+		if (!first) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+
+		if (fprintf(f, "mattr(") < 0)
+			return EIO;
+
+		rc = ast_mattr_print(mattr, f);
+		if (rc != EOK)
+			return rc;
+
+		if (fprintf(f, ")") < 0)
+			return EIO;
+
+		first = false;
+		mattr = ast_malist_next(mattr);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST macro attribute list.
+ *
+ * @param malist Macro attribute list
+ */
+static void ast_malist_destroy(ast_malist_t *malist)
+{
+	ast_mattr_t *mattr;
+
+	if (malist == NULL)
+		return;
+
+	mattr = ast_malist_first(malist);
+	while (mattr != NULL) {
+		list_remove(&mattr->lmattrs);
+		ast_mattr_destroy(mattr);
+
+		mattr = ast_malist_first(malist);
+	}
+
+	free(malist);
+}
+
+/** Get first token of AST macro attribute list.
+ *
+ * @param malist Macro attribute list
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_malist_first_tok(ast_malist_t *malist)
+{
+	ast_mattr_t *mattr;
+
+	mattr = ast_malist_first(malist);
+	if (mattr == NULL)
+		return NULL;
+
+	return ast_mattr_first_tok(mattr);
+}
+
+/** Get last token of AST macro attribute list.
+ *
+ * @param malist Macro attribute list
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_malist_last_tok(ast_malist_t *malist)
+{
+	ast_mattr_t *mattr;
+
+	mattr = ast_malist_last(malist);
+	if (mattr == NULL)
+		return NULL;
+
+	return ast_mattr_last_tok(mattr);
+}
+
+/** Create AST macro attribute.
+ *
+ * @param rmattr Place to store pointer to new macro attribute
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_mattr_create(ast_mattr_t **rmattr)
+{
+	ast_mattr_t *mattr;
+
+	mattr = calloc(1, sizeof(ast_mattr_t));
+	if (mattr == NULL)
+		return ENOMEM;
+
+	list_initialize(&mattr->params);
+
+	mattr->node.ext = mattr;
+	mattr->node.ntype = ant_mattr;
+
+	*rmattr = mattr;
+	return EOK;
+}
+
+/** Append attribute to macro attribute.
+ *
+ * @param mattr Macro attribute
+ * @param expr Parameter expression
+ * @param dcomma Data for ',' token or @c NULL
+ */
+int ast_mattr_append(ast_mattr_t *mattr, ast_node_t *expr, void *dcomma)
+{
+	ast_mattr_param_t *param;
+
+	param = calloc(1, sizeof(ast_mattr_param_t));
+	if (param == NULL)
+		return ENOMEM;
+
+	param->mattr = mattr;
+	param->expr = expr;
+	param->tcomma.data = dcomma;
+
+	list_append(&param->lparams, &mattr->params);
+
+	return EOK;
+}
+
+/** Return first parameter in macro attribute.
+ *
+ * @param mattr Macro attribute
+ * @return First parameter or @c NULL
+ */
+ast_mattr_param_t *ast_mattr_first(ast_mattr_t *mattr)
+{
+	link_t *link;
+
+	link = list_first(&mattr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_param_t, lparams);
+}
+
+/** Return next parameter in macro attribute.
+ *
+ * @param attr Current attribute
+ * @return Next parameter or @c NULL
+ */
+ast_mattr_param_t *ast_mattr_next(ast_mattr_param_t *param)
+{
+	link_t *link;
+
+	link = list_next(&param->lparams, &param->mattr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_param_t, lparams);
+}
+
+/** Return last parameter in macro attribute.
+ *
+ * @param mattr Macro attribute
+ * @return Last parameter or @c NULL
+ */
+ast_mattr_param_t *ast_mattr_last(ast_mattr_t *mattr)
+{
+	link_t *link;
+
+	link = list_last(&mattr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_param_t, lparams);
+}
+
+/** Return previous parameter in macro attribute.
+ *
+ * @param attr Current parameter
+ * @return Previous parameter or @c NULL
+ */
+ast_mattr_param_t *ast_mattr_prev(ast_mattr_param_t *param)
+{
+	link_t *link;
+
+	link = list_prev(&param->lparams, &param->mattr->params);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_mattr_param_t, lparams);
+}
+
+/** Print AST macro attribute.
+ *
+ * @param mattr Macro attribute
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_mattr_print(ast_mattr_t *mattr, FILE *f)
+{
+	ast_mattr_param_t *param;
+	bool first;
+
+	if (fprintf(f, "mattr(") < 0)
+		return EIO;
+
+	first = true;
+	param = ast_mattr_first(mattr);
+	while (param != NULL) {
+		if (!first) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
+
+		if (fprintf(f, "param") < 0)
+			return EIO;
+
+		first = false;
+		param = ast_mattr_next(param);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST macro attribute.
+ *
+ * @param mattr Macro attribute
+ */
+static void ast_mattr_destroy(ast_mattr_t *mattr)
+{
+	ast_mattr_param_t *param;
+
+	if (mattr == NULL)
+		return;
+
+	param = ast_mattr_first(mattr);
+	while (param != NULL) {
+		list_remove(&param->lparams);
+		free(param);
+
+		param = ast_mattr_first(mattr);
+	}
+
+	free(mattr);
+}
+
+/** Get first token of AST macro attribute.
+ *
+ * @param mattr Macro attribute
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_mattr_first_tok(ast_mattr_t *mattr)
+{
+	return &mattr->tname;
+}
+
+/** Get last token of AST macro attribute.
+ *
+ * @param mattr Macro attribute
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_mattr_last_tok(ast_mattr_t *mattr)
+{
+	return &mattr->trparen;
 }
 
 /** Create AST specifier-qualifier list.
@@ -7736,6 +8126,10 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_aslist_print((ast_aslist_t *)node->ext, f);
 	case ant_aspec:
 		return ast_aspec_print((ast_aspec_t *)node->ext, f);
+	case ant_malist:
+		return ast_malist_print((ast_malist_t *)node->ext, f);
+	case ant_mattr:
+		return ast_mattr_print((ast_mattr_t *)node->ext, f);
 	case ant_sqlist:
 		return ast_sqlist_print((ast_sqlist_t *)node->ext, f);
 	case ant_tqlist:
@@ -7899,6 +8293,12 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_aspec:
 		ast_aspec_destroy((ast_aspec_t *)node->ext);
+		break;
+	case ant_malist:
+		ast_malist_destroy((ast_malist_t *)node->ext);
+		break;
+	case ant_mattr:
+		ast_mattr_destroy((ast_mattr_t *)node->ext);
 		break;
 	case ant_sqlist:
 		ast_sqlist_destroy((ast_sqlist_t *)node->ext);
@@ -8081,6 +8481,10 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_aslist_first_tok((ast_aslist_t *)node->ext);
 	case ant_aspec:
 		return ast_aspec_first_tok((ast_aspec_t *)node->ext);
+	case ant_malist:
+		return ast_malist_first_tok((ast_malist_t *)node->ext);
+	case ant_mattr:
+		return ast_mattr_first_tok((ast_mattr_t *)node->ext);
 	case ant_sqlist:
 		return ast_sqlist_first_tok((ast_sqlist_t *)node->ext);
 	case ant_tqlist:
@@ -8224,6 +8628,10 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_aslist_last_tok((ast_aslist_t *)node->ext);
 	case ant_aspec:
 		return ast_aspec_last_tok((ast_aspec_t *)node->ext);
+	case ant_malist:
+		return ast_malist_last_tok((ast_malist_t *)node->ext);
+	case ant_mattr:
+		return ast_mattr_last_tok((ast_mattr_t *)node->ext);
 	case ant_sqlist:
 		return ast_sqlist_last_tok((ast_sqlist_t *)node->ext);
 	case ant_tqlist:

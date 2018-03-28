@@ -53,7 +53,7 @@ static int test_ast_module(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_gdecln_create(dspecs, idlist, NULL, &gdecln);
+	rc = ast_gdecln_create(dspecs, idlist, NULL, NULL, &gdecln);
 	if (rc != EOK)
 		return rc;
 
@@ -85,7 +85,7 @@ static int test_ast_gdecln(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = ast_gdecln_create(dspecs, idlist, NULL, &gdecln);
+	rc = ast_gdecln_create(dspecs, idlist, NULL, NULL, &gdecln);
 	if (rc != EOK)
 		return rc;
 

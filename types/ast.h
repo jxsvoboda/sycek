@@ -51,6 +51,10 @@ typedef enum {
 	ant_aspec,
 	/** Attribute specifier list */
 	ant_aslist,
+	/** Macro attribute */
+	ant_mattr,
+	/** Macro attribute list */
+	ant_malist,
 	/** Specifier-qualifier list */
 	ant_sqlist,
 	/** Type qualifier list */
@@ -498,6 +502,46 @@ typedef struct {
 	/** Separating ',' token (except for the last parameter) */
 	ast_tok_t tcomma;
 } ast_aspec_param_t;
+
+/** Macro attribute list */
+typedef struct ast_malist {
+	/** Base object */
+	ast_node_t node;
+	/** Macro attributes */
+	list_t mattrs; /* of ast_mattr_t */
+} ast_malist_t;
+
+/** Macro attribute */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Containing macro attribute list or @c NULL */
+	ast_malist_t *malist;
+	/** Link to malist->mattrs */
+	link_t lmattrs;
+	/** Macro name token */
+	ast_tok_t tname;
+	/** @c true if we have parentheses and parameters */
+	bool have_params;
+	/** '(' token (if @c have_params is true) */
+	ast_tok_t tlparen;
+	/** Parameters */
+	list_t params; /* of ast_mattr_param_t */
+	/** ')' token (if @c have_params is true) */
+	ast_tok_t trparen;
+} ast_mattr_t;
+
+/** Macro attribute parameter */
+typedef struct {
+	/** Containing macro attribute */
+	ast_mattr_t *mattr;
+	/** Link to @c mattr->params */
+	link_t lparams;
+	/** Parameter expression */
+	ast_node_t *expr;
+	/** Separating ',' token (except for the last parameter) */
+	ast_tok_t tcomma;
+} ast_mattr_param_t;
 
 /** Specifier-qualifier list */
 typedef struct ast_sqlist {
@@ -1415,6 +1459,8 @@ typedef struct {
 	ast_dspecs_t *dspecs;
 	/** Init-declarator list */
 	ast_idlist_t *idlist;
+	/** Macro attribute list */
+	ast_malist_t *malist;
 	/** Function body (if function definition) */
 	ast_block_t *body;
 	/** @c true if we have a trailing semicolon */

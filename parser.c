@@ -1917,7 +1917,7 @@ error:
 static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 {
 	ast_cinit_t *cinit = NULL;
-	ast_cinit_elem_t *elem;
+	ast_cinit_elem_t *elem = NULL;
 	lexer_toktype_t ltt;
 	void *dlbrace;
 	void *dcomma;
@@ -2301,6 +2301,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		parser_skip(parser, &dvolatile);
 	} else {
 		have_volatile = false;
+		dvolatile = NULL;
 	}
 
 	ltt = parser_next_ttype(parser);
@@ -2309,6 +2310,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		parser_skip(parser, &dgoto);
 	} else {
 		have_goto = false;
+		dgoto = NULL;
 	}
 
 	rc = parser_match(parser, ltt_lparen, &dlparen);
@@ -4774,7 +4776,6 @@ error:
 	return rc;
 }
 
-
 /** Parse attribute.
  *
  * @param parser Parser
@@ -4986,6 +4987,122 @@ error:
 	return rc;
 }
 
+/** Parse macro attribute.
+ *
+ * @param parser Parser
+ * @param rmattr Place to store pointer to new macro attribute
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_mattr(parser_t *parser, ast_mattr_t **rmattr)
+{
+	lexer_toktype_t ltt;
+	ast_mattr_t *mattr = NULL;
+	void *dname;
+	void *dlparen;
+	ast_node_t *expr = NULL;
+	void *dcomma;
+	void *drparen;
+	int rc;
+
+	rc = ast_mattr_create(&mattr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_ident, &dname);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lparen) {
+
+		rc = parser_match(parser, ltt_lparen, &dlparen);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(parser);
+		dcomma = NULL;
+
+		/* We can only fail this test upon entry */
+		while (ltt != ltt_rparen) {
+			rc = parser_process_econcat(parser, &expr);
+			if (rc != EOK)
+				goto error;
+
+			ltt = parser_next_ttype(parser);
+			if (ltt == ltt_comma) {
+				parser_skip(parser, &dcomma);
+			} else {
+				dcomma = NULL;
+			}
+
+			rc = ast_mattr_append(mattr, expr, dcomma);
+			if (rc != EOK)
+				goto error;
+
+			expr = NULL;
+
+			if (ltt != ltt_comma)
+				break;
+		}
+
+		rc = parser_match(parser, ltt_rparen, &drparen);
+		if (rc != EOK)
+			goto error;
+
+		mattr->have_params = true;
+		mattr->tlparen.data = dlparen;
+		mattr->trparen.data = drparen;
+	} else {
+		mattr->have_params = false;
+	}
+
+	mattr->tname.data = dname;
+
+	*rmattr = mattr;
+	return EOK;
+error:
+	if (mattr != NULL)
+		ast_tree_destroy(&mattr->node);
+	if (expr != NULL)
+		ast_tree_destroy(expr);
+	return rc;
+}
+
+/** Parse macro attribute list.
+ *
+ * @param parser Parser
+ * @param rmalist Place to store pointer to new AST attribute specifier list
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_malist(parser_t *parser, ast_malist_t **rmalist)
+{
+	lexer_toktype_t ltt;
+	ast_malist_t *malist;
+	ast_mattr_t *mattr;
+	int rc;
+
+	rc = ast_malist_create(&malist);
+	if (rc != EOK)
+		return rc;
+
+	do {
+		rc = parser_process_mattr(parser, &mattr);
+		if (rc != EOK)
+			goto error;
+
+		ast_malist_append(malist, mattr);
+		ltt = parser_next_ttype(parser);
+	} while (ltt == ltt_ident);
+
+	*rmalist = malist;
+	return EOK;
+error:
+	ast_tree_destroy(&malist->node);
+	return rc;
+}
+
 /** Parse global declaration.
  *
  * @param parser Parser
@@ -5001,8 +5118,10 @@ static int parser_process_gdecln(parser_t *parser, ast_node_t **rnode)
 	ast_idlist_t *idlist = NULL;
 	ast_idlist_entry_t *entry;
 	bool more_decls;
+	ast_malist_t *malist = NULL;
 	ast_block_t *body = NULL;
 	bool have_scolon;
+	bool have_realdecl;
 	unsigned add_idents;
 	bool more_idents;
 	void *dscolon;
@@ -5017,7 +5136,7 @@ again:
 	rc = parser_process_dspecs(parser, add_idents, &more_idents, &dspecs);
 	if (rc != EOK)
 		goto error;
-//	printf("more_idents:%d\n", more_idents);
+
 	rc = parser_process_idlist(parser, ast_abs_allow, &idlist);
 	if (rc != EOK)
 		goto error;
@@ -5026,6 +5145,18 @@ again:
 	entry = ast_idlist_first(idlist);
 	assert(entry != NULL);
 	more_decls = ast_idlist_next(entry) != NULL;
+
+	if (!more_decls)
+		have_realdecl = entry->decl->ntype != ant_dident;
+	else
+		have_realdecl = false;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_ident && have_realdecl) {
+		rc = parser_process_malist(parser, &malist);
+		if (rc != EOK)
+			goto error;
+	}
 
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
@@ -5049,13 +5180,13 @@ again:
 		rc = parser_process_block(parser, &body);
 		if (rc != EOK)
 			goto error;
+
 		dscolon = NULL;
 		have_scolon = false;
 		break;
 	default:
 		if (more_idents) {
 			++add_idents;
-//			printf("try again with add_idents=%d\n", add_idents);
 			goto again;
 		}
 
@@ -5064,11 +5195,12 @@ again:
 			parser_dprint_next_tok(parser, stderr);
 			fprintf(stderr, " unexpected, expected '{' or ';'.\n");
 		}
+
 		rc = EINVAL;
 		goto error;
 	}
 
-	rc = ast_gdecln_create(dspecs, idlist, body, &gdecln);
+	rc = ast_gdecln_create(dspecs, idlist, malist, body, &gdecln);
 	if (rc != EOK)
 		goto error;
 
@@ -5086,6 +5218,8 @@ error:
 		ast_tree_destroy(&dspecs->node);
 	if (idlist != NULL)
 		ast_tree_destroy(&idlist->node);
+	if (malist != NULL)
+		ast_tree_destroy(&malist->node);
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
 	return rc;
@@ -5104,7 +5238,7 @@ static int parser_process_mdecln(parser_t *parser, ast_mdecln_t **rmdecln)
 	ast_mdecln_t *mdecln = NULL;
 	ast_dspecs_t *dspecs = NULL;
 	void *dlparen;
-	ast_node_t *expr;
+	ast_node_t *expr = NULL;
 	void *dcomma;
 	void *drparen;
 	int rc;
@@ -5251,9 +5385,9 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 {
 	lexer_toktype_t ltt;
 	ast_module_t *module;
-	ast_node_t *decln;
+	ast_node_t *decln = NULL;
 	ast_node_t *node;
-	ast_gmdecln_t *gmdecln;
+	ast_gmdecln_t *gmdecln = NULL;
 	parser_t *sparser;
 	int rc;
 
