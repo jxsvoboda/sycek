@@ -4299,6 +4299,25 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 	return EOK;
 }
 
+static int checker_build_ast(checker_t *checker)
+{
+	int rc;
+
+	if (checker->mod == NULL) {
+		rc = checker_module_lex(checker, &checker->mod);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (checker->mod->ast == NULL) {
+		rc = checker_module_parse(checker->mod);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
 /** Run checker.
  *
  * @param checker Checker
@@ -4309,23 +4328,19 @@ int checker_run(checker_t *checker, bool fix)
 {
 	int rc;
 
-	if (checker->mod == NULL) {
-		rc = checker_module_lex(checker, &checker->mod);
-		if (rc != EOK)
-			return rc;
-
-		rc = checker_module_parse(checker->mod);
-		if (rc != EOK)
-			return rc;
-
-		rc = checker_module_check(checker->mod, fix);
-		if (rc != EOK)
-			return rc;
-
-		rc = checker_module_lines(checker->mod, fix);
+	if (checker->mod == NULL || checker->mod->ast == NULL) {
+		rc = checker_build_ast(checker);
 		if (rc != EOK)
 			return rc;
 	}
+
+	rc = checker_module_check(checker->mod, fix);
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_module_lines(checker->mod, fix);
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -4349,6 +4364,25 @@ int checker_print(checker_t *checker, FILE *f)
 	}
 
 	return EOK;
+}
+
+/** Dump AST.
+ *
+ * @param checker Checker
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int checker_dump_ast(checker_t *checker, FILE *f)
+{
+	int rc;
+
+	if (checker->mod == NULL || checker->mod->ast == NULL) {
+		rc = checker_build_ast(checker);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return ast_tree_print(&checker->mod->ast->node, f);
 }
 
 /** Parser function to read input token from checker.

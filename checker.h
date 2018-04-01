@@ -34,6 +34,7 @@
 
 extern int checker_create(lexer_input_ops_t *, void *, checker_t **);
 extern int checker_print(checker_t *, FILE *);
+extern int checker_dump_ast(checker_t *, FILE *);
 extern void checker_destroy(checker_t *);
 extern int checker_run(checker_t *, bool);
 

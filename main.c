@@ -44,10 +44,11 @@ static void print_syntax(void)
 	    "\tccheck [options] <file> Check C-style in the specified file\n"
 	    "\tccheck --test Run internal unit tests\n"
 	    "options:\n"
-	    "\t--fix Attempt to fix issues instead of just reporting them\n");
+	    "\t--fix Attempt to fix issues instead of just reporting them\n"
+	    "\t--dump-ast Dump internal abstract syntax tree\n");
 }
 
-static int check_file(const char *fname, bool fix)
+static int check_file(const char *fname, bool fix, bool dump_ast)
 {
 	int rc;
 	checker_t *checker = NULL;
@@ -67,6 +68,14 @@ static int check_file(const char *fname, bool fix)
 	rc = checker_create(&lexer_file_input, &finput, &checker);
 	if (rc != EOK)
 		goto error;
+
+	if (dump_ast) {
+		rc = checker_dump_ast(checker, stdout);
+		if (rc != EOK)
+			goto error;
+
+		printf("\n");
+	}
 
 	rc = checker_run(checker, fix);
 	if (rc != EOK)
@@ -121,6 +130,7 @@ int main(int argc, char *argv[])
 	int rc;
 	int i;
 	bool fix = false;
+	bool dump_ast = false;
 
 	(void)argc;
 	(void)argv;
@@ -149,6 +159,9 @@ int main(int argc, char *argv[])
 			if (strcmp(argv[i], "--fix") == 0) {
 				++i;
 				fix = true;
+			} else if (strcmp(argv[i], "--dump-ast") == 0) {
+				++i;
+				dump_ast = true;
 			} else if (strcmp(argv[i], "-") == 0) {
 				++i;
 				break;
@@ -163,7 +176,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		rc = check_file(argv[i], fix);
+		rc = check_file(argv[i], fix, dump_ast);
 	}
 
 	if (rc != EOK)
