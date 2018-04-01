@@ -3198,6 +3198,8 @@ static int checker_check_eindex(checker_scope_t *scope,
 		return rc;
 
 	tlbracket = (checker_tok_t *) eindex->tlbracket.data;
+	checker_check_nows_before(scope, tlbracket,
+	    "Unexpected whitespace before '['.");
 	checker_check_nows_after(scope, tlbracket,
 	    "Unexpected whitespace after '['.");
 

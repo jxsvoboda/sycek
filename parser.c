@@ -3212,7 +3212,7 @@ static int parser_process_stdecln(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_idlist(parser, ast_abs_allow, &idlist);
+	rc = parser_process_idlist(parser, ast_abs_disallow, &idlist);
 	if (rc != EOK)
 		goto error;
 
