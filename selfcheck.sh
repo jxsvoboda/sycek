@@ -29,7 +29,7 @@ srepcnt=0
 snorepcnt=0
 fcnt=0
 
-find . -name '*.[ch]' | (
+find src -name '*.[ch]' | (
 while read fname; do
 	$ccheck $fname >/tmp/ccheck.out 2>&1
 	rc=$?

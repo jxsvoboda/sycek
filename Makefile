@@ -22,25 +22,25 @@
 
 CC     = gcc
 CFLAGS = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -Wmissing-prototypes \
-         -Werror -I. 
+         -Werror -I src
 LIBS   =
 
 bkqual = $$(date '+%Y-%m-%d')
 
 sources = \
-    adt/list.c \
-    ast.c \
-    checker.c \
-    file_input.c \
-    lexer.c \
-    main.c \
-    parser.c \
-    src_pos.c \
-    str_input.c \
-    test/ast.c \
-    test/checker.c \
-    test/lexer.c \
-    test/parser.c
+    src/adt/list.c \
+    src/ast.c \
+    src/checker.c \
+    src/file_input.c \
+    src/lexer.c \
+    src/main.c \
+    src/parser.c \
+    src/src_pos.c \
+    src/str_input.c \
+    src/test/ast.c \
+    src/test/checker.c \
+    src/test/lexer.c \
+    src/test/parser.c
 
 binary = ccheck
 
