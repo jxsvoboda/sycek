@@ -43,9 +43,19 @@ sources = \
     src/test/parser.c
 
 binary = ccheck
+ccheck = ./$(binary)
 
 objects = $(sources:.c=.o)
 headers = $(wildcard *.h */*.h */*/*.h)
+
+test_good_ins = $(wildcard test/good/*-in.c)
+test_good_fixed_diffs = $(test_good_ins:-in.c=-fixed.c.diff)
+test_good_out_diffs = $(test_good_ins:-in.c=-out.txt.diff)
+test_bad_ins = $(wildcard test/bad/*-in.c)
+test_bad_errs = $(test_bad_ins:-in.c=-err-t.txt)
+test_bad_err_diffs = $(test_bad_ins:-in.c=-err.txt.diff)
+test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
+    $(test_bad_err_diffs) $(test_bad_errs) test/all.diff
 
 all: $(binary)
 
@@ -58,8 +68,39 @@ cstyle: $(binary)
 	./selfcheck.sh
 
 clean:
-	rm -f $(objects) $(binary)
+	rm -f $(objects) $(binary) $(test_outs)
+
+test/good/%-fixed-t.c: test/good/%-in.c $(ccheck)
+	cp $< $@
+	$(ccheck) --fix $@
+	rm -f $@.orig
+
+test/good/%-fixed.c.diff: test/good/%-fixed.c test/good/%-fixed-t.c
+	diff -u $^ >$@
+
+test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
+	./ccheck $< >$@
+
+test/good/%-out.txt.diff: test/good/%-out.txt test/good/%-out-t.txt
+	diff -u $^ >$@
+
+test/bad/%-err-t.txt: test/bad/%-in.c $(ccheck)
+	-./ccheck $< 2>$@
+
+test/bad/%-err.txt.diff: test/bad/%-err.txt test/bad/%-err-t.txt
+	diff -u $^ >$@
+
+test/all.diff: $(test_good_fixed_diffs) $(test_good_out_diffs) \
+    $(test_bad_err_diffs)
+	cat $^ > $@
+
+#
+# Note that if any of the diffs is not empty, that diff command will
+# return non-zero exit code, failing the make
+#
+test: test/all.diff
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
-	cd .. && rm -f sycek-latest.tar.gz && ln -s sycek-$(bkqual).tar.gz sycek-latest.tar.gz
+	cd .. && rm -f sycek-latest.tar.gz && ln -s sycek-$(bkqual).tar.gz \
+	    sycek-latest.tar.gz

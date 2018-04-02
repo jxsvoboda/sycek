@@ -1,0 +1,3 @@
+<test/good/expr-in.c:3:10:space>: Unexpected whitespace before '['.
+<test/good/expr-in.c:3:12:space>: Unexpected whitespace after '['.
+<test/good/expr-in.c:3:14:space>: Unexpected whitespace before ']'.
