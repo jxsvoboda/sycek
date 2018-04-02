@@ -1,0 +1,3 @@
+<test/ugly/expr-in.c:8:10:space>: Unexpected whitespace before '['.
+<test/ugly/expr-in.c:8:12:space>: Unexpected whitespace after '['.
+<test/ugly/expr-in.c:8:14:space>: Unexpected whitespace before ']'.

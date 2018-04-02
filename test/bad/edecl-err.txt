@@ -1,0 +1,1 @@
+Error: <test/bad/edecl-in.c:2:7:;> unexpected, expected declaration specifier.
