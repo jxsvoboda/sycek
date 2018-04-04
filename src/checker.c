@@ -44,6 +44,7 @@ static int checker_check_idlist(checker_scope_t *, ast_idlist_t *);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
+static int checker_check_tqlist(checker_scope_t *, ast_tqlist_t *);
 static int checker_check_regassign(checker_scope_t *, ast_regassign_t *);
 static int checker_check_aslist(checker_scope_t *, ast_aslist_t *);
 static int checker_check_block(checker_scope_t *, ast_block_t *);
@@ -111,6 +112,26 @@ static void checker_module_destroy(checker_module_t *module)
 	free(module);
 }
 
+/** Create a checker token.
+ *
+ * @param tok Lexer token
+ * @param rctok Place to store pointer to new checker token
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int checker_tok_new(lexer_tok_t *tok, checker_tok_t **rctok)
+{
+	checker_tok_t *ctok;
+
+	ctok = calloc(1, sizeof(checker_tok_t));
+	if (ctok == NULL)
+		return ENOMEM;
+
+	ctok->tok = *tok;
+	*rctok = ctok;
+	return EOK;
+}
+
 /** Append a token to checker module.
  *
  * @param module Checker module
@@ -121,14 +142,17 @@ static void checker_module_destroy(checker_module_t *module)
 static int checker_module_append(checker_module_t *module, lexer_tok_t *tok)
 {
 	checker_tok_t *ctok;
+	int rc;
 
-	ctok = calloc(1, sizeof(checker_tok_t));
-	if (ctok == NULL)
-		return ENOMEM;
+	rc = checker_tok_new(tok, &ctok);
+	if (rc != EOK) {
+		assert(rc == ENOMEM);
+		return rc;
+	}
 
 	ctok->mod = module;
-	ctok->tok = *tok;
 	list_append(&ctok->ltoks, &module->toks);
+
 	return EOK;
 }
 
@@ -283,6 +307,7 @@ static checker_tok_t *checker_prev_tok(checker_tok_t *tok)
  */
 static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 {
+	tok->checked = true;
 	tok->indlvl = scope->indlvl;
 
 	if (!scope->secindent) {
@@ -323,24 +348,26 @@ static int checker_prepend_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
     const char *wstext)
 {
 	checker_tok_t *ctok;
+	lexer_tok_t t;
 	char *dtext;
-
-	ctok = calloc(1, sizeof(checker_tok_t));
-	if (ctok == NULL)
-		return ENOMEM;
+	int rc;
 
 	dtext = strdup(wstext);
-	if (dtext == NULL) {
-		free(ctok);
+	if (dtext == NULL)
+		return ENOMEM;
+
+	t.ttype = ltt;
+	t.text = dtext;
+	t.text_size = strlen(dtext);
+	t.udata = (void *) ctok;
+
+	rc = checker_tok_new(&t, &ctok);
+	if (rc != EOK) {
+		free(dtext);
 		return ENOMEM;
 	}
 
 	ctok->mod = tok->mod;
-	ctok->tok.ttype = ltt;
-	ctok->tok.text = dtext;
-	ctok->tok.text_size = strlen(dtext);
-	ctok->tok.udata = (void *) ctok;
-
 	list_insert_before(&ctok->ltoks, &tok->ltoks);
 
 	return EOK;
@@ -356,24 +383,26 @@ static int checker_append_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
     const char *wstext)
 {
 	checker_tok_t *ctok;
+	lexer_tok_t t;
 	char *dtext;
-
-	ctok = calloc(1, sizeof(checker_tok_t));
-	if (ctok == NULL)
-		return ENOMEM;
+	int rc;
 
 	dtext = strdup(wstext);
-	if (dtext == NULL) {
-		free(ctok);
+	if (dtext == NULL)
+		return ENOMEM;
+
+	t.ttype = ltt;
+	t.text = dtext;
+	t.text_size = strlen(dtext);
+	t.udata = (void *) ctok;
+
+	rc = checker_tok_new(&t, &ctok);
+	if (rc != EOK) {
+		free(dtext);
 		return ENOMEM;
 	}
 
 	ctok->mod = tok->mod;
-	ctok->tok.ttype = ltt;
-	ctok->tok.text = dtext;
-	ctok->tok.text_size = strlen(dtext);
-	ctok->tok.udata = (void *) ctok;
-
 	list_insert_after(&ctok->ltoks, &tok->ltoks);
 
 	return EOK;
@@ -1839,10 +1868,15 @@ static int checker_check_dparen(checker_scope_t *scope, ast_dparen_t *dparen)
 static int checker_check_dptr(checker_scope_t *scope, ast_dptr_t *dptr)
 {
 	checker_tok_t *tasterisk;
+	int rc;
 
 	tasterisk = (checker_tok_t *)dptr->tasterisk.data;
 	checker_check_nows_after(scope, tasterisk,
 	    "Unexpected whitespace after '*'.");
+
+	rc = checker_check_tqlist(scope, dptr->tqlist);
+	if (rc != EOK)
+		return rc;
 
 	return checker_check_decl(scope, dptr->bdecl);
 }
@@ -2757,6 +2791,31 @@ static int checker_check_sqlist(checker_scope_t *scope, ast_sqlist_t *sqlist)
 	return EOK;
 }
 
+/** Run checks on a type qualifier list.
+ *
+ * @param scope Checker scope
+ * @param tqlist AST type qualifier list
+ * @return EOK on success or error code
+ */
+static int checker_check_tqlist(checker_scope_t *scope, ast_tqlist_t *tqlist)
+{
+	ast_node_t *elem;
+	ast_tqual_t *tqual;
+	int rc;
+
+	elem = ast_tqlist_first(tqlist);
+	while (elem != NULL) {
+		tqual = (ast_tqual_t *)elem->ext;
+		rc = checker_check_tqual(scope, tqual);
+		if (rc != EOK)
+			return rc;
+
+		elem = ast_tqlist_next(elem);
+	}
+
+	return EOK;
+}
+
 /** Run checks on declaration specifiers.
  *
  * @param scope Checker scope
@@ -2988,6 +3047,10 @@ static int checker_check_econcat(checker_scope_t *scope, ast_econcat_t *econcat)
 		texpr = (checker_tok_t *) aexpr->data;
 		rc = checker_check_brkspace_before(scope, texpr,
 		    "Whitespace expected before expression.");
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_check_expr(scope, elem->bexpr);
 		if (rc != EOK)
 			return rc;
 
@@ -3280,12 +3343,13 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 	tlparen = (checker_tok_t *) esizeof->tlparen.data;
 	trparen = (checker_tok_t *) esizeof->trparen.data;
 
-
 	if (esizeof->bexpr == NULL) {
 		checker_check_nows_after(scope, tsizeof,
 		    "Unexpected whitespace after 'sizeof'.");
 		checker_check_nows_after(scope, tlparen,
 		    "Unexpected whitespace after '('.");
+	} else {
+		checker_check_any(scope, tsizeof);
 	}
 
 	if (esizeof->bexpr != NULL) {
@@ -3665,6 +3729,7 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 	checker_tok_t *tlbracket;
 	checker_tok_t *trbracket;
 	checker_tok_t *tperiod;
+	checker_tok_t *tmember;
 	checker_tok_t *tassign;
 	checker_tok_t *tcomma;
 	bool first;
@@ -3709,11 +3774,17 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 
 			checker_check_nows_after(scope, tlbracket,
 			    "Unexpected whitespace after '['.");
+
+			rc = checker_check_expr(scope, acc->index);
+			if (rc != EOK)
+				goto error;
+
 			checker_check_nows_before(scope, trbracket,
 			    "Unexpected whitespace before ']'.");
 			break;
 		case aca_member:
 			tperiod = (checker_tok_t *)acc->tperiod.data;
+			tmember = (checker_tok_t *)acc->tmember.data;
 
 			if (!first) {
 				checker_check_nsbrk_before(scope, tperiod,
@@ -3722,6 +3793,7 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 
 			checker_check_nows_after(scope, tperiod,
 			    "Unexpected whitespace after '.'.");
+			checker_check_any(scope, tmember);
 			break;
 		}
 
@@ -3769,6 +3841,7 @@ error:
  */
 static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 {
+	checker_tok_t *tlbrace;
 	ast_cinit_elem_t *elem;
 	checker_tok_t *trbrace;
 	checker_scope_t *escope;
@@ -3777,6 +3850,9 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 	escope = checker_scope_nested(scope);
 	if (escope == NULL)
 		return ENOMEM;
+
+	tlbrace = (checker_tok_t *)cinit->tlbrace.data;
+	checker_check_any(scope, tlbrace);
 
 	elem = ast_cinit_first(cinit);
 	while (elem != NULL) {
@@ -3794,7 +3870,7 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 		if (rc != EOK)
 			goto error;
 
-		/** '{' should not be indented as continuation */
+		/** '}' should not be indented as continuation */
 		if (checker_is_tok_lbegin(trbrace))
 			trbrace->lbegin = true;
 
@@ -4217,6 +4293,25 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	return EOK;
 }
 
+/** Verify that all tokens have been visited.
+ *
+ * @param mod Checker module
+ */
+static void checker_module_alltoks(checker_module_t *mod)
+{
+	checker_tok_t *tok;
+
+	tok = checker_module_first_tok(mod);
+	while (tok->tok.ttype != ltt_eof) {
+		if (!tok->checked && !parser_ttype_ignore(tok->tok.ttype)) {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(" Token not checked\n");
+		}
+		tok = checker_next_tok(tok);
+	}
+}
+
+
 /** Check line breaks, indentation and end-of-line whitespace.
  *
  * @param mod Checker module
@@ -4339,6 +4434,8 @@ int checker_run(checker_t *checker, bool fix)
 	rc = checker_module_check(checker->mod, fix);
 	if (rc != EOK)
 		return rc;
+
+	checker_module_alltoks(checker->mod);
 
 	rc = checker_module_lines(checker->mod, fix);
 	if (rc != EOK)

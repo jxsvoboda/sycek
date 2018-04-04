@@ -40,6 +40,8 @@ typedef struct {
 	link_t ltoks;
 	/** Lexer token */
 	lexer_tok_t tok;
+	/** Checked: if true, indlvl, lbegin and seccont are valid */
+	bool checked;
 	/** Indentation level */
 	unsigned indlvl;
 	/** Token is supposed to begin a new line */

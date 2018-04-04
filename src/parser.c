@@ -32,8 +32,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static bool parser_ttype_ignore(lexer_toktype_t);
-
 static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
@@ -130,7 +128,7 @@ void parser_destroy(parser_t *parser)
  * @param ttype Token type
  * @return @c true iff token of type @a ttype is ignored during parsing
  */
-static bool parser_ttype_ignore(lexer_toktype_t ttype)
+bool parser_ttype_ignore(lexer_toktype_t ttype)
 {
 	return ttype == ltt_space || ttype == ltt_tab ||
 	    ttype == ltt_newline || ttype == ltt_comment ||
