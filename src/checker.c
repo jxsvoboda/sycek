@@ -589,7 +589,7 @@ static void checker_check_nsbrk_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (lexer_is_wspace(p->tok.ttype) && p->tok.ttype != ltt_newline) {
+	if (lexer_is_wspace(p->tok.ttype) && !checker_is_tok_lbegin(tok)) {
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 		} else {
@@ -598,6 +598,22 @@ static void checker_check_nsbrk_before(checker_scope_t *scope,
 		}
 	}
 }
+
+/** Check non-spacing break before.
+ *
+ * There should be either non-whitespace or a line break before the token.
+ * If there is a line break, the token must not be indented as a continuation
+ * line.
+ */
+static void checker_check_nsbrk_before_nocont(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
+{
+	checker_check_nsbrk_before(scope, tok, msg);
+
+	if (checker_is_tok_lbegin(tok))
+		tok->lbegin = true;
+}
+
 
 /** Check non-spacing break after.
  *
@@ -651,6 +667,27 @@ static int checker_check_brkspace_before(checker_scope_t *scope,
 			printf(": %s\n", msg);
 		}
 	}
+
+	return EOK;
+}
+
+/** Breakable space before token - not a continuation.
+ *
+ * There should be either a single space or a line break before the token.
+ * If there is a line break, the token must not be indented as a continuation
+ * line.
+ */
+static int checker_check_brkspace_before_nocont(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
+{
+	int rc;
+
+	rc = checker_check_brkspace_before(scope, tok, msg);
+	if (rc != EOK)
+		return rc;
+
+	if (checker_is_tok_lbegin(tok))
+		tok->lbegin = true;
 
 	return EOK;
 }
@@ -1015,6 +1052,9 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	if (rc != EOK)
 		goto error;
 
+	checker_check_nsbrk_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
 	rc = checker_check_expr(scope, aasm->atemplate);
 	if (rc != EOK)
 		goto error;
@@ -1075,10 +1115,8 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 		}
 	}
 
-	rc = checker_check_lbegin(scope, trparen,
-	    "')' must start on a new line.");
-	if (rc != EOK)
-		goto error;
+	checker_check_nsbrk_before_nocont(scope, trparen,
+	    "Unexpected whitespace before ')'.");
 
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
@@ -3751,14 +3789,10 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 
 	tfirst = (checker_tok_t *)afirst->data;
 
-	rc = checker_check_brkspace_before(scope, tfirst,
+	rc = checker_check_brkspace_before_nocont(scope, tfirst,
 	    "Whitespace expected before initializer.");
 	if (rc != EOK)
 		goto error;
-
-	/** Initializers should not be indented as continuation */
-	if (checker_is_tok_lbegin(tfirst))
-		tfirst->lbegin = true;
 
 	first = true;
 	while (acc != NULL) {
@@ -3865,15 +3899,10 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 
 	trbrace = (checker_tok_t *)cinit->trbrace.data;
 	if (trbrace != NULL) {
-		rc = checker_check_brkspace_before(scope, trbrace,
+		rc = checker_check_brkspace_before_nocont(scope, trbrace,
 		    "Whitespace expected before '}'.");
 		if (rc != EOK)
 			goto error;
-
-		/** '}' should not be indented as continuation */
-		if (checker_is_tok_lbegin(trbrace))
-			trbrace->lbegin = true;
-
 	}
 
 	checker_scope_destroy(escope);

@@ -20,9 +20,7 @@ typedef struct {
 int main(void)
 {
 	/* Basic assembler */
-	asm (
-	    "nop\n"
-	);
+	asm ("nop\n");
 
 	/* Extended assembler with output operands */
 	asm (
