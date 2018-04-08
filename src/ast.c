@@ -3957,6 +3957,15 @@ static int ast_idlist_print(ast_idlist_t *idlist, FILE *f)
 				return EIO;
 		}
 
+		if (entry->have_init) {
+			if (fprintf(f, " = ") < 0)
+				return EIO;
+
+			rc = ast_tree_print(entry->init, f);
+			if (rc != EOK)
+				return EIO;
+		}
+
 		entry = ast_idlist_next(entry);
 
 		if (entry != NULL) {

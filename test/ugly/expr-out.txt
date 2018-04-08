@@ -1,3 +1,7 @@
 <test/ugly/expr-in.c:8:10:space>: Unexpected whitespace before '['.
 <test/ugly/expr-in.c:8:12:space>: Unexpected whitespace after '['.
 <test/ugly/expr-in.c:8:14:space>: Unexpected whitespace before ']'.
+<test/ugly/expr-in.c:14:30:<num>:2>: Whitespace expected after binary operator.
+<test/ugly/expr-in.c:17:45:space>: Unexpected whitespace before '['.
+<test/ugly/expr-in.c:20:27:id:b>: Whitespace expected after binary operator.
+<test/ugly/expr-in.c:23:24-28:id:foo_t>: Expected space before declarator.

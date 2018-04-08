@@ -621,13 +621,55 @@ error:
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
+static int parser_process_eparexpr(parser_t *parser, ast_node_t **rexpr)
 {
 	ast_eparen_t *eparen = NULL;
 	ast_node_t *bexpr = NULL;
-	parser_t *sparser = NULL;
 	void *dlparen;
 	void *drparen;
+	int rc;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &bexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	/* Parenthesized expression */
+	rc = ast_eparen_create(&eparen);
+	if (rc != EOK)
+		goto error;
+
+	eparen->tlparen.data = dlparen;
+	eparen->bexpr = bexpr;
+	eparen->trparen.data = drparen;
+	*rexpr = &eparen->node;
+
+	return EOK;
+error:
+	if (eparen != NULL)
+		ast_tree_destroy(&eparen->node);
+	if (bexpr != NULL)
+		ast_tree_destroy(bexpr);
+	return rc;
+}
+
+/** Parse expression beginning with left parenthesis.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
+{
+	parser_t *sparser = NULL;
 	int rc;
 
 	rc = parser_create_silent_sub(parser, &sparser);
@@ -660,36 +702,14 @@ static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
 
 	parser_destroy(sparser);
 
-	/* Try parsing the statement as an expression */
+	/* Try parsing the as an expression in parentheses */
 
-	rc = parser_match(parser, ltt_lparen, &dlparen);
+	rc = parser_process_eparexpr(parser, rexpr);
 	if (rc != EOK)
 		goto error;
-
-	rc = parser_process_expr(parser, &bexpr);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_match(parser, ltt_rparen, &drparen);
-	if (rc != EOK)
-		goto error;
-
-	/* Parenthesized expression */
-	rc = ast_eparen_create(&eparen);
-	if (rc != EOK)
-		goto error;
-
-	eparen->tlparen.data = dlparen;
-	eparen->bexpr = bexpr;
-	eparen->trparen.data = drparen;
-	*rexpr = &eparen->node;
 
 	return EOK;
 error:
-	if (eparen != NULL)
-		ast_tree_destroy(&eparen->node);
-	if (bexpr != NULL)
-		ast_tree_destroy(bexpr);
 	return rc;
 }
 
@@ -1000,6 +1020,83 @@ error:
 	return rc;
 }
 
+/** Parse sizeof operator expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_esizeof(parser_t *parser, ast_node_t **rexpr)
+{
+	lexer_toktype_t ltt;
+	ast_esizeof_t *esizeof = NULL;
+	ast_node_t *bexpr = NULL;
+	ast_typename_t *atypename = NULL;
+	parser_t *sparser;
+	void *dsizeof;
+	void *dlparen;
+	void *drparen;
+	int rc;
+
+	rc = ast_esizeof_create(&esizeof);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_sizeof, &dsizeof);
+	if (rc != EOK)
+		goto error;
+
+	esizeof->tsizeof.data = dsizeof;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lparen) {
+		rc = parser_create_silent_sub(parser, &sparser);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_eparexpr(sparser, &bexpr);
+		if (rc == EOK) {
+			parser->tok = sparser->tok;
+			parser_destroy(sparser);
+			esizeof->bexpr = bexpr;
+		} else {
+			parser_skip(parser, &dlparen);
+			parser_destroy(sparser);
+
+			rc = parser_process_typename(parser, &atypename);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_rparen, &drparen);
+			if (rc != EOK)
+				goto error;
+
+			esizeof->tlparen.data = dlparen;
+			esizeof->atypename = atypename;
+			esizeof->trparen.data = drparen;
+		}
+	} else {
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		esizeof->tsizeof.data = dsizeof;
+		esizeof->bexpr = bexpr;
+	}
+
+	*rexpr = &esizeof->node;
+	return EOK;
+error:
+	if (bexpr != NULL)
+		ast_tree_destroy(bexpr);
+	if (atypename != NULL)
+		ast_tree_destroy(&atypename->node);
+	if (esizeof != NULL)
+		ast_tree_destroy(&esizeof->node);
+	return rc;
+}
+
 /** Parse prefix operator expression.
  *
  * @param parser Parser
@@ -1016,13 +1113,8 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 	ast_ebnot_t *ebnot;
 	ast_ederef_t *ederef;
 	ast_eaddr_t *eaddr;
-	ast_esizeof_t *esizeof = NULL;
 	ast_node_t *bexpr = NULL;
-	ast_typename_t *atypename = NULL;
-	parser_t *sparser;
 	void *dop;
-	void *dlparen;
-	void *drparen;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
@@ -1123,46 +1215,9 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 		*rexpr = &eaddr->node;
 		break;
 	case ltt_sizeof:
-		parser_skip(parser, &dop);
-
-		rc = parser_create_silent_sub(parser, &sparser);
+		rc = parser_process_esizeof(parser, rexpr);
 		if (rc != EOK)
 			goto error;
-
-		rc = ast_esizeof_create(&esizeof);
-		if (rc != EOK)
-			goto error;
-
-		esizeof->tsizeof.data = dop;
-
-		rc = parser_process_eprefix(sparser, &bexpr);
-		if (rc != EOK) {
-			rc = parser_match(parser, ltt_lparen, &dlparen);
-			if (rc != EOK)
-				goto error;
-
-			rc = parser_process_typename(parser, &atypename);
-			if (rc != EOK)
-				goto error;
-
-			rc = parser_match(parser, ltt_rparen, &drparen);
-			if (rc != EOK)
-				goto error;
-
-			esizeof->tlparen.data = dlparen;
-			esizeof->atypename = atypename;
-			esizeof->trparen.data = drparen;
-		} else {
-			parser->tok = sparser->tok;
-			parser_destroy(sparser);
-
-			esizeof->bexpr = bexpr;
-		}
-
-		esizeof->tlparen.data = dlparen;
-		esizeof->bexpr = bexpr;
-		esizeof->trparen.data = drparen;
-		*rexpr = &esizeof->node;
 		break;
 	default:
 		return parser_process_epostfix(parser, rexpr);
@@ -1172,10 +1227,6 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 error:
 	if (bexpr != NULL)
 		ast_tree_destroy(bexpr);
-	if (esizeof != NULL)
-		ast_tree_destroy(&esizeof->node);
-	if (atypename != NULL)
-		ast_tree_destroy(&atypename->node);
 	return rc;
 }
 
