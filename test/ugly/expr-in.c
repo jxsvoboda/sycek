@@ -1,3 +1,8 @@
+
+/* Initialization '=' at beginning of a line */
+int e
+    = f + g;
+
 int main(void)
 {
 	/*
@@ -21,4 +26,12 @@ int main(void)
 
 	/* Type name */
 	int d = sizeof(foo_t*);
+
+	/* Binary operator at the beginning of a line */
+	a = b
+	    + c;
+
+	/* Initialization '=' at beginning of a line */
+	int e
+	    = f + g;
 }

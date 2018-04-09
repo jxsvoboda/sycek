@@ -338,6 +338,26 @@ static bool checker_is_tok_lbegin(checker_tok_t *tok)
 	return false;
 }
 
+/** Get preceding newline token.
+ *
+ * @param tok Checker token
+ * @return Preceding newline token or @c NULL
+ */
+static checker_tok_t *checker_prev_newline(checker_tok_t *tok)
+{
+	checker_tok_t *p;
+
+	p = checker_prev_tok(tok);
+	while (p != NULL) {
+		if (p->tok.ttype == ltt_newline)
+			return p;
+
+		p = checker_prev_tok(p);
+	}
+
+	return NULL;
+}
+
 /** Prepend a new whitespace token before a token in the source code.
  *
  * @param tok Token before which to prepend
@@ -753,6 +773,49 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 				return rc;
 		} else {
 			lexer_dprint_tok(&p->tok, stdout);
+			printf(": %s\n", msg);
+		}
+	}
+
+	return EOK;
+}
+
+/** Check that binary operator is not at the beginning of a line.
+ *
+ * There should be a single space before the token
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
+ */
+static int checker_check_binop_not_lbegin(checker_scope_t *scope,
+    checker_tok_t *tok, const char *msg)
+{
+	checker_tok_t *p;
+	int rc;
+
+	checker_check_any(scope, tok);
+
+	if (checker_is_tok_lbegin(tok)) {
+		if (scope->fix) {
+			p = checker_prev_newline(tok);
+			assert(p != NULL);
+
+			checker_remove_ws_after(tok);
+			checker_remove_ws_before(p);
+
+			/* Move operator before the preceding line break */
+			list_remove(&tok->ltoks);
+			list_insert_before(&tok->ltoks, &p->ltoks);
+
+			/* Prepend a single space */
+			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": %s\n", msg);
 		}
 	}
@@ -2157,15 +2220,26 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist)
 
 		if (entry->have_init) {
 			tassign = (checker_tok_t *)entry->tassign.data;
-			rc = checker_check_nbspace_before(scope, tassign,
-			    "Single space expected before '='.");
-			if (rc != EOK)
-				goto error;
 
-			rc = checker_check_brkspace_after(scope, tassign,
-			    "Whitespace expected after '='.");
-			if (rc != EOK)
-				goto error;
+			if (checker_is_tok_lbegin(tassign)) {
+				rc = checker_check_binop_not_lbegin(
+				    scope, tassign,
+				    "'=' at beginning of line.");
+				if (rc != EOK)
+					return rc;
+			} else {
+				rc = checker_check_nbspace_before(
+				    scope, tassign,
+				    "Single space expected before '='.");
+				if (rc != EOK)
+					goto error;
+
+				rc = checker_check_brkspace_after(
+				    scope, tassign,
+				    "Whitespace expected after '='.");
+				if (rc != EOK)
+					goto error;
+			}
 
 			rc = checker_check_init(scope, entry->init);
 			if (rc != EOK)
@@ -3117,15 +3191,22 @@ static int checker_check_ebinop(checker_scope_t *scope, ast_ebinop_t *ebinop)
 
 	top = (checker_tok_t *) ebinop->top.data;
 
-	rc = checker_check_nbspace_before(scope, top,
-	    "Single space expected before binary operator.");
-	if (rc != EOK)
-		return rc;
+	if (checker_is_tok_lbegin(top)) {
+		rc = checker_check_binop_not_lbegin(scope, top,
+		    "Binary operator at beginning of line.");
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = checker_check_nbspace_before(scope, top,
+		    "Single space expected before binary operator.");
+		if (rc != EOK)
+			return rc;
 
-	rc = checker_check_brkspace_after(scope, top,
-	    "Whitespace expected after binary operator.");
-	if (rc != EOK)
-		return rc;
+		rc = checker_check_brkspace_after(scope, top,
+		    "Whitespace expected after binary operator.");
+		if (rc != EOK)
+			return rc;
+	}
 
 	rc = checker_check_expr(scope, ebinop->rarg);
 	if (rc != EOK)
