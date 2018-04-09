@@ -709,8 +709,8 @@ static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 		ltt = ltt_charlit;
 		break;
 	case 'L':
-		assert(p[1] == '\'');
-		delim = '\'';
+		assert(p[1] == '\'' || p[1] == '"');
+		delim = p[1];
 		ltt = ltt_charlit;
 		break;
 	case '"':
@@ -924,7 +924,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	case '?':
 		return lexer_onechar(lexer, ltt_qmark, tok);
 	case 'L':
-		if (p[1] == '\'')
+		if (p[1] == '\'' || p[1] == '"')
 			return lexer_charstr(lexer, tok);
 		return lexer_ident(lexer, tok);
 	case '~':
