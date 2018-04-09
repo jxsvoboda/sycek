@@ -8,3 +8,5 @@
 <test/ugly/expr-in.c:28:24-28:id:foo_t>: Expected space before declarator.
 <test/ugly/expr-in.c:32:13:+>: Binary operator at beginning of line.
 <test/ugly/expr-in.c:36:13:=>: '=' at beginning of line.
+<test/ugly/expr-in.c:40:13:?>: Ternary '?' at beginning of line.
+<test/ugly/expr-in.c:41:13::>: Ternary ':' at beginning of line.

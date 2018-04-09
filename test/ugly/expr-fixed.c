@@ -27,11 +27,16 @@ int main(void)
 	/* Type name */
 	int d = sizeof(foo_t *);
 
-	/* Binary operator at the beginning of a line */
+	/* Binary operator at beginning of line */
 	a = b +
 	    c;
 
-	/* Initialization '=' at beginning of a line */
+	/* Initialization '=' at beginning of line */
 	int e =
 	    f + g;
+
+	/* Ternary conditional : and ? at beginning of line */
+	int f = g ?
+	    h :
+	    i;
 }

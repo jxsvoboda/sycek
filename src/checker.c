@@ -3234,15 +3234,22 @@ static int checker_check_etcond(checker_scope_t *scope, ast_etcond_t *etcond)
 
 	tqmark = (checker_tok_t *) etcond->tqmark.data;
 
-	rc = checker_check_nbspace_before(scope, tqmark,
-	    "Single space expected before '?'.");
-	if (rc != EOK)
-		return rc;
+	if (checker_is_tok_lbegin(tqmark)) {
+		rc = checker_check_binop_not_lbegin(scope, tqmark,
+		    "Ternary '?' at beginning of line.");
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = checker_check_nbspace_before(scope, tqmark,
+		    "Single space expected before '?'.");
+		if (rc != EOK)
+			return rc;
 
-	rc = checker_check_brkspace_after(scope, tqmark,
-	    "Whitespace expected after '?'.");
-	if (rc != EOK)
-		return rc;
+		rc = checker_check_brkspace_after(scope, tqmark,
+		    "Whitespace expected after '?'.");
+		if (rc != EOK)
+			return rc;
+	}
 
 	rc = checker_check_expr(scope, etcond->targ);
 	if (rc != EOK)
@@ -3250,15 +3257,22 @@ static int checker_check_etcond(checker_scope_t *scope, ast_etcond_t *etcond)
 
 	tcolon = (checker_tok_t *) etcond->tcolon.data;
 
-	rc = checker_check_nbspace_before(scope, tcolon,
-	    "Single space expected before ':'.");
-	if (rc != EOK)
-		return rc;
+	if (checker_is_tok_lbegin(tcolon)) {
+		rc = checker_check_binop_not_lbegin(scope, tcolon,
+		    "Ternary ':' at beginning of line.");
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = checker_check_nbspace_before(scope, tcolon,
+		    "Single space expected before ':'.");
+		if (rc != EOK)
+			return rc;
 
-	rc = checker_check_brkspace_after(scope, tcolon,
-	    "Whitespace expected after ':'.");
-	if (rc != EOK)
-		return rc;
+		rc = checker_check_brkspace_after(scope, tcolon,
+		    "Whitespace expected after ':'.");
+		if (rc != EOK)
+			return rc;
+	}
 
 	rc = checker_check_expr(scope, etcond->farg);
 	if (rc != EOK)
