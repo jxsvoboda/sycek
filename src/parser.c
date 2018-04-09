@@ -2942,20 +2942,22 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 
 	ltt = parser_next_ttype(parser);
 
-	rc = parser_process_expr(sparser, &linit);
+	/* Try parsing as a declaration */
+	rc = parser_process_dspecs(sparser, 0, NULL, &dspecs);
+	if (rc == EOK)
+		rc = parser_process_idlist(sparser, ast_abs_disallow, &idlist);
+
 	if (rc == EOK) {
+		/* Success */
 		parser->tok = sparser->tok;
 		parser_destroy(sparser);
 		sparser = NULL;
 	} else if (ltt != ltt_scolon) {
+		/* Not successful. Try parsing as an expression */
 		parser_destroy(sparser);
 		sparser = NULL;
 
-		rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_process_idlist(parser, ast_abs_disallow, &idlist);
+		rc = parser_process_expr(parser, &linit);
 		if (rc != EOK)
 			goto error;
 	}

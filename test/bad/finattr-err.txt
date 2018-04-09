@@ -1,1 +1,1 @@
-Error: <test/bad/finattr-in.c:4:15-27:__attribute__> unexpected, expected ';'.
+Error: <test/bad/finattr-in.c:9:15-27:__attribute__> unexpected, expected ';'.
