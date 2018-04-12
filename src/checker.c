@@ -40,7 +40,7 @@ static void *checker_parser_next_tok(void *, void *);
 static void *checker_parser_tok_data(void *, void *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_dlist(checker_scope_t *, ast_dlist_t *);
-static int checker_check_idlist(checker_scope_t *, ast_idlist_t *);
+static int checker_check_idlist(checker_scope_t *, ast_idlist_t *, bool);
 static int checker_check_dspecs(checker_scope_t *, ast_dspecs_t *);
 static int checker_check_tspec(checker_scope_t *, ast_node_t *);
 static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
@@ -1588,7 +1588,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 				return rc;
 		}
 
-		rc = checker_check_idlist(scope, afor->idlist);
+		rc = checker_check_idlist(scope, afor->idlist, false);
 		if (rc != EOK)
 			return rc;
 	}
@@ -1812,7 +1812,7 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 			goto error;
 	}
 
-	rc = checker_check_idlist(scope, stdecln->idlist);
+	rc = checker_check_idlist(scope, stdecln->idlist, false);
 	if (rc != EOK)
 		goto error;
 
@@ -1972,7 +1972,8 @@ static int checker_check_dptr(checker_scope_t *scope, ast_dptr_t *dptr)
 	int rc;
 
 	tasterisk = (checker_tok_t *)dptr->tasterisk.data;
-	checker_check_nows_after(scope, tasterisk,
+	/* XXX Should be nows */
+	checker_check_nsbrk_after(scope, tasterisk,
 	    "Unexpected whitespace after '*'.");
 
 	rc = checker_check_tqlist(scope, dptr->tqlist);
@@ -2177,13 +2178,68 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	return EOK;
 }
 
+/** If declaration is a function identifier, verify its position.
+ *
+ * This is called only for top-level definitions. If @a decl is
+ * a function declarator (possibly inside pointer declarators),
+ * and it is at the beginning of a line, we must do something.
+ *
+ * Currently we allow it to be at the beginning of a line.
+ * XXX Remove the line-break and re-wrap the function header
+ *
+ * @param scope Checker scope
+ * @param decl Declarator
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_fun_ident(checker_scope_t *scope, ast_node_t *decl)
+{
+	ast_node_t *n;
+	ast_dptr_t *dptr;
+	ast_tok_t *atok;
+	checker_tok_t *tok;
+
+	(void) scope;
+
+	/*
+	 * Dig inside pointer declarator -- allow * on one line and
+	 * identifier on the other.
+	 */
+	n = decl;
+	while (n->ntype == ant_dptr) {
+		dptr = (ast_dptr_t *)n->ext;
+		if (ast_tqlist_first(dptr->tqlist) != NULL)
+			break;
+
+		n = dptr->bdecl;
+	}
+
+	if (n->ntype == ant_dfun) {
+		atok = ast_tree_first_tok(n);
+		tok = (checker_tok_t *)atok->data;
+
+		/*
+		 * XXX Should re-wrap the entire function header
+		 * if the function identifier is on a new line.
+		 * When fixed, also fix checker_check_dptr()
+		 * to not allow break after '*'
+		 */
+		if (checker_is_tok_lbegin(tok))
+			tok->lbegin = true;
+	}
+
+	return EOK;
+}
+
 /** Run checks on an init-declarator list.
  *
  * @param scope Checker scope
  * @param dlist AST declarator list
+ * @param toplevem @c true if the list is part of a top-level declaration
  * @return EOK on success or error code
  */
-static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist)
+static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist,
+    bool toplevel)
 {
 	ast_idlist_entry_t *entry;
 	checker_tok_t *tcomma;
@@ -2205,6 +2261,16 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist)
 		rc = checker_check_decl(scope, entry->decl);
 		if (rc != EOK)
 			return rc;
+
+		if (toplevel) {
+			/*
+			 * If this is a function declaration, check its
+			 * formatting
+			 */
+			rc = checker_check_fun_ident(scope, entry->decl);
+			if (rc != EOK)
+				return rc;
+		}
 
 		if (entry->regassign != NULL) {
 			rc = checker_check_regassign(scope, entry->regassign);
@@ -4068,7 +4134,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 			goto error;
 	}
 
-	rc = checker_check_idlist(scope, gdecln->idlist);
+	rc = checker_check_idlist(scope, gdecln->idlist, true);
 	if (rc != EOK)
 		goto error;
 
