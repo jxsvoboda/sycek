@@ -4571,14 +4571,17 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 			}
 		}
 
-		/* Skip newline */
+#if 0
+		/* Check for overlong lines */
 		if (tok->tok.bpos.col > 1 + line_length_limit) {
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": Line too long (%zu characters above %u "
 			    "character limit)\n", tok->tok.bpos.col -
 			    line_length_limit - 1, line_length_limit);
 		}
+#endif
 
+		/* Skip newline */
 		if (tok->tok.ttype != ltt_eof)
 			tok = checker_next_tok(tok);
 	}
