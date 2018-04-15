@@ -1,0 +1,6 @@
+*.o
+ccheck
+test/all.diff
+test/test-int.out
+test/*/*.c.diff
+test/*/*.txt.diff

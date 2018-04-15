@@ -58,7 +58,8 @@ test_ugly_fixed_diffs = $(test_ugly_ins:-in.c=-fixed.c.diff)
 test_ugly_out_diffs = $(test_ugly_ins:-in.c=-out.txt.diff)
 test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
-    $(test_ugly_err_diffs) $(test_ugly_out_diffs) test/all.diff test-int.out
+    $(test_ugly_err_diffs) $(test_ugly_out_diffs) test/all.diff \
+    test/test-int.out
 
 all: $(binary)
 
@@ -105,14 +106,14 @@ test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
 	cat $^ > $@
 
 # Run internal unit tests
-test-int.out: $(ccheck)
-	$(ccheck) --test >test-int.out
+test/test-int.out: $(ccheck)
+	$(ccheck) --test >test/test-int.out
 
 #
 # Note that if any of the diffs is not empty, that diff command will
 # return non-zero exit code, failing the make
 #
-test: test-int.out test/all.diff
+test: test/test-int.out test/all.diff
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
