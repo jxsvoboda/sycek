@@ -9,3 +9,22 @@ int c = sizeof(a * b);
 
 /* Type name */
 int d = sizeof(foo_t *);
+
+int main(void)
+{
+	/* Break allowed after '[' */
+	int i = foo[
+	    bar];
+
+	/* Break allowed after '(' */
+	int i = fun(
+	    bar);
+
+	/* Break allowed after '->' */
+	int i = ptr->
+	    member;
+
+	/* Break allowed after '.' */
+	int i = rec.
+	    member;
+}

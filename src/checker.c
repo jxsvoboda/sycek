@@ -1116,7 +1116,7 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 		goto error;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "Unexpected whitespace after '('.");
+	    "Unexpected space after '('.");
 
 	rc = checker_check_expr(scope, aasm->atemplate);
 	if (rc != EOK)
@@ -1337,7 +1337,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "There must not be space after '('.");
+	    "Unexpected space after '('.");
 
 	rc = checker_check_expr(scope, aif->cond);
 	if (rc != EOK)
@@ -1383,7 +1383,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 			return rc;
 
 		checker_check_nsbrk_after(scope, tlparen,
-		    "There must not be space after '('.");
+		    "Unexpected space after '('.");
 
 		rc = checker_check_expr(scope, elseif->cond);
 		if (rc != EOK)
@@ -1452,7 +1452,7 @@ static int checker_check_while(checker_scope_t *scope, ast_while_t *awhile)
 		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "There must not be space after '('.");
+	    "Unexpected space after '('.");
 
 	rc = checker_check_expr(scope, awhile->cond);
 	if (rc != EOK)
@@ -1517,7 +1517,7 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "There must not be space after '('.");
+	    "Unexpected space after '('.");
 
 	rc = checker_check_expr(scope, ado->cond);
 	if (rc != EOK)
@@ -1566,7 +1566,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "There must not be space after '('.");
+	    "Unexpected space after '('.");
 
 	if (afor->linit != NULL) {
 		rc = checker_check_expr(scope, afor->linit);
@@ -1658,7 +1658,7 @@ static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
 		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "There must not be space after '('.");
+	    "Unexpected space after '('.");
 
 	rc = checker_check_expr(scope, aswitch->sexpr);
 	if (rc != EOK)
@@ -2006,7 +2006,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 
 	tlparen = (checker_tok_t *)dfun->tlparen.data;
 	checker_check_nsbrk_after(scope, tlparen,
-	    "Unexpected space or tab after '('.");
+	    "There mustnot be space after '('.");
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
@@ -2417,7 +2417,7 @@ static int checker_check_regassign(checker_scope_t *scope,
 		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
-	    "There must not be space after '('.");
+	    "Unexpected space after '('.");
 
 	checker_check_any(scope, treg);
 
@@ -3402,7 +3402,7 @@ static int checker_check_ecall(checker_scope_t *scope,
 
 	tlparen = (checker_tok_t *) ecall->tlparen.data;
 	checker_check_nsbrk_after(scope, tlparen,
-	    "Unexpected whitespace after '('.");
+	    "Unexpected space after '('.");
 
 	arg = ast_ecall_first(ecall);
 	while (arg != NULL) {
@@ -3462,8 +3462,8 @@ static int checker_check_eindex(checker_scope_t *scope,
 	tlbracket = (checker_tok_t *) eindex->tlbracket.data;
 	checker_check_nows_before(scope, tlbracket,
 	    "Unexpected whitespace before '['.");
-	checker_check_nows_after(scope, tlbracket,
-	    "Unexpected whitespace after '['.");
+	checker_check_nsbrk_after(scope, tlbracket,
+	    "Unexpected space after '['.");
 
 	rc = checker_check_expr(scope, eindex->iexpr);
 	if (rc != EOK)
@@ -3688,7 +3688,7 @@ static int checker_check_emember(checker_scope_t *scope, ast_emember_t *emember)
 	checker_check_nows_before(scope, tperiod,
 	    "Unexpected whitespace before '.'.");
 	checker_check_nsbrk_after(scope, tperiod,
-	    "Unexpected whitespace after '.'.");
+	    "Unexpected space after '.'.");
 
 	tmember = (checker_tok_t *) emember->tmember.data;
 	checker_check_any(scope, tmember);
@@ -3719,7 +3719,7 @@ static int checker_check_eindmember(checker_scope_t *scope,
 	checker_check_nows_before(scope, tarrow,
 	    "Unexpected whitespace before '->'.");
 	checker_check_nsbrk_after(scope, tarrow,
-	    "Unexpected whitespace after '->'.");
+	    "Unexpected space after '->'.");
 
 	tmember = (checker_tok_t *) eindmember->tmember.data;
 	checker_check_any(scope, tmember);

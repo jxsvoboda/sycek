@@ -1,6 +1,6 @@
 <test/ugly/expr-in.c:4:5:=>: '=' at beginning of line.
 <test/ugly/expr-in.c:13:10:space>: Unexpected whitespace before '['.
-<test/ugly/expr-in.c:13:12:space>: Unexpected whitespace after '['.
+<test/ugly/expr-in.c:13:12:space>: Unexpected space after '['.
 <test/ugly/expr-in.c:13:14:space>: Unexpected whitespace before ']'.
 <test/ugly/expr-in.c:19:30:<num>:2>: Whitespace expected after binary operator.
 <test/ugly/expr-in.c:22:45:space>: Unexpected whitespace before '['.
