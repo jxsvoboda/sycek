@@ -379,7 +379,7 @@ static int checker_prepend_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
 	t.ttype = ltt;
 	t.text = dtext;
 	t.text_size = strlen(dtext);
-	t.udata = (void *) ctok;
+	t.udata = NULL;
 
 	rc = checker_tok_new(&t, &ctok);
 	if (rc != EOK) {
@@ -414,7 +414,7 @@ static int checker_append_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
 	t.ttype = ltt;
 	t.text = dtext;
 	t.text_size = strlen(dtext);
-	t.udata = (void *) ctok;
+	t.udata = NULL;
 
 	rc = checker_tok_new(&t, &ctok);
 	if (rc != EOK) {
@@ -1184,6 +1184,7 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
 
+	checker_scope_destroy(siscope);
 	return EOK;
 error:
 	if (siscope != NULL)

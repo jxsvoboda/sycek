@@ -271,6 +271,8 @@ static int ast_sclass_print(ast_sclass_t *sclass, FILE *f)
 	const char *s;
 
 	s = "<invalid>";
+	(void) s; /* for Clang analyzer */
+
 	switch (sclass->sctype) {
 	case asc_typedef:
 		s = "typedef";
@@ -4394,20 +4396,21 @@ static int ast_estring_print(ast_estring_t *estring, FILE *f)
 		return EIO;
 
 	lit = ast_estring_first(estring);
-	if (lit != NULL) {
+	while (lit != NULL) {
 		if (fprintf(f, "lit") < 0)
 			return EIO;
-	}
 
-	lit = ast_estring_next(lit);
-	while (lit != NULL) {
-		if (fprintf(f, ", lit") < 0)
-			return EIO;
 		lit = ast_estring_next(lit);
+
+		if (lit != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
 	}
 
 	if (fprintf(f, ")") < 0)
 		return EIO;
+
 	return EOK;
 }
 
@@ -4704,20 +4707,21 @@ static int ast_econcat_print(ast_econcat_t *econcat, FILE *f)
 		return EIO;
 
 	elem = ast_econcat_first(econcat);
-	if (elem != NULL) {
+	while (elem != NULL) {
 		if (fprintf(f, "elem") < 0)
 			return EIO;
-	}
 
-	elem = ast_econcat_next(elem);
-	while (elem != NULL) {
-		if (fprintf(f, ", elem") < 0)
-			return EIO;
 		elem = ast_econcat_next(elem);
+
+		if (elem != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+		}
 	}
 
 	if (fprintf(f, ")") < 0)
 		return EIO;
+
 	return EOK;
 }
 
@@ -5115,6 +5119,7 @@ ast_ecall_arg_t *ast_ecall_next(ast_ecall_arg_t *arg)
 static int ast_ecall_print(ast_ecall_t *ecall, FILE *f)
 {
 	int rc;
+	ast_ecall_arg_t *arg;
 
 	(void) ecall;
 
@@ -5125,8 +5130,21 @@ static int ast_ecall_print(ast_ecall_t *ecall, FILE *f)
 	if (rc != EOK)
 		return rc;
 
+	arg = ast_ecall_first(ecall);
+	while (arg != NULL) {
+		if (fprintf(f, ", ") < 0)
+			return EIO;
+
+		rc = ast_tree_print(arg->arg, f);
+		if (rc != EOK)
+			return rc;
+
+		arg = ast_ecall_next(arg);
+	}
+
 	if (fprintf(f, ")") < 0)
 		return EIO;
+
 	return EOK;
 }
 
@@ -6303,7 +6321,7 @@ int ast_cinit_elem_append_index(ast_cinit_elem_t *elem, void *dlbracket,
 	ast_cinit_acc_t *acc;
 
 	acc = calloc(1, sizeof(ast_cinit_acc_t));
-	if (elem == NULL)
+	if (acc == NULL)
 		return ENOMEM;
 
 	acc->atype = aca_index;
@@ -7269,6 +7287,8 @@ static int ast_if_print(ast_if_t *aif, FILE *f)
 	if (fprintf(f, "if(") < 0)
 		return EIO;
 	rc = ast_tree_print(aif->cond, f);
+	if (rc != EOK)
+		return rc;
 	if (fprintf(f, ",") < 0)
 		return EIO;
 	if (fprintf(f, ",") < 0)
