@@ -187,7 +187,6 @@ static char *lexer_chars(lexer_t *lexer)
 		lexer->buf_pos = 0;
 		/* XX Advance lexer->buf_bpos */
 
-//		printf("Read input\n");
 		rc = lexer->input_ops->read(lexer->input_arg, lexer->buf +
 		    lexer->buf_used, lexer_buf_size - lexer->buf_used,
 		    &nread, &rpos);
@@ -203,7 +202,6 @@ static char *lexer_chars(lexer_t *lexer)
 		lexer->buf_used += nread;
 		if (lexer->buf_used < lexer_buf_size)
 			lexer->buf[lexer->buf_used] = '\0';
-//		printf("Read input done\n");
 	}
 
 	return lexer->buf + lexer->buf_pos;
@@ -820,7 +818,6 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	memset(tok, 0, sizeof(lexer_tok_t));
 
 	p = lexer_chars(lexer);
-//	printf("*p=%c\n", p[0]);
 	if (p[0] == '\0')
 		return lexer_eof(lexer, tok);
 

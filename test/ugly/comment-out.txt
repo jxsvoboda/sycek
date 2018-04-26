@@ -1,0 +1,4 @@
+<test/ugly/comment-in.c:8:1-40:dscomment>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:12:9-57:dscomment>: Wrong indentation: found 1 tabs, should be 0 tabs
+<test/ugly/comment-in.c:15:1-58:dscomment>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:18:1-63:dscomment>: Wrong indentation: found 0 tabs, should be 1 tabs

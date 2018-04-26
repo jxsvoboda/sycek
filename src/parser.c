@@ -240,11 +240,21 @@ static void parser_next_input_tok(parser_t *parser, void *itok,
  */
 static lexer_toktype_t parser_next_ttype(parser_t *parser)
 {
-	lexer_tok_t tok;
+	lexer_tok_t ltok;
+	lexer_tok_t *ntok;
 
-	parser->input_ops->read_tok(parser->input_arg, parser->tok,
-	    parser->indlvl, &tok);
-	return tok.ttype;
+	ntok = parser->tok;
+	parser->input_ops->read_tok(parser->input_arg, ntok,
+	    parser->indlvl, &ltok);
+
+	while (parser_ttype_ignore(ltok.ttype)) {
+		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
+		parser->input_ops->read_tok(parser->input_arg, ntok,
+		    parser->indlvl, &ltok);
+	}
+
+	parser->tok = ntok;
+	return ltok.ttype;
 }
 
 /** Return type of next next token.
@@ -313,11 +323,9 @@ static void parser_skip(parser_t *parser, void **rdata)
 	parser->input_ops->read_tok(parser->input_arg, parser->tok,
 	    parser->indlvl, &tok);
 
-	do {
-		ntok = parser->input_ops->next_tok(parser->input_arg,
-		    parser->tok);
-		parser->tok = ntok;
-	} while (parser_ttype_ignore(parser_next_ttype(parser)));
+	ntok = parser->input_ops->next_tok(parser->input_arg,
+	    parser->tok);
+	parser->tok = ntok;
 }
 
 /** Match a particular token type.

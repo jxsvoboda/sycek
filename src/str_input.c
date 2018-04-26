@@ -45,9 +45,7 @@ static int str_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	size_t len;
 	size_t i;
 
-//	printf("str_lexer_read\n");
 	len = strlen(sinput->str + sinput->pos);
-//	printf("str_lexer_read: bsize=%zu len=%zu\n", bsize, len);
 	if (bsize < len)
 		len = bsize;
 

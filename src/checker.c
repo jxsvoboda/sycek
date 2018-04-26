@@ -4385,8 +4385,14 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	need_fix = false;
 
 	if (!need_fix && (lexer_is_wspace(tok->tok.ttype) ||
-	    tok->tok.ttype == ltt_comment || tok->tok.ttype == ltt_dscomment))
+	    tok->tok.ttype == ltt_comment))
 		return EOK;
+
+	if (tok->tok.ttype == ltt_dscomment) {
+		/* For comments, only the parser knows the indentation */
+		tok->indlvl = tok->pindlvl;
+		tok->lbegin = true;
+	}
 
 	/*
 	 * Preprocessor directives start at the beginning of a line
