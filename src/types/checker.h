@@ -42,8 +42,10 @@ typedef struct {
 	lexer_tok_t tok;
 	/** Checked: if true, indlvl, lbegin and seccont are valid */
 	bool checked;
-	/** Indentation level */
+	/** Indentation level assigned by checker */
 	unsigned indlvl;
+	/** Indentation level assigned by parser */
+	unsigned pindlvl;
 	/** Token is supposed to begin a new line */
 	bool lbegin;
 	/** Token, if begginning a line, is a secondary continuation */

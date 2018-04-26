@@ -60,12 +60,13 @@ static int parser_process_block(parser_t *, ast_block_t **);
  * @param ops Parser input ops
  * @param arg Argument to input ops
  * @param tok Starting token
+ * @param indlvl Indentation level
  * @param rparser Place to store pointer to new parser
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
-    parser_t **rparser)
+    unsigned indlvl, parser_t **rparser)
 {
 	parser_t *parser;
 	void *ntok;
@@ -77,12 +78,15 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
 
 	parser->input_ops = ops;
 	parser->input_arg = arg;
+	parser->indlvl = indlvl;
 
 	ntok = tok;
-	parser->input_ops->read_tok(parser->input_arg, ntok, &ltok);
+	parser->input_ops->read_tok(parser->input_arg, ntok, indlvl, &ltok);
+
 	while (parser_ttype_ignore(ltok.ttype)) {
 		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
-		parser->input_ops->read_tok(parser->input_arg, ntok, &ltok);
+		parser->input_ops->read_tok(parser->input_arg, ntok,
+		    indlvl, &ltok);
 	}
 
 	parser->tok = ntok;
@@ -91,7 +95,7 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
 	return EOK;
 }
 
-/** Create a silent clone parser.
+/** Create a silent sub-parser.
  *
  * Create a parser starting at the same point as @ a parent, but
  * with error messages disabled. This is used in cases where we must
@@ -106,12 +110,67 @@ static int parser_create_silent_sub(parser_t *parent, parser_t **rparser)
 	int rc;
 
 	rc = parser_create(parent->input_ops, parent->input_arg,
-	    parent->tok, rparser);
+	    parent->tok, parent->indlvl, rparser);
 	if (rc != EOK)
 		return rc;
 
 	(*rparser)->silent = true;
 	return EOK;
+}
+
+/** Create a indented sub-parser.
+ *
+ * Create a parser starting at the same point as @ a parent, but
+ * one indentation level deeper.
+ *
+ * @param parent Parser to clone
+ * @param rparser Place to store pointer to new parser
+ * @return EOK on success, or error code
+ */
+static int parser_create_indent_sub(parser_t *parent, parser_t **rparser)
+{
+	int rc;
+
+	rc = parser_create(parent->input_ops, parent->input_arg,
+	    parent->tok, parent->indlvl + 1, rparser);
+	if (rc != EOK)
+		return rc;
+
+	(*rparser)->silent = parent->silent;
+	return EOK;
+}
+
+/** Create a less indented sub-parser.
+ *
+ * Create a parser starting at the same point as @ a parent, but
+ * one indentation level less.
+ *
+ * @param parent Parser to clone
+ * @param rparser Place to store pointer to new parser
+ * @return EOK on success, or error code
+ */
+static int parser_create_invindent_sub(parser_t *parent, parser_t **rparser)
+{
+	int rc;
+
+	assert(parent->indlvl > 0);
+
+	rc = parser_create(parent->input_ops, parent->input_arg,
+	    parent->tok, parent->indlvl - 1, rparser);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Let parser follow up where a sub parser left off.
+ *
+ * @param sub Sub-parser (that finished)
+ * @param parent Parent parser (adjust pointer to follow up)
+ */
+static void parser_follow_up(parser_t *sub, parser_t *parent)
+{
+	parent->tok = sub->tok;
 }
 
 /** Destroy parser.
@@ -120,7 +179,8 @@ static int parser_create_silent_sub(parser_t *parent, parser_t **rparser)
  */
 void parser_destroy(parser_t *parser)
 {
-	free(parser);
+	if (parser != NULL)
+		free(parser);
 }
 
 /** Return @c true if token type is to be ignored when parsing.
@@ -166,7 +226,8 @@ static void parser_next_input_tok(parser_t *parser, void *itok,
 
 	do {
 		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
-		parser->input_ops->read_tok(parser->input_arg, ntok, rtok);
+		parser->input_ops->read_tok(parser->input_arg, ntok,
+		    parser->indlvl, rtok);
 	} while (parser_ttype_ignore(rtok->ttype));
 
 	*ritok = ntok;
@@ -181,7 +242,8 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
 {
 	lexer_tok_t tok;
 
-	parser->input_ops->read_tok(parser->input_arg, parser->tok, &tok);
+	parser->input_ops->read_tok(parser->input_arg, parser->tok,
+	    parser->indlvl, &tok);
 	return tok.ttype;
 }
 
@@ -210,7 +272,8 @@ static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
  */
 static void parser_read_next_tok(parser_t *parser, lexer_tok_t *tok)
 {
-	parser->input_ops->read_tok(parser->input_arg, parser->tok, tok);
+	parser->input_ops->read_tok(parser->input_arg, parser->tok,
+	    parser->indlvl, tok);
 }
 
 static int parser_dprint_next_tok(parser_t *parser, FILE *f)
@@ -241,9 +304,14 @@ static void *parser_get_tok_data(parser_t *parser, void *tok)
 static void parser_skip(parser_t *parser, void **rdata)
 {
 	void *ntok;
+	lexer_tok_t tok;
 
 	if (rdata != NULL)
 		*rdata = parser_get_tok_data(parser, parser->tok);
+
+	/* Make sure we update indlvl */
+	parser->input_ops->read_tok(parser->input_arg, parser->tok,
+	    parser->indlvl, &tok);
 
 	do {
 		ntok = parser->input_ops->next_tok(parser->input_arg,
@@ -1971,9 +2039,14 @@ static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 	void *dlbrace;
 	void *dcomma;
 	void *drbrace;
+	parser_t *iparser = NULL;
 	int rc;
 
 	rc = parser_match(parser, ltt_lbrace, &dlbrace);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_create_indent_sub(parser, &iparser);
 	if (rc != EOK)
 		goto error;
 
@@ -1983,15 +2056,15 @@ static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 
 	cinit->tlbrace.data = dlbrace;
 
-	ltt = parser_next_ttype(parser);
+	ltt = parser_next_ttype(iparser);
 	while (ltt != ltt_rbrace) {
-		rc = parser_process_cinit_elem(parser, cinit, &elem);
+		rc = parser_process_cinit_elem(iparser, cinit, &elem);
 		if (rc != EOK)
 			goto error;
 
-		ltt = parser_next_ttype(parser);
+		ltt = parser_next_ttype(iparser);
 		if (ltt == ltt_comma) {
-			parser_skip(parser, &dcomma);
+			parser_skip(iparser, &dcomma);
 			elem->have_comma = true;
 			elem->tcomma.data = dcomma;
 		} else {
@@ -2001,8 +2074,12 @@ static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 		if (ltt != ltt_comma)
 			break;
 
-		ltt = parser_next_ttype(parser);
+		ltt = parser_next_ttype(iparser);
 	}
+
+	parser_follow_up(iparser, parser);
+	parser_destroy(iparser);
+	iparser = NULL;
 
 	rc = parser_match(parser, ltt_rbrace, &drbrace);
 	if (rc != EOK)
@@ -2013,6 +2090,10 @@ static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 	*rcinit = cinit;
 	return EOK;
 error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
 	if (cinit != NULL)
 		ast_tree_destroy(&cinit->node);
 	return rc;
@@ -2771,6 +2852,7 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	void *dscolon;
 	ast_block_t *body = NULL;
 	ast_stnull_t *stnull = NULL;
+	parser_t *iparser = NULL;
 	int rc;
 
 	rc = parser_match(parser, ltt_while, &dwhile);
@@ -2792,7 +2874,15 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_scolon) {
 		/* Empty body */
-		parser_skip(parser, &dscolon);
+		rc = parser_create_indent_sub(parser, &iparser);
+		if (rc != EOK)
+			goto error;
+
+		parser_skip(iparser, &dscolon);
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		rc = ast_block_create(ast_nobraces, &body);
 		if (rc != EOK)
@@ -2825,6 +2915,11 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	*rwhile = &awhile->node;
 	return EOK;
 error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
+
 	if (cond != NULL)
 		ast_tree_destroy(cond);
 	if (body != NULL)
@@ -3094,19 +3189,28 @@ static int parser_process_clabel(parser_t *parser, ast_node_t **rclabel)
 	void *dcase;
 	ast_node_t *cexpr = NULL;
 	void *dcolon;
+	parser_t *iparser = NULL;
 	int rc;
 
-	rc = parser_match(parser, ltt_case, &dcase);
+	rc = parser_create_invindent_sub(parser, &iparser);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &cexpr);
+	rc = parser_match(iparser, ltt_case, &dcase);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_colon, &dcolon);
+	rc = parser_process_expr(iparser, &cexpr);
 	if (rc != EOK)
 		goto error;
+
+	rc = parser_match(iparser, ltt_colon, &dcolon);
+	if (rc != EOK)
+		goto error;
+
+	parser_follow_up(iparser, parser);
+	parser_destroy(iparser);
+	iparser = NULL;
 
 	rc = ast_clabel_create(&clabel);
 	if (rc != EOK)
@@ -3119,6 +3223,11 @@ static int parser_process_clabel(parser_t *parser, ast_node_t **rclabel)
 	*rclabel = &clabel->node;
 	return EOK;
 error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
+
 	if (cexpr != NULL)
 		ast_tree_destroy(cexpr);
 	return rc;
@@ -3136,15 +3245,24 @@ static int parser_process_glabel(parser_t *parser, ast_node_t **rglabel)
 	ast_glabel_t *glabel = NULL;
 	void *dlabel;
 	void *dcolon;
+	parser_t *iparser = NULL;
 	int rc;
 
-	rc = parser_match(parser, ltt_ident, &dlabel);
+	rc = parser_create_invindent_sub(parser, &iparser);
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_match(parser, ltt_colon, &dcolon);
+	rc = parser_match(iparser, ltt_ident, &dlabel);
 	if (rc != EOK)
 		goto error;
+
+	rc = parser_match(iparser, ltt_colon, &dcolon);
+	if (rc != EOK)
+		goto error;
+
+	parser_follow_up(iparser, parser);
+	parser_destroy(iparser);
+	iparser = NULL;
 
 	rc = ast_glabel_create(&glabel);
 	if (rc != EOK)
@@ -3156,6 +3274,11 @@ static int parser_process_glabel(parser_t *parser, ast_node_t **rglabel)
 	*rglabel = &glabel->node;
 	return EOK;
 error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
+
 	return rc;
 }
 
@@ -3374,6 +3497,7 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 	ast_block_t *block;
 	ast_braces_t braces;
 	ast_node_t *stmt;
+	parser_t *iparser = NULL;
 	void *dopen;
 	void *dclose;
 	int rc;
@@ -3389,15 +3513,23 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 	if (rc != EOK)
 		return rc;
 
+	rc = parser_create_indent_sub(parser, &iparser);
+	if (rc != EOK)
+		goto error;
+
 	if (braces == ast_braces) {
 		/* Brace-enclosed block */
-		while (parser_next_ttype(parser) != ltt_rbrace) {
-			rc = parser_process_stmt(parser, &stmt);
+		while (parser_next_ttype(iparser) != ltt_rbrace) {
+			rc = parser_process_stmt(iparser, &stmt);
 			if (rc != EOK)
 				goto error;
 
 			ast_block_append(block, stmt);
 		}
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		/* Skip closing brace */
 		parser_skip(parser, &dclose);
@@ -3405,16 +3537,22 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 		block->tclose.data = dclose;
 	} else {
 		/* Single statement */
-		rc = parser_process_stmt(parser, &stmt);
+		rc = parser_process_stmt(iparser, &stmt);
 		if (rc != EOK)
 			goto error;
 
 		ast_block_append(block, stmt);
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
 	}
 
 	*rblock = block;
 	return EOK;
 error:
+	if (iparser != NULL)
+		parser_follow_up(iparser, parser);
+	parser_destroy(iparser);
 	ast_tree_destroy(&block->node);
 	return rc;
 }
@@ -3643,6 +3781,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 	ast_dlist_t *dlist = NULL;
 	ast_aslist_t *aslist;
 	void *drbrace;
+	parser_t *iparser = NULL;
 	parser_t *sparser = NULL;
 	int rc;
 
@@ -3690,26 +3829,30 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 
 		precord->tlbrace.data = dlbrace;
 
-		ltt = parser_next_ttype(parser);
+		rc = parser_create_indent_sub(parser, &iparser);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(iparser);
 		while (ltt != ltt_rbrace) {
-			rc = parser_create_silent_sub(parser, &sparser);
+			rc = parser_create_silent_sub(iparser, &sparser);
 			if (rc != EOK)
 				goto error;
 
 			rc = parser_process_tsrecord_elem(sparser, precord);
 			if (rc == EOK) {
-				parser->tok = sparser->tok;
+				iparser->tok = sparser->tok;
 			} else {
-				sparser->tok = parser->tok;
+				sparser->tok = iparser->tok;
 
 				rc = parser_process_tsrecord_elem_mdecln(
 				    sparser, precord);
 				if (rc == EOK) {
-					parser->tok = sparser->tok;
+					iparser->tok = sparser->tok;
 				} else {
 					/* To get a good error message */
 					rc = parser_process_tsrecord_elem(
-					    parser, precord);
+					    iparser, precord);
 					if (rc != EOK)
 						goto error;
 				}
@@ -3718,8 +3861,12 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			parser_destroy(sparser);
 			sparser = NULL;
 
-			ltt = parser_next_ttype(parser);
+			ltt = parser_next_ttype(iparser);
 		}
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		rc = parser_match(parser, ltt_rbrace, &drbrace);
 		if (rc != EOK)
@@ -3745,6 +3892,10 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 error:
 	if (sparser != NULL)
 		parser_destroy(sparser);
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
 	if (precord != NULL)
 		ast_tree_destroy(&precord->node);
 	if (sqlist != NULL)
@@ -3773,6 +3924,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 	ast_node_t *init = NULL;
 	void *dcomma;
 	void *drbrace;
+	parser_t *iparser = NULL;
 	int rc;
 
 	rc = ast_tsenum_create(&penum);
@@ -3799,21 +3951,25 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 		parser_skip(parser, &dlbrace);
 		penum->tlbrace.data = dlbrace;
 
-		ltt = parser_next_ttype(parser);
+		rc = parser_create_indent_sub(parser, &iparser);
+		if (rc != EOK)
+			goto error;
+
+		ltt = parser_next_ttype(iparser);
 		while (ltt != ltt_rbrace) {
-			rc = parser_match(parser, ltt_ident, &delem);
+			rc = parser_match(iparser, ltt_ident, &delem);
 			if (rc != EOK)
 				goto error;
 
-			ltt = parser_next_ttype(parser);
+			ltt = parser_next_ttype(iparser);
 			if (ltt == ltt_assign) {
-				parser_skip(parser, &dequals);
+				parser_skip(iparser, &dequals);
 
 				/*
 				 * Initializer expression must not contain
 				 * a comma
 				 */
-				rc = parser_process_econcat(parser, &init);
+				rc = parser_process_econcat(iparser, &init);
 				if (rc != EOK)
 					goto error;
 			} else {
@@ -3821,9 +3977,9 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 				init = NULL;
 			}
 
-			ltt = parser_next_ttype(parser);
+			ltt = parser_next_ttype(iparser);
 			if (ltt == ltt_comma)
-				parser_skip(parser, &dcomma);
+				parser_skip(iparser, &dcomma);
 			else
 				dcomma = NULL;
 
@@ -3837,8 +3993,12 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 			if (ltt != ltt_comma)
 				break;
 
-			ltt = parser_next_ttype(parser);
+			ltt = parser_next_ttype(iparser);
 		}
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		rc = parser_match(parser, ltt_rbrace, &drbrace);
 		if (rc != EOK)
@@ -3850,6 +4010,11 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 	*rtype = &penum->node;
 	return EOK;
 error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
+
 	if (penum != NULL)
 		ast_tree_destroy(&penum->node);
 	if (init != NULL)

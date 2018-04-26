@@ -17,6 +17,10 @@ int main(void)
 	while (i < 10)
 		i++;
 
+	/* While loop with empty body */
+	while (true)
+		;
+
 	/* For loop */
 	for (i = 0; i < 10; i++)
 		printf("%d\n", i);

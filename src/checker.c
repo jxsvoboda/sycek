@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void checker_parser_read_tok(void *, void *, lexer_tok_t *);
+static void checker_parser_read_tok(void *, void *, unsigned, lexer_tok_t *);
 static void *checker_parser_next_tok(void *, void *);
 static void *checker_parser_tok_data(void *, void *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
@@ -908,7 +908,7 @@ static int checker_module_parse(checker_module_t *mod)
 	int rc;
 
 	rc = parser_create(&checker_parser_input, &pinput,
-	    checker_module_first_tok(mod), &parser);
+	    checker_module_first_tok(mod), 0, &parser);
 	if (rc != EOK)
 		return rc;
 
@@ -1696,24 +1696,30 @@ static int checker_check_clabel(checker_scope_t *scope, ast_clabel_t *clabel)
 	--scope->indlvl;
 	rc = checker_check_lbegin(scope, tcase,
 	    "Case label must start on a new line.");
-	++scope->indlvl;
-	if (rc != EOK)
+	if (rc != EOK) {
+		++scope->indlvl;
 		return rc;
+	}
 
 	aexpr = ast_tree_first_tok(clabel->cexpr);
 	texpr = (checker_tok_t *) aexpr->data;
 
 	rc = checker_check_nbspace_before(scope, texpr,
 	    "There must be single space between 'case' and case expression.");
-	if (rc != EOK)
+	if (rc != EOK) {
+		++scope->indlvl;
 		return rc;
+	}
 
 	rc = checker_check_expr(scope, clabel->cexpr);
-	if (rc != EOK)
+	if (rc != EOK) {
+		++scope->indlvl;
 		return rc;
+	}
 
 	checker_check_nows_before(scope, tcolon,
 	    "Unexpected whitespace before ':'.");
+	++scope->indlvl;
 
 	return EOK;
 }
@@ -1737,12 +1743,14 @@ static int checker_check_glabel(checker_scope_t *scope, ast_glabel_t *glabel)
 	--scope->indlvl;
 	rc = checker_check_lbegin(scope, tlabel,
 	    "Label must start on a new line.");
-	++scope->indlvl;
-	if (rc != EOK)
+	if (rc != EOK) {
+		++scope->indlvl;
 		return rc;
+	}
 
 	checker_check_nows_before(scope, tcolon,
 	    "Unexpected whitespace before ':'.");
+	++scope->indlvl;
 
 	return EOK;
 }
@@ -4498,6 +4506,13 @@ static void checker_module_alltoks(checker_module_t *mod)
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(" Token not checked\n");
 		}
+
+		if (tok->indlvl != tok->pindlvl && !parser_ttype_ignore(tok->tok.ttype)) {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Indentation mismatch: parser %u, checker %u.\n",
+			    tok->pindlvl, tok->indlvl);
+		}
+
 		tok = checker_next_tok(tok);
 	}
 }
@@ -4682,15 +4697,17 @@ int checker_dump_ast(checker_t *checker, FILE *f)
  *
  * @param apinput Checker parser input (checker_parser_input_t *)
  * @param atok Checker token (checker_tok_t *)
+ * @param indlvl Indentation level to annotate the token with
  * @param ltok Place to store token
  */
 static void checker_parser_read_tok(void *apinput, void *atok,
-    lexer_tok_t *ltok)
+    unsigned indlvl, lexer_tok_t *ltok)
 {
 	checker_parser_input_t *pinput = (checker_parser_input_t *)apinput;
 	checker_tok_t *tok = (checker_tok_t *)atok;
 
 	(void) pinput;
+	tok->pindlvl = indlvl;
 	*ltok = tok->tok;
 	/* Pass pointer to checker token down to checker_parser_tok_data */
 	ltok->udata = tok;
