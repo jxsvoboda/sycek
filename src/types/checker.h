@@ -50,6 +50,8 @@ typedef struct {
 	bool lbegin;
 	/** Token, if begginning a line, is a secondary continuation */
 	bool seccont;
+	/** Secondary continuation flag assigned by checker */
+	bool pseccont;
 } checker_tok_t;
 
 /** Checker module */

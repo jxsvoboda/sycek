@@ -41,7 +41,10 @@ typedef enum {
 	ltt_space,
 	ltt_tab,
 	ltt_newline,
-	ltt_comment,
+	ltt_copen,
+	ltt_ctext,
+	ltt_ccont,
+	ltt_cclose,
 	ltt_dscomment,
 	ltt_preproc,
 	ltt_lparen,
@@ -163,6 +166,13 @@ typedef struct {
 	int (*read)(void *, char *, size_t, size_t *, src_pos_t *);
 } lexer_input_ops_t;
 
+typedef enum {
+	/** Normal state */
+	ls_normal,
+	/** Comment state */
+	ls_comment
+} lexer_state_t;
+
 /** Lexer */
 typedef struct {
 	/** Input buffer */
@@ -181,6 +191,8 @@ typedef struct {
 	lexer_input_ops_t *input_ops;
 	/** Input argument */
 	void *input_arg;
+	/** State */
+	lexer_state_t state;
 } lexer_t;
 
 #endif

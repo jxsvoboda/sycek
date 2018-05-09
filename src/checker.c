@@ -35,7 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void checker_parser_read_tok(void *, void *, unsigned, lexer_tok_t *);
+static void checker_parser_read_tok(void *, void *, unsigned, bool,
+    lexer_tok_t *);
 static void *checker_parser_next_tok(void *, void *);
 static void *checker_parser_tok_data(void *, void *);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
@@ -262,6 +263,22 @@ static checker_tok_t *checker_module_first_tok(checker_module_t *mod)
 	return list_get_instance(link, checker_tok_t, ltoks);
 }
 
+/** Get last token in a checker module.
+ *
+ * @param mod Checker module
+ * @return Last token or @c NULL if the list is empty
+ */
+static checker_tok_t *checker_module_last_tok(checker_module_t *mod)
+{
+	link_t *link;
+
+	link = list_last(&mod->toks);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, checker_tok_t, ltoks);
+}
+
 /** Get next token in a checker module
  *
  * @param tok Current token or @c NULL
@@ -310,11 +327,7 @@ static void checker_check_any(checker_scope_t *scope, checker_tok_t *tok)
 	tok->checked = true;
 	tok->indlvl = scope->indlvl;
 
-	if (!scope->secindent) {
-		tok->seccont = false;
-	} else {
-		tok->seccont = true;
-	}
+	tok->seccont = scope->secindent;
 }
 
 /** Determine if token is the first non-whitespace token on a line
@@ -493,12 +506,39 @@ static void checker_remove_ws_after(checker_tok_t *tok)
 	}
 }
 
+/** Mark preceding comments as not continuation.
+ *
+ * Start with @a tok and continue with preceding tokens (if they are
+ * whitespace, comment or preprocessor.
+ *
+ * @param tok Token to start before
+ */
+static void checker_prev_comments_nocont(checker_tok_t *tok)
+{
+	checker_tok_t *t;
+
+	t = checker_prev_tok(tok);
+	while (t != NULL && (lexer_is_wspace(t->tok.ttype) ||
+	    lexer_is_comment(t->tok.ttype) || t->tok.ttype == ltt_preproc)) {
+		if ((t->tok.ttype == ltt_copen || t->tok.ttype == ltt_ctext ||
+		    t->tok.ttype == ltt_cclose ||
+		    t->tok.ttype == ltt_dscomment) &&
+		    checker_is_tok_lbegin(t)) {
+			t->lbegin = true;
+		}
+
+		t = checker_prev_tok(t);
+	}
+}
+
 /** Check a token that must be at the beginning of the line.
  *
  * The token must be at the beginning of the line and indented appropriately.
  * This flags the token as having to begin on a new line so that we will
  * verify it later. That also signals the line begun by this token is
  * not a contination line.
+ *
+ * Furthermore, preceding comments are marked as not continuation.
  *
  * @param scope Checker scope
  * @param tok Token
@@ -540,6 +580,9 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 			printf(": %s\n", msg);
 		}
 	}
+
+	/* Mark preceding comments as not continuation */
+	checker_prev_comments_nocont(tok);
 
 	return EOK;
 }
@@ -708,6 +751,8 @@ static int checker_check_brkspace_before_nocont(checker_scope_t *scope,
 
 	if (checker_is_tok_lbegin(tok))
 		tok->lbegin = true;
+
+	checker_prev_comments_nocont(tok);
 
 	return EOK;
 }
@@ -908,7 +953,7 @@ static int checker_module_parse(checker_module_t *mod)
 	int rc;
 
 	rc = parser_create(&checker_parser_input, &pinput,
-	    checker_module_first_tok(mod), 0, &parser);
+	    checker_module_first_tok(mod), 0, false, &parser);
 	if (rc != EOK)
 		return rc;
 
@@ -4380,18 +4425,21 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 {
 	bool need_fix;
 	unsigned i;
+	unsigned req_spaces;
 	int rc;
 
 	need_fix = false;
 
-	if (!need_fix && (lexer_is_wspace(tok->tok.ttype) ||
-	    tok->tok.ttype == ltt_comment))
+	if (!need_fix && (lexer_is_wspace(tok->tok.ttype)))
 		return EOK;
 
-	if (tok->tok.ttype == ltt_dscomment) {
+	if (tok->tok.ttype == ltt_dscomment ||
+	    tok->tok.ttype == ltt_copen ||
+	    tok->tok.ttype == ltt_ctext ||
+	    tok->tok.ttype == ltt_cclose) {
 		/* For comments, only the parser knows the indentation */
 		tok->indlvl = tok->pindlvl;
-		tok->lbegin = true;
+		tok->seccont = tok->pseccont;
 	}
 
 	/*
@@ -4410,7 +4458,28 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		}
 	}
 
-	if (tok->lbegin && spaces != 0) {
+
+	if (!tok->lbegin) {
+		if (tok->tok.ttype == ltt_cclose ||
+		    tok->tok.ttype == ltt_ctext)
+			if (tok->seccont)
+				req_spaces = seccont_indent_spaces + 1;
+			else
+				req_spaces = cont_indent_spaces + 1;
+		else if (tok->seccont)
+			req_spaces = seccont_indent_spaces;
+		else
+			req_spaces = cont_indent_spaces;
+	} else {
+		if (tok->tok.ttype == ltt_cclose ||
+		    tok->tok.ttype == ltt_ctext) {
+			req_spaces = 1;
+		} else {
+			req_spaces = 0;
+		}
+	}
+
+	if (req_spaces == 0 && spaces != 0) {
 		if (fix) {
 			need_fix = true;
 		} else {
@@ -4421,25 +4490,14 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		}
 	}
 
-	if (!tok->lbegin && !tok->seccont && spaces != cont_indent_spaces) {
+	if (spaces != req_spaces) {
 		if (fix) {
 			need_fix = true;
 		} else {
 			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Continuation is indented by %u "
+			printf(": Line is indented by %u "
 			    "spaces (should be %u)\n",
-			    spaces, cont_indent_spaces);
-		}
-	}
-
-	if (!tok->lbegin && tok->seccont && spaces != seccont_indent_spaces) {
-		if (fix) {
-			need_fix = true;
-		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Secondary continuation is indented by %u "
-			    "spaces (should be %u)\n",
-			    spaces, seccont_indent_spaces);
+			    spaces, req_spaces);
 		}
 	}
 
@@ -4478,20 +4536,10 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 				return rc;
 		}
 
-		if (!tok->lbegin && !tok->seccont) {
-			for (i = 0; i < cont_indent_spaces; i++) {
-				rc = checker_prepend_wspace(tok, ltt_space,
-				    " ");
-				if (rc != EOK)
-					return rc;
-			}
-		} else if (!tok->lbegin && tok->seccont) {
-			for (i = 0; i < seccont_indent_spaces; i++) {
-				rc = checker_prepend_wspace(tok, ltt_space,
-				    " ");
-				if (rc != EOK)
-					return rc;
-			}
+		for (i = 0; i < req_spaces; i++) {
+			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			if (rc != EOK)
+				return rc;
 		}
 	}
 
@@ -4517,6 +4565,12 @@ static void checker_module_alltoks(checker_module_t *mod)
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": Indentation mismatch: parser %u, checker %u.\n",
 			    tok->pindlvl, tok->indlvl);
+		}
+
+		if (tok->seccont != tok->pseccont && !parser_ttype_ignore(tok->tok.ttype)) {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Secondary indentation mismatch: parser %u, checker %u.\n",
+			    tok->pseccont, tok->seccont);
 		}
 
 		tok = checker_next_tok(tok);
@@ -4652,6 +4706,12 @@ int checker_run(checker_t *checker, bool fix)
 
 	checker_module_alltoks(checker->mod);
 
+	/*
+	 * Make sure comments after the last C declaration are marked
+	 * as not continuation.
+	 */
+	checker_prev_comments_nocont(checker_module_last_tok(checker->mod));
+
 	rc = checker_module_lines(checker->mod, fix);
 	if (rc != EOK)
 		return rc;
@@ -4704,16 +4764,18 @@ int checker_dump_ast(checker_t *checker, FILE *f)
  * @param apinput Checker parser input (checker_parser_input_t *)
  * @param atok Checker token (checker_tok_t *)
  * @param indlvl Indentation level to annotate the token with
+ * @param seccont Secondary continuation flag to annotate the token with
  * @param ltok Place to store token
  */
 static void checker_parser_read_tok(void *apinput, void *atok,
-    unsigned indlvl, lexer_tok_t *ltok)
+    unsigned indlvl, bool seccont, lexer_tok_t *ltok)
 {
 	checker_parser_input_t *pinput = (checker_parser_input_t *)apinput;
 	checker_tok_t *tok = (checker_tok_t *)atok;
 
 	(void) pinput;
 	tok->pindlvl = indlvl;
+	tok->pseccont = seccont;
 	*ltok = tok->tok;
 	/* Pass pointer to checker token down to checker_parser_tok_data */
 	ltok->udata = tok;

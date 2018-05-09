@@ -5,15 +5,30 @@
  */
 
 typedef struct foo {
-	// Double-slash comment inside structure
+	/* Comment inside structure */
 	int x;
+	/*
+	 * Block comment inside structure
+	 */
+	int y;
 } foo_t;
 
-// Indent of double-slash comment before function
+/* Indent of comment before function */
 int main(int argc, char *argv[])
 {
-	// Indent of double-slash comment at beginning of function
+	/* Indent of comment at beginning of function */
 	if (argc < 2)
 		printf("Argument expected!\n");
-	// Indent of double-slash comment just after indented statement
+	/* Indent of double-slash comment just after indented statement */
+
+	asm volatile (
+	    /* Indent of comment inside statement */
+	    "nop\n"
+	    /*
+	     * Block comment inside statement
+	     */
+	    "nop\n"
+	);
 }
+
+/* Indent of comment after last declaration */

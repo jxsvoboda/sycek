@@ -267,16 +267,15 @@ static int lexer_whitespace(lexer_t *lexer, lexer_toktype_t ltt,
 	return lexer_advance(lexer, 1, tok);
 }
 
-/** Lex comment.
+/** Lex comment open.
  *
  * @param lexer Lexer
  * @param tok Output token
  *
  * @return EOK on success or non-zero error code
  */
-static int lexer_comment(lexer_t *lexer, lexer_tok_t *tok)
+static int lexer_copen(lexer_t *lexer, lexer_tok_t *tok)
 {
-	char *p;
 	int rc;
 
 	lexer_get_pos(lexer, &tok->bpos);
@@ -286,16 +285,30 @@ static int lexer_comment(lexer_t *lexer, lexer_tok_t *tok)
 		return rc;
 	}
 
-	p = lexer_chars(lexer);
-	while (p[0] != '*' || p[1] != '/') {
-		rc = lexer_advance(lexer, 1, tok);
-		if (rc != EOK) {
-			lexer_free_tok(tok);
-			return rc;
-		}
-
-		p = lexer_chars(lexer);
+	lexer_get_pos(lexer, &tok->epos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
 	}
+
+	tok->ttype = ltt_copen;
+	lexer->state = ls_comment;
+	return EOK;
+}
+
+/** Lex comment close.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_cclose(lexer_t *lexer, lexer_tok_t *tok)
+{
+	int rc;
+
+	lexer_get_pos(lexer, &tok->bpos);
 
 	/* Skip trailing '*' */
 	rc = lexer_advance(lexer, 1, tok);
@@ -312,7 +325,40 @@ static int lexer_comment(lexer_t *lexer, lexer_tok_t *tok)
 		return rc;
 	}
 
-	tok->ttype = ltt_comment;
+	tok->ttype = ltt_cclose;
+	lexer->state = ls_normal;
+	return EOK;
+}
+
+/** Lex comment text.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_ctext(lexer_t *lexer, lexer_tok_t *tok)
+{
+	char *p;
+	int rc;
+
+	lexer_get_pos(lexer, &tok->bpos);
+
+	p = lexer_chars(lexer);
+	while (p[0] != ' ' && p[0] != '\t' && p[0] != '\n' &&
+	    (p[0] != '*' || p[1] != '/')) {
+		lexer_get_pos(lexer, &tok->epos);
+
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+
+		p = lexer_chars(lexer);
+	}
+
+	tok->ttype = ltt_ctext;
 	return EOK;
 }
 
@@ -805,16 +851,17 @@ static int lexer_eof(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
-/** Lex next token.
+/** Lex next token in normal state.
  *
  * @param lexer Lexer
  * @param tok Place to store token (must be freed using lexer_free_tok())
  *
  * @return EOK on success or non-zero error code
  */
-int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
+static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 {
 	char *p;
+
 	memset(tok, 0, sizeof(lexer_tok_t));
 
 	p = lexer_chars(lexer);
@@ -880,7 +927,7 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_period, tok);
 	case '/':
 		if (p[1] == '*')
-			return lexer_comment(lexer, tok);
+			return lexer_copen(lexer, tok);
 		if (p[1] == '/')
 			return lexer_dscomment(lexer, tok);
 		if (p[1] == '=')
@@ -1138,6 +1185,59 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex next token in comment state.
+ *
+ * @param lexer Lexer
+ * @param tok Place to store token (must be freed using lexer_free_tok())
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_get_tok_comment(lexer_t *lexer, lexer_tok_t *tok)
+{
+	char *p;
+	memset(tok, 0, sizeof(lexer_tok_t));
+
+	p = lexer_chars(lexer);
+	if (p[0] == '\0')
+		return lexer_eof(lexer, tok);
+
+	switch (p[0]) {
+	case '\t':
+		return lexer_whitespace(lexer, ltt_tab, tok);
+	case '\n':
+		return lexer_whitespace(lexer, ltt_newline, tok);
+	case ' ':
+		return lexer_whitespace(lexer, ltt_space, tok);
+	case '*':
+		if (p[1] == '/')
+			return lexer_cclose(lexer, tok);
+		return lexer_ctext(lexer, tok);
+	default:
+		return lexer_ctext(lexer, tok);
+	}
+
+	return EOK;
+}
+
+/** Lex next token.
+ *
+ * @param lexer Lexer
+ * @param tok Place to store token (must be freed using lexer_free_tok())
+ *
+ * @return EOK on success or non-zero error code
+ */
+int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
+{
+	switch (lexer->state) {
+	case ls_normal:
+		return lexer_get_tok_normal(lexer, tok);
+	case ls_comment:
+		return lexer_get_tok_comment(lexer, tok);
+	}
+
+	return EOK;
+}
+
 /** Free token.
  *
  * Free/finalize token obtained via lex_get_tok().
@@ -1165,8 +1265,14 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "tab";
 	case ltt_newline:
 		return "tab";
-	case ltt_comment:
-		return "comment";
+	case ltt_copen:
+		return "copen";
+	case ltt_ctext:
+		return "ctext";
+	case ltt_ccont:
+		return "ccont";
+	case ltt_cclose:
+		return "cclose";
 	case ltt_dscomment:
 		return "dscomment";
 	case ltt_preproc:
@@ -1420,6 +1526,17 @@ int lexer_print_tok(lexer_tok_t *tok, FILE *f)
 	if (fprintf(f, "%s", tok->text) < 0)
 		return EIO;
 	return EOK;
+}
+
+/** Determine if token type is a comment token.
+ *
+ * @param ltt Token type
+ * @return @c true if ltt is a comment token type
+ */
+bool lexer_is_comment(lexer_toktype_t ltt)
+{
+	return ltt == ltt_copen || ltt == ltt_ctext || ltt == ltt_ccont ||
+	    ltt == ltt_cclose || ltt == ltt_dscomment;
 }
 
 /** Determine if token type is a whitespace token.

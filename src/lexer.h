@@ -39,6 +39,7 @@ extern int lexer_dprint_tok(lexer_tok_t *, FILE *);
 extern int lexer_print_tok(lexer_tok_t *, FILE *);
 extern const char *lexer_str_ttype(lexer_toktype_t);
 extern int lexer_print_ttype(lexer_toktype_t, FILE *);
+extern bool lexer_is_comment(lexer_toktype_t);
 extern bool lexer_is_wspace(lexer_toktype_t);
 extern bool lexer_is_resword(lexer_toktype_t);
 

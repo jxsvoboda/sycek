@@ -29,7 +29,7 @@
 #include <parser.h>
 #include <test/parser.h>
 
-static void parser_test_read_tok(void *, void *, unsigned, lexer_tok_t *);
+static void parser_test_read_tok(void *, void *, unsigned, bool, lexer_tok_t *);
 static void *parser_test_next_tok(void *, void *);
 static void *parser_test_tok_data(void *, void *);
 
@@ -67,7 +67,8 @@ int test_parser(void)
 	int rc;
 	ast_module_t *module;
 
-	rc = parser_create(&parser_test_input, NULL, (void *)0, 0, &parser);
+	rc = parser_create(&parser_test_input, NULL, (void *)0, 0, false,
+	    &parser);
 	if (rc != EOK)
 		return rc;
 
@@ -89,11 +90,12 @@ int test_parser(void)
 
 /** Parser input from a global array */
 static void parser_test_read_tok(void *apinput, void *atok, unsigned indlvl,
-    lexer_tok_t *tok)
+    bool seccont, lexer_tok_t *tok)
 {
 	size_t idx = (size_t)atok;
 	(void) apinput;
 	(void) indlvl;
+	(void) seccont;
 
 	tok->ttype = toks[idx];
 	tok->bpos.col = idx;

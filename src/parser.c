@@ -61,12 +61,13 @@ static int parser_process_block(parser_t *, ast_block_t **);
  * @param arg Argument to input ops
  * @param tok Starting token
  * @param indlvl Indentation level
+ * @param seccont Secondary continuation
  * @param rparser Place to store pointer to new parser
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
-    unsigned indlvl, parser_t **rparser)
+    unsigned indlvl, bool seccont, parser_t **rparser)
 {
 	parser_t *parser;
 	void *ntok;
@@ -79,14 +80,16 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
 	parser->input_ops = ops;
 	parser->input_arg = arg;
 	parser->indlvl = indlvl;
+	parser->seccont = seccont;
 
 	ntok = tok;
-	parser->input_ops->read_tok(parser->input_arg, ntok, indlvl, &ltok);
+	parser->input_ops->read_tok(parser->input_arg, ntok, indlvl, seccont,
+	    &ltok);
 
 	while (parser_ttype_ignore(ltok.ttype)) {
 		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
 		parser->input_ops->read_tok(parser->input_arg, ntok,
-		    indlvl, &ltok);
+		    indlvl, seccont, &ltok);
 	}
 
 	parser->tok = ntok;
@@ -110,7 +113,7 @@ static int parser_create_silent_sub(parser_t *parent, parser_t **rparser)
 	int rc;
 
 	rc = parser_create(parent->input_ops, parent->input_arg,
-	    parent->tok, parent->indlvl, rparser);
+	    parent->tok, parent->indlvl, parent->seccont, rparser);
 	if (rc != EOK)
 		return rc;
 
@@ -132,7 +135,29 @@ static int parser_create_indent_sub(parser_t *parent, parser_t **rparser)
 	int rc;
 
 	rc = parser_create(parent->input_ops, parent->input_arg,
-	    parent->tok, parent->indlvl + 1, rparser);
+	    parent->tok, parent->indlvl + 1, false, rparser);
+	if (rc != EOK)
+		return rc;
+
+	(*rparser)->silent = parent->silent;
+	return EOK;
+}
+
+/** Create a indented sub-parser.
+ *
+ * Create a parser starting at the same point as @ a parent, but
+ * one indentation level deeper.
+ *
+ * @param parent Parser to clone
+ * @param rparser Place to store pointer to new parser
+ * @return EOK on success, or error code
+ */
+static int parser_create_secindent_sub(parser_t *parent, parser_t **rparser)
+{
+	int rc;
+
+	rc = parser_create(parent->input_ops, parent->input_arg,
+	    parent->tok, parent->indlvl, true, rparser);
 	if (rc != EOK)
 		return rc;
 
@@ -156,7 +181,7 @@ static int parser_create_invindent_sub(parser_t *parent, parser_t **rparser)
 	assert(parent->indlvl > 0);
 
 	rc = parser_create(parent->input_ops, parent->input_arg,
-	    parent->tok, parent->indlvl - 1, rparser);
+	    parent->tok, parent->indlvl - 1, false, rparser);
 	if (rc != EOK)
 		return rc;
 
@@ -191,8 +216,10 @@ void parser_destroy(parser_t *parser)
 bool parser_ttype_ignore(lexer_toktype_t ttype)
 {
 	return ttype == ltt_space || ttype == ltt_tab ||
-	    ttype == ltt_newline || ttype == ltt_comment ||
-	    ttype == ltt_dscomment || ttype == ltt_preproc;
+	    ttype == ltt_newline || ttype == ltt_copen ||
+	    ttype == ltt_ctext || ttype == ltt_ccont ||
+	    ttype == ltt_cclose || ttype == ltt_dscomment ||
+	    ttype == ltt_preproc;
 }
 
 /** Return @c true if token type is an assignment operator.
@@ -227,7 +254,7 @@ static void parser_next_input_tok(parser_t *parser, void *itok,
 	do {
 		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
 		parser->input_ops->read_tok(parser->input_arg, ntok,
-		    parser->indlvl, rtok);
+		    parser->indlvl, parser->seccont, rtok);
 	} while (parser_ttype_ignore(rtok->ttype));
 
 	*ritok = ntok;
@@ -245,12 +272,12 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
 
 	ntok = parser->tok;
 	parser->input_ops->read_tok(parser->input_arg, ntok,
-	    parser->indlvl, &ltok);
+	    parser->indlvl, parser->seccont, &ltok);
 
 	while (parser_ttype_ignore(ltok.ttype)) {
 		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
 		parser->input_ops->read_tok(parser->input_arg, ntok,
-		    parser->indlvl, &ltok);
+		    parser->indlvl, parser->seccont, &ltok);
 	}
 
 	parser->tok = ntok;
@@ -283,7 +310,7 @@ static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
 static void parser_read_next_tok(parser_t *parser, lexer_tok_t *tok)
 {
 	parser->input_ops->read_tok(parser->input_arg, parser->tok,
-	    parser->indlvl, tok);
+	    parser->indlvl, parser->seccont, tok);
 }
 
 static int parser_dprint_next_tok(parser_t *parser, FILE *f)
@@ -321,7 +348,7 @@ static void parser_skip(parser_t *parser, void **rdata)
 
 	/* Make sure we update indlvl */
 	parser->input_ops->read_tok(parser->input_arg, parser->tok,
-	    parser->indlvl, &tok);
+	    parser->indlvl, parser->seccont, &tok);
 
 	ntok = parser->input_ops->next_tok(parser->input_arg,
 	    parser->tok);
@@ -2406,6 +2433,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 {
 	ast_asm_t *aasm = NULL;
 	lexer_toktype_t ltt;
+	parser_t *iparser = NULL;
 	void *dasm;
 	bool have_volatile;
 	void *dvolatile;
@@ -2465,9 +2493,17 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
-		rc = parser_process_asm_out_ops(parser, aasm);
+		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
 			goto error;
+
+		rc = parser_process_asm_out_ops(iparser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		have_out_ops = true;
 	} else {
@@ -2480,9 +2516,17 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
-		rc = parser_process_asm_in_ops(parser, aasm);
+		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
 			goto error;
+
+		rc = parser_process_asm_in_ops(iparser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		have_in_ops = true;
 	} else {
@@ -2495,9 +2539,17 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
-		rc = parser_process_asm_clobbers(parser, aasm);
+		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
 			goto error;
+
+		rc = parser_process_asm_clobbers(iparser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		have_clobbers = true;
 	} else {
@@ -2510,9 +2562,17 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
-		rc = parser_process_asm_labels(parser, aasm);
+		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
 			goto error;
+
+		rc = parser_process_asm_labels(iparser, aasm);
+		if (rc != EOK)
+			goto error;
+
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+		iparser = NULL;
 
 		have_labels = true;
 	} else {
@@ -2555,6 +2615,10 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	*rasm = &aasm->node;
 	return EOK;
 error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
 	if (aasm != NULL)
 		ast_tree_destroy(&aasm->node);
 	if (atemplate != NULL)

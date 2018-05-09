@@ -36,7 +36,7 @@ enum {
 /** Parser input ops */
 typedef struct {
 	/** Read input token */
-	void (*read_tok)(void *, void *, unsigned, lexer_tok_t *);
+	void (*read_tok)(void *, void *, unsigned, bool, lexer_tok_t *);
 	/** Return next token */
 	void *(*next_tok)(void *, void *);
 	/** Get data that should be stored into AST for a token */
@@ -55,6 +55,8 @@ typedef struct {
 	bool silent;
 	/** Current indentation level */
 	unsigned indlvl;
+	/** Currently in secondary continuation? */
+	bool seccont;
 } parser_t;
 
 #endif
