@@ -4665,7 +4665,14 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 	return EOK;
 }
 
-static int checker_build_ast(checker_t *checker)
+/** Make sure checker tokenized source is available.
+ *
+ * If source hasn't been tokenized yet, do it now.
+ *
+ * @param checker Checker
+ * @return EOK on success or error code
+ */
+static int checker_build_toks(checker_t *checker)
 {
 	int rc;
 
@@ -4674,6 +4681,24 @@ static int checker_build_ast(checker_t *checker)
 		if (rc != EOK)
 			return rc;
 	}
+
+	return EOK;
+}
+
+/** Make sure checker AST is available.
+ *
+ * If AST hasn't been built yet, build it
+ *
+ * @param checker Checker
+ * @return EOK on success or error code
+ */
+static int checker_build_ast(checker_t *checker)
+{
+	int rc;
+
+	rc = checker_build_toks(checker);
+	if (rc != EOK)
+		return rc;
 
 	if (checker->mod->ast == NULL) {
 		rc = checker_module_parse(checker->mod);
@@ -4757,6 +4782,40 @@ int checker_dump_ast(checker_t *checker, FILE *f)
 	}
 
 	return ast_tree_print(&checker->mod->ast->node, f);
+}
+
+/** Dump tokenized source.
+ *
+ * @param checker Checker
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int checker_dump_toks(checker_t *checker, FILE *f)
+{
+	checker_tok_t *tok;
+	int rc;
+
+	rc = checker_build_toks(checker);
+	if (rc != EOK)
+		return rc;
+
+	tok = checker_module_first_tok(checker->mod);
+	while (tok->tok.ttype != ltt_eof) {
+		rc = lexer_dprint_tok(&tok->tok, f);
+		if (rc != EOK)
+			return rc;
+
+		if (tok->tok.ttype == ltt_newline) {
+			if (fputc('\n', f) < 0) {
+				rc = EIO;
+				return rc;
+			}
+		}
+
+		tok = checker_next_tok(tok);
+	}
+
+	return EOK;
 }
 
 /** Parser function to read input token from checker.

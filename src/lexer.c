@@ -1264,7 +1264,7 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 	case ltt_tab:
 		return "tab";
 	case ltt_newline:
-		return "tab";
+		return "newline";
 	case ltt_copen:
 		return "copen";
 	case ltt_ctext:

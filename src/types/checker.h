@@ -86,4 +86,14 @@ typedef struct {
 	int dummy;
 } checker_parser_input_t;
 
+/** Checker flags */
+typedef enum {
+	/** Attempt to fix issues instead of reporting them */
+	cf_fix = 0x1,
+	/** Dump internal AST */
+	cf_dump_ast = 0x2,
+	/** Dump tokenized source file */
+	cf_dump_toks = 0x4
+} checker_flags_t;
+
 #endif

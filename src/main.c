@@ -45,10 +45,11 @@ static void print_syntax(void)
 	    "\tccheck --test Run internal unit tests\n"
 	    "options:\n"
 	    "\t--fix Attempt to fix issues instead of just reporting them\n"
-	    "\t--dump-ast Dump internal abstract syntax tree\n");
+	    "\t--dump-ast Dump internal abstract syntax tree\n"
+	    "\t--dump-toks Dump tokenized source file\n");
 }
 
-static int check_file(const char *fname, bool fix, bool dump_ast)
+static int check_file(const char *fname, checker_flags_t flags)
 {
 	int rc;
 	checker_t *checker = NULL;
@@ -69,7 +70,7 @@ static int check_file(const char *fname, bool fix, bool dump_ast)
 	if (rc != EOK)
 		goto error;
 
-	if (dump_ast) {
+	if ((flags & cf_dump_ast) != 0) {
 		rc = checker_dump_ast(checker, stdout);
 		if (rc != EOK)
 			goto error;
@@ -77,13 +78,21 @@ static int check_file(const char *fname, bool fix, bool dump_ast)
 		printf("\n");
 	}
 
-	rc = checker_run(checker, fix);
+	if ((flags & cf_dump_toks) != 0) {
+		rc = checker_dump_toks(checker, stdout);
+		if (rc != EOK)
+			goto error;
+
+		printf("\n");
+	}
+
+	rc = checker_run(checker, (flags & cf_fix) != 0);
 	if (rc != EOK)
 		goto error;
 
 	fclose(f);
 
-	if (fix) {
+	if ((flags & cf_fix) != 0) {
 		if (asprintf(&bkname, "%s.orig", fname) < 0) {
 			rc = ENOMEM;
 			goto error;
@@ -129,8 +138,7 @@ int main(int argc, char *argv[])
 {
 	int rc;
 	int i;
-	bool fix = false;
-	bool dump_ast = false;
+	checker_flags_t flags = 0;
 
 	(void)argc;
 	(void)argv;
@@ -158,10 +166,13 @@ int main(int argc, char *argv[])
 		while (argc > i && argv[i][0] == '-') {
 			if (strcmp(argv[i], "--fix") == 0) {
 				++i;
-				fix = true;
+				flags |= cf_fix;
 			} else if (strcmp(argv[i], "--dump-ast") == 0) {
 				++i;
-				dump_ast = true;
+				flags |= cf_dump_ast;
+			} else if (strcmp(argv[i], "--dump-toks") == 0) {
+				++i;
+				flags |= cf_dump_toks;
 			} else if (strcmp(argv[i], "-") == 0) {
 				++i;
 				break;
@@ -176,7 +187,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		rc = check_file(argv[i], fix, dump_ast);
+		rc = check_file(argv[i], flags);
 	}
 
 	if (rc != EOK)

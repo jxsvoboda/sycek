@@ -1217,9 +1217,17 @@ static int ast_tsrecord_print(ast_tsrecord_t *tsrecord, FILE *f)
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = ast_tree_print(&elem->sqlist->node, f);
-		if (rc != EOK)
-			return rc;
+		if (elem->sqlist != NULL) {
+			rc = ast_tree_print(&elem->sqlist->node, f);
+			if (rc != EOK)
+				return rc;
+		}
+
+		if (elem->mdecln != NULL) {
+			rc = ast_tree_print(&elem->mdecln->node, f);
+			if (rc != EOK)
+				return rc;
+		}
 
 		elem = ast_tsrecord_next(elem);
 	}
@@ -6813,7 +6821,7 @@ static int ast_asm_print(ast_asm_t *aasm, FILE *f)
 		if (fprintf(f, ")") < 0)
 			return EIO;
 
-		in_op = ast_asm_next_out_op(in_op);
+		in_op = ast_asm_next_in_op(in_op);
 
 		if (in_op != NULL) {
 			if (fprintf(f, ", ") < 0)
@@ -7150,11 +7158,16 @@ static int ast_return_print(ast_return_t *areturn, FILE *f)
 
 	if (fprintf(f, "return(") < 0)
 		return EIO;
-	rc = ast_tree_print(areturn->arg, f);
-	if (rc != EOK)
-		return rc;
+
+	if (areturn->arg != NULL) {
+		rc = ast_tree_print(areturn->arg, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ")") < 0)
 		return EIO;
+
 	return EOK;
 }
 
@@ -7298,9 +7311,11 @@ static int ast_if_print(ast_if_t *aif, FILE *f)
 		return rc;
 	if (fprintf(f, ",") < 0)
 		return EIO;
-	rc = ast_block_print(aif->fbranch, f);
-	if (rc != EOK)
-		return rc;
+	if (aif->fbranch != NULL) {
+		rc = ast_block_print(aif->fbranch, f);
+		if (rc != EOK)
+			return rc;
+	}
 	if (fprintf(f, ")") < 0)
 		return EIO;
 	return EOK;
@@ -7535,14 +7550,22 @@ static int ast_for_print(ast_for_t *afor, FILE *f)
 
 	if (fprintf(f, "for(") < 0)
 		return EIO;
-	rc = ast_tree_print(afor->linit, f);
-	if (rc != EOK)
-		return rc;
+
+	if (afor->linit != NULL) {
+		rc = ast_tree_print(afor->linit, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ",") < 0)
 		return EIO;
-	rc = ast_tree_print(afor->lcond, f);
-	if (rc != EOK)
-		return rc;
+
+	if (afor->lcond != NULL) {
+		rc = ast_tree_print(afor->lcond, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ",") < 0)
 		return EIO;
 	rc = ast_tree_print(afor->lnext, f);
