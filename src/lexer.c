@@ -1,7 +1,7 @@
 /*
  * Copyright 2018 Jiri Svoboda
  *
- * Permission is hereby granted, free of charge, to any person obtaining 
+ * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -225,7 +225,7 @@ static void lexer_get_pos(lexer_t *lexer, src_pos_t *pos)
  *
  * @param lexer Lexer
  * @param nchars Number of characters to advance
- * @param tok Token to which the characters should 
+ * @param tok Token to which the characters should
  *
  * @return EOK on success or non-zero error code
  */

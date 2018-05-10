@@ -1,7 +1,7 @@
 /*
  * Copyright 2018 Jiri Svoboda
  *
- * Permission is hereby granted, free of charge, to any person obtaining 
+ * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -304,7 +304,7 @@ static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
  * All decisions are based only on token type (see parser_next_ttype).
  *
  * @param parser Parser
- * @param 
+ * @param
  * @return Pointer to the next token at the read head
  */
 static void parser_read_next_tok(parser_t *parser, lexer_tok_t *tok)
