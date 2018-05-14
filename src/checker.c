@@ -371,21 +371,21 @@ static checker_tok_t *checker_prev_newline(checker_tok_t *tok)
 	return NULL;
 }
 
-/** Prepend a new whitespace token before a token in the source code.
+/** Prepend a new token before a token in the source code.
  *
  * @param tok Token before which to prepend
  * @param ltt Token type (one of ltt_space, ltt_tab, ltt_newline)
- * @param wstext Text of the whitespace token
+ * @param text Text of the whitespace token
  */
-static int checker_prepend_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
-    const char *wstext)
+static int checker_prepend_tok(checker_tok_t *tok, lexer_toktype_t ltt,
+    const char *text)
 {
 	checker_tok_t *ctok;
 	lexer_tok_t t;
 	char *dtext;
 	int rc;
 
-	dtext = strdup(wstext);
+	dtext = strdup(text);
 	if (dtext == NULL)
 		return ENOMEM;
 
@@ -401,26 +401,28 @@ static int checker_prepend_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
 	}
 
 	ctok->mod = tok->mod;
+	ctok->pindlvl = tok->pindlvl;
+	ctok->pseccont = tok->pseccont;
 	list_insert_before(&ctok->ltoks, &tok->ltoks);
 
 	return EOK;
 }
 
-/** Append a new whitespace token after a token in the source code.
+/** Append a new token after a token in the source code.
  *
  * @param tok Token before which to append
  * @param ltt Token type (one of ltt_space, ltt_tab, ltt_newline)
- * @param wstext Text of the whitespace token
+ * @param text Text of the token
  */
-static int checker_append_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
-    const char *wstext)
+static int checker_append_tok(checker_tok_t *tok, lexer_toktype_t ltt,
+    const char *text)
 {
 	checker_tok_t *ctok;
 	lexer_tok_t t;
 	char *dtext;
 	int rc;
 
-	dtext = strdup(wstext);
+	dtext = strdup(text);
 	if (dtext == NULL)
 		return ENOMEM;
 
@@ -436,9 +438,42 @@ static int checker_append_wspace(checker_tok_t *tok, lexer_toktype_t ltt,
 	}
 
 	ctok->mod = tok->mod;
+	ctok->pindlvl = tok->pindlvl;
+	ctok->pseccont = tok->pseccont;
 	list_insert_after(&ctok->ltoks, &tok->ltoks);
 
 	return EOK;
+}
+
+/** Change token text.
+ *
+ * @param tok Token to change
+ * @param text Nex text for the token
+ */
+static int checker_set_tok_text(checker_tok_t *tok, const char *text)
+{
+	char *dtext;
+
+	dtext = strdup(text);
+	if (dtext == NULL)
+		return ENOMEM;
+
+	free(tok->tok.text);
+	tok->tok.text = dtext;
+	return EOK;
+}
+
+/** Strip leftmost character from token.
+ *
+ * @param tok Token to strip character from
+ * @return EOK on success or error code
+ */
+static int checker_tok_strip_char1(checker_tok_t *tok)
+{
+	if (strlen(tok->tok.text) < 2)
+		return EINVAL;
+
+	return checker_set_tok_text(tok, tok->tok.text + 1);
 }
 
 /** Remove a token from the source code.
@@ -565,13 +600,13 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 
-			rc = checker_prepend_wspace(tok, ltt_newline, "\n");
+			rc = checker_prepend_tok(tok, ltt_newline, "\n");
 			if (rc != EOK)
 				return rc;
 
 			/* Insert proper indentation */
 			for (i = 0; i < scope->indlvl; i++) {
-				rc = checker_prepend_wspace(tok, ltt_tab, "\t");
+				rc = checker_prepend_tok(tok, ltt_tab, "\t");
 				if (rc != EOK)
 					return rc;
 			}
@@ -722,7 +757,7 @@ static int checker_check_brkspace_before(checker_scope_t *scope,
 
 	if (!lexer_is_wspace(p->tok.ttype)) {
 		if (scope->fix) {
-			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			rc = checker_prepend_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
 		} else {
@@ -775,7 +810,7 @@ static int checker_check_brkspace_after(checker_scope_t *scope,
 
 	if (!lexer_is_wspace(p->tok.ttype)) {
 		if (scope->fix) {
-			rc = checker_append_wspace(tok, ltt_space, " ");
+			rc = checker_append_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
 		} else {
@@ -813,7 +848,7 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 
-			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			rc = checker_prepend_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
 		} else {
@@ -856,7 +891,7 @@ static int checker_check_binop_not_lbegin(checker_scope_t *scope,
 			list_insert_before(&tok->ltoks, &p->ltoks);
 
 			/* Prepend a single space */
-			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			rc = checker_prepend_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
 		} else {
@@ -4531,13 +4566,13 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		 * Insert proper indentation
 		 */
 		for (i = 0; i < tok->indlvl; i++) {
-			rc = checker_prepend_wspace(tok, ltt_tab, "\t");
+			rc = checker_prepend_tok(tok, ltt_tab, "\t");
 			if (rc != EOK)
 				return rc;
 		}
 
 		for (i = 0; i < req_spaces; i++) {
-			rc = checker_prepend_wspace(tok, ltt_space, " ");
+			rc = checker_prepend_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
 		}
@@ -4577,6 +4612,151 @@ static void checker_module_alltoks(checker_module_t *mod)
 	}
 }
 
+/** Verify formatting of a block comment line.
+ *
+ * @param tok First non-whitespace token of block comment line
+ * @param fix @c true to attempt to fix issues
+ *
+ * @return EOK on success or error code
+ */
+static int checker_block_comment_line(checker_tok_t *tok, bool fix)
+{
+	int rc;
+
+	if (tok->tok.ttype == ltt_ctext) {
+		if (tok->tok.text[0] != '*') {
+			if (fix) {
+				rc = checker_prepend_tok(tok, ltt_ctext, "*");
+				if (rc != EOK)
+					return rc;
+
+				rc = checker_prepend_tok(tok, ltt_space, " ");
+				if (rc != EOK)
+					return rc;
+			} else {
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": '*' expected at beginning "
+				    "of block comment line.\n");
+			}
+		} else if (tok->tok.text[1] != '\0') {
+			if (fix) {
+				rc = checker_prepend_tok(tok, ltt_ctext, "*");
+				if (rc != EOK)
+					return rc;
+
+				rc = checker_prepend_tok(tok, ltt_space, " ");
+				if (rc != EOK)
+					return rc;
+
+				rc = checker_tok_strip_char1(tok);
+				if (rc != EOK)
+					return rc;
+			} else {
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Space expected after '*'.\n");
+			}
+		}
+	}
+
+	return EOK;
+}
+
+/** Verify formatting of a comment.
+ *
+ * @param tbegin First token of comment
+ * @param fix @c true to attempt to fix issues
+ * @param tend Place to store pointer to next token after comment
+ *
+ * @return EOK on success or error code
+ */
+static int checker_module_comment(checker_tok_t *tbegin, bool fix,
+    checker_tok_t **tnext)
+{
+	checker_tok_t *tok;
+	unsigned lbreaks;
+	bool first;
+	int rc;
+
+	tok = tbegin;
+	lbreaks = 0;
+	while (tok->tok.ttype != ltt_cclose && tok->tok.ttype != ltt_eof) {
+		if (tok->tok.ttype == ltt_newline)
+			++lbreaks;
+		tok = checker_next_tok(tok);
+	}
+
+	if (tok->tok.ttype != ltt_eof)
+		tok = checker_next_tok(tok);
+
+	if (lbreaks == 0) {
+		/* Single-line comment */
+		*tnext = tok;
+		return EOK;
+	}
+
+	/* Block comment */
+
+	first = true;
+	tok = tbegin;
+	while (tok->tok.ttype != ltt_cclose && tok->tok.ttype != ltt_eof) {
+		/* Spaces or tabs */
+		while (tok->tok.ttype == ltt_space ||
+		    tok->tok.ttype == ltt_tab) {
+			tok = checker_next_tok(tok);
+		}
+
+		if (tok->tok.ttype == ltt_cclose || tok->tok.ttype == ltt_eof)
+			break;
+
+		if (!first && tok->tok.ttype != ltt_newline) {
+			rc = checker_block_comment_line(tok, fix);
+			if (rc != EOK)
+				return rc;
+		}
+
+		/* Find end of line */
+		while (tok->tok.ttype != ltt_eof &&
+		    tok->tok.ttype != ltt_newline) {
+			tok = checker_next_tok(tok);
+		}
+
+		/* Skip newline */
+		if (tok->tok.ttype != ltt_eof)
+			tok = checker_next_tok(tok);
+
+		first = false;
+	}
+
+	*tnext = tok;
+	return EOK;
+}
+
+/** Verify formatting of comments in a module.
+ *
+ * @param mod Checker module
+ * @param fix @c true to attempt to fix issues
+ */
+static int checker_module_comments(checker_module_t *mod, bool fix)
+{
+	checker_tok_t *tok;
+	checker_tok_t *tnext;
+	int rc;
+
+	tok = checker_module_first_tok(mod);
+	while (tok->tok.ttype != ltt_eof) {
+		if (tok->tok.ttype == ltt_copen) {
+			rc = checker_module_comment(tok, fix, &tnext);
+			if (rc != EOK)
+				return rc;
+
+			tok = tnext;
+		} else {
+			tok = checker_next_tok(tok);
+		}
+	}
+
+	return EOK;
+}
 
 /** Check line breaks, indentation and end-of-line whitespace.
  *
@@ -4724,6 +4904,8 @@ int checker_run(checker_t *checker, bool fix)
 		if (rc != EOK)
 			return rc;
 	}
+
+	checker_module_comments(checker->mod, fix);
 
 	rc = checker_module_check(checker->mod, fix);
 	if (rc != EOK)
