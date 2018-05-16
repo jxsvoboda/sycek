@@ -1,1 +1,1 @@
-Error: <test/bad/estmt-in.c:4:34:;> unexpected, expected expression.
+Error: <test/bad/estmt-in.c:4:34:';'> unexpected, expected expression.

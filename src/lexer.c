@@ -1304,193 +1304,193 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 	case ltt_newline:
 		return "newline";
 	case ltt_copen:
-		return "copen";
+		return "'/*'";
 	case ltt_ctext:
 		return "ctext";
 	case ltt_ccont:
 		return "ccont";
 	case ltt_cclose:
-		return "cclose";
+		return "'*/'";
 	case ltt_dcopen:
-		return "dcopen";
+		return "'/**'";
 	case ltt_dscomment:
 		return "dscomment";
 	case ltt_preproc:
 		return "preproc";
 	case ltt_lparen:
-		return "(";
+		return "'('";
 	case ltt_rparen:
-		return ")";
+		return "')'";
 	case ltt_lbrace:
-		return "{";
+		return "'{'";
 	case ltt_rbrace:
-		return "}";
+		return "'}'";
 	case ltt_comma:
-		return ",";
+		return "','";
 	case ltt_colon:
-		return ":";
+		return "':'";
 	case ltt_scolon:
-		return ";";
+		return "';'";
 	case ltt_qmark:
-		return "?";
+		return "'?'";
 	case ltt_period:
-		return ".";
+		return "'.'";
 	case ltt_ellipsis:
-		return "...";
+		return "'...'";
 	case ltt_arrow:
-		return "->";
+		return "'->'";
 	case ltt_plus:
-		return "+";
+		return "'+'";
 	case ltt_minus:
-		return "-";
+		return "'-'";
 	case ltt_asterisk:
-		return "*";
+		return "'*'";
 	case ltt_slash:
-		return "/";
+		return "'/'";
 	case ltt_modulo:
-		return "%";
+		return "'%'";
 	case ltt_inc:
-		return "++";
+		return "'++'";
 	case ltt_dec:
-		return "--";
+		return "'--'";
 	case ltt_shl:
-		return "<<";
+		return "'<<'";
 	case ltt_shr:
-		return ">>";
+		return "'>>'";
 	case ltt_amper:
-		return "&";
+		return "'&'";
 	case ltt_bor:
-		return "|";
+		return "'|'";
 	case ltt_bxor:
-		return "^";
+		return "'^'";
 	case ltt_bnot:
-		return "~";
+		return "'~'";
 	case ltt_land:
-		return "&&";
+		return "'&&'";
 	case ltt_lor:
-		return "||";
+		return "'||'";
 	case ltt_lnot:
-		return "!";
+		return "'!'";
 	case ltt_less:
-		return "<";
+		return "'<'";
 	case ltt_greater:
-		return ">";
+		return "'>'";
 	case ltt_equal:
-		return "==";
+		return "'=='";
 	case ltt_lteq:
-		return "<=";
+		return "'<='";
 	case ltt_gteq:
-		return ">=";
+		return "'>='";
 	case ltt_notequal:
-		return "!=";
+		return "'!='";
 	case ltt_assign:
-		return "=";
+		return "'='";
 	case ltt_plus_assign:
-		return "+=";
+		return "'+='";
 	case ltt_minus_assign:
-		return "-=";
+		return "'-='";
 	case ltt_times_assign:
-		return "*=";
+		return "'*='";
 	case ltt_divide_assign:
-		return "/=";
+		return "'/='";
 	case ltt_modulo_assign:
-		return "%=";
+		return "'%='";
 	case ltt_shl_assign:
-		return "<<=";
+		return "'<<='";
 	case ltt_shr_assign:
-		return ">>=";
+		return "'>>='";
 	case ltt_band_assign:
-		return "&=";
+		return "'&='";
 	case ltt_bor_assign:
-		return "|=";
+		return "'|='";
 	case ltt_bxor_assign:
-		return "^=";
+		return "'^='";
 	case ltt_lbracket:
-		return "[";
+		return "'['";
 	case ltt_rbracket:
-		return "]";
+		return "']'";
 	case ltt_attribute:
-		return "__attribute__";
+		return "'__attribute__'";
 	case ltt_asm:
-		return "asm";
+		return "'asm'";
 	case ltt_auto:
-		return "auto";
+		return "'auto'";
 	case ltt_break:
-		return "break";
+		return "'break'";
 	case ltt_case:
-		return "case";
+		return "'case'";
 	case ltt_char:
-		return "char";
+		return "'char'";
 	case ltt_const:
-		return "const";
+		return "'const'";
 	case ltt_continue:
-		return "continue";
+		return "'continue'";
 	case ltt_do:
-		return "do";
+		return "'do'";
 	case ltt_double:
-		return "double";
+		return "'double'";
 	case ltt_else:
-		return "else";
+		return "'else'";
 	case ltt_enum:
-		return "enum";
+		return "'enum'";
 	case ltt_extern:
-		return "extern";
+		return "''extern'";
 	case ltt_float:
-		return "float";
+		return "'float'";
 	case ltt_for:
-		return "for";
+		return "'for'";
 	case ltt_goto:
-		return "goto";
+		return "'goto'";
 	case ltt_if:
-		return "if";
+		return "'if'";
 	case ltt_inline:
-		return "inline";
+		return "'inline'";
 	case ltt_int:
-		return "int";
+		return "'int'";
 	case ltt_int128:
-		return "__int128";
+		return "'__int128'";
 	case ltt_long:
-		return "long";
+		return "'long'";
 	case ltt_register:
-		return "register";
+		return "'register'";
 	case ltt_restrict:
-		return "restrict";
+		return "'restrict'";
 	case ltt_restrict_alt:
-		return "__restrict__";
+		return "'__restrict__'";
 	case ltt_return:
-		return "return";
+		return "'return'";
 	case ltt_signed:
-		return "signed";
+		return "'signed'";
 	case ltt_sizeof:
-		return "sizeof";
+		return "'sizeof'";
 	case ltt_short:
-		return "short";
+		return "'short'";
 	case ltt_static:
-		return "static";
+		return "'static'";
 	case ltt_struct:
-		return "struct";
+		return "'struct'";
 	case ltt_switch:
-		return "switch";
+		return "'switch'";
 	case ltt_typedef:
-		return "typedef";
+		return "'typedef'";
 	case ltt_union:
-		return "union";
+		return "'union'";
 	case ltt_unsigned:
-		return "unsigned";
+		return "'unsigned'";
 	case ltt_void:
-		return "void";
+		return "'void'";
 	case ltt_volatile:
-		return "volatile";
+		return "'volatile'";
 	case ltt_while:
-		return "while";
+		return "'while'";
 	case ltt_ident:
 		return "id";
 	case ltt_number:
-		return "<num>";
+		return "num";
 	case ltt_strlit:
-		return "<str>";
+		return "str";
 	case ltt_charlit:
-		return "<char>";
+		return "char";
 	case ltt_eof:
 		return "eof";
 	case ltt_invalid:

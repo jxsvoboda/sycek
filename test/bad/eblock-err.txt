@@ -1,1 +1,1 @@
-Error: <test/bad/eblock-in.c:4:9:{> unexpected, expected expression.
+Error: <test/bad/eblock-in.c:4:9:'{'> unexpected, expected expression.
