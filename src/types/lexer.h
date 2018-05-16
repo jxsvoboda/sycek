@@ -45,6 +45,7 @@ typedef enum {
 	ltt_ctext,
 	ltt_ccont,
 	ltt_cclose,
+	ltt_dcopen,
 	ltt_dscomment,
 	ltt_preproc,
 	ltt_lparen,

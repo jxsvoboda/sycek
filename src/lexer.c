@@ -297,6 +297,42 @@ static int lexer_copen(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex documentation comment open.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_dcopen(lexer_t *lexer, lexer_tok_t *tok)
+{
+	int rc;
+
+	lexer_get_pos(lexer, &tok->bpos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	lexer_get_pos(lexer, &tok->epos);
+	rc = lexer_advance(lexer, 1, tok);
+	if (rc != EOK) {
+		lexer_free_tok(tok);
+		return rc;
+	}
+
+	tok->ttype = ltt_dcopen;
+	lexer->state = ls_comment;
+	return EOK;
+}
+
 /** Lex comment close.
  *
  * @param lexer Lexer
@@ -926,6 +962,8 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_number(lexer, tok);
 		return lexer_onechar(lexer, ltt_period, tok);
 	case '/':
+		if (p[1] == '*' && p[2] == '*')
+			return lexer_dcopen(lexer, tok);
 		if (p[1] == '*')
 			return lexer_copen(lexer, tok);
 		if (p[1] == '/')
@@ -1273,6 +1311,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "ccont";
 	case ltt_cclose:
 		return "cclose";
+	case ltt_dcopen:
+		return "dcopen";
 	case ltt_dscomment:
 		return "dscomment";
 	case ltt_preproc:
@@ -1536,7 +1576,7 @@ int lexer_print_tok(lexer_tok_t *tok, FILE *f)
 bool lexer_is_comment(lexer_toktype_t ltt)
 {
 	return ltt == ltt_copen || ltt == ltt_ctext || ltt == ltt_ccont ||
-	    ltt == ltt_cclose || ltt == ltt_dscomment;
+	    ltt == ltt_cclose || ltt == ltt_dscomment || ltt == ltt_dcopen;
 }
 
 /** Determine if token type is a whitespace token.

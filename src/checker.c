@@ -556,7 +556,7 @@ static void checker_prev_comments_nocont(checker_tok_t *tok)
 	while (t != NULL && (lexer_is_wspace(t->tok.ttype) ||
 	    lexer_is_comment(t->tok.ttype) || t->tok.ttype == ltt_preproc)) {
 		if ((t->tok.ttype == ltt_copen || t->tok.ttype == ltt_ctext ||
-		    t->tok.ttype == ltt_cclose ||
+		    t->tok.ttype == ltt_cclose || t->tok.ttype == ltt_dcopen ||
 		    t->tok.ttype == ltt_dscomment) &&
 		    checker_is_tok_lbegin(t)) {
 			t->lbegin = true;
@@ -4471,7 +4471,8 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	if (tok->tok.ttype == ltt_dscomment ||
 	    tok->tok.ttype == ltt_copen ||
 	    tok->tok.ttype == ltt_ctext ||
-	    tok->tok.ttype == ltt_cclose) {
+	    tok->tok.ttype == ltt_cclose ||
+	    tok->tok.ttype == ltt_dcopen) {
 		/* For comments, only the parser knows the indentation */
 		tok->indlvl = tok->pindlvl;
 		tok->seccont = tok->pseccont;
@@ -4623,38 +4624,36 @@ static int checker_block_comment_line(checker_tok_t *tok, bool fix)
 {
 	int rc;
 
-	if (tok->tok.ttype == ltt_ctext) {
-		if (tok->tok.text[0] != '*') {
-			if (fix) {
-				rc = checker_prepend_tok(tok, ltt_ctext, "*");
-				if (rc != EOK)
-					return rc;
+	if (tok->tok.ttype != ltt_ctext || tok->tok.text[0] != '*') {
+		if (fix) {
+			rc = checker_prepend_tok(tok, ltt_ctext, "*");
+			if (rc != EOK)
+				return rc;
 
-				rc = checker_prepend_tok(tok, ltt_space, " ");
-				if (rc != EOK)
-					return rc;
-			} else {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": '*' expected at beginning "
-				    "of block comment line.\n");
-			}
-		} else if (tok->tok.text[1] != '\0') {
-			if (fix) {
-				rc = checker_prepend_tok(tok, ltt_ctext, "*");
-				if (rc != EOK)
-					return rc;
+			rc = checker_prepend_tok(tok, ltt_space, " ");
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": '*' expected at beginning "
+			    "of block comment line.\n");
+		}
+	} else if (tok->tok.ttype == ltt_ctext && tok->tok.text[1] != '\0') {
+		if (fix) {
+			rc = checker_prepend_tok(tok, ltt_ctext, "*");
+			if (rc != EOK)
+				return rc;
 
-				rc = checker_prepend_tok(tok, ltt_space, " ");
-				if (rc != EOK)
-					return rc;
+			rc = checker_prepend_tok(tok, ltt_space, " ");
+			if (rc != EOK)
+				return rc;
 
-				rc = checker_tok_strip_char1(tok);
-				if (rc != EOK)
-					return rc;
-			} else {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Space expected after '*'.\n");
-			}
+			rc = checker_tok_strip_char1(tok);
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Space expected after '*'.\n");
 		}
 	}
 
@@ -4673,6 +4672,7 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
     checker_tok_t **tnext)
 {
 	checker_tok_t *tok;
+	checker_tok_t *tclose;
 	unsigned lbreaks;
 	bool first;
 	int rc;
@@ -4685,6 +4685,13 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 		tok = checker_next_tok(tok);
 	}
 
+	if (tok->tok.ttype == ltt_eof) {
+		lexer_dprint_tok(&tbegin->tok, stdout);
+		printf(": Unterminated comment.\n");
+		*tnext = tok;
+		return EOK;
+	}
+
 	if (tok->tok.ttype != ltt_eof)
 		tok = checker_next_tok(tok);
 
@@ -4694,7 +4701,39 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 		return EOK;
 	}
 
-	/* Block comment */
+	/*
+	 * Block comment
+	 */
+
+	tok = checker_next_tok(tbegin);
+	while (tok->tok.ttype == ltt_space || tok->tok.ttype == ltt_tab)
+		tok = checker_next_tok(tok);
+
+	/*
+	 * For regular comments (not doc comments), check that comment
+	 * open is on a separate line.
+	 */
+	if (tbegin->tok.ttype == ltt_copen && tok->tok.ttype != ltt_newline) {
+		if (fix) {
+			/* Remove spaces/tabs at beginning of comment */
+			tok = checker_next_tok(tbegin);
+			while (tok->tok.ttype == ltt_space ||
+			    tok->tok.ttype == ltt_tab) {
+				checker_remove_token(tok);
+				tok = checker_next_tok(tbegin);
+			}
+
+			/* Insert newline instead. Will fix indentation later. */
+			rc = checker_prepend_tok(tok, ltt_newline, "\n");
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&tbegin->tok, stdout);
+			printf(": Comment text should begin on a new line.\n");
+		}
+	}
+
+	/* Check every block comment line */
 
 	first = true;
 	tok = tbegin;
@@ -4705,10 +4744,10 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 			tok = checker_next_tok(tok);
 		}
 
-		if (tok->tok.ttype == ltt_cclose || tok->tok.ttype == ltt_eof)
+		if (tok->tok.ttype == ltt_cclose)
 			break;
 
-		if (!first && tok->tok.ttype != ltt_newline) {
+		if (!first/* && tok->tok.ttype != ltt_newline*/) {
 			rc = checker_block_comment_line(tok, fix);
 			if (rc != EOK)
 				return rc;
@@ -4716,15 +4755,44 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 
 		/* Find end of line */
 		while (tok->tok.ttype != ltt_eof &&
-		    tok->tok.ttype != ltt_newline) {
+		    tok->tok.ttype != ltt_newline &&
+		    tok->tok.ttype != ltt_cclose) {
 			tok = checker_next_tok(tok);
 		}
+
+		if (tok->tok.ttype == ltt_cclose)
+			break;
 
 		/* Skip newline */
 		if (tok->tok.ttype != ltt_eof)
 			tok = checker_next_tok(tok);
 
 		first = false;
+	}
+
+	/* Check that comment close is on a separate line */
+	assert(tok->tok.ttype == ltt_cclose);
+	tclose = tok;
+
+	if (!checker_is_tok_lbegin(tclose)) {
+		if (fix) {
+			/* Remove spaces/tabs before comment close */
+			tok = checker_prev_tok(tclose);
+			while (tok->tok.ttype == ltt_space ||
+			    tok->tok.ttype == ltt_tab) {
+				checker_remove_token(tok);
+				tok = checker_prev_tok(tclose);
+			}
+
+			/* Insert newline instead. Will fix indentation later. */
+			rc = checker_prepend_tok(tclose, ltt_newline, "\n");
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&tclose->tok, stdout);
+			printf(": Block comment closing '*/' should be on "
+			    "a new line.\n");
+		}
 	}
 
 	*tnext = tok;
@@ -4744,7 +4812,8 @@ static int checker_module_comments(checker_module_t *mod, bool fix)
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
-		if (tok->tok.ttype == ltt_copen) {
+		if (tok->tok.ttype == ltt_copen ||
+		    tok->tok.ttype == ltt_dcopen) {
 			rc = checker_module_comment(tok, fix, &tnext);
 			if (rc != EOK)
 				return rc;
