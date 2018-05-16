@@ -3119,14 +3119,21 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 		parser->tok = sparser->tok;
 		parser_destroy(sparser);
 		sparser = NULL;
-	} else if (ltt != ltt_scolon) {
-		/* Not successful. Try parsing as an expression */
-		parser_destroy(sparser);
-		sparser = NULL;
+	} else {
+		ast_tree_destroy(&dspecs->node);
+		dspecs = NULL;
+		ast_tree_destroy(&idlist->node);
+		dspecs = NULL;
 
-		rc = parser_process_expr(parser, &linit);
-		if (rc != EOK)
-			goto error;
+		if (ltt != ltt_scolon) {
+			/* Not successful. Try parsing as an expression */
+			parser_destroy(sparser);
+			sparser = NULL;
+
+			rc = parser_process_expr(parser, &linit);
+			if (rc != EOK)
+				goto error;
+		}
 	}
 
 	rc = parser_match(parser, ltt_scolon, &dscolon1);
@@ -3403,10 +3410,6 @@ static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 	void *dscolon;
 	int rc;
 
-	rc = ast_stexpr_create(&stexpr);
-	if (rc != EOK)
-		goto error;
-
 	rc = parser_process_expr(parser, &expr);
 	if (rc != EOK)
 		goto error;
@@ -3422,6 +3425,10 @@ static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 	}
 
 	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_stexpr_create(&stexpr);
 	if (rc != EOK)
 		goto error;
 
@@ -4325,7 +4332,9 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 				fprintf(stderr, " unexpected, expected "
 				    "declaration specifier.\n");
 			}
-			return EINVAL;
+
+			rc = EINVAL;
+			goto error;
 		}
 
 		ast_dspecs_append(dspecs, elem);
@@ -5475,6 +5484,10 @@ again:
 	default:
 		if (more_idents) {
 			++add_idents;
+			ast_tree_destroy(&dspecs->node);
+			dspecs = NULL;
+			ast_tree_destroy(&idlist->node);
+			idlist = NULL;
 			goto again;
 		}
 

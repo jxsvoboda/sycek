@@ -27,4 +27,12 @@ int main(void)
 	/* Break allowed after '.' */
 	int i = rec.
 	    member;
+
+	/*
+	 * Expression statements vs. declaration statements
+	 */
+
+	*a = b;
+	int *c = d;
+	t_t *e = f;
 }

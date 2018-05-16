@@ -47,6 +47,7 @@ static int ast_cinit_print(ast_cinit_t *, FILE *);
 static void ast_cinit_destroy(ast_cinit_t *);
 static ast_tok_t *ast_cinit_last_tok(ast_cinit_t *);
 static void ast_idlist_destroy(ast_idlist_t *);
+static void ast_malist_destroy(ast_malist_t *);
 static ast_tok_t *ast_dspecs_first_tok(ast_dspecs_t *);
 static void ast_dspecs_destroy(ast_dspecs_t *);
 static ast_tok_t *ast_aspec_first_tok(ast_aspec_t *);
@@ -407,6 +408,7 @@ static void ast_gdecln_destroy(ast_gdecln_t *gdecln)
 {
 	ast_dspecs_destroy(gdecln->dspecs);
 	ast_idlist_destroy(gdecln->idlist);
+	ast_malist_destroy(gdecln->malist);
 	ast_block_destroy(gdecln->body);
 
 	free(gdecln);
@@ -1423,6 +1425,7 @@ static void ast_tsenum_destroy(ast_tsenum_t *tsenum)
 	elem = ast_tsenum_first(tsenum);
 	while (elem != NULL) {
 		list_remove(&elem->ltsenum);
+		ast_tree_destroy(elem->init);
 		free(elem);
 		elem = ast_tsenum_first(tsenum);
 	}
@@ -2011,6 +2014,7 @@ void ast_aspec_attr_destroy(ast_aspec_attr_t *attr)
 	param = ast_aspec_attr_first(attr);
 	while (param != NULL) {
 		list_remove(&param->lattr);
+		ast_tree_destroy(param->expr);
 		free(param);
 		param = ast_aspec_attr_first(attr);
 	}
@@ -2464,6 +2468,7 @@ static void ast_mattr_destroy(ast_mattr_t *mattr)
 	param = ast_mattr_first(mattr);
 	while (param != NULL) {
 		list_remove(&param->lparams);
+		ast_tree_destroy(param->expr);
 		free(param);
 
 		param = ast_mattr_first(mattr);
@@ -2832,6 +2837,9 @@ static int ast_tqlist_print(ast_tqlist_t *tqlist, FILE *f)
 static void ast_tqlist_destroy(ast_tqlist_t *tqlist)
 {
 	ast_node_t *elem;
+
+	if (tqlist == NULL)
+		return;
 
 	elem = ast_tqlist_first(tqlist);
 	while (elem != NULL) {
@@ -3296,6 +3304,7 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
  */
 static void ast_dptr_destroy(ast_dptr_t *adptr)
 {
+	ast_tqlist_destroy(adptr->tqlist);
 	ast_tree_destroy(adptr->bdecl);
 	free(adptr);
 }
@@ -3562,6 +3571,7 @@ static int ast_darray_print(ast_darray_t *darray, FILE *f)
 static void ast_darray_destroy(ast_darray_t *darray)
 {
 	ast_tree_destroy(darray->bdecl);
+	ast_tree_destroy(darray->asize);
 	free(darray);
 }
 
@@ -3998,11 +4008,16 @@ static void ast_idlist_destroy(ast_idlist_t *idlist)
 {
 	ast_idlist_entry_t *entry;
 
+	if (idlist == NULL)
+		return;
+
 	entry = ast_idlist_first(idlist);
 	while (entry != NULL) {
 		list_remove(&entry->lidlist);
 		ast_tree_destroy(entry->decl);
+		ast_regassign_destroy(entry->regassign);
 		ast_aslist_destroy(entry->aslist);
+		ast_tree_destroy(entry->init);
 		free(entry);
 
 		entry = ast_idlist_first(idlist);
@@ -4116,6 +4131,9 @@ static int ast_typename_print(ast_typename_t *atypename, FILE *f)
  */
 static void ast_typename_destroy(ast_typename_t *atypename)
 {
+	if (atypename == NULL)
+		return;
+
 	ast_dspecs_destroy(atypename->dspecs);
 	ast_tree_destroy(atypename->decl);
 	free(atypename);
@@ -5495,6 +5513,7 @@ static int ast_esizeof_print(ast_esizeof_t *esizeof, FILE *f)
 static void ast_esizeof_destroy(ast_esizeof_t *esizeof)
 {
 	ast_tree_destroy(esizeof->bexpr);
+	ast_typename_destroy(esizeof->atypename);
 	free(esizeof);
 }
 
@@ -5570,6 +5589,8 @@ static int ast_ecast_print(ast_ecast_t *ecast, FILE *f)
  */
 static void ast_ecast_destroy(ast_ecast_t *ecast)
 {
+	ast_dspecs_destroy(ecast->dspecs);
+	ast_tree_destroy(ecast->decl);
 	ast_tree_destroy(ecast->bexpr);
 	free(ecast);
 }
@@ -6872,6 +6893,8 @@ static void ast_asm_destroy(ast_asm_t *aasm)
 	ast_asm_clobber_t *clobber;
 	ast_asm_label_t *label;
 
+	ast_tree_destroy(aasm->atemplate);
+
 	out_op = ast_asm_first_out_op(aasm);
 	while (out_op != NULL) {
 		list_remove(&out_op->lasm);
@@ -6901,6 +6924,8 @@ static void ast_asm_destroy(ast_asm_t *aasm)
 		free(label);
 		label = ast_asm_first_label(aasm);
 	}
+
+	free(aasm);
 }
 
 /** Get first token of AST enum type specifier.
@@ -7327,8 +7352,20 @@ static int ast_if_print(ast_if_t *aif, FILE *f)
  */
 static void ast_if_destroy(ast_if_t *aif)
 {
+	ast_elseif_t *elseif;
+
 	ast_tree_destroy(aif->cond);
 	ast_block_destroy(aif->tbranch);
+
+	elseif = ast_if_first(aif);
+	while (elseif != NULL) {
+		ast_tree_destroy(elseif->cond);
+		ast_block_destroy(elseif->ebranch);
+		list_remove(&elseif->lif);
+		free(elseif);
+		elseif = ast_if_first(aif);
+	}
+
 	ast_block_destroy(aif->fbranch);
 	free(aif);
 }
@@ -7588,6 +7625,8 @@ static int ast_for_print(ast_for_t *afor, FILE *f)
 static void ast_for_destroy(ast_for_t *afor)
 {
 	ast_tree_destroy(afor->linit);
+	ast_dspecs_destroy(afor->dspecs);
+	ast_idlist_destroy(afor->idlist);
 	ast_tree_destroy(afor->lcond);
 	ast_tree_destroy(afor->lnext);
 	ast_block_destroy(afor->body);
@@ -7880,6 +7919,7 @@ static int ast_stexpr_print(ast_stexpr_t *astexpr, FILE *f)
  */
 static void ast_stexpr_destroy(ast_stexpr_t *astexpr)
 {
+	ast_tree_destroy(astexpr->expr);
 	free(astexpr);
 }
 
