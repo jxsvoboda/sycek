@@ -48,12 +48,16 @@ int main(void)
 	 * labels
 	 */
 	asm goto (
+	    /* Comment in assembler */
 	    "add %1, %0\n"
 	    "jc %l[error]\n"
+	    /* Comment in the middle of assembler */
 	    : "=r" (dst)
+	      /* Comment in assembler operand list */
 	    : "r" (src)
 	    : "cc"
 	    : error
+	      /* Comment at the end of assembler */
 	);
 
 	/* Variable register assignment */

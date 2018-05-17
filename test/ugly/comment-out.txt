@@ -1,9 +1,9 @@
 <test/ugly/comment-in.c:8:1:newline>: '*' expected at beginning of block comment line.
 <test/ugly/comment-in.c:9:1-4:ctext>: '*' expected at beginning of block comment line.
-<test/ugly/comment-in.c:29:1-2:'/*'>: Comment text should begin on a new line.
-<test/ugly/comment-in.c:30:4-9:ctext>: '*' expected at beginning of block comment line.
-<test/ugly/comment-in.c:31:4-6:ctext>: '*' expected at beginning of block comment line.
-<test/ugly/comment-in.c:31:30-31:'*/'>: Block comment closing '*/' should be on a new line.
+<test/ugly/comment-in.c:38:1-2:'/*'>: Comment text should begin on a new line.
+<test/ugly/comment-in.c:39:4-9:ctext>: '*' expected at beginning of block comment line.
+<test/ugly/comment-in.c:40:4-6:ctext>: '*' expected at beginning of block comment line.
+<test/ugly/comment-in.c:40:30-31:'*/'>: Block comment closing '*/' should be on a new line.
 <test/ugly/comment-in.c:2:1:ctext>: Line is indented by 0 spaces (should be 1)
 <test/ugly/comment-in.c:3:1:ctext>: Line is indented by 0 spaces (should be 1)
 <test/ugly/comment-in.c:4:1:ctext>: Line is indented by 0 spaces (should be 1)
@@ -11,16 +11,18 @@
 <test/ugly/comment-in.c:9:1-4:ctext>: Line is indented by 0 spaces (should be 1)
 <test/ugly/comment-in.c:10:1-2:'*/'>: Line is indented by 0 spaces (should be 1)
 <test/ugly/comment-in.c:12:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:16:5-6:'/*'>: Non-continuation line should not have any spaces for indentation (found 4)
-<test/ugly/comment-in.c:16:5-6:'/*'>: Line is indented by 4 spaces (should be 0)
-<test/ugly/comment-in.c:19:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:22:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:25:1-2:'/*'>: Line is indented by 0 spaces (should be 4)
-<test/ugly/comment-in.c:25:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:29:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:30:4-9:ctext>: Line is indented by 3 spaces (should be 1)
-<test/ugly/comment-in.c:30:4-9:ctext>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:31:4-6:ctext>: Line is indented by 3 spaces (should be 1)
-<test/ugly/comment-in.c:31:4-6:ctext>: Wrong indentation: found 0 tabs, should be 1 tabs
-<test/ugly/comment-in.c:34:5-6:'/*'>: Non-continuation line should not have any spaces for indentation (found 4)
-<test/ugly/comment-in.c:34:5-6:'/*'>: Line is indented by 4 spaces (should be 0)
+<test/ugly/comment-in.c:14:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:24:5-6:'/*'>: Non-continuation line should not have any spaces for indentation (found 4)
+<test/ugly/comment-in.c:24:5-6:'/*'>: Line is indented by 4 spaces (should be 0)
+<test/ugly/comment-in.c:27:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:29:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 2 tabs
+<test/ugly/comment-in.c:31:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:34:1-2:'/*'>: Line is indented by 0 spaces (should be 4)
+<test/ugly/comment-in.c:34:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:38:1-2:'/*'>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:39:4-9:ctext>: Line is indented by 3 spaces (should be 1)
+<test/ugly/comment-in.c:39:4-9:ctext>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:40:4-6:ctext>: Line is indented by 3 spaces (should be 1)
+<test/ugly/comment-in.c:40:4-6:ctext>: Wrong indentation: found 0 tabs, should be 1 tabs
+<test/ugly/comment-in.c:43:5-6:'/*'>: Non-continuation line should not have any spaces for indentation (found 4)
+<test/ugly/comment-in.c:43:5-6:'/*'>: Line is indented by 4 spaces (should be 0)

@@ -70,8 +70,6 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
     unsigned indlvl, bool seccont, parser_t **rparser)
 {
 	parser_t *parser;
-	void *ntok;
-	lexer_tok_t ltok;
 
 	parser = calloc(1, sizeof(parser_t));
 	if (parser == NULL)
@@ -82,17 +80,7 @@ int parser_create(parser_input_ops_t *ops, void *arg, void *tok,
 	parser->indlvl = indlvl;
 	parser->seccont = seccont;
 
-	ntok = tok;
-	parser->input_ops->read_tok(parser->input_arg, ntok, indlvl, seccont,
-	    &ltok);
-
-	while (parser_ttype_ignore(ltok.ttype)) {
-		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
-		parser->input_ops->read_tok(parser->input_arg, ntok,
-		    indlvl, seccont, &ltok);
-	}
-
-	parser->tok = ntok;
+	parser->tok = tok;
 
 	*rparser = parser;
 	return EOK;
@@ -237,7 +225,7 @@ static bool parser_ttype_assignop(lexer_toktype_t ttype)
 	    ttype == ltt_bxor_assign;
 }
 
-/** Return next input token skipping tokens that should be ignored.
+/** Return valid input token skipping tokens that should be ignored.
  *
  * At the same time we read the token contents into the provided buffer @a rtok
  *
@@ -249,15 +237,17 @@ static bool parser_ttype_assignop(lexer_toktype_t ttype)
 static void parser_next_input_tok(parser_t *parser, void *itok,
     void **ritok, lexer_tok_t *rtok)
 {
-	void *ntok = itok;
+	void *tok = itok;
 
-	do {
-		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
-		parser->input_ops->read_tok(parser->input_arg, ntok,
+	parser->input_ops->read_tok(parser->input_arg, tok,
+	    parser->indlvl, parser->seccont, rtok);
+	while (parser_ttype_ignore(rtok->ttype)) {
+		tok = parser->input_ops->next_tok(parser->input_arg, tok);
+		parser->input_ops->read_tok(parser->input_arg, tok,
 		    parser->indlvl, parser->seccont, rtok);
-	} while (parser_ttype_ignore(rtok->ttype));
+	}
 
-	*ritok = ntok;
+	*ritok = tok;
 }
 
 /** Return type of next token.
@@ -268,19 +258,9 @@ static void parser_next_input_tok(parser_t *parser, void *itok,
 static lexer_toktype_t parser_next_ttype(parser_t *parser)
 {
 	lexer_tok_t ltok;
-	lexer_tok_t *ntok;
+	void *itok;
 
-	ntok = parser->tok;
-	parser->input_ops->read_tok(parser->input_arg, ntok,
-	    parser->indlvl, parser->seccont, &ltok);
-
-	while (parser_ttype_ignore(ltok.ttype)) {
-		ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
-		parser->input_ops->read_tok(parser->input_arg, ntok,
-		    parser->indlvl, parser->seccont, &ltok);
-	}
-
-	parser->tok = ntok;
+	parser_next_input_tok(parser, parser->tok, &itok, &ltok);
 	return ltok.ttype;
 }
 
@@ -291,11 +271,13 @@ static lexer_toktype_t parser_next_ttype(parser_t *parser)
  */
 static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
 {
-	lexer_tok_t tok;
-	void *ntok;
+	lexer_tok_t ltok;
+	void *tok;
 
-	parser_next_input_tok(parser, parser->tok, &ntok, &tok);
-	return tok.ttype;
+	parser_next_input_tok(parser, parser->tok, &tok, &ltok);
+	tok = parser->input_ops->next_tok(parser->input_arg, tok);
+	parser_next_input_tok(parser, tok, &tok, &ltok);
+	return ltok.ttype;
 }
 
 /** Read next token.
@@ -304,13 +286,13 @@ static lexer_toktype_t parser_next_next_ttype(parser_t *parser)
  * All decisions are based only on token type (see parser_next_ttype).
  *
  * @param parser Parser
- * @param
- * @return Pointer to the next token at the read head
+ * @param tok Place to store token
  */
 static void parser_read_next_tok(parser_t *parser, lexer_tok_t *tok)
 {
-	parser->input_ops->read_tok(parser->input_arg, parser->tok,
-	    parser->indlvl, parser->seccont, tok);
+	void *itok;
+
+	parser_next_input_tok(parser, parser->tok, &itok, tok);
 }
 
 static int parser_dprint_next_tok(parser_t *parser, FILE *f)
@@ -343,17 +325,38 @@ static void parser_skip(parser_t *parser, void **rdata)
 	void *ntok;
 	lexer_tok_t tok;
 
+	/* Find non-ignored token */
+	parser_next_input_tok(parser, parser->tok, &ntok, &tok);
+
 	if (rdata != NULL)
-		*rdata = parser_get_tok_data(parser, parser->tok);
+		*rdata = parser_get_tok_data(parser, ntok);
 
-	/* Make sure we update indlvl */
-	parser->input_ops->read_tok(parser->input_arg, parser->tok,
-	    parser->indlvl, parser->seccont, &tok);
-
-	ntok = parser->input_ops->next_tok(parser->input_arg,
-	    parser->tok);
+	/* Skip over */
+	ntok = parser->input_ops->next_tok(parser->input_arg, ntok);
 	parser->tok = ntok;
 }
+
+/** Advance input pointer over ingored tokens.
+ *
+ * Normally we only advance the input pointer over the ignored tokens
+ * (comments) when we actually need a valid token. At the end of indented
+ * block we need advance the pointer over any comments to that the act
+ * of reading the next token ('}') will not unindent them.
+ *
+ * @param parser Parser
+ */
+static void parser_mark(parser_t *parser)
+{
+	void *ntok;
+	lexer_tok_t tok;
+
+	/* Find non-ignored token */
+	parser_next_input_tok(parser, parser->tok, &ntok, &tok);
+	/* Advance input pointer */
+	parser->tok = ntok;
+}
+
+
 
 /** Match a particular token type.
  *
@@ -2112,6 +2115,7 @@ static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 		ltt = parser_next_ttype(iparser);
 	}
 
+	parser_mark(iparser);
 	parser_follow_up(iparser, parser);
 	parser_destroy(iparser);
 	iparser = NULL;
@@ -2126,6 +2130,7 @@ static int parser_process_cinit(parser_t *parser, ast_cinit_t **rcinit)
 	return EOK;
 error:
 	if (iparser != NULL) {
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 	}
@@ -2501,6 +2506,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -2524,6 +2530,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -2547,6 +2554,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -2570,6 +2578,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 		if (rc != EOK)
 			goto error;
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -2616,6 +2625,7 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	return EOK;
 error:
 	if (iparser != NULL) {
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 	}
@@ -3271,6 +3281,9 @@ static int parser_process_clabel(parser_t *parser, ast_node_t **rclabel)
 	parser_t *iparser = NULL;
 	int rc;
 
+	/* Make sure the lower indent is not applied to previous comments */
+	parser_mark(parser);
+
 	rc = parser_create_invindent_sub(parser, &iparser);
 	if (rc != EOK)
 		goto error;
@@ -3326,6 +3339,9 @@ static int parser_process_glabel(parser_t *parser, ast_node_t **rglabel)
 	void *dcolon;
 	parser_t *iparser = NULL;
 	int rc;
+
+	/* Make sure the lower indent is not applied to previous comments */
+	parser_mark(parser);
 
 	rc = parser_create_invindent_sub(parser, &iparser);
 	if (rc != EOK)
@@ -3606,6 +3622,7 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 			ast_block_append(block, stmt);
 		}
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -3943,6 +3960,7 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 			ltt = parser_next_ttype(iparser);
 		}
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -4075,6 +4093,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 			ltt = parser_next_ttype(iparser);
 		}
 
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 		iparser = NULL;
@@ -4090,6 +4109,7 @@ static int parser_process_tsenum(parser_t *parser, ast_node_t **rtype)
 	return EOK;
 error:
 	if (iparser != NULL) {
+		parser_mark(iparser);
 		parser_follow_up(iparser, parser);
 		parser_destroy(iparser);
 	}

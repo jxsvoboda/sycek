@@ -11,13 +11,22 @@ This is a doc comment
 typedef struct foo {
 /* Comment inside structure */
 	int x;
+/* Comment at the end of structure */
 } foo_t;
+
+enum {
+	/* Comment in an enum */
+	a,
+	b
+	/* Comment at the end of an enum */
+} bar_t;
 
     /* Indent of comment before function */
 int main(int argc, char *argv[])
 {
 /* Indent of comment at beginning of function */
 	if (argc < 2)
+/* Comment in a non-parenthesized branch */
 		printf("Argument expected!\n");
 /* Indent of double-slash comment just after indented statement */
 
