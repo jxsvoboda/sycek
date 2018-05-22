@@ -3117,7 +3117,7 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	if (rc != EOK)
 		goto error;
 
-	ltt = parser_next_ttype(parser);
+	ltt = parser_next_ttype(sparser);
 
 	/* Try parsing as a declaration */
 	rc = parser_process_dspecs(sparser, 0, NULL, &dspecs);
@@ -3130,16 +3130,17 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 		parser_destroy(sparser);
 		sparser = NULL;
 	} else {
+		/* Not successful */
 		ast_tree_destroy(&dspecs->node);
 		dspecs = NULL;
 		ast_tree_destroy(&idlist->node);
 		dspecs = NULL;
 
-		if (ltt != ltt_scolon) {
-			/* Not successful. Try parsing as an expression */
-			parser_destroy(sparser);
-			sparser = NULL;
+		parser_destroy(sparser);
+		sparser = NULL;
 
+		if (ltt != ltt_scolon) {
+			/* Try parsing as an expression */
 			rc = parser_process_expr(parser, &linit);
 			if (rc != EOK)
 				goto error;
@@ -4530,8 +4531,8 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 	ast_node_t *bdecl = NULL;
 	lexer_toktype_t ltt;
 	void *dlparen;
-	ast_dspecs_t *dspecs;
-	ast_node_t *decl;
+	ast_dspecs_t *dspecs = NULL;
+	ast_node_t *decl = NULL;
 	ast_aslist_t *aslist;
 	void *dcomma;
 	void *dellipsis;
@@ -4570,10 +4571,8 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 				goto error;
 
 			rc = parser_process_decl(parser, &decl);
-			if (rc != EOK) {
-				ast_tree_destroy(&dspecs->node);
+			if (rc != EOK)
 				goto error;
-			}
 
 			ltt = parser_next_ttype(parser);
 			if (ltt == ltt_attribute) {
@@ -4587,10 +4586,8 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 			ltt = parser_next_ttype(parser);
 			if (ltt != ltt_rparen) {
 				rc = parser_match(parser, ltt_comma, &dcomma);
-				if (rc != EOK) {
-					ast_tree_destroy(&dspecs->node);
+				if (rc != EOK)
 					goto error;
-				}
 			} else {
 				dcomma = NULL;
 			}
@@ -4599,6 +4596,9 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 			    dcomma);
 			if (rc != EOK)
 				goto error;
+
+			dspecs = NULL;
+			decl = NULL;
 		} while (ltt != ltt_rparen);
 
 		if (ltt == ltt_ellipsis) {
@@ -4620,6 +4620,10 @@ static int parser_process_dfun(parser_t *parser, ast_node_t **rdecl)
 error:
 	if (dfun != NULL)
 		ast_tree_destroy(&dfun->node);
+	if (dspecs != NULL)
+		ast_tree_destroy(&dspecs->node);
+	if (decl != NULL)
+		ast_tree_destroy(decl);
 	return rc;
 }
 

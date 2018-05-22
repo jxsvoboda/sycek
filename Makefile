@@ -56,10 +56,13 @@ test_bad_err_diffs = $(test_bad_ins:-in.c=-err.txt.diff)
 test_ugly_ins = $(wildcard test/ugly/*-in.c)
 test_ugly_fixed_diffs = $(test_ugly_ins:-in.c=-fixed.c.diff)
 test_ugly_out_diffs = $(test_ugly_ins:-in.c=-out.txt.diff)
+test_vg_outs = \
+    $(test_good_ins:-in.c=-vg.txt) \
+    $(test_ugly_ins:-in.c=-vg.txt)
 test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
-    $(test_ugly_err_diffs) $(test_ugly_out_diffs) test/all.diff \
-    test/test-int.out
+    $(test_ugly_err_diffs) $(test_ugly_out_diffs) $(test_vg_outs) \
+    test/all.diff test/test-int.out
 
 all: $(binary)
 
@@ -75,13 +78,17 @@ clean:
 	rm -f $(objects) $(binary) $(test_outs)
 
 test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
-	./ccheck $< >$@
+	$(ccheck) $< >$@
 
 test/good/%-out.txt.diff: /dev/null test/good/%-out-t.txt
 	diff -u $^ >$@
 
+test/good/%-vg.txt: test/good/%-in.c $(ccheck)
+	valgrind $(ccheck) $^ 2>$@
+	grep -q 'no leaks are possible' $@
+
 test/bad/%-err-t.txt: test/bad/%-in.c $(ccheck)
-	-./ccheck $< 2>$@
+	-$(ccheck) $< 2>$@
 
 test/bad/%-err.txt.diff: test/bad/%-err.txt test/bad/%-err-t.txt
 	diff -u $^ >$@
@@ -95,14 +102,17 @@ test/ugly/%-fixed.c.diff: test/ugly/%-fixed.c test/ugly/%-fixed-t.c
 	diff -u $^ >$@
 
 test/ugly/%-out-t.txt: test/ugly/%-in.c $(ccheck)
-	./ccheck $< >$@
+	$(ccheck) $< >$@
 
 test/ugly/%-out.txt.diff: test/ugly/%-out.txt test/ugly/%-out-t.txt
 	diff -u $^ >$@
 
+test/ugly/%-vg.txt: test/ugly/%-in.c $(ccheck)
+	valgrind $(ccheck) $^ >/dev/null 2>$@
+	grep -q 'no leaks are possible' $@
 
 test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
-    $(test_ugly_fixed_diffs) $(test_ugly_out_diffs)
+    $(test_ugly_fixed_diffs) $(test_ugly_out_diffs) $(test_vg_out_diffs)
 	cat $^ > $@
 
 # Run internal unit tests
@@ -113,7 +123,7 @@ test/test-int.out: $(ccheck)
 # Note that if any of the diffs is not empty, that diff command will
 # return non-zero exit code, failing the make
 #
-test: test/test-int.out test/all.diff
+test: test/test-int.out test/all.diff $(test_vg_outs)
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk

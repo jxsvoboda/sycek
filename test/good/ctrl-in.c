@@ -33,6 +33,10 @@ int main(void)
 	for (link_t *link = start; link != NULL; link = link->next)
 		printf("%p\n", link);
 
+	/* For loop without initialization expression */
+	for (; i < 100; i++)
+		printf("%d\n", i);
+
 	/* If statement */
 	if (i > 0) {
 		printf("Positive\n");

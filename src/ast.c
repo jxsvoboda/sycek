@@ -3768,6 +3768,7 @@ static void ast_dlist_destroy(ast_dlist_t *dlist)
 	while (entry != NULL) {
 		list_remove(&entry->ldlist);
 		ast_tree_destroy(entry->decl);
+		ast_tree_destroy(entry->bitwidth);
 		free(entry);
 
 		entry = ast_dlist_first(dlist);
@@ -5668,6 +5669,8 @@ static int ast_ecliteral_print(ast_ecliteral_t *ecliteral, FILE *f)
  */
 static void ast_ecliteral_destroy(ast_ecliteral_t *ecliteral)
 {
+	ast_dspecs_destroy(ecliteral->dspecs);
+	ast_tree_destroy(ecliteral->decl);
 	ast_cinit_destroy(ecliteral->cinit);
 	free(ecliteral);
 }

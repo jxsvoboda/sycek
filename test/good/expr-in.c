@@ -35,4 +35,10 @@ int main(void)
 	*a = b;
 	int *c = d;
 	t_t *e = f;
+
+	/*
+	 * We attempt to parse this as a function declaration first,
+	 * failing and falling back to expression.
+	 */
+	bar((uint8_t) (i + 1));
 }
