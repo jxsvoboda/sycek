@@ -62,7 +62,7 @@ test_vg_outs = \
 test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
     $(test_ugly_err_diffs) $(test_ugly_out_diffs) $(test_vg_outs) \
-    test/all.diff test/test-int.out
+    test/all.diff test/test-int.out test/selfcheck.out
 
 all: $(binary)
 
@@ -119,11 +119,17 @@ test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
 test/test-int.out: $(ccheck)
 	$(ccheck) --test >test/test-int.out
 
+selfcheck: test/selfcheck.out
+
+test/selfcheck.out: $(ccheck)
+	PATH=$$PATH:$$PWD ./ccheck-run.sh src > $@
+	grep "^Ccheck passed." $@
+
 #
 # Note that if any of the diffs is not empty, that diff command will
 # return non-zero exit code, failing the make
 #
-test: test/test-int.out test/all.diff $(test_vg_outs)
+test: test/test-int.out test/all.diff $(test_vg_outs) test/selfcheck.out
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
