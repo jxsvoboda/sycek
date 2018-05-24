@@ -48,4 +48,7 @@ int main(void)
 	MY_FOR_EACH(a, b, c) {
 		do_something();
 	}
+
+	MY_FOR_EACH(a, b, c)
+		do_something();
 }

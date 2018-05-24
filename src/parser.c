@@ -1910,7 +1910,8 @@ error:
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_ecomma(parser_t *parser, ast_node_t **rexpr)
+static int parser_process_ecomma(parser_t *parser, bool noconcat,
+    ast_node_t **rexpr)
 {
 	lexer_toktype_t ltt;
 	ast_ecomma_t *ecomma = NULL;
@@ -1919,17 +1920,29 @@ static int parser_process_ecomma(parser_t *parser, ast_node_t **rexpr)
 	void *dcomma;
 	int rc;
 
-	rc = parser_process_econcat(parser, &ea);
-	if (rc != EOK)
-		goto error;
+	if (noconcat) {
+		rc = parser_process_eassign(parser, &ea);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = parser_process_econcat(parser, &ea);
+		if (rc != EOK)
+			goto error;
+	}
 
 	ltt = parser_next_ttype(parser);
 	while (ltt == ltt_comma) {
 		parser_skip(parser, &dcomma);
 
-		rc = parser_process_econcat(parser, &eb);
-		if (rc != EOK)
-			goto error;
+		if (noconcat) {
+			rc = parser_process_eassign(parser, &eb);
+			if (rc != EOK)
+				goto error;
+		} else {
+			rc = parser_process_econcat(parser, &eb);
+			if (rc != EOK)
+				goto error;
+		}
 
 		rc = ast_ecomma_create(&ecomma);
 		if (rc != EOK)
@@ -1967,7 +1980,7 @@ error:
  */
 static int parser_process_expr(parser_t *parser, ast_node_t **rexpr)
 {
-	return parser_process_ecomma(parser, rexpr);
+	return parser_process_ecomma(parser, false, rexpr);
 }
 
 /** Parse compound initializer element.
@@ -3427,7 +3440,12 @@ static int parser_process_stexpr(parser_t *parser, ast_node_t **rstmt)
 	void *dscolon;
 	int rc;
 
-	rc = parser_process_expr(parser, &expr);
+	/*
+	 * Disallow concatenation. This is against the language spec,
+	 * but we need to prevent mis-interpreting macro loop with single
+	 * statement body as a concatenation expression.
+	 */
+	rc = parser_process_ecomma(parser, true, &expr);
 	if (rc != EOK)
 		goto error;
 
