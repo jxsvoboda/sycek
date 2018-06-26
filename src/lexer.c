@@ -783,14 +783,25 @@ static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 	lexer_get_pos(lexer, &tok->bpos);
 
 	p = lexer_chars(lexer);
+
+	if (p[0] == 'u' && p[1] == '8') {
+		rc = lexer_advance(lexer, 2, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+	} else if (p[0] == 'L' || p[0] == 'u' || p[0] == 'U') {
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+	}
+
+	p = lexer_chars(lexer);
 	switch (p[0]) {
 	case '\'':
 		delim = '\'';
-		ltt = ltt_charlit;
-		break;
-	case 'L':
-		assert(p[1] == '\'' || p[1] == '"');
-		delim = p[1];
 		ltt = ltt_charlit;
 		break;
 	case '"':
@@ -800,17 +811,6 @@ static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 	default:
 		assert(false);
 		return EINVAL;
-	}
-
-	assert(delim == '\'' || delim == '"' ||
-	    (delim == 'L' && p[1] == '\''));
-
-	if (p[0] == 'L') {
-		rc = lexer_advance(lexer, 1, tok);
-		if (rc != EOK) {
-			lexer_free_tok(tok);
-			return rc;
-		}
 	}
 
 	while (true) {
@@ -1006,6 +1006,7 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 	case '?':
 		return lexer_onechar(lexer, ltt_qmark, tok);
 	case 'L':
+	case 'U':
 		if (p[1] == '\'' || p[1] == '"')
 			return lexer_charstr(lexer, tok);
 		return lexer_ident(lexer, tok);
@@ -1185,6 +1186,10 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		}
 		return lexer_ident(lexer, tok);
 	case 'u':
+		if (p[1] == '\'' || p[1] == '"')
+			return lexer_charstr(lexer, tok);
+		if (p[1] == '8' && p[2] == '"')
+			return lexer_charstr(lexer, tok);
 		if (p[1] == 'n' && p[2] == 'i' && p[3] == 'o' && p[4] == 'n' &&
 		    !is_idcnt(p[5])) {
 			return lexer_keyword(lexer, ltt_union, 5, tok);

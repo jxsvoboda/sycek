@@ -1,6 +1,12 @@
 /*
  * Character and string tests
  */
+#include <wchar.h>
+#include <uchar.h>
+
+#define FOO "foo"
+#define BAR "bar"
+#define FOOBAR(a, b) "foo" a "bar" b
 
 /* Character literal */
 char e1 = 'a';
@@ -24,10 +30,25 @@ char *e6 = "\n";
 char *e7 = "a" "b" "c";
 
 /* Multipart string literal with macros */
-char *e8 = FOO "a" BAR "b" FOOBAR(x, y) "c";
+char *e8 = FOO "a" BAR "b" FOOBAR("a", "b") "c";
 
-/* Long character literal */
+/* Wide character literal */
 wint_t e9 = L'x';
 
-/* Long string literal */
+/* Wide string literal */
 wchar_t *e10 = L"x";
+
+/** UTF-8 string literal */
+char *e11 = u8"x";
+
+/* UTF-16 character literal */
+char16_t e12 = u'x';
+
+/* UTF-16 string literal */
+char16_t *e13 = u"x";
+
+/* UTF-32 character literal */
+char32_t e14 = U'x';
+
+/* UTF-32 string literal */
+char32_t *e15 = U"x";
