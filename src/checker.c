@@ -53,6 +53,7 @@ static int checker_check_expr(checker_scope_t *, ast_node_t *);
 static int checker_check_cinit(checker_scope_t *, ast_cinit_t *);
 static int checker_check_init(checker_scope_t *, ast_node_t *);
 static int checker_check_mdecln(checker_scope_t *, ast_mdecln_t *);
+static int checker_check_global_decln(checker_scope_t *, ast_node_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
 
@@ -4403,6 +4404,97 @@ error:
 	return rc;
 }
 
+/** Run checks on an extern "C" declaration.
+ *
+ * @param scope Checker scope
+ * @param externc C++ extern "C" declaration
+ * @param fix @c true to attempt to fix issues
+ * @return EOK on success or error code
+ */
+static int checker_check_externc(checker_scope_t *scope,
+    ast_externc_t *externc)
+{
+	int rc;
+	ast_node_t *decl;
+	checker_tok_t *textern;
+	checker_tok_t *tlang;
+	checker_tok_t *tlbrace;
+	checker_tok_t *trbrace;
+
+	textern = (checker_tok_t *)externc->textern.data;
+	tlang = (checker_tok_t *)externc->tlang.data;
+	tlbrace = (checker_tok_t *)externc->tlbrace.data;
+	trbrace = (checker_tok_t *)externc->trbrace.data;
+
+	if (strcmp(tlang->tok.text, "\"C\"") != 0) {
+		lexer_dprint_tok(&tlang->tok, stdout);
+		printf(": Linked language is not 'C'.\n");
+	}
+
+	rc = checker_check_lbegin(scope, textern,
+	    "'extern \"C\"' declaration must begin on a new line.");
+	if (rc != EOK)
+		goto error;
+
+	rc = checker_check_nbspace_before(scope, tlang,
+	    "Space expected before string literal.");
+	if (rc != EOK)
+		goto error;
+
+	rc = checker_check_nbspace_before(scope, tlbrace,
+	    "Space expected before '{'.");
+	if (rc != EOK)
+		goto error;
+
+	rc = checker_check_lbegin(scope, trbrace,
+	    "'}' must begin on a new line.");
+	if (rc != EOK)
+		goto error;
+
+	decl = ast_externc_first(externc);
+	while (decl != NULL) {
+		rc = checker_check_global_decln(scope, decl);
+		if (rc != EOK)
+			goto error;
+
+		decl = ast_externc_next(decl);
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
+
+/** Run checks on a global (macro, extern) declaration.
+ *
+ * @param decl Global (macro, extern) declaration
+ * @param fix @c true to attempt to fix issues
+ * @return EOK on success or error code
+ */
+static int checker_check_global_decln(checker_scope_t *scope, ast_node_t *decl)
+{
+	int rc;
+
+	switch (decl->ntype) {
+	case ant_gdecln:
+		rc = checker_check_gdecln(scope, decl);
+		break;
+	case ant_gmdecln:
+		rc = checker_check_gmdecln(scope,
+		    (ast_gmdecln_t *) decl->ext);
+		break;
+	case ant_externc:
+		rc = checker_check_externc(scope, (ast_externc_t *) decl->ext);
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	return rc;
+}
+
 /** Run checks on a module.
  *
  * @param mod Checker module
@@ -4421,19 +4513,7 @@ static int checker_module_check(checker_module_t *mod, bool fix)
 
 	decl = ast_module_first(mod->ast);
 	while (decl != NULL) {
-		switch (decl->ntype) {
-		case ant_gdecln:
-			rc = checker_check_gdecln(scope, decl);
-			break;
-		case ant_gmdecln:
-			rc = checker_check_gmdecln(scope,
-			    (ast_gmdecln_t *) decl->ext);
-			break;
-		default:
-			assert(false);
-			break;
-		}
-
+		rc = checker_check_global_decln(scope, decl);
 		if (rc != EOK) {
 			checker_scope_destroy(scope);
 			return rc;

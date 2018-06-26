@@ -71,12 +71,16 @@ Examples of bad style that triggers a parse error include:
   * Any use of null statement (`;`) except as the body of a while loop
     or in the header of a for loop
 
-ccheck also understands some compiler-specific extensions, such as
+Apart from standard C, ccheck also understands some compiler-specific
+extensions, such as
 
   * GCC inline assembler
   * GCC `register ... asm(...)` variable register assignment
   * GCC attribute syntax
   * GCC's `__int128`, `__restrict__`
+
+ccheck also understands the C++ `extern "C"` declaration embedded in
+a header file.
 
 Finally, ccheck supports some extensions to the C syntax that are
 exploited via the preprocessor. I.e., it understands certain specific

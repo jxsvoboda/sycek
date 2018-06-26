@@ -675,6 +675,176 @@ static ast_tok_t *ast_gmdecln_last_tok(ast_gmdecln_t *gmdecln)
 	return &gmdecln->tscolon;
 }
 
+/** Create AST extern "C" declaration.
+ *
+ * @param rexternc Place to store pointer to new extern "C" declaration
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_externc_create(ast_externc_t **rexternc)
+{
+	ast_externc_t *externc;
+
+	externc = calloc(1, sizeof(ast_externc_t));
+	if (externc == NULL)
+		return ENOMEM;
+
+	externc->node.ext = externc;
+	externc->node.ntype = ant_externc;
+	list_initialize(&externc->decls);
+
+	*rexternc = externc;
+	return EOK;
+}
+
+/** Append declaration to module.
+ *
+ * @param externc C++ extern "C" declaration
+ * @param decl Declaration
+ */
+void ast_externc_append(ast_externc_t *externc, ast_node_t *decl)
+{
+	list_append(&decl->llist, &externc->decls);
+	decl->lnode = &externc->node;
+}
+
+/** Return first declaration in extern "C".
+ *
+ * @param externc C++ extern "C" declaration
+ * @return First declaration or @c NULL
+ */
+ast_node_t *ast_externc_first(ast_externc_t *externc)
+{
+	link_t *link;
+
+	link = list_first(&externc->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return next declaration in extern "C".
+ *
+ * @param externc C++ extern "C" declaration
+ * @return Next declaration or @c NULL
+ */
+ast_node_t *ast_externc_next(ast_node_t *node)
+{
+	link_t *link;
+	ast_externc_t *externc;
+
+	assert(node->lnode->ntype == ant_externc);
+	externc = (ast_externc_t *) node->lnode->ext;
+
+	link = list_next(&node->llist, &externc->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return last declaration in extern "C".
+ *
+ * @param externc C++ extern "C" declaration
+ * @return Last declaration or @c NULL
+ */
+ast_node_t *ast_externc_last(ast_externc_t *externc)
+{
+	link_t *link;
+
+	link = list_last(&externc->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Return previous declaration in extern "C".
+ *
+ * @param externc C++ extern "C" declaration
+ * @return Previous declaration or @c NULL
+ */
+ast_node_t *ast_externc_prev(ast_node_t *node)
+{
+	link_t *link;
+	ast_externc_t *externc;
+
+	assert(node->lnode->ntype == ant_module);
+	externc = (ast_externc_t *) node->lnode->ext;
+
+	link = list_prev(&node->llist, &externc->decls);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ast_node_t, llist);
+}
+
+
+/** Print AST extern "C" declaration.
+ *
+ * @param externc extern "C" declaration
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_externc_print(ast_externc_t *externc, FILE *f)
+{
+	ast_node_t *decl;
+
+	if (fprintf(f, "extern \"C\"(") < 0)
+		return EIO;
+
+	decl = ast_externc_first(externc);
+	while (decl != NULL) {
+		ast_tree_print(decl, f);
+		decl = ast_externc_next(decl);
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST extern "C" declaration.
+ *
+ * @param externc C++ extern "C" declaration
+ */
+static void ast_externc_destroy(ast_externc_t *externc)
+{
+	ast_node_t *decl;
+
+	decl = ast_externc_first(externc);
+	while (decl != NULL) {
+		list_remove(&decl->llist);
+		ast_tree_destroy(decl);
+		decl = ast_externc_first(externc);
+	}
+
+	free(externc);
+}
+
+/** Get first token of AST extern "C" declaration.
+ *
+ * @param externc C++ extern "C" declaration
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_externc_first_tok(ast_externc_t *externc)
+{
+	return &externc->textern;
+}
+
+/** Get last token of AST extern "C" declaration.
+ *
+ * @param externc C++ extern "C" declaration
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_externc_last_tok(ast_externc_t *externc)
+{
+	return &externc->trbrace;
+}
+
+
 /** Create AST block.
  *
  * @param braces Whether the block has braces or not
@@ -8199,6 +8369,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_mdecln_print((ast_mdecln_t *)node->ext, f);
 	case ant_gmdecln:
 		return ast_gmdecln_print((ast_gmdecln_t *)node->ext, f);
+	case ant_externc:
+		return ast_externc_print((ast_externc_t *)node->ext, f);
 	case ant_module:
 		return ast_module_print((ast_module_t *)node->ext, f);
 	case ant_sclass:
@@ -8355,6 +8527,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_gmdecln:
 		ast_gmdecln_destroy((ast_gmdecln_t *)node->ext);
+		break;
+	case ant_externc:
+		ast_externc_destroy((ast_externc_t *)node->ext);
 		break;
 	case ant_module:
 		ast_module_destroy((ast_module_t *)node->ext);
@@ -8554,6 +8729,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_mdecln_first_tok((ast_mdecln_t *)node->ext);
 	case ant_gmdecln:
 		return ast_gmdecln_first_tok((ast_gmdecln_t *)node->ext);
+	case ant_externc:
+		return ast_externc_first_tok((ast_externc_t *)node->ext);
 	case ant_module:
 		return ast_module_first_tok((ast_module_t *)node->ext);
 	case ant_sclass:
@@ -8701,6 +8878,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_mdecln_last_tok((ast_mdecln_t *)node->ext);
 	case ant_gmdecln:
 		return ast_gmdecln_last_tok((ast_gmdecln_t *)node->ext);
+	case ant_externc:
+		return ast_externc_last_tok((ast_externc_t *)node->ext);
 	case ant_module:
 		return ast_module_last_tok((ast_module_t *)node->ext);
 	case ant_sclass:

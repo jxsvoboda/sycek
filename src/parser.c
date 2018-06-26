@@ -54,6 +54,7 @@ static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_cinit(parser_t *, ast_cinit_t **);
 static int parser_process_init(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
+static int parser_process_externc(parser_t *, ast_externc_t **);
 
 /** Create parser.
  *
@@ -5717,6 +5718,115 @@ error:
 	return rc;
 }
 
+/** Parse global (macro, extern) declaration.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new AST node
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_global_decln(parser_t *parser, ast_node_t **rnode)
+{
+	ast_node_t *node = NULL;
+	ast_gmdecln_t *gmdecln = NULL;
+	ast_externc_t *externc;
+	parser_t *sparser;
+	lexer_toktype_t ltt, ltt2;
+	int rc;
+
+	rc = parser_create_silent_sub(parser, &sparser);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_gmdecln(sparser, &gmdecln);
+	if (rc == EOK) {
+		parser->tok = sparser->tok;
+		parser_destroy(sparser);
+		node = &gmdecln->node;
+	} else {
+		parser_destroy(sparser);
+
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_extern)
+			ltt2 = parser_next_next_ttype(parser);
+
+		if (ltt == ltt_extern && ltt2 == ltt_strlit) {
+			rc = parser_process_externc(parser, &externc);
+			if (rc != EOK)
+				goto error;
+
+			node = &externc->node;
+		} else {
+			rc = parser_process_gdecln(parser, &node);
+			if (rc != EOK)
+				goto error;
+		}
+	}
+
+	*rnode = node;
+	return EOK;
+error:
+	return rc;
+}
+
+/** Parse extern "C" declaration.
+ *
+ * @param parser Parser
+ * @param rexternc Place to store pointer to new extern "C" declaration
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_externc(parser_t *parser, ast_externc_t **rexternc)
+{
+	lexer_toktype_t ltt;
+	ast_externc_t *externc;
+	ast_node_t *node;
+	void *dextern;
+	void *dlang;
+	void *dlbrace;
+	void *drbrace;
+	int rc;
+
+	rc = ast_externc_create(&externc);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_extern, &dextern);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_strlit, &dlang);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lbrace, &dlbrace);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	while (ltt != ltt_rbrace) {
+		rc = parser_process_global_decln(parser, &node);
+		if (rc != EOK)
+			goto error;
+
+		ast_externc_append(externc, node);
+		ltt = parser_next_ttype(parser);
+	}
+
+	parser_skip(parser, &drbrace);
+
+	externc->textern.data = dextern;
+	externc->tlang.data = dlang;
+	externc->tlbrace.data = dlbrace;
+	externc->trbrace.data = drbrace;
+
+	*rexternc = externc;
+	return EOK;
+error:
+	ast_tree_destroy(&externc->node);
+	return rc;
+}
+
 /** Parse module.
  *
  * @param parser Parser
@@ -5728,13 +5838,8 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 {
 	lexer_toktype_t ltt;
 	ast_module_t *module;
-	ast_node_t *decln = NULL;
 	ast_node_t *node;
-	ast_gmdecln_t *gmdecln = NULL;
-	parser_t *sparser;
 	int rc;
-
-	(void)parser;
 
 	rc = ast_module_create(&module);
 	if (rc != EOK)
@@ -5742,24 +5847,9 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 
 	ltt = parser_next_ttype(parser);
 	while (ltt != ltt_eof) {
-		rc = parser_create_silent_sub(parser, &sparser);
+		rc = parser_process_global_decln(parser, &node);
 		if (rc != EOK)
 			goto error;
-
-		rc = parser_process_gmdecln(sparser, &gmdecln);
-		if (rc == EOK) {
-			parser->tok = sparser->tok;
-			parser_destroy(sparser);
-			node = &gmdecln->node;
-		} else {
-			parser_destroy(sparser);
-
-			rc = parser_process_gdecln(parser, &decln);
-			if (rc != EOK)
-				goto error;
-
-			node = decln;
-		}
 
 		ast_module_append(module, node);
 		ltt = parser_next_ttype(parser);

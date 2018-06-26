@@ -167,6 +167,8 @@ typedef enum {
 	ant_mdecln,
 	/** Global macro-based declaration */
 	ant_gmdecln,
+	/** C++ extern "C" construct */
+	ant_externc,
 	/** Module */
 	ant_module,
 	/** Storage-class specifier */
@@ -1520,6 +1522,26 @@ typedef struct {
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_gmdecln_t;
+
+/** C++ extern "C" declaration
+ *
+ * Even though this technically is C++, we need to parse it to support
+ * dual C/C++ headers.
+ */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'extern' keyword */
+	ast_tok_t textern;
+	/** "C" string literal */
+	ast_tok_t tlang;
+	/** '{' token */
+	ast_tok_t tlbrace;
+	/** Declarations */
+	list_t decls; /* of ast_node_t */
+	/** '}' token */
+	ast_tok_t trbrace;
+} ast_externc_t;
 
 /** Module.
  *

@@ -37,6 +37,12 @@ extern ast_node_t *ast_module_first(ast_module_t *);
 extern ast_node_t *ast_module_next(ast_node_t *);
 extern ast_node_t *ast_module_last(ast_module_t *);
 extern ast_node_t *ast_module_prev(ast_node_t *);
+extern int ast_externc_create(ast_externc_t **);
+extern void ast_externc_append(ast_externc_t *, ast_node_t *);
+extern ast_node_t *ast_externc_first(ast_externc_t *);
+extern ast_node_t *ast_externc_next(ast_node_t *);
+extern ast_node_t *ast_externc_last(ast_externc_t *);
+extern ast_node_t *ast_externc_prev(ast_node_t *);
 extern int ast_sclass_create(ast_sclass_type_t, ast_sclass_t **);
 extern int ast_gdecln_create(ast_dspecs_t *, ast_idlist_t *, ast_malist_t *,
     ast_block_t *, ast_gdecln_t **);
