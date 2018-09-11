@@ -542,6 +542,53 @@ static void checker_remove_ws_after(checker_tok_t *tok)
 	}
 }
 
+/** Determine if line is blank.
+ *
+ * @param tok First token of the line
+ * @return @c true iff line is blank
+ */
+static bool checker_line_is_blank(checker_tok_t *tok)
+{
+	while (tok->tok.ttype != ltt_eof &&
+	    tok->tok.ttype != ltt_newline) {
+		if (!lexer_is_wspace(tok->tok.ttype))
+			return false;
+
+		tok = checker_next_tok(tok);
+	}
+
+	return true;
+}
+
+/** Remove line.
+ *
+ * @param tok First token of the line
+ * @return First token following the line
+ */
+static checker_tok_t *checker_remove_line(checker_tok_t *tok)
+{
+	checker_tok_t *ntok;
+
+	/* Remove tokens until newline */
+	while (tok->tok.ttype != ltt_eof &&
+	    tok->tok.ttype != ltt_newline) {
+		ntok = checker_next_tok(tok);
+
+		checker_remove_token(tok);
+		tok = ntok;
+	}
+
+	/* Also remove the newline */
+	if (tok->tok.ttype == ltt_newline) {
+		ntok = checker_next_tok(tok);
+
+		checker_remove_token(tok);
+		tok = ntok;
+	}
+
+	return tok;
+}
+
 /** Mark preceding comments as not continuation.
  *
  * Start with @a tok and continue with preceding tokens (if they are
@@ -4999,15 +5046,14 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
  * @param mod Checker module
  * @param bof @c true iff empty lines are at beginning of file
  * @param empty_lc Number of empty lines in this block
+ * @param etok First token of first empty line
  * @param fix @c true to attempt to fix issues instead of reporting them
  * @return EOK on success or error code
  */
 static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
-    unsigned empty_lc, bool fix)
+    unsigned empty_lc, checker_tok_t *etok, bool fix)
 {
 	checker_tok_t *tok;
-
-	(void)empty_lc;
 
 	if (bof) {
 		if (fix) {
@@ -5021,6 +5067,25 @@ static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": Unexpected empty line at beginning of "
 			    "file.\n");
+		}
+	} else if (empty_lc > 1) {
+		if (fix) {
+			/* Skip the first empty line */
+			tok = etok;
+			while (tok->tok.ttype != ltt_eof &&
+			    tok->tok.ttype != ltt_newline)
+				tok = checker_next_tok(tok);
+
+			/* Skip the newline */
+			if (tok->tok.ttype == ltt_newline)
+				tok = checker_next_tok(tok);
+
+			/* Remove further blank lines */
+			while (checker_line_is_blank(tok))
+				tok = checker_remove_line(tok);
+		} else {
+			lexer_dprint_tok(&etok->tok, stdout);
+			printf(": Unexpected multiple consecutive empty lines.\n");
 		}
 	}
 
@@ -5036,17 +5101,24 @@ static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
 static int checker_module_vspacing(checker_module_t *mod, bool fix)
 {
 	checker_tok_t *tok;
+	checker_tok_t *lbtok;
+	checker_tok_t *etok;
 	checker_tok_t *ptok;
 	bool nonws;
 	bool bof;
 	unsigned empty_lc;
 	int rc;
 
+	/* Beginning of file? */
 	bof = true;
+	/* Number of consecutive empty lines */
 	empty_lc = 0;
+
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
+		lbtok = tok;
 		nonws = false;
+
 		/* Find end of line */
 		while (tok->tok.ttype != ltt_eof &&
 		    tok->tok.ttype != ltt_newline) {
@@ -5060,7 +5132,7 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 			if (empty_lc > 0) {
 				/* A block of empty lines */
 				rc = checker_check_empty_line_block(mod, bof,
-				    empty_lc, fix);
+				    empty_lc, etok, fix);
 				if (rc != EOK)
 					return rc;
 
@@ -5069,6 +5141,10 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 
 			bof = false;
 		} else {
+			if (empty_lc == 0) {
+				/* Remember beginning of first empty line */
+				etok = lbtok;
+			}
 			++empty_lc;
 		}
 
