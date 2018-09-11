@@ -1,0 +1,1 @@
+<test/ugly/blanklbof-in.c:1:1:newline>: Unexpected empty line at beginning of file.

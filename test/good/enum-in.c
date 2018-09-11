@@ -1,4 +1,3 @@
-
 enum {
 	/* Enum member with initializer */
 	foo = 1,

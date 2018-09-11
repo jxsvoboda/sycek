@@ -1,4 +1,3 @@
-
 /** A record type */
 typedef struct {
 	/* Comment inside rectord type specifier. Also, a simple member */

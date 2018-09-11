@@ -1,4 +1,3 @@
-
 /* Initialization '=' at beginning of a line */
 int e
     = f + g;

@@ -4994,6 +4994,39 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 	return EOK;
 }
 
+/** Check a group of empty lines.
+ *
+ * @param mod Checker module
+ * @param bof @c true iff empty lines are at beginning of file
+ * @param empty_lc Number of empty lines in this block
+ * @param fix @c true to attempt to fix issues instead of reporting them
+ * @return EOK on success or error code
+ */
+static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
+    unsigned empty_lc, bool fix)
+{
+	checker_tok_t *tok;
+
+	(void)empty_lc;
+
+	if (bof) {
+		if (fix) {
+			tok = checker_module_first_tok(mod);
+			while (tok != NULL && lexer_is_wspace(tok->tok.ttype)) {
+				checker_remove_token(tok);
+				tok = checker_module_first_tok(mod);
+			}
+		} else {
+			tok = checker_module_first_tok(mod);
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Unexpected empty line at beginning of "
+			    "file.\n");
+		}
+	}
+
+	return EOK;
+}
+
 /** Check vertical spacing.
  *
  * @param mod Checker module
@@ -5005,9 +5038,11 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 	checker_tok_t *tok;
 	checker_tok_t *ptok;
 	bool nonws;
+	bool bof;
 	unsigned empty_lc;
 	int rc;
 
+	bof = true;
 	empty_lc = 0;
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
@@ -5023,10 +5058,16 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 
 		if (nonws) {
 			if (empty_lc > 0) {
-				if (0)
-					printf("empty line run: %u\n", empty_lc);
+				/* A block of empty lines */
+				rc = checker_check_empty_line_block(mod, bof,
+				    empty_lc, fix);
+				if (rc != EOK)
+					return rc;
+
 				empty_lc = 0;
 			}
+
+			bof = false;
 		} else {
 			++empty_lc;
 		}

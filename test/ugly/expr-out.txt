@@ -1,12 +1,12 @@
-<test/ugly/expr-in.c:4:5:'='>: '=' at beginning of line.
-<test/ugly/expr-in.c:13:10:space>: Unexpected whitespace before '['.
-<test/ugly/expr-in.c:13:12:space>: Unexpected space after '['.
-<test/ugly/expr-in.c:13:14:space>: Unexpected whitespace before ']'.
-<test/ugly/expr-in.c:19:30:num:2>: Whitespace expected after binary operator.
-<test/ugly/expr-in.c:22:45:space>: Unexpected whitespace before '['.
-<test/ugly/expr-in.c:25:27:id:b>: Whitespace expected after binary operator.
-<test/ugly/expr-in.c:28:24-28:id:foo_t>: Expected space before declarator.
-<test/ugly/expr-in.c:32:13:'+'>: Binary operator at beginning of line.
-<test/ugly/expr-in.c:36:13:'='>: '=' at beginning of line.
-<test/ugly/expr-in.c:40:13:'?'>: Ternary '?' at beginning of line.
-<test/ugly/expr-in.c:41:13:':'>: Ternary ':' at beginning of line.
+<test/ugly/expr-in.c:3:5:'='>: '=' at beginning of line.
+<test/ugly/expr-in.c:12:10:space>: Unexpected whitespace before '['.
+<test/ugly/expr-in.c:12:12:space>: Unexpected space after '['.
+<test/ugly/expr-in.c:12:14:space>: Unexpected whitespace before ']'.
+<test/ugly/expr-in.c:18:30:num:2>: Whitespace expected after binary operator.
+<test/ugly/expr-in.c:21:45:space>: Unexpected whitespace before '['.
+<test/ugly/expr-in.c:24:27:id:b>: Whitespace expected after binary operator.
+<test/ugly/expr-in.c:27:24-28:id:foo_t>: Expected space before declarator.
+<test/ugly/expr-in.c:31:13:'+'>: Binary operator at beginning of line.
+<test/ugly/expr-in.c:35:13:'='>: '=' at beginning of line.
+<test/ugly/expr-in.c:39:13:'?'>: Ternary '?' at beginning of line.
+<test/ugly/expr-in.c:40:13:':'>: Ternary ':' at beginning of line.
