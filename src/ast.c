@@ -3460,6 +3460,11 @@ static int ast_dptr_print(ast_dptr_t *adptr, FILE *f)
 
 	if (fprintf(f, "dptr(") < 0)
 		return EIO;
+	rc = ast_tqlist_print(adptr->tqlist, f);
+	if (rc != EOK)
+		return rc;
+	if (fprintf(f, ",") < 0)
+		return EIO;
 	rc = ast_tree_print(adptr->bdecl, f);
 	if (rc != EOK)
 		return rc;
