@@ -4994,6 +4994,72 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 	return EOK;
 }
 
+/** Check vertical spacing.
+ *
+ * @param mod Checker module
+ * @param fix @c true to attempt to fix issues instead of reporting them
+ * @return EOK on success or error code
+ */
+static int checker_module_vspacing(checker_module_t *mod, bool fix)
+{
+	checker_tok_t *tok;
+	checker_tok_t *ptok;
+	bool nonws;
+	unsigned empty_lc;
+	int rc;
+
+	empty_lc = 0;
+	tok = checker_module_first_tok(mod);
+	while (tok->tok.ttype != ltt_eof) {
+		nonws = false;
+		/* Find end of line */
+		while (tok->tok.ttype != ltt_eof &&
+		    tok->tok.ttype != ltt_newline) {
+			if (!lexer_is_wspace(tok->tok.ttype))
+				nonws = true;
+
+			tok = checker_next_tok(tok);
+		}
+
+		if (nonws) {
+			if (empty_lc > 0) {
+				if (0)
+					printf("empty line run: %u\n", empty_lc);
+				empty_lc = 0;
+			}
+		} else {
+			++empty_lc;
+		}
+
+		/* Skip newline */
+		if (tok->tok.ttype != ltt_eof)
+			tok = checker_next_tok(tok);
+	}
+
+	ptok = checker_prev_tok(tok);
+	if (ptok->tok.ttype != ltt_newline) {
+		if (fix) {
+			rc = checker_append_tok(ptok, ltt_newline, "\n");
+			if (rc != EOK)
+				return rc;
+		} else {
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Expected newline at end of file.\n");
+		}
+	}
+
+	if (empty_lc > 0) {
+		if (fix) {
+			checker_remove_ws_before(ptok);
+		} else {
+			lexer_dprint_tok(&ptok->tok, stdout);
+			printf(": Unexpected empty lines at end of file.\n");
+		}
+	}
+
+	return EOK;
+}
+
 /** Make sure checker tokenized source is available.
  *
  * If source hasn't been tokenized yet, do it now.
@@ -5069,6 +5135,10 @@ int checker_run(checker_t *checker, bool fix)
 	checker_prev_comments_nocont(checker_module_last_tok(checker->mod));
 
 	rc = checker_module_lines(checker->mod, fix);
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_module_vspacing(checker->mod, fix);
 	if (rc != EOK)
 		return rc;
 
