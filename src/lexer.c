@@ -181,6 +181,27 @@ static bool is_print(char c)
 	return (b >= 32) && (b < 127);
 }
 
+/** Determine if character is a forbidden control character.
+ *
+ * This can only determine basic ASCII control characters.
+ * Only allowed control characters are Tab, Line Feed (a.k.a. newline).
+ *
+ * @return @c true iff the character is a forbidden control character
+ */
+static bool is_bad_ctrl(char c)
+{
+	uint8_t b;
+
+	b = (uint8_t) c;
+
+	if (b < 32 && b != '\t' && b != '\n')
+		return true;
+	if (b == 127)
+		return true;
+
+	return false;
+}
+
 /** Get valid pointer to characters in input buffer.
  *
  * Returns a pointer into the input buffer, ensuring it contains
@@ -1277,6 +1298,30 @@ static int lexer_get_tok_comment(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Verify that token consists only of allowed characters.
+ *
+ * If the token contains invalid characters, its type is changed to
+ * @c ltt_invalid.
+ *
+ * @param tok Token to validate
+ */
+static void lexer_validate_tok(lexer_tok_t *tok)
+{
+	char *cp;
+
+	if (tok->text == NULL)
+		return;
+
+	cp = tok->text;
+	while (*cp != '\0') {
+		if (is_bad_ctrl(*cp)) {
+			/* Set token type to invalid */
+			tok->ttype = ltt_invalid;
+		}
+		++cp;
+	}
+}
+
 /** Lex next token.
  *
  * @param lexer Lexer
@@ -1286,12 +1331,21 @@ static int lexer_get_tok_comment(lexer_t *lexer, lexer_tok_t *tok)
  */
 int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 {
+	int rc;
+
 	switch (lexer->state) {
 	case ls_normal:
-		return lexer_get_tok_normal(lexer, tok);
+		rc = lexer_get_tok_normal(lexer, tok);
+		break;
 	case ls_comment:
-		return lexer_get_tok_comment(lexer, tok);
+		rc = lexer_get_tok_comment(lexer, tok);
+		break;
 	}
+
+	if (rc != EOK)
+		return rc;
+
+	lexer_validate_tok(tok);
 
 	return EOK;
 }
