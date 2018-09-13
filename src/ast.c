@@ -515,7 +515,6 @@ ast_mdecln_arg_t *ast_mdecln_next(ast_mdecln_arg_t *arg)
 	return list_get_instance(link, ast_mdecln_arg_t, lmdecln);
 }
 
-
 /** Print AST macro-based declaration.
  *
  * @param mdecln Macro-based declaration
@@ -780,7 +779,6 @@ ast_node_t *ast_externc_prev(ast_node_t *node)
 	return list_get_instance(link, ast_node_t, llist);
 }
 
-
 /** Print AST extern "C" declaration.
  *
  * @param externc extern "C" declaration
@@ -843,7 +841,6 @@ static ast_tok_t *ast_externc_last_tok(ast_externc_t *externc)
 {
 	return &externc->trbrace;
 }
-
 
 /** Create AST block.
  *
@@ -4972,7 +4969,6 @@ static ast_tok_t *ast_econcat_last_tok(ast_econcat_t *econcat)
 	return ast_tree_last_tok(elem->bexpr);
 }
 
-
 /** Create AST binary operator expression.
  *
  * @param rebinop Place to store pointer to new binary operator expression
@@ -5790,7 +5786,6 @@ static ast_tok_t *ast_ecast_last_tok(ast_ecast_t *ecast)
 {
 	return ast_tree_last_tok(ecast->bexpr);
 }
-
 
 /** Create AST compound literal expression.
  *
@@ -8354,7 +8349,6 @@ static ast_tok_t *ast_lmacro_last_tok(ast_lmacro_t *lmacro)
 {
 	return ast_block_last_tok(lmacro->body);
 }
-
 
 /** Print AST tree.
  *

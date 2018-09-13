@@ -36,5 +36,4 @@ extern void parser_destroy(parser_t *);
 extern int parser_process_module(parser_t *, ast_module_t **);
 extern bool parser_ttype_ignore(lexer_toktype_t);
 
-
 #endif

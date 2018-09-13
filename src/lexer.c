@@ -761,7 +761,6 @@ dec_point:
 		}
 	}
 
-
 	tok->ttype = ltt_number;
 	return EOK;
 }

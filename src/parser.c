@@ -357,8 +357,6 @@ static void parser_mark(parser_t *parser)
 	parser->tok = ntok;
 }
 
-
-
 /** Match a particular token type.
  *
  * If the type of the next token is @a mtype, skip over it. Otherwise
@@ -2650,7 +2648,6 @@ error:
 	return rc;
 }
 
-
 /** Parse break statement.
  *
  * @param parser Parser
@@ -2718,7 +2715,6 @@ static int parser_process_continue(parser_t *parser, ast_node_t **rcontinue)
 error:
 	return rc;
 }
-
 
 /** Parse goto statement.
  *
@@ -3720,7 +3716,6 @@ static int parser_process_tqual(parser_t *parser, ast_tqual_t **rtqual)
 	return EOK;
 }
 
-
 /** Parse basic type specifier.
  *
  * @param parser Parser
@@ -3876,7 +3871,6 @@ error:
 		ast_tree_destroy(&mdecln->node);
 	return rc;
 }
-
 
 /** Parse record type specifier.
  *
@@ -4985,7 +4979,6 @@ error:
 		ast_tree_destroy(decl);
 	return rc;
 }
-
 
 /** Parse storage-class specifier.
  *

@@ -760,7 +760,6 @@ static void checker_check_nsbrk_before_nocont(checker_scope_t *scope,
 		tok->lbegin = true;
 }
 
-
 /** Check non-spacing break after.
  *
  * There should be either non-whitespace or a line break after the token.
@@ -1738,7 +1737,6 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		checker_check_nows_before(scope, tscolon2,
 		    "Unexpected whitespace before ';'.");
 	}
-
 
 	rc = checker_check_brkspace_after(scope, tscolon2,
 	    "Expected space after ';'.");
@@ -2873,7 +2871,6 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 			goto error;
 	}
 
-
 	tident = (checker_tok_t *)tsrecord->tident.data;
 	if (tident != NULL)
 		checker_check_any(scope, tident);
@@ -3374,7 +3371,6 @@ static int checker_check_econcat(checker_scope_t *scope, ast_econcat_t *econcat)
 
 	return EOK;
 }
-
 
 /** Check binary operator expression.
  *
@@ -4210,7 +4206,6 @@ error:
 	return rc;
 }
 
-
 /** Check initializer.
  *
  * @param scope Checker scope
@@ -4512,7 +4507,6 @@ error:
 	return rc;
 }
 
-
 /** Run checks on a global (macro, extern) declaration.
  *
  * @param decl Global (macro, extern) declaration
@@ -4620,7 +4614,6 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 			printf(": Mixing tabs and spaces in indentation.\n");
 		}
 	}
-
 
 	if (!tok->lbegin) {
 		if (tok->tok.ttype == ltt_cclose ||
