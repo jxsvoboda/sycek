@@ -29,6 +29,7 @@
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -163,6 +164,21 @@ static bool is_idbegin(char c)
 static bool is_idcnt(char c)
 {
 	return is_alnum(c) || (c == '_');
+}
+
+/** Determine if character is printable.
+ *
+ * A character that is part of a multibyte sequence is not printable.
+ * @note This function assumes that the input is ASCII/UTF-8
+ * @param c Character
+ * @return @c true iff the character is printable
+ */
+static bool is_print(char c)
+{
+	uint8_t b;
+
+	b = (uint8_t) c;
+	return (b >= 32) && (b < 127);
 }
 
 /** Get valid pointer to characters in input buffer.
@@ -1521,6 +1537,39 @@ int lexer_print_ttype(lexer_toktype_t ttype, FILE *f)
 	return EOK;
 }
 
+/** Print string, escaping special characters.
+ *
+ * @param str Strint to print
+ * @param f Output file
+ * @return EOK on success, EIO on I/O error
+ */
+static int lexer_dprint_str(const char *str, FILE *f)
+{
+	const char *cp;
+	char c;
+	int rc;
+
+	cp = str;
+	while (*cp != '\0') {
+		c = *cp++;
+		if (!is_print(c)) {
+			rc = fprintf(f, "#%02x", c);
+			if (rc < 0)
+				return EIO;
+		} else if (c == '#') {
+			rc = fputc('#', f);
+			if (rc == EOF)
+				return EIO;
+		} else {
+			rc = fputc(c, f);
+			if (rc == EOF)
+				return EIO;
+		}
+	}
+
+	return EOK;
+}
+
 /** Print token structurally (for debugging).
  *
  * @param tok Token
@@ -1544,10 +1593,15 @@ int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
 	switch (tok->ttype) {
 	case ltt_ident:
 	case ltt_number:
-	case ltt_invalid:
 		if (fprintf(f, ":%s", tok->text) < 0)
 			return EIO;
 		break;
+	case ltt_invalid:
+		if (fputc(':', f) == EOF)
+			return EIO;
+		rc = lexer_dprint_str(tok->text, f);
+		if (rc != EOK)
+			return EIO;
 	default:
 		break;
 	}
