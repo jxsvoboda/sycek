@@ -32,6 +32,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static int ast_typename_print(ast_typename_t *, FILE *);
+static void ast_typename_destroy(ast_typename_t *);
 static int ast_aspec_print(ast_aspec_t *, FILE *);
 static int ast_aslist_print(ast_aslist_t *, FILE *);
 static void ast_aslist_destroy(ast_aslist_t *);
@@ -1081,6 +1083,9 @@ static int ast_tqual_print(ast_tqual_t *tqual, FILE *f)
 	case aqt_volatile:
 		s = "volatile";
 		break;
+	case aqt_atomic:
+		s = "_Atomic";
+		break;
 	}
 
 	if (fprintf(f, "tqual(%s)", s) < 0)
@@ -1250,6 +1255,81 @@ static ast_tok_t *ast_tsident_first_tok(ast_tsident_t *tsident)
 static ast_tok_t *ast_tsident_last_tok(ast_tsident_t *tsident)
 {
 	return &tsident->tident;
+}
+
+/** Create AST atomic type specifier.
+ *
+ * @param rtsrecord Place to store pointer to new record type specifier
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tsatomic_create(ast_tsatomic_t **rtsatomic)
+{
+	ast_tsatomic_t *tsatomic;
+
+	tsatomic = calloc(1, sizeof(ast_tsatomic_t));
+	if (tsatomic == NULL)
+		return ENOMEM;
+
+	tsatomic->node.ext = tsatomic;
+	tsatomic->node.ntype = ant_tsatomic;
+
+	*rtsatomic = tsatomic;
+	return EOK;
+}
+
+/** Print AST atomic type specifier.
+ *
+ * @param tsatomic Atomic type specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_tsatomic_print(ast_tsatomic_t *tsatomic, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "tsatomic(") < 0)
+		return EIO;
+
+	rc = ast_typename_print(tsatomic->atypename, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST atomic type specifier.
+ *
+ * @param tsatomic Atomic type specifier
+ */
+static void ast_tsatomic_destroy(ast_tsatomic_t *tsatomic)
+{
+	ast_typename_destroy(tsatomic->atypename);
+	free(tsatomic);
+}
+
+/** Get first token of AST atomic type specifier.
+ *
+ * @param tsatomic Atomic type specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_tsatomic_first_tok(ast_tsatomic_t *tsatomic)
+{
+	return &tsatomic->tatomic;
+}
+
+/** Get last token of AST atomic type specifier.
+ *
+ * @param tsatomic Atomic type specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_tsatomic_last_tok(ast_tsatomic_t *tsatomic)
+{
+	return &tsatomic->trparen;
 }
 
 /** Create AST record type specifier.
@@ -8380,6 +8460,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsbasic_print((ast_tsbasic_t *)node->ext, f);
 	case ant_tsident:
 		return ast_tsident_print((ast_tsident_t *)node->ext, f);
+	case ant_tsatomic:
+		return ast_tsatomic_print((ast_tsatomic_t *)node->ext, f);
 	case ant_tsrecord:
 		return ast_tsrecord_print((ast_tsrecord_t *)node->ext, f);
 	case ant_tsenum:
@@ -8544,6 +8626,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_tsident:
 		ast_tsident_destroy((ast_tsident_t *)node->ext);
+		break;
+	case ant_tsatomic:
+		ast_tsatomic_destroy((ast_tsatomic_t *)node->ext);
 		break;
 	case ant_tsrecord:
 		ast_tsrecord_destroy((ast_tsrecord_t *)node->ext);
@@ -8740,6 +8825,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_tsbasic_first_tok((ast_tsbasic_t *)node->ext);
 	case ant_tsident:
 		return ast_tsident_first_tok((ast_tsident_t *)node->ext);
+	case ant_tsatomic:
+		return ast_tsatomic_first_tok((ast_tsatomic_t *)node->ext);
 	case ant_tsrecord:
 		return ast_tsrecord_first_tok((ast_tsrecord_t *)node->ext);
 	case ant_tsenum:
@@ -8889,6 +8976,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_tsbasic_last_tok((ast_tsbasic_t *)node->ext);
 	case ant_tsident:
 		return ast_tsident_last_tok((ast_tsident_t *)node->ext);
+	case ant_tsatomic:
+		return ast_tsatomic_last_tok((ast_tsatomic_t *)node->ext);
 	case ant_tsrecord:
 		return ast_tsrecord_last_tok((ast_tsrecord_t *)node->ext);
 	case ant_tsenum:

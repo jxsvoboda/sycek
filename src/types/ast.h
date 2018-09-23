@@ -39,6 +39,8 @@ typedef enum {
 	ant_tsbasic,
 	/** Identifier type specifier */
 	ant_tsident,
+	/** Atomic type specifier */
+	ant_tsatomic,
 	/** Record type specifier */
 	ant_tsrecord,
 	/** Enum type specifier */
@@ -306,7 +308,9 @@ typedef enum {
 	/** Restrict qualifier */
 	aqt_restrict,
 	/** Volatile qualifier */
-	aqt_volatile
+	aqt_volatile,
+	/** Atomic qualifier */
+	aqt_atomic
 } ast_qtype_t;
 
 /** Type qualifier */
@@ -384,6 +388,20 @@ typedef struct {
 	/** Semicolon token */
 	ast_tok_t tscolon;
 } ast_tsrecord_elem_t;
+
+/** Atomic type specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Atomic token */
+	ast_tok_t tatomic;
+	/** Left parenthesis token */
+	ast_tok_t tlparen;
+	/** Type name (if argument is type name) */
+	struct ast_typename *atypename;
+	/** Right parenthesis token */
+	ast_tok_t trparen;
+} ast_tsatomic_t;
 
 /** Enum type specifier */
 typedef struct {
@@ -719,7 +737,7 @@ typedef struct {
 } ast_idlist_entry_t;
 
 /** Type name. */
-typedef struct {
+typedef struct ast_typename {
 	/** Base object */
 	ast_node_t node;
 	/** Declaration specifiers */

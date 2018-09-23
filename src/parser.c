@@ -387,15 +387,25 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 	return EOK;
 }
 
-/** Return @c true if token type a type qualifier.
+/** Return @c true if next token is a type qualifier.
  *
- * @param ttype Token type
+ * @param parser Parser
  * @return @c true iff token of type @a ttype is a type qualifier
  */
-static bool parser_ttype_tqual(lexer_toktype_t ttype)
+static bool parser_next_is_tqual(parser_t *parser)
 {
-	return ttype == ltt_const || ttype == ltt_restrict ||
-	    ttype == ltt_restrict_alt || ttype == ltt_volatile;
+	lexer_toktype_t ltt;
+	lexer_toktype_t ltt2;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_atomic) {
+		/* If followed by '(', it would be a type specifier */
+		ltt2 = parser_next_next_ttype(parser);
+		return ltt2 != ltt_lparen;
+	}
+
+	return ltt == ltt_const || ltt == ltt_restrict ||
+	    ltt == ltt_restrict_alt || ltt == ltt_volatile;
 }
 
 /** Return @c true if token type is a basic type specifier
@@ -411,15 +421,25 @@ static bool parser_ttype_tsbasic(lexer_toktype_t ttype)
 	    ttype == ltt_unsigned;
 }
 
-/** Return @c true if token type is a type specifier
+/** Return @c true if next token is a type specifier
  *
- * @param ttype Token type
+ * @param parser Parser
  * @return @c true iff token of type @a ttype is a type specifier
  */
-static bool parser_ttype_tspec(lexer_toktype_t ttype)
+static bool parser_next_is_tspec(parser_t *parser)
 {
-	return parser_ttype_tsbasic(ttype) || ttype == ltt_struct ||
-	    ttype == ltt_union || ttype == ltt_enum || ttype == ltt_ident;
+	lexer_toktype_t ltt;
+	lexer_toktype_t ltt2;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_atomic) {
+		/* It is a type specifier if followed by '(' */
+		ltt2 = parser_next_next_ttype(parser);
+		return ltt2 == ltt_lparen;
+	}
+
+	return parser_ttype_tsbasic(ltt) || ltt == ltt_struct ||
+	    ltt == ltt_union || ltt == ltt_enum || ltt == ltt_ident;
 }
 
 /** Return @c true if token type is a storage class specifier
@@ -3699,6 +3719,9 @@ static int parser_process_tqual(parser_t *parser, ast_tqual_t **rtqual)
 	case ltt_volatile:
 		qtype = aqt_volatile;
 		break;
+	case ltt_atomic:
+		qtype = aqt_atomic;
+		break;
 	default:
 		assert(false);
 		return EINVAL;
@@ -3783,6 +3806,49 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 
 	*rtype = &pident->node;
 	return EOK;
+}
+
+/** Parse atomic type specifier.
+ *
+ * @param parser Parser
+ * @param rtype Place to store pointer to new AST atomic type specifier
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsatomic(parser_t *parser, ast_node_t **rtype)
+{
+	ast_tsatomic_t *patomic = NULL;
+	void *datomic;
+	void *dlparen;
+	ast_typename_t *atypename;
+	void *drparen;
+	int rc;
+
+	rc = ast_tsatomic_create(&patomic);
+	if (rc != EOK)
+		return rc;
+
+	parser_skip(parser, &datomic);
+	patomic->tatomic.data = datomic;
+
+	parser_skip(parser, &dlparen);
+	patomic->tlparen.data = dlparen;
+
+	rc = parser_process_typename(parser, &atypename);
+	if (rc != EOK)
+		goto error;
+
+	patomic->atypename = atypename;
+
+	parser_skip(parser, &drparen);
+	patomic->trparen.data = drparen;
+
+	*rtype = &patomic->node;
+	return EOK;
+error:
+	if (patomic != NULL)
+		ast_tree_destroy(&patomic->node);
+	return rc;
 }
 
 /** Parse record type specifier element.
@@ -4152,6 +4218,9 @@ static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
 	case ltt_ident:
 		rc = parser_process_tsident(parser, rtype);
 		break;
+	case ltt_atomic:
+		rc = parser_process_tsatomic(parser, rtype);
+		break;
 	case ltt_struct:
 	case ltt_union:
 		rc = parser_process_tsrecord(parser, rtype);
@@ -4201,7 +4270,7 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 	ltt = parser_next_ttype(parser);
 	do {
-		if (parser_ttype_tspec(ltt)) {
+		if (parser_next_is_tspec(parser)) {
 			/*
 			 * Stop before identifier if we already have
 			 * a specifier
@@ -4214,7 +4283,7 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 				goto error;
 
 			have_tspec = true;
-		} else if (parser_ttype_tqual(ltt)) {
+		} else if (parser_next_is_tqual(parser)) {
 			rc = parser_process_tqual(parser, &tqual);
 			if (rc != EOK)
 				goto error;
@@ -4233,7 +4302,7 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 		ast_sqlist_append(sqlist, elem);
 		ltt = parser_next_ttype(parser);
-	} while (parser_ttype_tspec(ltt) || parser_ttype_tqual(ltt));
+	} while (parser_next_is_tspec(parser) || parser_next_is_tqual(parser));
 
 	*rsqlist = sqlist;
 	return EOK;
@@ -4251,7 +4320,6 @@ error:
  */
 static int parser_process_tqlist(parser_t *parser, ast_tqlist_t **rtqlist)
 {
-	lexer_toktype_t ltt;
 	ast_tqlist_t *tqlist;
 	ast_tqual_t *tqual;
 	ast_node_t *elem;
@@ -4261,8 +4329,7 @@ static int parser_process_tqlist(parser_t *parser, ast_tqlist_t **rtqlist)
 	if (rc != EOK)
 		return rc;
 
-	ltt = parser_next_ttype(parser);
-	while (parser_ttype_tqual(ltt)) {
+	while (parser_next_is_tqual(parser)) {
 		rc = parser_process_tqual(parser, &tqual);
 		if (rc != EOK)
 			goto error;
@@ -4270,7 +4337,6 @@ static int parser_process_tqlist(parser_t *parser, ast_tqlist_t **rtqlist)
 		elem = &tqual->node;
 
 		ast_tqlist_append(tqlist, elem);
-		ltt = parser_next_ttype(parser);
 	}
 
 	*rtqlist = tqlist;
@@ -4322,7 +4388,7 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 			if (rc != EOK)
 				goto error;
 			elem = &sclass->node;
-		} else if (parser_ttype_tspec(ltt)) {
+		} else if (parser_next_is_tspec(parser)) {
 			/*
 			 * Stop before identifier if we already have
 			 * a specifier
@@ -4341,7 +4407,7 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 			if (ltt == ltt_ident && have_tspec)
 				++idcnt;
 			have_tspec = true;
-		} else if (parser_ttype_tqual(ltt)) {
+		} else if (parser_next_is_tqual(parser)) {
 			rc = parser_process_tqual(parser, &tqual);
 			if (rc != EOK)
 				goto error;
@@ -4373,8 +4439,8 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 
 		ast_dspecs_append(dspecs, elem);
 		ltt = parser_next_ttype(parser);
-	} while (parser_ttype_sclass(ltt) || parser_ttype_tspec(ltt) ||
-	    parser_ttype_tqual(ltt) || parser_ttype_fspec(ltt) ||
+	} while (parser_ttype_sclass(ltt) || parser_next_is_tspec(parser) ||
+	    parser_next_is_tqual(parser) || parser_ttype_fspec(ltt) ||
 	    parser_ttype_aspec(ltt));
 
 	*rdspecs = dspecs;

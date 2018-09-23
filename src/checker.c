@@ -2836,6 +2836,41 @@ static int checker_check_tsident(checker_scope_t *scope,
 	return EOK;
 }
 
+/** Run checks on an atomic type specifier.
+ *
+ * @param scope Checker scope
+ * @param tsatomic AST atomic type specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_tsatomic(checker_scope_t *scope,
+    ast_tsatomic_t *tsatomic)
+{
+	checker_tok_t *tatomic;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	int rc;
+
+	tatomic = (checker_tok_t *)tsatomic->tatomic.data;
+	checker_check_any(scope, tatomic);
+
+	tlparen = (checker_tok_t *)tsatomic->tlparen.data;
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
+
+	checker_check_nsbrk_after(scope, tlparen,
+	    "Unexpected space after '('.");
+
+	rc = checker_check_typename(scope, tsatomic->atypename);
+	if (rc != EOK)
+		return rc;
+
+	trparen = (checker_tok_t *)tsatomic->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+}
+
 /** Run checks on a record type specifier.
  *
  * @param scope Checker scope
@@ -3056,6 +3091,10 @@ static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 		break;
 	case ant_tsident:
 		rc = checker_check_tsident(scope, (ast_tsident_t *)tspec->ext);
+		break;
+	case ant_tsatomic:
+		rc = checker_check_tsatomic(scope,
+		    (ast_tsatomic_t *)tspec->ext);
 		break;
 	case ant_tsrecord:
 		rc = checker_check_tsrecord(scope,
