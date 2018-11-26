@@ -27,7 +27,7 @@
 #ifndef TYPES_AST_H
 #define TYPES_AST_H
 
-#include <types/adt/list.h>
+#include <adt/list.h>
 
 typedef struct ast_block ast_block_t;
 

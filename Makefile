@@ -21,14 +21,21 @@
 #
 
 CC     = gcc
-CFLAGS = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -Wmissing-prototypes \
+CFLAGS_common = -std=c99 -D_GNU_SOURCE -O0 -ggdb -Wall -Wextra -Wmissing-prototypes \
          -Werror -I src
+CFLAGS = $(CFLAGS_common) -I src/hcompat
 LIBS   =
+
+CC_hos = helenos-cc
+CFLAGS_hos = $(CFLAGS_common)
+LD_hos = helenos-ld
+LIBS_hos = $(LIBS)
+PREFIX_hos = `helenos-bld-config --install-dir`
+INSTALL = install
 
 bkqual = $$(date '+%Y-%m-%d')
 
-sources = \
-    src/adt/list.c \
+sources_common = \
     src/ast.c \
     src/checker.c \
     src/file_input.c \
@@ -42,10 +49,19 @@ sources = \
     src/test/lexer.c \
     src/test/parser.c
 
+sources = \
+    $(sources_common) \
+    src/hcompat/adt/list.c
+
+sources_hos = \
+    $(sources_common)
+
 binary = ccheck
+binary_hos = ccheck-hos
 ccheck = ./$(binary)
 
 objects = $(sources:.c=.o)
+objects_hos = $(sources_hos:.c=.hos.o)
 headers = $(wildcard *.h */*.h */*/*.h)
 
 test_good_ins = $(wildcard test/good/*-in.c)
@@ -67,15 +83,35 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
 all: $(binary)
 
 $(binary): $(objects)
-	gcc $(CFLAGS) -o $@ $^ $(LIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 $(objects): $(headers)
+
+hos: $(binary_hos)
+
+$(binary_hos): $(objects_hos)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
+
+$(objects_hos): $(headers_hos)
+
+%.hos.o: %.c
+	$(CC_hos) -c $(CFLAGS_hos) -o $@ $^
+
+install-hos: hos
+	mkdir -p $(PREFIX_hos)/app
+	$(INSTALL) -T $(binary_hos) $(PREFIX_hos)/app/ccheck
+
+uninstall-hos:
+	rm -f $(PREFIX_hos)/app/ccheck
+
+test-hos: install-hos
+	helenos-test
 
 cstyle: $(binary)
 	./selfcheck.sh
 
 clean:
-	rm -f $(objects) $(binary) $(test_outs)
+	rm -f $(objects) $(objects_hos) $(binary) $(binary_hos) $(test_outs)
 
 test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@

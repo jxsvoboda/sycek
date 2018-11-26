@@ -1,5 +1,6 @@
 *.o
 ccheck
+ccheck-hos
 test/all.diff
 test/test-int.out
 test/*/*.c.diff
