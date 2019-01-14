@@ -4625,10 +4625,12 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 
 	need_fix = false;
 
-	if (!need_fix && (lexer_is_wspace(tok->tok.ttype)))
-		return EOK;
-
-	if (tok->tok.ttype == ltt_dscomment ||
+	if (lexer_is_wspace(tok->tok.ttype)) {
+		/* This is a blank line. There should be no indentation. */
+		tok->indlvl = 0;
+		tok->seccont = false;
+		tok->lbegin = true;
+	} else if (tok->tok.ttype == ltt_dscomment ||
 	    tok->tok.ttype == ltt_copen ||
 	    tok->tok.ttype == ltt_ctext ||
 	    tok->tok.ttype == ltt_cclose ||
