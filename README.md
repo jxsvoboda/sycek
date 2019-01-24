@@ -4,9 +4,7 @@ Sycek
 Sycek aims to provide tools based around a modular C language parser.
 Currently there's one tool 'ccheck', a C code style checker. It is used
 to check compliance with the [HelenOS coding style][1] by the
-[HelenOS][2] project and other, smaller projects
-([GZX][https://github.com/jxsvoboda/gzx],
-[Timrec][https://github.com/jxsvoboda/timrec]).
+[HelenOS][2] project and other, smaller projects ([GZX][3], [Timrec][4]).
 
 It can report and fix coding style issues such as
 
@@ -113,11 +111,11 @@ a certain directory.
 Accepted syntax
 ---------------
 ccheck has a good understanding of the C language (C89, C99, C11, but *not*
-K & R). However for some particular syntax that is valid C but has bad style
+K & R). However for some particular syntax that is valid C, but has bad style,
 ccheck will fail with an Error instead of just reporting or fixing the style
 issue.
 
-Examples of bad style that triggers a parse error include:
+Examples of bad style that currently triggers a parse error include:
 
   * Gratuitous `;` (e.g. empty declaration or null statement)
   * Empty statement as for loop iteration statement (ie. `for(a;b;)`)
@@ -128,7 +126,7 @@ Examples of bad style that triggers a parse error include:
 Apart from standard C, ccheck also understands some compiler-specific
 extensions, such as
 
-  * GCC inline assembler
+  * GCC (extended) inline assembler
   * GCC `register ... asm(...)` variable register assignment
   * GCC attribute syntax
   * GCC's `__int128`, `__restrict__`
@@ -162,3 +160,5 @@ parsable by ccheck.
 
 [1]: http://www.helenos.org/wiki/CStyle
 [2]: http://www.helenos.org/
+[3]: https://github.com/jxsvoboda/gzx
+[4]: https://github.com/jxsvoboda/timrec
