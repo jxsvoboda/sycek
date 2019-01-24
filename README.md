@@ -13,6 +13,11 @@ It can report and fix coding style issues such as
   * invalid characters (e.g. `\` in C code)
   * vertical spacing
   * block comment formatting
+  * loop style
+
+it will also report (potential) bugs such as:
+
+  * misplaced `__attribute__` with no effect
 
 Sycek is available under an MIT-style license.
 
@@ -77,7 +82,8 @@ To check a single file and report issues, simply type:
 
     $ ./ccheck <path-to-file>
 
-to check a file, attempt to fix issues and report remaining issues, type:
+Many (but not all) issues can be fixed automatically. To check a file,
+attempt to fix issues and report remaining issues, type:
 
     $ ./ccheck --fix <path-to-file>
 
@@ -112,13 +118,12 @@ Accepted syntax
 ---------------
 ccheck has a good understanding of the C language (C89, C99, C11, but *not*
 K & R). However for some particular syntax that is valid C, but has bad style,
-ccheck will fail with an Error instead of just reporting or fixing the style
-issue.
+ccheck will currently fail with an Error instead of just reporting or fixing
+the style issue.
 
-Examples of bad style that currently triggers a parse error include:
+Bad style that currently triggers a parse error:
 
   * Gratuitous `;` (e.g. empty declaration or null statement)
-  * Empty statement as for loop iteration statement (ie. `for(a;b;)`)
   * Gratuitous nested block
   * Any use of null statement (`;`) except as the body of a while loop
     or in the header of a for loop

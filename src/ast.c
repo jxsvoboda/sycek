@@ -7858,9 +7858,13 @@ static int ast_for_print(ast_for_t *afor, FILE *f)
 
 	if (fprintf(f, ",") < 0)
 		return EIO;
-	rc = ast_tree_print(afor->lnext, f);
-	if (rc != EOK)
-		return rc;
+
+	if (afor->lnext != NULL) {
+		rc = ast_tree_print(afor->lnext, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	if (fprintf(f, ",") < 0)
 		return EIO;
 	rc = ast_block_print(afor->body, f);

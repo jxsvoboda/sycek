@@ -1743,12 +1743,18 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_check_expr(scope, afor->lnext);
-	if (rc != EOK)
-		return rc;
+	if (afor->lnext != NULL) {
+		rc = checker_check_expr(scope, afor->lnext);
+		if (rc != EOK)
+			return rc;
 
-	checker_check_nows_before(scope, trparen,
-	    "Unexpected whitespace before ')'.");
+		checker_check_nows_before(scope, trparen,
+		    "Unexpected whitespace before ')'.");
+	} else {
+		checker_check_any(scope, trparen);
+		lexer_dprint_tok(&trparen->tok, stdout);
+		printf(": For loop with empty next expression. Use while instead.\n");
+	}
 
 	rc = checker_check_block(scope, afor->body);
 	if (rc != EOK)

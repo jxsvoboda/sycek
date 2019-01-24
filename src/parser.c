@@ -3194,9 +3194,13 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &lnext);
-	if (rc != EOK)
-		goto error;
+	ltt = parser_next_ttype(parser);
+
+	if (ltt != ltt_rparen) {
+		rc = parser_process_expr(parser, &lnext);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = parser_match(parser, ltt_rparen, &drparen);
 	if (rc != EOK)
