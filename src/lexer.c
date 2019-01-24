@@ -290,7 +290,7 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 /** Lex whitespace.
  *
  * @param lexer Lexer
- * @param ltt Token type (one of ltt_space, ltt_tab, ltt_newline)
+ * @param ltt Token type (one of ltt_space, ltt_tab, ltt_newline, ltt_elbspace)
  * @param tok Output token
  *
  * @return EOK on success or non-zero error code
@@ -1064,6 +1064,10 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_rbrace, tok);
 	case '[':
 		return lexer_onechar(lexer, ltt_lbracket, tok);
+	case '\\':
+		if (p[1] == '\n')
+			return lexer_whitespace(lexer, ltt_elbspace, tok);
+		return lexer_invalid(lexer, tok);
 	case ']':
 		return lexer_onechar(lexer, ltt_rbracket, tok);
 	case '_':
@@ -1382,6 +1386,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "tab";
 	case ltt_newline:
 		return "newline";
+	case ltt_elbspace:
+		return "\\";
 	case ltt_copen:
 		return "'/*'";
 	case ltt_ctext:

@@ -1,6 +1,5 @@
 int main(void)
 {
-	/* A backslash outside of preprocessor line should be an error. */
-	printf("Hello " \
-	    "world!\n");
+	/* A backslash in the middle of a C source line should be an error. */
+	printf("Hello " \ "world!\n");
 }

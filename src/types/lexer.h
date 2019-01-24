@@ -41,6 +41,7 @@ typedef enum {
 	ltt_space,
 	ltt_tab,
 	ltt_newline,
+	ltt_elbspace,
 	ltt_copen,
 	ltt_ctext,
 	ltt_ccont,

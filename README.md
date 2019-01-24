@@ -101,7 +101,6 @@ Examples of bad style that triggers a parse error include:
 
   * Gratuitous `;` (e.g. empty declaration or null statement)
   * Empty statement as for loop iteration statement (ie. `for(a;b;)`)
-  * Any `\` character outside of a preprocessor block
   * Gratuitous nested block
   * Any use of null statement (`;`) except as the body of a while loop
     or in the header of a for loop

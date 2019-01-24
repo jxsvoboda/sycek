@@ -4743,16 +4743,34 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	return EOK;
 }
 
-/** Verify that all tokens have been visited.
+/** Run checks performed against each token.
+ *
+ * Verify that all tokens have been visited. Verify that no forbidden tokens
+ * (backslash at end of line) are present.
  *
  * @param mod Checker module
+ * @param fix @c true to attempt to fix issues instead of reporting them
  */
-static void checker_module_alltoks(checker_module_t *mod)
+static void checker_module_alltoks(checker_module_t *mod, bool fix)
 {
 	checker_tok_t *tok;
+	checker_tok_t *bs;
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
+		if (tok->tok.ttype == ltt_elbspace) {
+			if (fix) {
+				bs = tok;
+				tok = checker_next_tok(tok);
+
+				checker_line_remove_ws_before(bs);
+				checker_remove_token(bs);
+			} else {
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Backslash outside of preprocessor directive.\n");
+			}
+		}
+
 		if (!tok->checked && !parser_ttype_ignore(tok->tok.ttype)) {
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(" Token not checked\n");
@@ -5277,7 +5295,7 @@ int checker_run(checker_t *checker, bool fix)
 	if (rc != EOK)
 		return rc;
 
-	checker_module_alltoks(checker->mod);
+	checker_module_alltoks(checker->mod, fix);
 
 	/*
 	 * Make sure comments after the last C declaration are marked

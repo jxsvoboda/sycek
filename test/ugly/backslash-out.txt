@@ -1,0 +1,1 @@
+<test/ugly/backslash-in.c:6:27:\>: Backslash outside of preprocessor directive.
