@@ -72,6 +72,7 @@ and start emulation. Once in HelenOS start Ccheck by typing
     # ccheck <arguments...>
 
 If you want to only build the binaries without installing, type
+
     $ make hos
 
 If you want to only build and install the binaries without starting emulation,
