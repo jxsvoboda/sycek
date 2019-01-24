@@ -4,7 +4,7 @@ Sycek
 Sycek aims to provide tools based around a modular C language parser.
 Currently there's one tool 'ccheck', a C code style checker. It is used
 to check compliance with the [HelenOS coding style][1] by the
-[HelenOS][2] project and other, smaller projects ([GZX][3], [Timrec][4]).
+[HelenOS][2] project and other, smaller projects (e.g. [Timrec][3]).
 
 It can report and fix coding style issues such as
 
@@ -160,5 +160,4 @@ parsable by ccheck.
 
 [1]: http://www.helenos.org/wiki/CStyle
 [2]: http://www.helenos.org/
-[3]: https://github.com/jxsvoboda/gzx
-[4]: https://github.com/jxsvoboda/timrec
+[3]: https://github.com/jxsvoboda/timrec
