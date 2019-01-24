@@ -2,7 +2,7 @@ Sycek
 =====
 
 Sycek aims to provide tools based around a modular C language parser.
-Currently there's one tool 'ccheck', a C code style checker. It is used
+Currently there's one tool `ccheck`, a C code style checker. It is used
 to check compliance with the [HelenOS coding style][1] by the
 [HelenOS][2] project and other, smaller projects (e.g. [Timrec][3]).
 
@@ -21,10 +21,17 @@ it will also report (potential) bugs such as:
 
 Sycek is available under an MIT-style license.
 
+Downloading
+-----------
+You can get the latest Sycek version from Github by typing
+
+    $ git clone https://github.com/jxsvoboda/sycek sycek
+    $ cd sycek
+
 Compiling
 ---------
 You need Linux or similar OS with a working compiler toolchain.
-Simply type:
+To build Sycek, simply type
 
     $ make
 
@@ -41,6 +48,7 @@ which is useful if you are developing Sycek.
 You need a built HelenOS workspace and a working cross-compiler toolchain.
 If you don't have one, you need to do something like
 
+    $ cd ..
     $ git clone https://github.com/HelenOS/helenos.git helenos
     $ cd helenos
     $ sudo tools/toolchain.sh amd64
@@ -52,8 +60,8 @@ see http://www.helenos.org/wiki/UsersGuide/CompilingFromSource
 Next you need to setup XCW tools which we use for the cross-compilation:
     $ PATH=$PATH:$PWD/tools/xcw/bin
 
-Now go to your gzx workspace and off we go:
-    $ cd ../gzx
+Now go to your Sycek workspace and off we go:
+    $ cd ../sycek
     $ make test-hos
 
 This will build the HelenOS binaries, install then to the HelenOS workspace
@@ -68,8 +76,8 @@ If you want to only build and install the binaries without starting emulation,
 type
     $ make install-hos
 
-Now you need to go to root of your HelenOS workspace and type 'make' to re-build
-the OS image.
+Now you need to go to root of your HelenOS workspace and type `make` to
+re-build the OS image.
 
 Running
 -------
