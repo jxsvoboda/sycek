@@ -58,9 +58,11 @@ You may need to have some development packages installed. For details,
 see http://www.helenos.org/wiki/UsersGuide/CompilingFromSource
 
 Next you need to setup XCW tools which we use for the cross-compilation:
+
     $ PATH=$PATH:$PWD/tools/xcw/bin
 
 Now go to your Sycek workspace and off we go:
+
     $ cd ../sycek
     $ make test-hos
 
@@ -74,6 +76,7 @@ If you want to only build the binaries without installing, type
 
 If you want to only build and install the binaries without starting emulation,
 type
+
     $ make install-hos
 
 Now you need to go to root of your HelenOS workspace and type `make` to
