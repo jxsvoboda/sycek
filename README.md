@@ -2,11 +2,21 @@ Sycek
 =====
 
 Sycek aims to provide tools based around a modular C language parser.
-Currently there's one tool 'ccheck', a C code style checker. It aims
-to support the [HelenOS coding style][1] for use with [HelenOS][2]
-and other projects. It can report and fix coding style issues.
-Sycek is available under an MIT-style license.
+Currently there's one tool 'ccheck', a C code style checker. It is used
+to check compliance with the [HelenOS coding style][1] by the
+[HelenOS][2] project and other, smaller projects
+([GZX][https://github.com/jxsvoboda/gzx],
+[Timrec][https://github.com/jxsvoboda/timrec]).
 
+It can report and fix coding style issues such as
+
+  * spacing issues
+  * indentation issues
+  * invalid characters (e.g. '\' in C code)
+  * vertical spacing
+  * block comment formatting
+
+Sycek is available under an MIT-style license.
 
 Compiling
 ---------
@@ -17,6 +27,13 @@ Simply type:
 
 Cross-compiling for HelenOS
 ---------------------------
+
+Sycek is available as a HelenOS package, via Coastline. This means you can
+get the pre-compiled package or use HSCT to build the Sycek package
+automatically.
+
+In this section we describe how to cross-compile Sycek for HelenOS manually,
+which is useful if you are developing Sycek.
 
 You need a built HelenOS workspace and a working cross-compiler toolchain.
 If you don't have one, you need to do something like
@@ -53,9 +70,9 @@ the OS image.
 
 Running
 -------
-Ccheck runs as a pure parser in the sense it does not actually preprocess
-or compile the code. This means it does not recurse into the included files,
-thus there is no need for you to provide path to includes, defines or
+Ccheck runs as a pure parser in the sense that it does not actually preprocess
+or compile the code. This means it does not recurse into the included header
+files, so there is no need for you to provide path to includes, defines or
 anything like that.
 
 To check a single file and report issues, simply type:
@@ -66,7 +83,7 @@ to check a file, attempt to fix issues and report remaining issues, type:
 
     $ ./ccheck --fix <path-to-file>
 
-The original file will be saved as <path-to-file>.orig
+The original file will be saved as `<path-to-file>.orig`
 
 Ccheck returns an exit code of zero if it was able to parse the file
 successfully (regardles whether it found style issues), non-zero
@@ -76,7 +93,7 @@ An example output message from ccheck:
 
     <test.h:43:28-30:int>: Expected whitespace after ','.
 
-This means when checking the file test.h ccheck found a token `int` on line
+This means when checking the file test.h, ccheck found a token `int` on line
 43, columns 28-30. The `int` token was following a comma, but there was
 no space between the comma and the `int`.  This a formatting issue that
 ccheck can fix automatically.
@@ -86,9 +103,12 @@ If an output line starts with Error:
     Error: <./file_input.c:34:36:=> unexpected, expected '{' or ';'.
 
 This means that ccheck failed to parse the file. On line 34, column 36
-it expected a `{` or `;`, but found a `<=` token. This means either
+it expected a `{` or `;`, but found an `=` token. This means either
 that ccheck cannot parse this source file yet, or the file has incorrect
 syntax.
+
+You can also use ccheck-run.sh to check or fix all .c/.h files under
+a certain directory.
 
 Accepted syntax
 ---------------
