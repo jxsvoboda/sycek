@@ -10,7 +10,7 @@ It can report and fix coding style issues such as
 
   * spacing issues
   * indentation issues
-  * invalid characters (e.g. '\' in C code)
+  * invalid characters (e.g. `\` in C code)
   * vertical spacing
   * block comment formatting
 
