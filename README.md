@@ -123,6 +123,17 @@ it expected a `{` or `;`, but found an `=` token. This means either
 that ccheck cannot parse this source file yet, or the file has incorrect
 syntax.
 
+You can opt to disable particular groups of checks. This can be useful,
+for example, if you have a code base that does not use HelenOS formatting
+style, but you would still like to use ccheck to look for other issues.
+To disable a group of checks, use `-d <check>`. Available groups are
+
+  * `fmt` Formatting
+  * `hdr` Header style
+  * `invchar` Invalid characters
+  * `loop` Loop style
+  * `sclass` Storage class issues
+
 You can also use ccheck-run.sh to check or fix all .c/.h files under
 a certain directory.
 

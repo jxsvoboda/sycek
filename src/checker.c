@@ -650,7 +650,7 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 		tok->seccont = false;
 	}
 
-	if (!checker_is_tok_lbegin(tok)) {
+	if (!checker_is_tok_lbegin(tok) && checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 
@@ -691,7 +691,7 @@ static void checker_check_nows_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (lexer_is_wspace(p->tok.ttype)) {
+	if (lexer_is_wspace(p->tok.ttype) && checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 		} else {
@@ -716,7 +716,7 @@ static void checker_check_nows_after(checker_scope_t *scope,
 	p = checker_next_tok(tok);
 	assert(p != NULL);
 
-	if (lexer_is_wspace(p->tok.ttype)) {
+	if (lexer_is_wspace(p->tok.ttype) && checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			checker_remove_ws_after(tok);
 		} else {
@@ -741,7 +741,9 @@ static void checker_check_nsbrk_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (lexer_is_wspace(p->tok.ttype) && !checker_is_tok_lbegin(tok)) {
+	if (lexer_is_wspace(p->tok.ttype) && !checker_is_tok_lbegin(tok) &&
+	    checker_scfg(scope)->fmt) {
+
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 		} else {
@@ -781,7 +783,8 @@ static void checker_check_nsbrk_after(checker_scope_t *scope,
 	p = checker_next_tok(tok);
 	assert(p != NULL);
 
-	if (lexer_is_wspace(p->tok.ttype) && p->tok.ttype != ltt_newline) {
+	if (lexer_is_wspace(p->tok.ttype) && p->tok.ttype != ltt_newline &&
+	    checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			checker_remove_ws_after(tok);
 		} else {
@@ -808,7 +811,7 @@ static int checker_check_brkspace_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (!lexer_is_wspace(p->tok.ttype)) {
+	if (!lexer_is_wspace(p->tok.ttype) && checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			rc = checker_prepend_tok(tok, ltt_space, " ");
 			if (rc != EOK)
@@ -861,7 +864,7 @@ static int checker_check_brkspace_after(checker_scope_t *scope,
 	p = checker_next_tok(tok);
 	assert(p != NULL);
 
-	if (!lexer_is_wspace(p->tok.ttype)) {
+	if (!lexer_is_wspace(p->tok.ttype) && checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			rc = checker_append_tok(tok, ltt_space, " ");
 			if (rc != EOK)
@@ -897,7 +900,8 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 	p = checker_prev_tok(tok);
 	assert(p != NULL);
 
-	if (!lexer_is_wspace(p->tok.ttype) || checker_is_tok_lbegin(tok)) {
+	if ((!lexer_is_wspace(p->tok.ttype) || checker_is_tok_lbegin(tok)) &&
+	    checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 
@@ -931,7 +935,7 @@ static int checker_check_binop_not_lbegin(checker_scope_t *scope,
 
 	checker_check_any(scope, tok);
 
-	if (checker_is_tok_lbegin(tok)) {
+	if (checker_is_tok_lbegin(tok) && checker_scfg(scope)->fmt) {
 		if (scope->fix) {
 			p = checker_prev_newline(tok);
 			assert(p != NULL);
@@ -1758,8 +1762,12 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		    "Unexpected whitespace before ')'.");
 	} else {
 		checker_check_any(scope, trparen);
-		lexer_dprint_tok(&trparen->tok, stdout);
-		printf(": For loop with empty next expression. Use while instead.\n");
+
+		if (checker_scfg(scope)->loop) {
+			lexer_dprint_tok(&trparen->tok, stdout);
+			printf(": For loop with empty next expression. "
+			    "Use while instead.\n");
+		}
 	}
 
 	rc = checker_check_block(scope, afor->body);
@@ -4559,7 +4567,8 @@ static int checker_check_externc(checker_scope_t *scope,
 	tlbrace = (checker_tok_t *)externc->tlbrace.data;
 	trbrace = (checker_tok_t *)externc->trbrace.data;
 
-	if (strcmp(tlang->tok.text, "\"C\"") != 0) {
+	if (strcmp(tlang->tok.text, "\"C\"") != 0 &&
+	    checker_scfg(scope)->hdr) {
 		lexer_dprint_tok(&tlang->tok, stdout);
 		printf(": Linked language is not 'C'.\n");
 	}
@@ -4810,7 +4819,8 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
-		if (tok->tok.ttype == ltt_elbspace) {
+		if (tok->tok.ttype == ltt_elbspace &&
+		    mod->checker->cfg->invchar) {
 			if (fix) {
 				bs = tok;
 				tok = checker_next_tok(tok);
@@ -5341,7 +5351,8 @@ int checker_run(checker_t *checker, bool fix)
 			return rc;
 	}
 
-	checker_module_comments(checker->mod, fix);
+	if (checker->cfg->fmt)
+		checker_module_comments(checker->mod, fix);
 
 	rc = checker_module_check(checker->mod, fix);
 	if (rc != EOK)
@@ -5355,13 +5366,15 @@ int checker_run(checker_t *checker, bool fix)
 	 */
 	checker_prev_comments_nocont(checker_module_last_tok(checker->mod));
 
-	rc = checker_module_lines(checker->mod, fix);
-	if (rc != EOK)
-		return rc;
+	if (checker->cfg->fmt) {
+		rc = checker_module_lines(checker->mod, fix);
+		if (rc != EOK)
+			return rc;
 
-	rc = checker_module_vspacing(checker->mod, fix);
-	if (rc != EOK)
-		return rc;
+		rc = checker_module_vspacing(checker->mod, fix);
+		if (rc != EOK)
+			return rc;
+	}
 
 	return EOK;
 }

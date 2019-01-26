@@ -74,6 +74,14 @@ typedef struct checker_module {
 
 /** Checker configuration */
 typedef struct {
+	/** Check formatting */
+	bool fmt;
+	/** Check header style */
+	bool hdr;
+	/** Check for invalid characters */
+	bool invchar;
+	/** Check loop style */
+	bool loop;
 	/** Check storage class issues */
 	bool sclass;
 } checker_cfg_t;

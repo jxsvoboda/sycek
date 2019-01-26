@@ -46,25 +46,25 @@ static void print_syntax(void)
 	    "options:\n"
 	    "\t--fix Attempt to fix issues instead of just reporting them\n"
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
-	    "\t--dump-toks Dump tokenized source file\n");
+	    "\t--dump-toks Dump tokenized source file\n"
+	    "\t-d <check> Disable a particular group of checks\n"
+	    "\t  (fmt, hdr, invchar, loop, sclass)\n");
 }
 
-static int check_file(const char *fname, checker_flags_t flags)
+static int check_file(const char *fname, checker_flags_t flags,
+    checker_cfg_t *cfg)
 {
 	int rc;
 	checker_t *checker = NULL;
 	checker_mtype_t mtype;
-	checker_cfg_t cfg;
 	char *bkname;
 	const char *ext;
 	file_input_t finput;
 	FILE *f;
 
-	checker_cfg_init(&cfg);
-
 	ext = strrchr(fname, '.');
 	if (ext == NULL) {
-		printf("File '%s' has no extension.\n", fname);
+		fprintf(stderr, "File '%s' has no extension.\n", fname);
 		rc = EINVAL;
 		goto error;
 	}
@@ -74,21 +74,21 @@ static int check_file(const char *fname, checker_flags_t flags)
 	} else if (strcmp(ext, ".h") == 0 || strcmp(ext, ".H") == 0) {
 		mtype = cmod_header;
 	} else {
-		printf("Unknown file extension '%s'.\n", ext);
+		fprintf(stderr, "Unknown file extension '%s'.\n", ext);
 		rc = EINVAL;
 		goto error;
 	}
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
-		printf("Cannot open '%s'.\n", fname);
+		fprintf(stderr, "Cannot open '%s'.\n", fname);
 		rc = ENOENT;
 		goto error;
 	}
 
 	file_input_init(&finput, f, fname);
 
-	rc = checker_create(&lexer_file_input, &finput, mtype, &cfg, &checker);
+	rc = checker_create(&lexer_file_input, &finput, mtype, cfg, &checker);
 	if (rc != EOK)
 		goto error;
 
@@ -121,7 +121,7 @@ static int check_file(const char *fname, checker_flags_t flags)
 		}
 
 		if (rename(fname, bkname) < 0) {
-			printf("Error renaming '%s' to '%s'.\n", fname,
+			fprintf(stderr, "Error renaming '%s' to '%s'.\n", fname,
 			    bkname);
 			rc = EIO;
 			goto error;
@@ -129,7 +129,7 @@ static int check_file(const char *fname, checker_flags_t flags)
 
 		f = fopen(fname, "wt");
 		if (f == NULL) {
-			printf("Cannot open '%s' for writing.\n", fname);
+			fprintf(stderr, "Cannot open '%s' for writing.\n", fname);
 			rc = EIO;
 			goto error;
 		}
@@ -139,7 +139,7 @@ static int check_file(const char *fname, checker_flags_t flags)
 			goto error;
 
 		if (fclose(f) < 0) {
-			printf("Error writing '%s'.\n", fname);
+			fprintf(stderr, "Error writing '%s'.\n", fname);
 			rc = EIO;
 			goto error;
 		}
@@ -156,11 +156,41 @@ error:
 	return rc;
 }
 
+/** Disable a check group in configuration based on check name.
+ *
+ * @param cfg Configuration to alter
+ * @param check_name Name of check to disable
+ *
+ * @return EOK on success, EINVAL if no such check exists
+ */
+static int check_disable(checker_cfg_t *cfg, const char *check_name)
+{
+	if (strcmp(check_name, "fmt") == 0) {
+		cfg->fmt = false;
+	} else if (strcmp(check_name, "hdr") == 0) {
+		cfg->hdr = false;
+	} else if (strcmp(check_name, "invchar") == 0) {
+		cfg->invchar = false;
+	} else if (strcmp(check_name, "loop") == 0) {
+		cfg->loop = false;
+	} else if (strcmp(check_name, "sclass") == 0) {
+		cfg->sclass = false;
+	} else {
+		fprintf(stderr, "Invalid check name '%s'.\n", check_name);
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
 int main(int argc, char *argv[])
 {
 	int rc;
 	int i;
 	checker_flags_t flags = 0;
+	checker_cfg_t cfg;
+
+	checker_cfg_init(&cfg);
 
 	(void)argc;
 	(void)argv;
@@ -198,18 +228,30 @@ int main(int argc, char *argv[])
 			} else if (strcmp(argv[i], "-") == 0) {
 				++i;
 				break;
+			} else if (strcmp(argv[i], "-d") == 0) {
+				++i;
+				if (argc <= i) {
+					fprintf(stderr,
+					    "Option '-d' needs an argument.\n");
+					return 1;
+				}
+
+				rc = check_disable(&cfg, argv[i]);
+				if (rc != EOK)
+					return 1;
+				++i;
 			} else {
-				printf("Invalid option.\n");
+				fprintf(stderr, "Invalid option.\n");
 				return 1;
 			}
 		}
 
 		if (argc <= i) {
-			printf("Argument missing.\n");
+			fprintf(stderr, "Argument missing.\n");
 			return 1;
 		}
 
-		rc = check_file(argv[i], flags);
+		rc = check_file(argv[i], flags, &cfg);
 	}
 
 	if (rc != EOK)
