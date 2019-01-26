@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -3222,6 +3222,29 @@ ast_node_t *ast_dspecs_prev(ast_node_t *node)
 		return NULL;
 
 	return list_get_instance(link, ast_node_t, llist);
+}
+
+/** Get storage class from declaration specifiers.
+ *
+ * If declaration specifiers contain a storage class specification,
+ * return it, otherwise return @c NULL.
+ *
+ * @param dspecs Declaration specifiers
+ * @return Storage class or @c NULL if there is none
+ */
+ast_sclass_t *ast_dspecs_get_sclass(ast_dspecs_t *dspecs)
+{
+	ast_node_t *dspec;
+
+	dspec = ast_dspecs_first(dspecs);
+	while (dspec != NULL) {
+		if (dspec->ntype == ant_sclass)
+			return (ast_sclass_t *) dspec->ext;
+
+		dspec = ast_dspecs_next(dspec);
+	}
+
+	return NULL;
 }
 
 /** Print AST declaration specifiers.

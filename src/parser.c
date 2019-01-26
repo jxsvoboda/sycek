@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -4374,6 +4374,7 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 	ast_node_t *elem;
 	unsigned idcnt;
 	bool have_tspec;
+	bool have_sclass;
 	int rc;
 
 	if (more_idents != NULL)
@@ -4383,16 +4384,27 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 	if (rc != EOK)
 		return rc;
 
+	have_sclass = false;
 	have_tspec = false;
 	idcnt = 0;
 
 	ltt = parser_next_ttype(parser);
 	do {
 		if (parser_ttype_sclass(ltt)) {
+			if (have_sclass && !parser->silent) {
+				fprintf(stderr, "Error: ");
+				parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, ": Multiple storage classes.\n");
+
+				rc = EINVAL;
+				goto error;
+			}
+
 			rc = parser_process_sclass(parser, &sclass);
 			if (rc != EOK)
 				goto error;
 			elem = &sclass->node;
+			have_sclass = true;
 		} else if (parser_next_is_tspec(parser)) {
 			/*
 			 * Stop before identifier if we already have

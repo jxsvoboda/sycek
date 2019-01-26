@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1521,7 +1521,7 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 	case ltt_enum:
 		return "'enum'";
 	case ltt_extern:
-		return "''extern'";
+		return "'extern'";
 	case ltt_float:
 		return "'float'";
 	case ltt_for:

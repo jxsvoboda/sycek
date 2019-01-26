@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -47,10 +47,13 @@ static int test_check_string(const char *str)
 	int rc;
 	checker_t *checker;
 	str_input_t sinput;
+	checker_cfg_t cfg;
+
+	checker_cfg_init(&cfg);
 
 	str_input_init(&sinput, str);
 
-	rc = checker_create(&lexer_str_input, &sinput, &checker);
+	rc = checker_create(&lexer_str_input, &sinput, cmod_c, &cfg, &checker);
 	if (rc != EOK)
 		return rc;
 

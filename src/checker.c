@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -56,6 +56,7 @@ static int checker_check_mdecln(checker_scope_t *, ast_mdecln_t *);
 static int checker_check_global_decln(checker_scope_t *, ast_node_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
+static checker_cfg_t *checker_scfg(checker_scope_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.read_tok = checker_parser_read_tok,
@@ -74,13 +75,13 @@ enum {
 
 /** Create checker module.
  *
- * @param input_ops Input ops
- * @param input_arg Argument to input_ops
+ * @param checker Checker
  * @param rmodule Place to store new checker module.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-static int checker_module_create(checker_module_t **rmodule)
+static int checker_module_create(checker_t *checker,
+    checker_module_t **rmodule)
 {
 	checker_module_t *module = NULL;
 
@@ -89,6 +90,7 @@ static int checker_module_create(checker_module_t **rmodule)
 		return ENOMEM;
 
 	list_initialize(&module->toks);
+	module->checker = checker;
 
 	*rmodule = module;
 	return EOK;
@@ -162,12 +164,14 @@ static int checker_module_append(checker_module_t *module, lexer_tok_t *tok)
  *
  * @param input_ops Input ops
  * @param input_arg Argument to input_ops
+ * @param mtype Module type
+ * @param cfg Configuration
  * @param rchecker Place to store new checker.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int checker_create(lexer_input_ops_t *input_ops, void *input_arg,
-    checker_t **rchecker)
+    checker_mtype_t mtype, checker_cfg_t *cfg, checker_t **rchecker)
 {
 	checker_t *checker = NULL;
 	lexer_t *lexer = NULL;
@@ -186,6 +190,8 @@ int checker_create(lexer_input_ops_t *input_ops, void *input_arg,
 	}
 
 	checker->lexer = lexer;
+	checker->mtype = mtype;
+	checker->cfg = cfg;
 	*rchecker = checker;
 	return EOK;
 error:
@@ -220,7 +226,7 @@ static int checker_module_lex(checker_t *checker, checker_module_t **rmodule)
 	lexer_tok_t tok;
 	int rc;
 
-	rc = checker_module_create(&module);
+	rc = checker_module_create(checker, &module);
 	if (rc != EOK) {
 		assert(rc == ENOMEM);
 		goto error;
@@ -4270,6 +4276,32 @@ static int checker_check_init(checker_scope_t *scope, ast_node_t *init)
 	return EOK;
 }
 
+/** Check storage class in a function definition.
+ *
+ * @param scope Checker scope
+ * @param dspecs Declaration specifiers
+ * @return EOK on success or error code
+ */
+static int checker_check_fundef_sclass(checker_scope_t *scope,
+	ast_dspecs_t *dspecs)
+{
+	ast_sclass_t *sclass;
+	checker_tok_t *tsclass;
+
+	sclass = ast_dspecs_get_sclass(dspecs);
+	if (sclass != NULL) {
+		if (sclass->sctype == asc_extern &&
+		    checker_scfg(scope)->sclass) {
+			tsclass = (checker_tok_t *) sclass->tsclass.data;
+			lexer_dprint_tok(&tsclass->tok, stdout);
+			printf(": Improper use of storage class 'extern' with "
+			    "function definition.\n");
+		}
+	}
+
+	return EOK;
+}
+
 /** Run checks on a global declaration.
  *
  * @param scope Checker scope
@@ -4355,6 +4387,13 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 		goto error;
 
 	checker_scope_destroy(bscope);
+
+	if (gdecln->body != NULL) {
+		rc = checker_check_fundef_sclass(scope, gdecln->dspecs);
+		if (rc != EOK)
+			goto error;
+	}
+
 	return EOK;
 error:
 	if (bscope != NULL)
@@ -4482,6 +4521,13 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 	    "Function closing brace must start on a new line.");
 	if (rc != EOK)
 		goto error;
+
+	if (gmdecln->body != NULL) {
+		rc = checker_check_fundef_sclass(scope,
+		    gmdecln->mdecln->dspecs);
+		if (rc != EOK)
+			goto error;
+	}
 
 	checker_scope_destroy(bscope);
 	return EOK;
@@ -5453,4 +5499,23 @@ static void *checker_parser_tok_data(void *apinput, void *tok)
 
 	/* Set this as user data for the AST token */
 	return tok;
+}
+
+/** Get checker configuration from scope.
+ *
+ * @param scope Checker scope
+ * @return Checker configuration
+ */
+static checker_cfg_t *checker_scfg(checker_scope_t *scope)
+{
+	return scope->mod->checker->cfg;
+}
+
+/** Initialize checker configuration with defaults.
+ *
+ * @param cfg Configuration to fill in
+ */
+void checker_cfg_init(checker_cfg_t *cfg)
+{
+	cfg->sclass = true;
 }

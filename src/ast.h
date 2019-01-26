@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -127,6 +127,7 @@ extern ast_node_t *ast_dspecs_first(ast_dspecs_t *);
 extern ast_node_t *ast_dspecs_next(ast_node_t *);
 extern ast_node_t *ast_dspecs_last(ast_dspecs_t *);
 extern ast_node_t *ast_dspecs_prev(ast_node_t *);
+extern ast_sclass_t *ast_dspecs_get_sclass(ast_dspecs_t *);
 extern int ast_dident_create(ast_dident_t **);
 extern int ast_dnoident_create(ast_dnoident_t **);
 extern int ast_dparen_create(ast_dparen_t **);

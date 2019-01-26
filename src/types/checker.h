@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -54,12 +54,29 @@ typedef struct {
 	bool pseccont;
 } checker_tok_t;
 
+/** Checker module type */
+typedef enum {
+	/** C file */
+	cmod_c,
+	/** Header file */
+	cmod_header
+} checker_mtype_t;
+
 /** Checker module */
 typedef struct checker_module {
+	/** Containing checker */
+	struct checker *checker;
 	/** Tokens */
 	list_t toks; /* of checker_tok_t */
+	/** Module AST */
 	ast_module_t *ast;
 } checker_module_t;
+
+/** Checker configuration */
+typedef struct {
+	/** Check storage class issues */
+	bool sclass;
+} checker_cfg_t;
 
 /** Checker scope */
 typedef struct {
@@ -74,11 +91,15 @@ typedef struct {
 } checker_scope_t;
 
 /** Checker */
-typedef struct {
+typedef struct checker {
 	/** Lexer */
 	lexer_t *lexer;
 	/** Module */
 	checker_module_t *mod;
+	/** Module type */
+	checker_mtype_t mtype;
+	/** Checker configuration */
+	checker_cfg_t *cfg;
 } checker_t;
 
 /** Checker parser input */

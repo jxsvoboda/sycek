@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -53,9 +53,31 @@ static int check_file(const char *fname, checker_flags_t flags)
 {
 	int rc;
 	checker_t *checker = NULL;
+	checker_mtype_t mtype;
+	checker_cfg_t cfg;
 	char *bkname;
+	const char *ext;
 	file_input_t finput;
 	FILE *f;
+
+	checker_cfg_init(&cfg);
+
+	ext = strrchr(fname, '.');
+	if (ext == NULL) {
+		printf("File '%s' has no extension.\n", fname);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (strcmp(ext, ".c") == 0 || strcmp(ext, ".C") == 0) {
+		mtype = cmod_c;
+	} else if (strcmp(ext, ".h") == 0 || strcmp(ext, ".H") == 0) {
+		mtype = cmod_header;
+	} else {
+		printf("Unknown file extension '%s'.\n", ext);
+		rc = EINVAL;
+		goto error;
+	}
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
@@ -66,7 +88,7 @@ static int check_file(const char *fname, checker_flags_t flags)
 
 	file_input_init(&finput, f, fname);
 
-	rc = checker_create(&lexer_file_input, &finput, &checker);
+	rc = checker_create(&lexer_file_input, &finput, mtype, &cfg, &checker);
 	if (rc != EOK)
 		goto error;
 
