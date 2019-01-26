@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2018 Jiri Svoboda
+# Copyright (c) 2019 Jiri Svoboda
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -32,13 +32,26 @@
 #
 
 ccheck=ccheck
+opt=
 
-if [ ."$1" == .--fix ] ; then
-	opt=--fix
-	shift 1
-else
-	opt=
-fi
+doneopt=
+while [ -z "$doneopt" ]; do
+	case ."$1" in
+	(.--fix)
+		opt="$opt --fix"
+		shift 1
+		;;
+	(.-d)
+		shift 1
+		check="$1"
+		shift 1
+		opt="$opt -d $check"
+		;;
+	(*)
+		doneopt=y
+		;;
+	esac
+done
 
 if [ ."$1" == . ] ; then
 	echo "Run ccheck on all .c and .h files under certain path"
@@ -46,7 +59,7 @@ if [ ."$1" == . ] ; then
 	exit 0
 fi
 
-which $ccheck 2> /dev/null
+which $ccheck >/dev/null 2>&1
 rc=$?
 if [ $rc != 0 ]; then
 	echo "ccheck not found. Please make sure PATH is set correctly."
