@@ -72,12 +72,17 @@ test_bad_err_diffs = $(test_bad_ins:-in.c=-err.txt.diff)
 test_ugly_ins = $(wildcard test/ugly/*-in.c)
 test_ugly_fixed_diffs = $(test_ugly_ins:-in.c=-fixed.c.diff)
 test_ugly_out_diffs = $(test_ugly_ins:-in.c=-out.txt.diff)
+test_ugly_h_ins = $(wildcard test/ugly/*-in.h)
+test_ugly_h_fixed_diffs = $(test_ugly_h_ins:-in.h=-fixed.h.diff)
+test_ugly_h_out_diffs = $(test_ugly_h_ins:-in.h=-out.txt.diff)
 test_vg_outs = \
     $(test_good_ins:-in.c=-vg.txt) \
-    $(test_ugly_ins:-in.c=-vg.txt)
+    $(test_ugly_ins:-in.c=-vg.txt) \
+    $(test_ugly_h_ins:-in.h=-vg.txt)
 test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
-    $(test_ugly_err_diffs) $(test_ugly_out_diffs) $(test_vg_outs) \
+    $(test_ugly_h_fixed_diffs) $(test_ugly_err_diffs) $(test_ugly_out_diffs) \
+    $(text_ugly_h_out_diffs) $(test_vg_outs) \
     test/all.diff test/test-int.out test/selfcheck.out
 
 all: $(binary)
@@ -131,10 +136,21 @@ test/ugly/%-fixed-t.c: test/ugly/%-in.c $(ccheck)
 	$(ccheck) --fix $@
 	rm -f $@.orig
 
+test/ugly/%-fixed-t.h: test/ugly/%-in.h $(ccheck)
+	cp $< $@
+	$(ccheck) --fix $@
+	rm -f $@.orig
+
 test/ugly/%-fixed.c.diff: test/ugly/%-fixed.c test/ugly/%-fixed-t.c
 	diff -u $^ >$@
 
+test/ugly/%-fixed.h.diff: test/ugly/%-fixed.h test/ugly/%-fixed-t.h
+	diff -u $^ >$@
+
 test/ugly/%-out-t.txt: test/ugly/%-in.c $(ccheck)
+	$(ccheck) $< >$@
+
+test/ugly/%-out-t.txt: test/ugly/%-in.h $(ccheck)
 	$(ccheck) $< >$@
 
 test/ugly/%-out.txt.diff: test/ugly/%-out.txt test/ugly/%-out-t.txt
@@ -144,8 +160,14 @@ test/ugly/%-vg.txt: test/ugly/%-in.c $(ccheck)
 	valgrind $(ccheck) $^ >/dev/null 2>$@
 	grep -q 'no leaks are possible' $@
 
+test/ugly/%-vg.txt: test/ugly/%-in.h $(ccheck)
+	valgrind $(ccheck) $^ >/dev/null 2>$@
+	grep -q 'no leaks are possible' $@
+
 test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
-    $(test_ugly_fixed_diffs) $(test_ugly_out_diffs) $(test_vg_out_diffs)
+    $(test_ugly_fixed_diffs) $(test_ugly_h_fixed_diffs) \
+    $(test_ugly_out_diffs) $(test_ugly_h_out_diffs) \
+    $(test_vg_out_diffs)
 	cat $^ > $@
 
 # Run internal unit tests

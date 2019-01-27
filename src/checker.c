@@ -2509,6 +2509,7 @@ static int checker_check_typename(checker_scope_t *scope,
 error:
 	return rc;
 }
+
 /** Run checks on a storage class.
  *
  * @param scope Checker scope
@@ -4295,6 +4296,8 @@ static int checker_check_fundef_sclass(checker_scope_t *scope,
 {
 	ast_sclass_t *sclass;
 	checker_tok_t *tsclass;
+	ast_tok_t *atok;
+	checker_tok_t *tok;
 
 	sclass = ast_dspecs_get_sclass(dspecs);
 	if (sclass != NULL) {
@@ -4304,6 +4307,16 @@ static int checker_check_fundef_sclass(checker_scope_t *scope,
 			lexer_dprint_tok(&tsclass->tok, stdout);
 			printf(": Improper use of storage class 'extern' with "
 			    "function definition.\n");
+		}
+	}
+
+	if (sclass == NULL || sclass->sctype != asc_static) {
+		if (scope->mod->checker->mtype == cmod_header &&
+		    checker_scfg(scope)->hdr) {
+			atok = ast_tree_first_tok(&dspecs->node);
+			tok = (checker_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Non-static function defined in a header.\n");
 		}
 	}
 
