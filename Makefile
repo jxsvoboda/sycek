@@ -107,9 +107,6 @@ uninstall-hos:
 test-hos: install-hos
 	helenos-test
 
-cstyle: $(binary)
-	./selfcheck.sh
-
 clean:
 	rm -f $(objects) $(objects_hos) $(binary) $(binary_hos) $(test_outs)
 

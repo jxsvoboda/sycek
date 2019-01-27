@@ -4291,7 +4291,7 @@ static int checker_check_init(checker_scope_t *scope, ast_node_t *init)
  * @return EOK on success or error code
  */
 static int checker_check_fundef_sclass(checker_scope_t *scope,
-	ast_dspecs_t *dspecs)
+    ast_dspecs_t *dspecs)
 {
 	ast_sclass_t *sclass;
 	checker_tok_t *tsclass;
@@ -5530,5 +5530,10 @@ static checker_cfg_t *checker_scfg(checker_scope_t *scope)
  */
 void checker_cfg_init(checker_cfg_t *cfg)
 {
+	cfg->fmt = true;
+	cfg->hdr = true;
+	cfg->invchar = true;
+	cfg->sclass = true;
+	cfg->loop = true;
 	cfg->sclass = true;
 }
