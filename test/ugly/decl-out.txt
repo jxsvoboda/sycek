@@ -1,0 +1,2 @@
+<test/ugly/decl-in.c:6:18:id:p>: Mixing function and variable declarators.
+<test/ugly/decl-in.c:9:17-22:id:foobar>: Multiple function declarators.

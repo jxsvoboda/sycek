@@ -13,11 +13,14 @@ It can report and fix coding style issues such as
   * invalid characters (e.g. `\` in C code)
   * vertical spacing
   * block comment formatting
+  * declaration style
   * loop style
 
 it will also report (potential) bugs such as:
 
   * misplaced `__attribute__` with no effect
+  * non-static function defined in a header
+  * non-static variable defined in a header
 
 Sycek is available under an MIT-style license.
 
@@ -128,6 +131,7 @@ for example, if you have a code base that does not use HelenOS formatting
 style, but you would still like to use ccheck to look for other issues.
 To disable a group of checks, use `-d <check>`. Available groups are
 
+  * `decl` Declaration style
   * `fmt` Formatting
   * `hdr` Header style
   * `invchar` Invalid characters

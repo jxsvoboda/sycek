@@ -57,6 +57,7 @@ static int checker_check_global_decln(checker_scope_t *, ast_node_t *);
 static checker_tok_t *checker_module_first_tok(checker_module_t *);
 static void checker_remove_token(checker_tok_t *);
 static checker_cfg_t *checker_scfg(checker_scope_t *);
+static checker_mtype_t checker_smtype(checker_scope_t *);
 
 static parser_input_ops_t checker_parser_input = {
 	.read_tok = checker_parser_read_tok,
@@ -4311,13 +4312,90 @@ static int checker_check_fundef_sclass(checker_scope_t *scope,
 	}
 
 	if (sclass == NULL || sclass->sctype != asc_static) {
-		if (scope->mod->checker->mtype == cmod_header &&
+		if (checker_smtype(scope) == cmod_header &&
 		    checker_scfg(scope)->hdr) {
 			atok = ast_tree_first_tok(&dspecs->node);
 			tok = (checker_tok_t *) atok->data;
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(": Non-static function defined in a header.\n");
 		}
+	}
+
+	return EOK;
+}
+
+/** Check declarator consistency and storage class.
+ *
+ * For a global (macro) declaration, verify that a function declarator
+ * is always the only one in the list (and not mixed with data or other
+ * function declarators).
+ *
+ * Check that proper storage class is used based on type of declaration
+ * and source file type (C/header).
+ */
+static int checker_check_gdecln_idlist_sclass(checker_scope_t *scope,
+    ast_dspecs_t *dspecs, ast_idlist_t *idlist)
+{
+	ast_idlist_entry_t *entry;
+	ast_tok_t *atok;
+	ast_sclass_t *sclass;
+	checker_tok_t *tok;
+	bool vardecl;
+	bool fundecl;
+
+	vardecl = fundecl = false;
+	entry = ast_idlist_first(idlist);
+	while (entry != NULL) {
+		if (ast_decl_is_fundecln(entry->decl)) {
+			/* Function declaration */
+			if (fundecl && checker_scfg(scope)->decl) {
+				atok = ast_decl_get_ident(entry->decl);
+				tok = (checker_tok_t *) atok->data;
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Multiple function declarators.\n");
+				break;
+			}
+
+			if (vardecl && checker_scfg(scope)->decl) {
+				atok = ast_decl_get_ident(entry->decl);
+				tok = (checker_tok_t *) atok->data;
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Mixing function and variable "
+				    "declarators.\n");
+				break;
+			}
+
+			fundecl = true;
+		} else if (ast_decl_is_vardecln(entry->decl)) {
+			/* Variable declaration */
+			if (fundecl && checker_scfg(scope)->decl) {
+				atok = ast_decl_get_ident(entry->decl);
+				tok = (checker_tok_t *) atok->data;
+				lexer_dprint_tok(&tok->tok, stdout);
+				printf(": Mixing function and variable "
+				    "declarators.\n");
+				break;
+			}
+
+			sclass = ast_dspecs_get_sclass(dspecs);
+			if (sclass == NULL || (sclass->sctype != asc_extern &&
+			    sclass->sctype != asc_static &&
+			    sclass->sctype != asc_typedef)) {
+				if (checker_smtype(scope) == cmod_header &&
+				    checker_scfg(scope)->sclass) {
+					atok = ast_decl_get_ident(entry->decl);
+					tok = (checker_tok_t *) atok->data;
+					lexer_dprint_tok(&tok->tok, stdout);
+
+					printf(": Non-static variable "
+					    "defined in a header.\n");
+				}
+			}
+
+			vardecl = true;
+		}
+
+		entry = ast_idlist_next(entry);
 	}
 
 	return EOK;
@@ -4365,6 +4443,12 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 	}
 
 	rc = checker_check_idlist(scope, gdecln->idlist, true);
+	if (rc != EOK)
+		goto error;
+
+	/* Check declarator consistency and storage class */
+	rc = checker_check_gdecln_idlist_sclass(scope, gdecln->dspecs,
+	    gdecln->idlist);
 	if (rc != EOK)
 		goto error;
 
@@ -5537,12 +5621,23 @@ static checker_cfg_t *checker_scfg(checker_scope_t *scope)
 	return scope->mod->checker->cfg;
 }
 
+/** Get checker module type from scope.
+ *
+ * @param scope Checker scope
+ * @return Checker module type
+ */
+static checker_mtype_t checker_smtype(checker_scope_t *scope)
+{
+	return scope->mod->checker->mtype;
+}
+
 /** Initialize checker configuration with defaults.
  *
  * @param cfg Configuration to fill in
  */
 void checker_cfg_init(checker_cfg_t *cfg)
 {
+	cfg->decl = true;
 	cfg->fmt = true;
 	cfg->hdr = true;
 	cfg->invchar = true;

@@ -4435,21 +4435,97 @@ static ast_tok_t *ast_typename_last_tok(ast_typename_t *atypename)
 	return ast_tree_last_tok(atypename->decl);
 }
 
+/** Determine if declarator is abstract.
+ *
+ * @param node Declarator
+ * @return @c true iff declarator is abstract (i.e. no identifier)
+ */
 bool ast_decl_is_abstract(ast_node_t *node)
+{
+	return ast_decl_get_ident(node) == NULL;
+}
+
+/** Get identifier from declarator.
+ *
+ * @param node Declarator
+ * @return Pointer to identifier token or @c NULL if declarator is abstract
+ */
+ast_tok_t *ast_decl_get_ident(ast_node_t *node)
 {
 	switch (node->ntype) {
 	case ant_dident:
-		return false;
+		return &((ast_dident_t *)node->ext)->tident;
 	case ant_dnoident:
+		return NULL;
+	case ant_dparen:
+		return ast_decl_get_ident(((ast_dparen_t *)node->ext)->bdecl);
+	case ant_dptr:
+		return ast_decl_get_ident(((ast_dptr_t *)node->ext)->bdecl);
+	case ant_dfun:
+		return ast_decl_get_ident(((ast_dfun_t *)node->ext)->bdecl);
+	case ant_darray:
+		return ast_decl_get_ident(((ast_darray_t *)node->ext)->bdecl);
+	default:
+		assert(false);
+		return false;
+	}
+}
+
+/** Determine if declarator declares a function.
+ *
+ * @param decl Declarator
+ * @return @c true iff declarator declares a function
+ */
+bool ast_decl_is_fundecln(ast_node_t *decl)
+{
+	ast_dparen_t *dparen;
+	ast_dptr_t *dptr;
+
+	switch (decl->ntype) {
+	case ant_dnoident:
+	case ant_dident:
+		return false;
+	case ant_dparen:
+		dparen = (ast_dparen_t *) decl->ext;
+		return ast_decl_is_fundecln(dparen->bdecl);
+	case ant_dptr:
+		dptr = (ast_dptr_t *) decl->ext;
+		return ast_decl_is_fundecln(dptr->bdecl);
+	case ant_dfun:
+		return true;
+	case ant_darray:
+		return false; // XXX May need to treat function returning array
+	default:
+		assert(false);
+		return false;
+	}
+}
+
+/** Determine if declarator declares a variable.
+ *
+ * @param decl Declarator
+ * @return @c true iff declarator declares a variable
+ */
+bool ast_decl_is_vardecln(ast_node_t *decl)
+{
+	ast_dparen_t *dparen;
+	ast_dptr_t *dptr;
+
+	switch (decl->ntype) {
+	case ant_dnoident:
+		return false;
+	case ant_dident:
 		return true;
 	case ant_dparen:
-		return ast_decl_is_abstract(((ast_dparen_t *)node->ext)->bdecl);
+		dparen = (ast_dparen_t *) decl->ext;
+		return ast_decl_is_vardecln(dparen->bdecl);
 	case ant_dptr:
-		return ast_decl_is_abstract(((ast_dptr_t *)node->ext)->bdecl);
+		dptr = (ast_dptr_t *) decl->ext;
+		return ast_decl_is_vardecln(dptr->bdecl);
 	case ant_dfun:
-		return ast_decl_is_abstract(((ast_dfun_t *)node->ext)->bdecl);
-	case ant_darray:
-		return ast_decl_is_abstract(((ast_darray_t *)node->ext)->bdecl);
+		return false;
+	case ant_darray: // XXX May need to treat function returning array
+		return true;
 	default:
 		assert(false);
 		return false;

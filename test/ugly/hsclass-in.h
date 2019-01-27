@@ -12,3 +12,6 @@ int foo(void)
 BAR(foo)
 {
 }
+
+/* Non-extern variable declard in a header */
+int x;
