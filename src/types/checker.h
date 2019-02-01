@@ -127,4 +127,12 @@ typedef enum {
 	cf_dump_toks = 0x4
 } checker_flags_t;
 
+/** Allow or disallow null statement */
+typedef enum {
+	/** Disallow null statement */
+	cns_disallow,
+	/** Allow null statement */
+	cns_allow
+} checker_ns_allow_t;
+
 #endif

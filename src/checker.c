@@ -48,7 +48,8 @@ static int checker_check_sqlist(checker_scope_t *, ast_sqlist_t *);
 static int checker_check_tqlist(checker_scope_t *, ast_tqlist_t *);
 static int checker_check_regassign(checker_scope_t *, ast_regassign_t *);
 static int checker_check_aslist(checker_scope_t *, ast_aslist_t *);
-static int checker_check_block(checker_scope_t *, ast_block_t *);
+static int checker_check_block(checker_scope_t *, ast_block_t *,
+    checker_ns_allow_t);
 static int checker_check_expr(checker_scope_t *, ast_node_t *);
 static int checker_check_cinit(checker_scope_t *, ast_cinit_t *);
 static int checker_check_init(checker_scope_t *, ast_node_t *);
@@ -1485,7 +1486,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	checker_check_nows_before(scope, trparen,
 	    "There must not be whitespace before ')'.");
 
-	rc = checker_check_block(scope, aif->tbranch);
+	rc = checker_check_block(scope, aif->tbranch, cns_disallow);
 	if (rc != EOK)
 		return rc;
 
@@ -1531,7 +1532,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		checker_check_nows_before(scope, trparen,
 		    "There must not be whitespace before ')'.");
 
-		rc = checker_check_block(scope, elseif->ebranch);
+		rc = checker_check_block(scope, elseif->ebranch, cns_disallow);
 		if (rc != EOK)
 			return rc;
 
@@ -1555,7 +1556,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 				return rc;
 		}
 
-		rc = checker_check_block(scope, aif->fbranch);
+		rc = checker_check_block(scope, aif->fbranch, cns_disallow);
 		if (rc != EOK)
 			return rc;
 	}
@@ -1600,7 +1601,7 @@ static int checker_check_while(checker_scope_t *scope, ast_while_t *awhile)
 	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
 
-	rc = checker_check_block(scope, awhile->body);
+	rc = checker_check_block(scope, awhile->body, cns_allow);
 	if (rc != EOK)
 		return rc;
 
@@ -1633,7 +1634,7 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_check_block(scope, ado->body);
+	rc = checker_check_block(scope, ado->body, cns_disallow);
 	if (rc != EOK)
 		return rc;
 
@@ -1771,7 +1772,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		}
 	}
 
-	rc = checker_check_block(scope, afor->body);
+	rc = checker_check_block(scope, afor->body, cns_disallow);
 	if (rc != EOK)
 		return rc;
 
@@ -1815,7 +1816,7 @@ static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
 	checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
 
-	rc = checker_check_block(scope, aswitch->body);
+	rc = checker_check_block(scope, aswitch->body, cns_disallow);
 	if (rc != EOK)
 		return rc;
 
@@ -1985,9 +1986,11 @@ error:
  *
  * @param scope Checker scope
  * @param stnull AST null statement
+ * @param nsallow Allow null statement
  * @return EOK on success or error code
  */
-static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull)
+static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull,
+    checker_ns_allow_t nsallow)
 {
 	int rc;
 	checker_tok_t *tscolon;
@@ -1997,6 +2000,11 @@ static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull)
 	    "Statement must start on a new line.");
 	if (rc != EOK)
 		return rc;
+
+	if (nsallow != cns_allow) {
+		lexer_dprint_tok(&tscolon->tok, stdout);
+		printf(": Unexpected null statement.\n");
+	}
 
 	return EOK;
 }
@@ -2022,7 +2030,7 @@ static int checker_check_lmacro(checker_scope_t *scope, ast_lmacro_t *lmacro)
 	if (rc != EOK)
 		goto error;
 
-	rc = checker_check_block(scope, lmacro->body);
+	rc = checker_check_block(scope, lmacro->body, cns_disallow);
 	if (rc != EOK)
 		goto error;
 
@@ -2035,9 +2043,11 @@ error:
  *
  * @param scope Checker scope
  * @param stmt AST statement
+ * @param nsallow Allow null statement
  * @return EOK on success or error code
  */
-static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
+static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt,
+    checker_ns_allow_t nsallow)
 {
 	switch (stmt->ntype) {
 	case ant_asm:
@@ -2070,7 +2080,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt)
 	case ant_stdecln:
 		return checker_check_stdecln(scope, (ast_stdecln_t *)stmt->ext);
 	case ant_stnull:
-		return checker_check_stnull(scope, (ast_stnull_t *)stmt->ext);
+		return checker_check_stnull(scope, (ast_stnull_t *)stmt->ext,
+		    nsallow);
 	case ant_lmacro:
 		return checker_check_lmacro(scope, (ast_lmacro_t *)stmt->ext);
 	default:
@@ -3236,10 +3247,12 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
  *
  * @param scope Checker scope
  * @param block Statement block
+ * @param nsallow Allow null statement in place of block
  *
  * @return EOK on success or error code
  */
-static int checker_check_block(checker_scope_t *scope, ast_block_t *block)
+static int checker_check_block(checker_scope_t *scope, ast_block_t *block,
+    checker_ns_allow_t nsallow)
 {
 	checker_scope_t *bscope = NULL;
 	checker_tok_t *tlbrace;
@@ -3262,12 +3275,19 @@ static int checker_check_block(checker_scope_t *scope, ast_block_t *block)
 	}
 
 	stmt = ast_block_first(block);
-	while (stmt != NULL) {
-		rc = checker_check_stmt(bscope, stmt);
+	if (block->braces) {
+		while (stmt != NULL) {
+			/* Null statement not allowed in braced block */
+			rc = checker_check_stmt(bscope, stmt, cns_disallow);
+			if (rc != EOK)
+				goto error;
+
+			stmt = ast_block_next(stmt);
+		}
+	} else {
+		rc = checker_check_stmt(bscope, stmt, nsallow);
 		if (rc != EOK)
 			goto error;
-
-		stmt = ast_block_next(stmt);
 	}
 
 	if (block->braces) {
@@ -4478,7 +4498,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 
 	stmt = ast_block_first(gdecln->body);
 	while (stmt != NULL) {
-		rc = checker_check_stmt(bscope, stmt);
+		rc = checker_check_stmt(bscope, stmt, cns_disallow);
 		if (rc != EOK)
 			goto error;
 
@@ -4614,7 +4634,7 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 
 	stmt = ast_block_first(gmdecln->body);
 	while (stmt != NULL) {
-		rc = checker_check_stmt(bscope, stmt);
+		rc = checker_check_stmt(bscope, stmt, cns_disallow);
 		if (rc != EOK)
 			goto error;
 

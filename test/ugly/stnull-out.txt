@@ -1,0 +1,4 @@
+<test/ugly/stnull-in.c:9:9:';'>: Unexpected null statement.
+<test/ugly/stnull-in.c:18:9:';'>: Unexpected null statement.
+<test/ugly/stnull-in.c:27:17:';'>: Unexpected null statement.
+<test/ugly/stnull-in.c:34:17:';'>: Unexpected null statement.

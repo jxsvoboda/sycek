@@ -2956,15 +2956,12 @@ error:
  */
 static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 {
-	lexer_toktype_t ltt;
 	ast_while_t *awhile = NULL;
 	void *dwhile;
 	void *dlparen;
 	ast_node_t *cond = NULL;
 	void *drparen;
-	void *dscolon;
 	ast_block_t *body = NULL;
-	ast_stnull_t *stnull = NULL;
 	parser_t *iparser = NULL;
 	int rc;
 
@@ -2984,36 +2981,9 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	if (rc != EOK)
 		goto error;
 
-	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_scolon) {
-		/* Empty body */
-		rc = parser_create_indent_sub(parser, &iparser);
-		if (rc != EOK)
-			goto error;
-
-		parser_skip(iparser, &dscolon);
-
-		parser_follow_up(iparser, parser);
-		parser_destroy(iparser);
-		iparser = NULL;
-
-		rc = ast_block_create(ast_nobraces, &body);
-		if (rc != EOK)
-			goto error;
-
-		rc = ast_stnull_create(&stnull);
-		if (rc != EOK)
-			goto error;
-
-		stnull->tscolon.data = dscolon;
-
-		ast_block_append(body, &stnull->node);
-		stnull = NULL;
-	} else {
-		rc = parser_process_block(parser, &body);
-		if (rc != EOK)
-			goto error;
-	}
+	rc = parser_process_block(parser, &body);
+	if (rc != EOK)
+		goto error;
 
 	rc = ast_while_create(&awhile);
 	if (rc != EOK)
@@ -3037,8 +3007,6 @@ error:
 		ast_tree_destroy(cond);
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
-	if (stnull != NULL)
-		ast_tree_destroy(&stnull->node);
 	return rc;
 }
 
@@ -3553,6 +3521,35 @@ error:
 	return rc;
 }
 
+/** Parse null statement.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new null statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stnull(parser_t *parser, ast_node_t **rstmt)
+{
+	ast_stnull_t *stnull = NULL;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_stnull_create(&stnull);
+	if (rc != EOK)
+		goto error;
+
+	stnull->tscolon.data = dscolon;
+
+	*rstmt = &stnull->node;
+	return EOK;
+error:
+	return rc;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -3591,6 +3588,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_switch(parser, rstmt);
 	case ltt_case:
 		return parser_process_clabel(parser, rstmt);
+	case ltt_scolon:
+		return parser_process_stnull(parser, rstmt);
 	case ltt_ident:
 		ltt2 = parser_next_next_ttype(parser);
 		if (ltt2 == ltt_colon)
