@@ -144,18 +144,7 @@ a certain directory.
 Accepted syntax
 ---------------
 ccheck has a good understanding of the C language (C89, C99, C11, but *not*
-K & R). However for some particular syntax that is valid C, but has bad style,
-ccheck will currently fail with an Error instead of just reporting or fixing
-the style issue.
-
-Bad style that currently triggers a parse error:
-
-  * Gratuitous `;` (e.g. empty declaration or null statement)
-  * Gratuitous nested block
-  * Any use of null statement (`;`) except as the body of a while loop
-    or in the header of a for loop
-
-Apart from standard C, ccheck also understands some compiler-specific
+K & R). Apart from standard C, ccheck also understands some compiler-specific
 extensions, such as
 
   * GCC (extended) inline assembler
@@ -166,12 +155,21 @@ extensions, such as
 ccheck also understands the C++ `extern "C"` declaration embedded in
 a header file.
 
-Finally, ccheck supports some extensions to the C syntax that are
-exploited via the preprocessor. I.e., it understands certain specific
-uses of macros where the macros alter the language grammar. These are
-uses outside of e.g. function-like or accessor-like macros.
+However for some particular syntax that is valid C, but has bad style,
+ccheck will currently fail with an Error instead of just reporting or fixing
+the style issue.
 
-Examples of supported macro-based C syntax extensions include:
+Bad style that currently triggers a parse error:
+
+  * Empty declaration (gratuitous `;` in place of a top-level declaration)
+  * Gratuitous nested block
+
+Since ccheck does not expand macros, thus it can fail to parse a source file
+that uses the C preprocessor in a way that alters the language syntax.
+Ccheck, however, supports some specific use cases of macros altering
+the language syntax.
+
+These use cases are:
 
  * Symbolic variables or macros that expand to a string literal
  * Macros that take a type name (instead of an expression) as an argument
