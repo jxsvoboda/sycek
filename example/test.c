@@ -22,7 +22,7 @@ int bar(void)
 int assign_var(void)
 {
 	/* Variable assignment */
-	a = 3;
+	a = b = 3;
 
 	/* Read variable to verify value has been written properly */
 	return a;

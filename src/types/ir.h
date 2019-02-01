@@ -41,7 +41,9 @@ typedef enum {
 	/** Return value */
 	iri_retv,
 	/** Get pointer to global variable */
-	iri_varptr
+	iri_varptr,
+	/** Write to memory */
+	iri_write,
 } ir_instr_type_t;
 
 /** IR operand type */

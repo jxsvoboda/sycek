@@ -36,8 +36,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
-    const char **);
+static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
+    cgen_eres_t *);
+static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
+    cgen_eres_t *);
 
 /** Prefix identifier with '@' global variable prefix.
  *
@@ -177,11 +179,11 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
  * @param cgproc Code generator for procedure
  * @param eint AST integer literal expression
  * @param lblock IR labeled block to which the code should be appended
- * @param dname Place to store pointer to destination variable name
+ * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
 static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
-    ir_lblock_t *lblock, const char **dname)
+    ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *lit;
 	ir_instr_t *instr = NULL;
@@ -214,7 +216,8 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	instr->op2 = NULL;
 
 	ir_lblock_append(lblock, NULL, instr);
-	*dname = dest->varname;
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -230,18 +233,17 @@ error:
  * @param cgproc Code generator for procedure
  * @param eident AST identifier expression
  * @param lblock IR labeled block to which the code should be appended
- * @param dname Place to store pointer to destination variable name
+ * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
 static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
-    ir_lblock_t *lblock, const char **dname)
+    ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ident;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
 	char *pident = NULL;
-	char *ptr_varname;
 	int rc;
 
 	ident = (comp_tok_t *) eident->tident.data;
@@ -267,35 +269,16 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ptr_varname = dest->varname;
-
 	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_lvalue;
+
 	dest = NULL;
 	var = NULL;
 	free(pident);
 	pident = NULL;
 
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ptr_varname, &var);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_read;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = &dest->oper;
-	instr->op1 = &var->oper;
-	instr->op2 = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-
-	*dname = dest->varname;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -307,30 +290,31 @@ error:
 		free(pident);
 	return rc;
 }
-/** Generate code for binary operator expression.
+
+/** Generate code for addition expression.
  *
  * @param cgproc Code generator for procedure
- * @param ebinop AST binary operator expression
+ * @param ebinop AST binary operator expression (addition)
  * @param lblock IR labeled block to which the code should be appended
- * @param dname Place to store pointer to destination variable name
+ * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
-    ir_lblock_t *lblock, const char **dname)
+static int cgen_add(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
-	const char *lvar = NULL;
-	const char *rvar = NULL;
+	cgen_eres_t lres;
+	cgen_eres_t rres;
 	int rc;
 
-	rc = cgen_expr(cgproc, ebinop->larg, lblock, &lvar);
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_expr(cgproc, ebinop->rarg, lblock, &rvar);
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
@@ -342,11 +326,11 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lvar, &larg);
+	rc = ir_oper_var_create(lres.varname, &larg);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(rvar, &rarg);
+	rc = ir_oper_var_create(rres.varname, &rarg);
 	if (rc != EOK)
 		goto error;
 
@@ -357,7 +341,8 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	instr->op2 = &rarg->oper;
 
 	ir_lblock_append(lblock, NULL, instr);
-	*dname = dest->varname;
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -370,16 +355,107 @@ error:
 	return rc;
 }
 
+/** Generate code for assignment expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (addition)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres.varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres.varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	eres->varname = rres.varname;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
+/** Generate code for binary operator expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	comp_tok_t *tok;
+
+	switch (ebinop->optype) {
+	case abo_plus:
+		return cgen_add(cgproc, ebinop, lblock, eres);
+	case abo_assign:
+		return cgen_assign(cgproc, ebinop, lblock, eres);
+	default:
+		tok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Unimplemented binary operator.\n");
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+}
+
 /** Generate code for expression.
  *
  * @param cgproc Code generator for procedure
  * @param expr AST expression
  * @param lblock IR labeled block to which the code should be appended
- * @param dname Place to store pointer to destination variable name
+ * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
 static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
-    ir_lblock_t *lblock, const char **dname)
+    ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ast_tok_t *atok;
 	comp_tok_t *tok;
@@ -389,13 +465,13 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 
 	switch (expr->ntype) {
 	case ant_eint:
-		rc = cgen_eint(cgproc, (ast_eint_t *) expr->ext, lblock, dname);
+		rc = cgen_eint(cgproc, (ast_eint_t *) expr->ext, lblock, eres);
 		break;
 	case ant_echar:
 	case ant_estring:
 	case ant_eident:
 		rc = cgen_eident(cgproc, (ast_eident_t *) expr->ext, lblock,
-		    dname);
+		    eres);
 		break;
 	case ant_eparen:
 	case ant_econcat:
@@ -408,7 +484,7 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		break;
 	case ant_ebinop:
 		rc = cgen_ebinop(cgproc, (ast_ebinop_t *) expr->ext, lblock,
-		    dname);
+		    eres);
 		break;
 	case ant_etcond:
 	case ant_ecomma:
@@ -442,6 +518,103 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 	return rc;
 }
 
+/** Generate code for expression, producing an lvalue.
+ *
+ * Verify that it is actually an lvalue, otherwise produce an error.
+ *
+ * @param cgproc Code generator for procedure
+ * @param expr AST expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_expr_lvalue(cgen_proc_t *cgproc, ast_node_t *expr,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	int rc;
+
+	rc = cgen_expr(cgproc, expr, lblock, eres);
+	if (rc != EOK)
+		return rc;
+
+	if (eres->valtype != cgen_lvalue) {
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr); // XXX Print range
+		fprintf(stderr, ": Lvalue required.\n");
+		cgproc->cgen->error = true;
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
+/** Generate code for expression, producing an rvalue.
+ *
+ * If the result of expression is an lvalue, read it to produce an rvalue.
+ *
+ * @param cgproc Code generator for procedure
+ * @param expr AST expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_expr_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t res;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *var = NULL;
+	int rc;
+
+	rc = cgen_expr(cgproc, expr, lblock, &res);
+	if (rc != EOK)
+		return rc;
+
+	/* Check if we already have an rvalue */
+	if (res.valtype == cgen_rvalue) {
+		*eres = res;
+		return EOK;
+	}
+
+	/* Need to read the value in */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(res.varname, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
+	return rc;
+}
+
 /** Generate code for return statement.
  *
  * @param cgproc Code generator for procedure
@@ -454,10 +627,10 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *arg = NULL;
-	const char *avar = NULL;
+	cgen_eres_t ares;
 	int rc;
 
-	rc = cgen_expr(cgproc, areturn->arg, lblock, &avar);
+	rc = cgen_expr_rvalue(cgproc, areturn->arg, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
@@ -465,7 +638,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(avar, &arg);
+	rc = ir_oper_var_create(ares.varname, &arg);
 	if (rc != EOK)
 		goto error;
 
@@ -494,15 +667,16 @@ error:
 static int cgen_stexpr(cgen_proc_t *cgproc, ast_stexpr_t *stexpr,
     ir_lblock_t *lblock)
 {
-	const char *avar = NULL;
+	cgen_eres_t ares;
 	int rc;
 
-	rc = cgen_expr(cgproc, stexpr->expr, lblock, &avar);
+	/* Compute the value of the expression (e.g. read volatile variable) */
+	rc = cgen_expr_rvalue(cgproc, stexpr->expr, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
 	/* Ignore the value of the expression */
-	(void) avar;
+	(void) ares;
 
 	return EOK;
 error:

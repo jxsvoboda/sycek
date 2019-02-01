@@ -43,4 +43,32 @@ typedef struct {
 	unsigned next_var;
 } cgen_proc_t;
 
+/** Value type.
+ *
+ * The type of value resulting from an expression.
+ */
+typedef enum {
+	/** Lvalue (address) */
+	cgen_rvalue,
+	/** Rvalue (value) */
+	cgen_lvalue
+} cgen_valtype_t;
+
+/** Code generator expression result.
+ *
+ * Describes where and how the result of an expression was stored during code
+ * generation for that expression.
+ */
+typedef struct {
+	/** Name of variable containing the result */
+	const char *varname;
+
+	/** Value type.
+	 *
+	 * For rvalue, the variable @c varname contains the actual value,
+	 * for lvalue it contains the address of a memory location.
+	 */
+	cgen_valtype_t valtype;
+} cgen_eres_t;
+
 #endif
