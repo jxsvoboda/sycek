@@ -2007,7 +2007,7 @@ static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull,
 	if (rc != EOK)
 		return rc;
 
-	if (nsallow != cns_allow) {
+	if (nsallow != cns_allow && checker_scfg(scope)->estmt) {
 		lexer_dprint_tok(&tscolon->tok, stdout);
 		printf(": Unexpected null statement.\n");
 	}
@@ -5664,6 +5664,7 @@ static checker_mtype_t checker_smtype(checker_scope_t *scope)
 void checker_cfg_init(checker_cfg_t *cfg)
 {
 	cfg->decl = true;
+	cfg->estmt = true;
 	cfg->fmt = true;
 	cfg->hdr = true;
 	cfg->invchar = true;

@@ -76,6 +76,8 @@ typedef struct checker_module {
 typedef struct {
 	/** Declaration style */
 	bool decl;
+	/** Empty statement */
+	bool estmt;
 	/** Check formatting */
 	bool fmt;
 	/** Check header style */

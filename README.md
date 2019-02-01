@@ -132,6 +132,7 @@ style, but you would still like to use ccheck to look for other issues.
 To disable a group of checks, use `-d <check>`. Available groups are
 
   * `decl` Declaration style
+  * `estmt` Empty statement
   * `fmt` Formatting
   * `hdr` Header style
   * `invchar` Invalid characters

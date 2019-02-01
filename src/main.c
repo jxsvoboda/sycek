@@ -48,7 +48,7 @@ static void print_syntax(void)
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
 	    "\t--dump-toks Dump tokenized source file\n"
 	    "\t-d <check> Disable a particular group of checks\n"
-	    "\t  (decl, fmt, hdr, invchar, loop, sclass)\n");
+	    "\t  (decl, estmt, fmt, hdr, invchar, loop, sclass)\n");
 }
 
 static int check_file(const char *fname, checker_flags_t flags,
@@ -167,6 +167,8 @@ static int check_disable(checker_cfg_t *cfg, const char *check_name)
 {
 	if (strcmp(check_name, "decl") == 0) {
 		cfg->decl = false;
+	} else if (strcmp(check_name, "estmt") == 0) {
+		cfg->estmt = false;
 	} else if (strcmp(check_name, "fmt") == 0) {
 		cfg->fmt = false;
 	} else if (strcmp(check_name, "hdr") == 0) {
