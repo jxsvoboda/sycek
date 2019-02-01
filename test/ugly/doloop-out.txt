@@ -1,0 +1,1 @@
+<test/ugly/doloop-in.c:12:9-10:'do'>: Body of 'do' loop should always have braces.

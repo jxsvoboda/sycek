@@ -1638,6 +1638,12 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 	if (rc != EOK)
 		return rc;
 
+	if (ado->body->braces != ast_braces &&
+	    checker_scfg(scope)->loop) {
+		lexer_dprint_tok(&tdo->tok, stdout);
+		printf(": Body of 'do' loop should always have braces.\n");
+	}
+
 	if (ado->body->braces) {
 		rc = checker_check_nbspace_before(scope, twhile,
 		    "There must be single space between '}' and "
