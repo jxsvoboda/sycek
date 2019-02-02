@@ -86,6 +86,8 @@ typedef struct {
 	bool invchar;
 	/** Check loop style */
 	bool loop;
+	/** Nested block */
+	bool nblock;
 	/** Check storage class issues */
 	bool sclass;
 } checker_cfg_t;

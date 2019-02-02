@@ -162,9 +162,9 @@ the style issue.
 
 Bad style that currently triggers a parse error:
 
-  * Gratuitous nested block
   * Forbidden character inside a comment
   * Forbidden character inside a character of string literal
+  * Attribute specifier in position where it is ignored
 
 Since ccheck does not expand macros, thus it can fail to parse a source file
 that uses the C preprocessor in a way that alters the language syntax.

@@ -3551,6 +3551,28 @@ error:
 	return rc;
 }
 
+/** Parse nested block 'statement'.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new nested block statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stblock(parser_t *parser, ast_node_t **rstmt)
+{
+	ast_block_t *block;
+	int rc;
+
+	rc = parser_process_block(parser, &block);
+	if (rc != EOK)
+		goto error;
+
+	*rstmt = &block->node;
+	return EOK;
+error:
+	return rc;
+}
+
 /** Parse statement.
  *
  * @param parser Parser
@@ -3589,6 +3611,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_switch(parser, rstmt);
 	case ltt_case:
 		return parser_process_clabel(parser, rstmt);
+	case ltt_lbrace:
+		return parser_process_stblock(parser, rstmt);
 	case ltt_scolon:
 		return parser_process_stnull(parser, rstmt);
 	case ltt_ident:

@@ -177,6 +177,8 @@ static int check_disable(checker_cfg_t *cfg, const char *check_name)
 		cfg->invchar = false;
 	} else if (strcmp(check_name, "loop") == 0) {
 		cfg->loop = false;
+	} else if (strcmp(check_name, "nblock") == 0) {
+		cfg->nblock = false;
 	} else if (strcmp(check_name, "sclass") == 0) {
 		cfg->sclass = false;
 	} else {

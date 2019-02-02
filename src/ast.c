@@ -742,7 +742,6 @@ static ast_tok_t *ast_nulldecln_last_tok(ast_nulldecln_t *anulldecln)
 	return &anulldecln->tscolon;
 }
 
-
 /** Create AST extern "C" declaration.
  *
  * @param rexternc Place to store pointer to new extern "C" declaration

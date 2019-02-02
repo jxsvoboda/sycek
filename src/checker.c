@@ -39,6 +39,8 @@ static void checker_parser_read_tok(void *, void *, unsigned, bool,
     lexer_tok_t *);
 static void *checker_parser_next_tok(void *, void *);
 static void *checker_parser_tok_data(void *, void *);
+static int checker_check_stmt(checker_scope_t *, ast_node_t *,
+    checker_ns_allow_t);
 static int checker_check_decl(checker_scope_t *, ast_node_t *);
 static int checker_check_dlist(checker_scope_t *, ast_dlist_t *);
 static int checker_check_idlist(checker_scope_t *, ast_idlist_t *, bool);
@@ -2045,6 +2047,63 @@ error:
 	return rc;
 }
 
+/** Run checks on a nested block 'statement'.
+ *
+ * @param scope Checker scope
+ * @param block AST block
+ * @return EOK on success or error code
+ */
+static int checker_check_stblock(checker_scope_t *scope, ast_block_t *block)
+{
+	checker_scope_t *bscope = NULL;
+	checker_tok_t *tlbrace;
+	checker_tok_t *trbrace;
+	ast_node_t *stmt;
+	int rc;
+
+	assert(block->braces);
+	tlbrace = (checker_tok_t *)block->topen.data;
+
+	if (checker_scfg(scope)->nblock) {
+		lexer_dprint_tok(&tlbrace->tok, stdout);
+		printf(": Gratuitous nested block.\n");
+	}
+
+	rc = checker_check_lbegin(scope, tlbrace,
+	    "Nested block must begin on a new line.");
+	if (rc != EOK)
+		goto error;
+
+	bscope = checker_scope_nested(scope);
+	if (bscope == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	stmt = ast_block_first(block);
+	while (stmt != NULL) {
+		/* Null statement not allowed in braced block */
+		rc = checker_check_stmt(bscope, stmt, cns_disallow);
+		if (rc != EOK)
+			goto error;
+
+		stmt = ast_block_next(stmt);
+	}
+
+	trbrace = (checker_tok_t *)block->tclose.data;
+	rc = checker_check_lbegin(scope, trbrace,
+	    "Block closing brace must start on a new line.");
+	if (rc != EOK)
+		goto error;
+
+	checker_scope_destroy(bscope);
+	return EOK;
+error:
+	if (bscope != NULL)
+		checker_scope_destroy(bscope);
+	return rc;
+}
+
 /** Run checks on a statement.
  *
  * @param scope Checker scope
@@ -2090,6 +2149,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt,
 		    nsallow);
 	case ant_lmacro:
 		return checker_check_lmacro(scope, (ast_lmacro_t *)stmt->ext);
+	case ant_block:
+		return checker_check_stblock(scope, (ast_block_t *)stmt->ext);
 	default:
 		assert(false);
 		return EOK;
@@ -5720,5 +5781,6 @@ void checker_cfg_init(checker_cfg_t *cfg)
 	cfg->invchar = true;
 	cfg->sclass = true;
 	cfg->loop = true;
+	cfg->nblock = true;
 	cfg->sclass = true;
 }
