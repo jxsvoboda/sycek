@@ -67,6 +67,7 @@ extern int ast_tsrecord_append(ast_tsrecord_t *, ast_sqlist_t *, ast_dlist_t *,
     void *);
 extern int ast_tsrecord_append_mdecln(ast_tsrecord_t *, ast_mdecln_t *,
     void *);
+extern int ast_tsrecord_append_null(ast_tsrecord_t *, void *);
 extern ast_tsrecord_elem_t *ast_tsrecord_first(ast_tsrecord_t *);
 extern ast_tsrecord_elem_t *ast_tsrecord_next(ast_tsrecord_elem_t *);
 extern int ast_tsenum_create(ast_tsenum_t **);

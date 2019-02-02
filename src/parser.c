@@ -3856,14 +3856,14 @@ error:
 	return rc;
 }
 
-/** Parse record type specifier element.
+/** Parse normal record type specifier element.
  *
  * @param parser Parser
  * @param tsrecord Record type specifier to append element to
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_tsrecord_elem(parser_t *parser,
+static int parser_process_tsrecord_elem_normal(parser_t *parser,
     ast_tsrecord_t *tsrecord)
 {
 	lexer_toktype_t ltt;
@@ -3943,6 +3943,85 @@ error:
 	return rc;
 }
 
+/** Parse null record type specifier element.
+ *
+ * @param parser Parser
+ * @param tsrecord Record type specifier to append element to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsrecord_elem_null(parser_t *parser,
+    ast_tsrecord_t *tsrecord)
+{
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_tsrecord_append_null(tsrecord, dscolon);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Parse record type specifier element.
+ *
+ * @param parser Parser
+ * @param tsrecord Record type specifier to append element to
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_tsrecord_elem(parser_t *parser,
+    ast_tsrecord_t *tsrecord)
+{
+	parser_t *sparser = NULL;
+	lexer_toktype_t ltt;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_scolon) {
+		rc = parser_process_tsrecord_elem_null(parser, tsrecord);
+		if (rc != EOK)
+			goto error;
+
+		return EOK;
+	}
+
+	rc = parser_create_silent_sub(parser, &sparser);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_tsrecord_elem_normal(sparser, tsrecord);
+	if (rc == EOK) {
+		parser_follow_up(sparser, parser);
+	} else {
+		sparser->tok = parser->tok;
+
+		rc = parser_process_tsrecord_elem_mdecln(sparser, tsrecord);
+		if (rc == EOK) {
+			parser_follow_up(sparser, parser);
+		} else {
+			/* To get a good error message */
+			rc = parser_process_tsrecord_elem_normal(
+			    parser, tsrecord);
+			if (rc != EOK)
+				goto error;
+		}
+	}
+
+	parser_destroy(sparser);
+	return EOK;
+error:
+	if (sparser != NULL)
+		parser_destroy(sparser);
+	return rc;
+}
+
 /** Parse record type specifier.
  *
  * @param parser Parser
@@ -4016,31 +4095,9 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 
 		ltt = parser_next_ttype(iparser);
 		while (ltt != ltt_rbrace) {
-			rc = parser_create_silent_sub(iparser, &sparser);
+			rc = parser_process_tsrecord_elem(iparser, precord);
 			if (rc != EOK)
 				goto error;
-
-			rc = parser_process_tsrecord_elem(sparser, precord);
-			if (rc == EOK) {
-				iparser->tok = sparser->tok;
-			} else {
-				sparser->tok = iparser->tok;
-
-				rc = parser_process_tsrecord_elem_mdecln(
-				    sparser, precord);
-				if (rc == EOK) {
-					iparser->tok = sparser->tok;
-				} else {
-					/* To get a good error message */
-					rc = parser_process_tsrecord_elem(
-					    iparser, precord);
-					if (rc != EOK)
-						goto error;
-				}
-			}
-
-			parser_destroy(sparser);
-			sparser = NULL;
 
 			ltt = parser_next_ttype(iparser);
 		}

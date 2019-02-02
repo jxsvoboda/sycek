@@ -2930,6 +2930,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	ast_tok_t *adecl;
 	ast_tok_t *aaslist;
 	checker_tok_t *tdecl;
+	bool nullelem;
 	int rc;
 
 	escope = checker_scope_nested(scope);
@@ -2959,6 +2960,8 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
+		nullelem = false;
+
 		if (elem->sqlist != NULL) {
 			asqlist = ast_tree_first_tok(&elem->sqlist->node);
 			rc = checker_check_lbegin(escope,
@@ -2984,17 +2987,32 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 			rc = checker_check_dlist(escope, elem->dlist);
 			if (rc != EOK)
 				goto error;
-		}
-
-		if (elem->mdecln != NULL) {
+		} else if (elem->mdecln != NULL) {
 			rc = checker_check_mdecln(escope, elem->mdecln);
 			if (rc != EOK)
 				goto error;
+		} else {
+			/* Null element */
+			nullelem = true;
 		}
 
 		tscolon = (checker_tok_t *)elem->tscolon.data;
-		checker_check_nows_before(escope, tscolon,
-		    "Unexpected whitespace before ';'.");
+
+		if (!nullelem) {
+			checker_check_nows_before(escope, tscolon,
+			    "Unexpected whitespace before ';'.");
+		} else {
+			rc = checker_check_lbegin(escope, tscolon,
+			    "Member declaration must start on a new line.");
+			if (rc != EOK)
+				goto error;
+
+			if (checker_scfg(escope)->estmt) {
+				lexer_dprint_tok(&tscolon->tok, stdout);
+				printf(": Empty struct or union "
+				    "member declaration.\n");
+			}
+		}
 
 		elem = ast_tsrecord_next(elem);
 	}

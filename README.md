@@ -162,8 +162,9 @@ the style issue.
 
 Bad style that currently triggers a parse error:
 
-  * Empty struct or union member declaration (gratuitous `;`)
   * Gratuitous nested block
+  * Forbidden character inside a comment
+  * Forbidden character inside a character of string literal
 
 Since ccheck does not expand macros, thus it can fail to parse a source file
 that uses the C preprocessor in a way that alters the language syntax.

@@ -1474,6 +1474,27 @@ int ast_tsrecord_append_mdecln(ast_tsrecord_t *tsrecord, ast_mdecln_t *mdecln,
 	return EOK;
 }
 
+/** Append null element to record type specifier.
+ *
+ * @param tsrecord Record type specifier
+ * @param dscolon Semicolon token data
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_tsrecord_append_null(ast_tsrecord_t *tsrecord, void *dscolon)
+{
+	ast_tsrecord_elem_t *elem;
+
+	elem = calloc(1, sizeof(ast_tsrecord_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->tscolon.data = dscolon;
+
+	elem->tsrecord = tsrecord;
+	list_append(&elem->ltsrecord, &tsrecord->elems);
+	return EOK;
+}
+
 /** Return first element in record type specifier.
  *
  * @param tsrecord Record type specifier
