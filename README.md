@@ -132,7 +132,7 @@ style, but you would still like to use ccheck to look for other issues.
 To disable a group of checks, use `-d <check>`. Available groups are
 
   * `decl` Declaration style
-  * `estmt` Empty statement
+  * `estmt` Empty declaration or statement
   * `fmt` Formatting
   * `hdr` Header style
   * `invchar` Invalid characters
@@ -162,7 +162,7 @@ the style issue.
 
 Bad style that currently triggers a parse error:
 
-  * Empty declaration (gratuitous `;` in place of a top-level declaration)
+  * Empty struct or union member declaration (gratuitous `;`)
   * Gratuitous nested block
 
 Since ccheck does not expand macros, thus it can fail to parse a source file

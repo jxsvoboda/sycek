@@ -169,6 +169,8 @@ typedef enum {
 	ant_mdecln,
 	/** Global macro-based declaration */
 	ant_gmdecln,
+	/** Null declaration */
+	ant_nulldecln,
 	/** C++ extern "C" construct */
 	ant_externc,
 	/** Module */
@@ -1540,6 +1542,17 @@ typedef struct {
 	/** Trailing ';' token (if @c have_scolon is @c true) */
 	ast_tok_t tscolon;
 } ast_gmdecln_t;
+
+/** Global null declaration
+ *
+ * Semicolon in place of a global declaration
+ */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_nulldecln_t;
 
 /** C++ extern "C" declaration
  *

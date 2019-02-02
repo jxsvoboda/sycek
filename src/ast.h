@@ -51,6 +51,7 @@ extern int ast_mdecln_append(ast_mdecln_t *, ast_node_t *, void *);
 extern ast_mdecln_arg_t *ast_mdecln_first(ast_mdecln_t *);
 extern ast_mdecln_arg_t *ast_mdecln_next(ast_mdecln_arg_t *);
 extern int ast_gmdecln_create(ast_gmdecln_t **);
+extern int ast_nulldecln_create(ast_nulldecln_t **);
 extern int ast_block_create(ast_braces_t, ast_block_t **);
 extern void ast_block_append(ast_block_t *, ast_node_t *);
 extern ast_node_t *ast_block_first(ast_block_t *);

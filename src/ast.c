@@ -676,6 +676,73 @@ static ast_tok_t *ast_gmdecln_last_tok(ast_gmdecln_t *gmdecln)
 	return &gmdecln->tscolon;
 }
 
+/** Create AST null declaration.
+ *
+ * @param rnulldecln Place to store pointer to new null declaration
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_nulldecln_create(ast_nulldecln_t **rnulldecln)
+{
+	ast_nulldecln_t *anulldecln;
+
+	anulldecln = calloc(1, sizeof(ast_nulldecln_t));
+	if (anulldecln == NULL)
+		return ENOMEM;
+
+	anulldecln->node.ext = anulldecln;
+	anulldecln->node.ntype = ant_nulldecln;
+
+	*rnulldecln = anulldecln;
+	return EOK;
+}
+
+/** Print AST null declaration.
+ *
+ * @param anulldecln Null declaration
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_nulldecln_print(ast_nulldecln_t *anulldecln, FILE *f)
+{
+	(void) anulldecln;
+
+	if (fprintf(f, "nulldecln()") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST null declaration.
+ *
+ * @param anulldecln Null declaration
+ */
+static void ast_nulldecln_destroy(ast_nulldecln_t *anulldecln)
+{
+	free(anulldecln);
+}
+
+/** Get first token of AST null declaration.
+ *
+ * @param anulldecln Null declaration
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_nulldecln_first_tok(ast_nulldecln_t *anulldecln)
+{
+	return &anulldecln->tscolon;
+}
+
+/** Get last token of AST null declaration.
+ *
+ * @param anulldecln Null declaration
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_nulldecln_last_tok(ast_nulldecln_t *anulldecln)
+{
+	return &anulldecln->tscolon;
+}
+
+
 /** Create AST extern "C" declaration.
  *
  * @param rexternc Place to store pointer to new extern "C" declaration
@@ -8551,6 +8618,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_mdecln_print((ast_mdecln_t *)node->ext, f);
 	case ant_gmdecln:
 		return ast_gmdecln_print((ast_gmdecln_t *)node->ext, f);
+	case ant_nulldecln:
+		return ast_nulldecln_print((ast_nulldecln_t *)node->ext, f);
 	case ant_externc:
 		return ast_externc_print((ast_externc_t *)node->ext, f);
 	case ant_module:
@@ -8711,6 +8780,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_gmdecln:
 		ast_gmdecln_destroy((ast_gmdecln_t *)node->ext);
+		break;
+	case ant_nulldecln:
+		ast_nulldecln_destroy((ast_nulldecln_t *)node->ext);
 		break;
 	case ant_externc:
 		ast_externc_destroy((ast_externc_t *)node->ext);
@@ -8916,6 +8988,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_mdecln_first_tok((ast_mdecln_t *)node->ext);
 	case ant_gmdecln:
 		return ast_gmdecln_first_tok((ast_gmdecln_t *)node->ext);
+	case ant_nulldecln:
+		return ast_nulldecln_first_tok((ast_nulldecln_t *)node->ext);
 	case ant_externc:
 		return ast_externc_first_tok((ast_externc_t *)node->ext);
 	case ant_module:
@@ -9067,6 +9141,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_mdecln_last_tok((ast_mdecln_t *)node->ext);
 	case ant_gmdecln:
 		return ast_gmdecln_last_tok((ast_gmdecln_t *)node->ext);
+	case ant_nulldecln:
+		return ast_nulldecln_last_tok((ast_nulldecln_t *)node->ext);
 	case ant_externc:
 		return ast_externc_last_tok((ast_externc_t *)node->ext);
 	case ant_module:

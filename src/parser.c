@@ -54,6 +54,7 @@ static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_cinit(parser_t *, ast_cinit_t **);
 static int parser_process_init(parser_t *, ast_node_t **);
 static int parser_process_block(parser_t *, ast_block_t **);
+static int parser_process_nulldecln(parser_t *, ast_nulldecln_t **);
 static int parser_process_externc(parser_t *, ast_externc_t **);
 
 /** Create parser.
@@ -5804,6 +5805,7 @@ static int parser_process_global_decln(parser_t *parser, ast_node_t **rnode)
 {
 	ast_node_t *node = NULL;
 	ast_gmdecln_t *gmdecln = NULL;
+	ast_nulldecln_t *nulldecln = NULL;
 	ast_externc_t *externc;
 	parser_t *sparser;
 	lexer_toktype_t ltt, ltt2;
@@ -5831,6 +5833,12 @@ static int parser_process_global_decln(parser_t *parser, ast_node_t **rnode)
 				goto error;
 
 			node = &externc->node;
+		} else if (ltt == ltt_scolon) {
+			rc = parser_process_nulldecln(parser, &nulldecln);
+			if (rc != EOK)
+				goto error;
+
+			node = &nulldecln->node;
 		} else {
 			rc = parser_process_gdecln(parser, &node);
 			if (rc != EOK)
@@ -5841,6 +5849,37 @@ static int parser_process_global_decln(parser_t *parser, ast_node_t **rnode)
 	*rnode = node;
 	return EOK;
 error:
+	return rc;
+}
+
+/** Parse null declaration.
+ *
+ * @param parser Parser
+ * @param rnulldecln Place to store pointer to new null declaration
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_nulldecln(parser_t *parser,
+    ast_nulldecln_t **rnulldecln)
+{
+	ast_nulldecln_t *nulldecln;
+	void *dscolon;
+	int rc;
+
+	rc = ast_nulldecln_create(&nulldecln);
+	if (rc != EOK)
+		return rc;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	nulldecln->tscolon.data = dscolon;
+
+	*rnulldecln = nulldecln;
+	return EOK;
+error:
+	ast_tree_destroy(&nulldecln->node);
 	return rc;
 }
 

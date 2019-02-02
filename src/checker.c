@@ -4668,6 +4668,34 @@ error:
 	return rc;
 }
 
+/** Run checks on a global null declaration.
+ *
+ * @param scope Checker scope
+ * @param nulldecln AST global null declaration
+ * @return EOK on success or error code
+ */
+static int checker_check_nulldecln(checker_scope_t *scope,
+    ast_nulldecln_t *nulldecln)
+{
+	int rc;
+	checker_tok_t *tscolon;
+
+	tscolon = (checker_tok_t *) nulldecln->tscolon.data;
+	rc = checker_check_lbegin(scope, tscolon,
+	    "Declaration must start on a new line.");
+	if (rc != EOK)
+		goto error;
+
+	if (checker_scfg(scope)->estmt) {
+		lexer_dprint_tok(&tscolon->tok, stdout);
+		printf(": Empty declaration.\n");
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Run checks on an extern "C" declaration.
  *
  * @param scope Checker scope
@@ -4747,6 +4775,10 @@ static int checker_check_global_decln(checker_scope_t *scope, ast_node_t *decl)
 	case ant_gmdecln:
 		rc = checker_check_gmdecln(scope,
 		    (ast_gmdecln_t *) decl->ext);
+		break;
+	case ant_nulldecln:
+		rc = checker_check_nulldecln(scope,
+		    (ast_nulldecln_t *) decl->ext);
 		break;
 	case ant_externc:
 		rc = checker_check_externc(scope, (ast_externc_t *) decl->ext);
