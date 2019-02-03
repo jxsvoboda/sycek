@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -35,8 +35,11 @@ extern int lexer_create(lexer_input_ops_t *, void *, lexer_t **);
 extern void lexer_destroy(lexer_t *);
 extern int lexer_get_tok(lexer_t *, lexer_tok_t *);
 extern void lexer_free_tok(lexer_tok_t *);
+extern int lexer_dprint_char(char , FILE *);
 extern int lexer_dprint_tok(lexer_tok_t *, FILE *);
+extern int lexer_dprint_tok_chr(lexer_tok_t *, size_t, FILE *);
 extern int lexer_print_tok(lexer_tok_t *, FILE *);
+extern bool lexer_tok_valid_chars(lexer_tok_t *, size_t, size_t *);
 extern const char *lexer_str_ttype(lexer_toktype_t);
 extern int lexer_print_ttype(lexer_toktype_t, FILE *);
 extern bool lexer_is_comment(lexer_toktype_t);

@@ -1,1 +1,0 @@
-Error: <test/bad/icstrlit-in.c:2:11-13:invalid:"#08"> unexpected, expected expression.

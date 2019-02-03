@@ -3407,6 +3407,40 @@ static int checker_check_eint(checker_scope_t *scope, ast_eint_t *eint)
 	return EOK;
 }
 
+/** Check string literal.
+ *
+ * @param scope Checker scope
+ * @param lit String literal
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_estring_lit(checker_scope_t *scope,
+    ast_estring_lit_t *lit)
+{
+	checker_tok_t *tlit;
+	size_t invpos;
+	char invchar;
+
+	tlit = (checker_tok_t *) lit->tlit.data;
+	checker_check_any(scope, tlit);
+
+	if (tlit->tok.ttype == ltt_strlit) {
+		invpos = 0;
+		while (!lexer_tok_valid_chars(&tlit->tok, invpos, &invpos)) {
+			invchar = tlit->tok.text[invpos];
+			if (checker_scfg(scope)->invchar) {
+				lexer_dprint_tok_chr(&tlit->tok, invpos, stdout);
+				printf(": Invalid character '");
+				lexer_dprint_char(invchar, stdout);
+				printf("' inside string literal.\n");
+			}
+			++invpos;
+		}
+	}
+
+	return EOK;
+}
+
 /** Check string literal expression.
  *
  * @param scope Checker scope
@@ -3422,8 +3456,9 @@ static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 	int rc;
 
 	lit = ast_estring_first(estring);
-	tlit = (checker_tok_t *) lit->tlit.data;
-	checker_check_any(scope, tlit);
+	rc = checker_check_estring_lit(scope, lit);
+	if (rc != EOK)
+		return rc;
 
 	lit = ast_estring_next(lit);
 	while (lit != NULL) {
@@ -3432,6 +3467,10 @@ static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 		    "Whitespace expected before string literal." :
 		    "Whitespace expected before identifier.";
 		rc = checker_check_brkspace_before(scope, tlit, msg);
+		if (rc != EOK)
+			return rc;
+
+		rc = checker_check_estring_lit(scope, lit);
 		if (rc != EOK)
 			return rc;
 
@@ -3451,9 +3490,24 @@ static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 static int checker_check_echar(checker_scope_t *scope, ast_echar_t *echar)
 {
 	checker_tok_t *tlit;
+	size_t invpos;
+	char invchar;
 
 	tlit = (checker_tok_t *) echar->tlit.data;
 	checker_check_any(scope, tlit);
+
+	invpos = 0;
+	while (!lexer_tok_valid_chars(&tlit->tok, invpos, &invpos)) {
+		invchar = tlit->tok.text[invpos];
+		if (checker_scfg(scope)->invchar) {
+			lexer_dprint_tok_chr(&tlit->tok, invpos, stdout);
+			printf(": Invalid character '");
+			lexer_dprint_char(invchar, stdout);
+			printf("' inside character literal.\n");
+		}
+		++invpos;
+	}
+
 	return EOK;
 }
 
@@ -5050,6 +5104,8 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 {
 	checker_tok_t *tok;
 	checker_tok_t *bs;
+	size_t invpos;
+	char invchar;
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
@@ -5064,6 +5120,21 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 			} else {
 				lexer_dprint_tok(&tok->tok, stdout);
 				printf(": Backslash outside of preprocessor directive.\n");
+			}
+		}
+
+		if ((tok->tok.ttype == ltt_dscomment ||
+		    tok->tok.ttype == ltt_ctext) &&
+		    mod->checker->cfg->invchar) {
+			invpos = 0;
+			while (!lexer_tok_valid_chars(&tok->tok, invpos,
+			    &invpos)) {
+				invchar = tok->tok.text[invpos];
+				lexer_dprint_tok_chr(&tok->tok, invpos, stdout);
+				printf(": Invalid character '");
+				lexer_dprint_char(invchar, stdout);
+				printf("' inside comment.\n");
+				++invpos;
 			}
 		}
 

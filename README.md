@@ -162,8 +162,7 @@ the style issue.
 
 Bad style that currently triggers a parse error:
 
-  * Forbidden character inside a comment
-  * Forbidden character inside a character of string literal
+  * Invalid character (such as Carriage Return) in normal code context
   * Attribute specifier in position where it is ignored
 
 Since ccheck does not expand macros, thus it can fail to parse a source file

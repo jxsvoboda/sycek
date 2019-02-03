@@ -1315,28 +1315,31 @@ static int lexer_get_tok_comment(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
-/** Verify that token consists only of allowed characters.
- *
- * If the token contains invalid characters, its type is changed to
- * @c ltt_invalid.
+/** Determine if token consists only of allowed characters.
  *
  * @param tok Token to validate
+ * @param offs Offset at which to start
+ * @param invpos Place to store offset of the first invalid character
+ * @return @c true if token only consist of valid characters
  */
-static void lexer_validate_tok(lexer_tok_t *tok)
+bool lexer_tok_valid_chars(lexer_tok_t *tok, size_t offs, size_t *invpos)
 {
-	char *cp;
+	size_t pos;
 
 	if (tok->text == NULL)
-		return;
+		return true;
 
-	cp = tok->text;
-	while (*cp != '\0') {
-		if (is_bad_ctrl(*cp)) {
-			/* Set token type to invalid */
-			tok->ttype = ltt_invalid;
+	pos = offs;
+	while (tok->text[pos] != '\0') {
+		if (is_bad_ctrl(tok->text[pos])) {
+			*invpos = pos;
+			return false;
 		}
-		++cp;
+
+		++pos;
 	}
+
+	return true;
 }
 
 /** Lex next token.
@@ -1361,8 +1364,6 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 
 	if (rc != EOK)
 		return rc;
-
-	lexer_validate_tok(tok);
 
 	return EOK;
 }
@@ -1612,6 +1613,33 @@ int lexer_print_ttype(lexer_toktype_t ttype, FILE *f)
 	return EOK;
 }
 
+/** Print character, escaping special characters.
+ *
+ * @param c Character to print
+ * @param f Output file
+ * @return EOK on success, EIO on I/O error
+ */
+int lexer_dprint_char(char c, FILE *f)
+{
+	int rc;
+
+	if (!is_print(c)) {
+		rc = fprintf(f, "#%02x", c);
+		if (rc < 0)
+			return EIO;
+	} else if (c == '#') {
+		rc = fputc('#', f);
+		if (rc == EOF)
+			return EIO;
+	} else {
+		rc = fputc(c, f);
+		if (rc == EOF)
+			return EIO;
+	}
+
+	return EOK;
+}
+
 /** Print string, escaping special characters.
  *
  * @param str Strint to print
@@ -1627,38 +1655,31 @@ static int lexer_dprint_str(const char *str, FILE *f)
 	cp = str;
 	while (*cp != '\0') {
 		c = *cp++;
-		if (!is_print(c)) {
-			rc = fprintf(f, "#%02x", c);
-			if (rc < 0)
-				return EIO;
-		} else if (c == '#') {
-			rc = fputc('#', f);
-			if (rc == EOF)
-				return EIO;
-		} else {
-			rc = fputc(c, f);
-			if (rc == EOF)
-				return EIO;
-		}
+		rc = lexer_dprint_char(c, f);
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
 }
 
-/** Print token structurally (for debugging).
+/** Print token structurally (for debugging) with specified range.
  *
  * @param tok Token
+ * @param bpos Begin position
+ * @param epos End position
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
  */
-int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
+static int lexer_dprint_tok_range(lexer_tok_t *tok, src_pos_t *bpos,
+    src_pos_t *epos, FILE *f)
 {
 	int rc;
 
 	if (fprintf(f, "<") < 0)
 		return EIO;
-	rc = src_pos_print_range(&tok->bpos, &tok->epos, f);
+	rc = src_pos_print_range(bpos, epos, f);
 	if (rc != EOK)
 		return rc;
 
@@ -1685,6 +1706,38 @@ int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Print token structurally (for debugging).
+ *
+ * @param tok Token
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+int lexer_dprint_tok(lexer_tok_t *tok, FILE *f)
+{
+	return lexer_dprint_tok_range(tok, &tok->bpos, &tok->epos, f);
+}
+
+/** Print token structurally (for debugging) pointing to a single character.
+ *
+ * @param tok Token
+ * @param offs Offset of the character to print the range for
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+int lexer_dprint_tok_chr(lexer_tok_t *tok, size_t offs, FILE *f)
+{
+	src_pos_t pos;
+	size_t i;
+
+	pos = tok->bpos;
+	for (i = 0; i < offs; i++)
+		src_pos_fwd_char(&pos, tok->text[i]);
+
+	return lexer_dprint_tok_range(tok, &pos, &pos, f);
 }
 
 /** Print token (in original C form).
