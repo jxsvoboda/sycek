@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2019 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -706,6 +706,8 @@ typedef struct {
 	ast_tok_t tcolon;
 	/** Bit width expression if @c have_bitwidth is true */
 	ast_node_t *bitwidth;
+	/** Attribute specifier list or @c NULL */
+	ast_aslist_t *aslist;
 } ast_dlist_entry_t;
 
 /** Init-declarator list */

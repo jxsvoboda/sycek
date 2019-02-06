@@ -3994,10 +3994,12 @@ int ast_dlist_create(ast_dlist_t **rdlist)
  * @param have_bitwidth @c true if we havee dcolon and bitwidth
  * @param dcolon Colon token data or @c NULL
  * @param bitwidth Bit width expression or @c NULL
+ * @param aslist Attribute specifier list or @c NULL
  * @return EOK on success, ENOMEM if out of memory
  */
 int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl,
-    bool have_bitwidth, void *dcolon, ast_node_t *bitwidth)
+    bool have_bitwidth, void *dcolon, ast_node_t *bitwidth,
+    ast_aslist_t *aslist)
 {
 	ast_dlist_entry_t *entry;
 
@@ -4010,6 +4012,7 @@ int ast_dlist_append(ast_dlist_t *dlist, void *dcomma, ast_node_t *decl,
 	entry->have_bitwidth = have_bitwidth;
 	entry->tcolon.data = dcolon;
 	entry->bitwidth = bitwidth;
+	entry->aslist = aslist;
 
 	entry->dlist = dlist;
 	list_append(&entry->ldlist, &dlist->decls);
@@ -4101,6 +4104,15 @@ static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
 		if (rc != EOK)
 			return EIO;
 
+		if (entry->aslist != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+
+			rc = ast_aslist_print(entry->aslist, f);
+			if (rc != EOK)
+				return EIO;
+		}
+
 		entry = ast_dlist_next(entry);
 
 		if (entry != NULL) {
@@ -4131,6 +4143,7 @@ static void ast_dlist_destroy(ast_dlist_t *dlist)
 		list_remove(&entry->ldlist);
 		ast_tree_destroy(entry->decl);
 		ast_tree_destroy(entry->bitwidth);
+		ast_aslist_destroy(entry->aslist);
 		free(entry);
 
 		entry = ast_dlist_first(dlist);
@@ -4331,6 +4344,15 @@ static int ast_idlist_print(ast_idlist_t *idlist, FILE *f)
 		if (rc != EOK)
 			return EIO;
 
+		if (entry->regassign != NULL) {
+			if (fprintf(f, ", ") < 0)
+				return EIO;
+
+			rc = ast_regassign_print(entry->regassign, f);
+			if (rc != EOK)
+				return EIO;
+		}
+
 		if (entry->aslist != NULL) {
 			if (fprintf(f, ", ") < 0)
 				return EIO;
@@ -4405,6 +4427,15 @@ static ast_tok_t *ast_idlist_first_tok(ast_idlist_t *idlist)
 	if (tok != NULL)
 		return tok;
 
+	if (entry->regassign != NULL)
+		return ast_regassign_first_tok(entry->regassign);
+
+	if (entry->aslist != NULL)
+		return ast_aslist_first_tok(entry->aslist);
+
+	if (entry->have_init)
+		return &entry->tassign;
+
 	/* See if there are at least two entries */
 	entry = ast_idlist_next(entry);
 	if (entry == NULL)
@@ -4429,6 +4460,15 @@ static ast_tok_t *ast_idlist_last_tok(ast_idlist_t *idlist)
 	tok = ast_tree_last_tok(entry->decl);
 	if (tok != NULL)
 		return tok;
+
+	if (entry->have_init)
+		return ast_tree_last_tok(entry->init);
+
+	if (entry->aslist != NULL)
+		return ast_aslist_last_tok(entry->aslist);
+
+	if (entry->regassign != NULL)
+		return ast_regassign_last_tok(entry->regassign);
 
 	/* See if there are at least two entries */
 	if (ast_idlist_prev(entry) == NULL)

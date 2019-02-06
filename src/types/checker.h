@@ -74,6 +74,8 @@ typedef struct checker_module {
 
 /** Checker configuration */
 typedef struct {
+	/** Attribute issues */
+	bool attr;
 	/** Declaration style */
 	bool decl;
 	/** Empty statement */

@@ -2375,6 +2375,8 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	ast_dlist_entry_t *entry;
 	checker_tok_t *tcomma;
 	checker_tok_t *tcolon;
+	ast_tok_t *aattr;
+	checker_tok_t *tattr;
 	int rc;
 
 	entry = ast_dlist_first(dlist);
@@ -2404,6 +2406,19 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 			rc = checker_check_expr(scope, entry->bitwidth);
 			if (rc != EOK)
 				return rc;
+		}
+
+		if (entry->aslist != NULL) {
+			rc = checker_check_aslist(scope, entry->aslist);
+			if (rc != EOK)
+				return rc;
+
+			if (checker_scfg(scope)->attr) {
+				aattr = ast_tree_first_tok(&entry->aslist->node);
+				tattr = (checker_tok_t *) aattr->data;
+				lexer_dprint_tok(&tattr->tok, stdout);
+				printf(": Attribute ignored in this position.\n");
+			}
 		}
 
 		entry = ast_dlist_next(entry);
@@ -5845,6 +5860,7 @@ static checker_mtype_t checker_smtype(checker_scope_t *scope)
  */
 void checker_cfg_init(checker_cfg_t *cfg)
 {
+	cfg->attr = true;
 	cfg->decl = true;
 	cfg->estmt = true;
 	cfg->fmt = true;

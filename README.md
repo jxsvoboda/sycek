@@ -131,6 +131,7 @@ for example, if you have a code base that does not use HelenOS formatting
 style, but you would still like to use ccheck to look for other issues.
 To disable a group of checks, use `-d <check>`. Available groups are
 
+  * `attr` Attribute issues
   * `decl` Declaration style
   * `estmt` Empty declaration or statement
   * `fmt` Formatting
@@ -163,7 +164,6 @@ the style issue.
 Bad style that currently triggers a parse error:
 
   * Invalid character (such as Carriage Return) in normal code context
-  * Attribute specifier in position where it is ignored
 
 Since ccheck does not expand macros, thus it can fail to parse a source file
 that uses the C preprocessor in a way that alters the language syntax.

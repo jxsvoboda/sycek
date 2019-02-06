@@ -4884,6 +4884,7 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 	bool have_bitwidth;
 	void *dcolon;
 	ast_node_t *bitwidth = NULL;
+	ast_aslist_t *aslist = NULL;
 	bool first;
 	int rc;
 
@@ -4952,13 +4953,24 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 			bitwidth = NULL;
 		}
 
+		/* Are there any attribute specifiers? */
+		ltt = parser_next_ttype(parser);
+		if (ltt == ltt_attribute) {
+			rc = parser_process_aslist(parser, &aslist);
+			if (rc != EOK)
+				goto error;
+		} else {
+			aslist = NULL;
+		}
+
 		rc = ast_dlist_append(dlist, dcomma, decl, have_bitwidth,
-		    dcolon, bitwidth);
+		    dcolon, bitwidth, aslist);
 		if (rc != EOK)
 			goto error;
 
 		decl = NULL;
 		bitwidth = NULL;
+		aslist = NULL;
 
 		first = false;
 		ltt = parser_next_ttype(parser);
@@ -4973,6 +4985,8 @@ error:
 		ast_tree_destroy(decl);
 	if (bitwidth != NULL)
 		ast_tree_destroy(bitwidth);
+	if (aslist != NULL)
+		ast_tree_destroy(&aslist->node);
 	return rc;
 }
 
