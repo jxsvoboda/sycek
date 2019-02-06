@@ -5588,7 +5588,7 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 	}
 
 	ptok = checker_prev_tok(tok);
-	if (ptok->tok.ttype != ltt_newline) {
+	if (ptok != NULL && ptok->tok.ttype != ltt_newline) {
 		if (fix) {
 			rc = checker_append_tok(ptok, ltt_newline, "\n");
 			if (rc != EOK)
