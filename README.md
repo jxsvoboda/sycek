@@ -157,14 +157,6 @@ extensions, such as
 ccheck also understands the C++ `extern "C"` declaration embedded in
 a header file.
 
-However for some particular syntax that is valid C, but has bad style,
-ccheck will currently fail with an Error instead of just reporting or fixing
-the style issue.
-
-Bad style that currently triggers a parse error:
-
-  * Invalid character (such as Carriage Return) in normal code context
-
 Since ccheck does not expand macros, thus it can fail to parse a source file
 that uses the C preprocessor in a way that alters the language syntax.
 Ccheck, however, supports some specific use cases of macros altering

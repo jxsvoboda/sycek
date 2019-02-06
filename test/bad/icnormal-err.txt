@@ -1,1 +1,0 @@
-Error: <test/bad/icnormal-in.c:2:1:invalid:#08> unexpected, expected declaration specifier.

@@ -5153,6 +5153,15 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 			}
 		}
 
+		if (tok->tok.ttype == ltt_invchar &&
+		    mod->checker->cfg->invchar) {
+			invchar = tok->tok.text[0];
+			lexer_dprint_tok(&tok->tok, stdout);
+			printf(": Invalid character '");
+			lexer_dprint_char(invchar, stdout);
+			printf("'.\n");
+		}
+
 		if (!tok->checked && !parser_ttype_ignore(tok->tok.ttype)) {
 			lexer_dprint_tok(&tok->tok, stdout);
 			printf(" Token not checked\n");

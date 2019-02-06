@@ -141,6 +141,7 @@ typedef enum {
 	ltt_strlit,
 
 	ltt_invalid,
+	ltt_invchar,
 	ltt_eof,
 	ltt_error
 } lexer_toktype_t;

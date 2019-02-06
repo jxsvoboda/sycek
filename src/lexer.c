@@ -900,6 +900,22 @@ static int lexer_charstr(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex non-printable character.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_nonprint(lexer_t *lexer, lexer_tok_t *tok)
+{
+	lexer_get_pos(lexer, &tok->bpos);
+	lexer_get_pos(lexer, &tok->epos);
+
+	tok->ttype = ltt_invchar;
+	return lexer_advance(lexer, 1, tok);
+}
+
 /** Lex invalid character.
  *
  * @param lexer Lexer
@@ -1275,6 +1291,8 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 			return lexer_ident(lexer, tok);
 		if (is_num(p[0]))
 			return lexer_number(lexer, tok);
+		if (!is_print(p[0]))
+			return lexer_nonprint(lexer, tok);
 		return lexer_invalid(lexer, tok);
 	}
 
@@ -1591,6 +1609,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "eof";
 	case ltt_invalid:
 		return "invalid";
+	case ltt_invchar:
+		return "invchar";
 	case ltt_error:
 		return "error";
 	}
@@ -1693,11 +1713,13 @@ static int lexer_dprint_tok_range(lexer_tok_t *tok, src_pos_t *bpos,
 			return EIO;
 		break;
 	case ltt_invalid:
+	case ltt_invchar:
 		if (fputc(':', f) == EOF)
 			return EIO;
 		rc = lexer_dprint_str(tok->text, f);
 		if (rc != EOK)
 			return EIO;
+		break;
 	default:
 		break;
 	}
