@@ -189,6 +189,35 @@ to an existing codebase other than HelenOS is likely to require some,
 possibly non-trivial, changes to that code base before it would be fully
 parsable by ccheck.
 
+Developer Notes
+---------------
+These are notes on maintaining Sycek code base.
+
+The regression tests (`test/*/*-in.c`) are split into three groups, good,
+bad and ugly. Good tests should result in a clean run of ccheck with no
+output (i.e. no error and no issues found). Bad tests should result in
+a fatal error and a specific error message (`test/bad/*-err.txt`)
+printed to standard error output. Ugly tests should result
+in ccheck finding specific issues (`test/ugly/*-out.txt`) and
+if ccheck run with `--fix`, it should transform the source code to
+look like `test/ugly/*-fixed.c`).
+
+After making any changes run `make test` command which runs a number of tests
+
+ * Runs `ccheck` on the source code (self-test)
+ * Runs `ccheck` internal unit tests (very sparse)
+ * Runs `ccheck` on the regression tests in `test/` and check output
+ * Runs `ccheck` under Valgrind on all tests in `test/` and verify that
+   all memory blocks have been freed
+
+Everything should finish successfully (exit code from `make` should be zero).
+
+Run Clang Analyzer using the command
+
+    $ make clean && scan-build make
+
+which must finish without any bugs found.
+
 [1]: http://www.helenos.org/wiki/CStyle
 [2]: http://www.helenos.org/
 [3]: https://github.com/jxsvoboda/timrec
