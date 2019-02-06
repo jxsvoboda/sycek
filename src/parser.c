@@ -379,7 +379,7 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 		if (!parser->silent) {
 			fprintf(stderr, "Error: ");
 			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected '%s'.\n",
+			fprintf(stderr, " unexpected, expected %s.\n",
 			    lexer_str_ttype(mtype));
 		}
 		return EINVAL;
