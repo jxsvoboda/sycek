@@ -1,7 +1,10 @@
 *.o
 ccheck
 ccheck-hos
-test/all.diff
-test/test-int.out
+test/*/*-vg.txt
 test/*/*.c.diff
+test/*/*.h.diff
 test/*/*.txt.diff
+test/all.diff
+test/selfcheck.out
+test/test-int.out
