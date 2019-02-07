@@ -245,6 +245,22 @@ static char *lexer_chars(lexer_t *lexer)
 	return lexer->buf + lexer->buf_pos;
 }
 
+/** Determine if lexer is at end of file.
+ *
+ * @param lexer Lexer
+ * @return @c true iff there are no more characters available
+ */
+static bool lexer_is_eof(lexer_t *lexer)
+{
+	char *lc;
+
+	/* Make sure buffer is filled, if possible*/
+	lc = lexer_chars(lexer);
+	(void) lc;
+
+	return lexer->buf_pos == lexer->buf_used;
+}
+
 /** Get current lexer position in source code.
  *
  * @param lexer Lexer
@@ -961,8 +977,14 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 	memset(tok, 0, sizeof(lexer_tok_t));
 
 	p = lexer_chars(lexer);
-	if (p[0] == '\0')
-		return lexer_eof(lexer, tok);
+
+	/* End of file or null character */
+	if (p[0] == '\0') {
+		if (lexer_is_eof(lexer))
+			return lexer_eof(lexer, tok);
+		else
+			return lexer_nonprint(lexer, tok);
+	}
 
 	switch (p[0]) {
 	case '\t':
