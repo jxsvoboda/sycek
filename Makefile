@@ -35,12 +35,12 @@ INSTALL = install
 
 bkqual = $$(date '+%Y-%m-%d')
 
-sources_common = \
+sources_ccheck_common = \
     src/ast.c \
     src/checker.c \
     src/file_input.c \
     src/lexer.c \
-    src/main.c \
+    src/ccheck.c \
     src/parser.c \
     src/src_pos.c \
     src/str_input.c \
@@ -49,19 +49,19 @@ sources_common = \
     src/test/lexer.c \
     src/test/parser.c
 
-sources = \
-    $(sources_common) \
+sources_ccheck = \
+    $(sources_ccheck_common) \
     src/hcompat/adt/list.c
 
-sources_hos = \
-    $(sources_common)
+sources_ccheck_hos = \
+    $(sources_ccheck_common)
 
-binary = ccheck
-binary_hos = ccheck-hos
-ccheck = ./$(binary)
+binary_ccheck = ccheck
+binary_ccheck_hos = ccheck-hos
+ccheck = ./$(binary_ccheck)
 
-objects = $(sources:.c=.o)
-objects_hos = $(sources_hos:.c=.hos.o)
+objects_ccheck = $(sources_ccheck:.c=.o)
+objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
 headers = $(wildcard *.h */*.h */*/*.h)
 
 test_good_ins = $(wildcard test/good/*-in.c)
@@ -85,26 +85,26 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(text_ugly_h_out_diffs) $(test_vg_outs) \
     test/all.diff test/test-int.out test/selfcheck.out
 
-all: $(binary)
+all: $(binary_ccheck)
 
-$(binary): $(objects)
+$(binary_ccheck): $(objects_ccheck)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-$(objects): $(headers)
+$(objects_ccheck): $(headers)
 
-hos: $(binary_hos)
+hos: $(binary_ccheck_hos)
 
-$(binary_hos): $(objects_hos)
+$(binary_ccheck_hos): $(objects_ccheck_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
 
-$(objects_hos): $(headers_hos)
+$(objects_ccheck_hos): $(headers)
 
 %.hos.o: %.c
-	$(CC_hos) -c $(CFLAGS_hos) -o $@ $^
+	$(CC_hos) -c $(CFLAGS_hos) -o $@ $<
 
 install-hos: hos
 	mkdir -p $(PREFIX_hos)/app
-	$(INSTALL) -T $(binary_hos) $(PREFIX_hos)/app/ccheck
+	$(INSTALL) -T $(binary_ccheck_hos) $(PREFIX_hos)/app/ccheck
 
 uninstall-hos:
 	rm -f $(PREFIX_hos)/app/ccheck
@@ -113,7 +113,8 @@ test-hos: install-hos
 	helenos-test
 
 clean:
-	rm -f $(objects) $(objects_hos) $(binary) $(binary_hos) $(test_outs)
+	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(binary_ccheck) \
+	$(binary_ccheck_hos) $(test_outs)
 
 test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
@@ -157,11 +158,11 @@ test/ugly/%-out.txt.diff: test/ugly/%-out.txt test/ugly/%-out-t.txt
 	diff -u $^ >$@
 
 test/ugly/%-vg.txt: test/ugly/%-in.c $(ccheck)
-	valgrind $(ccheck) $^ >/dev/null 2>$@
+	valgrind $(ccheck) $< >/dev/null 2>$@
 	grep -q 'no leaks are possible' $@
 
 test/ugly/%-vg.txt: test/ugly/%-in.h $(ccheck)
-	valgrind $(ccheck) $^ >/dev/null 2>$@
+	valgrind $(ccheck) $< >/dev/null 2>$@
 	grep -q 'no leaks are possible' $@
 
 test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
