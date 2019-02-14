@@ -2,9 +2,18 @@ Sycek
 =====
 
 Sycek aims to provide tools based around a modular C language parser.
-Currently there's one tool `ccheck`, a C code style checker. It is used
-to check compliance with the [HelenOS coding style][1] by the
-[HelenOS][2] project and other, smaller projects (e.g. [Timrec][3]).
+The available tools are
+
+  * `ccheck` a C code style checker
+  * `syc` a C compiler / static checker (stub)
+
+Sycek is available under an MIT-style license.
+
+Ccheck
+------
+`ccheck` is a C code style checker. It is used to check compliance with
+the [HelenOS coding style][1] by the [HelenOS][2] project and other,
+smaller projects (e.g. [Timrec][3]).
 
 It can report and fix coding style issues such as
 
@@ -23,6 +32,11 @@ it will also report (potential) bugs such as:
   * non-static variable defined in a header
 
 Sycek is available under an MIT-style license.
+
+Syc
+---
+`syc` is meant to work as a compiler or static checker. This is
+under construction and does not do anything particularly useful yet.
 
 Downloading
 -----------
@@ -86,8 +100,8 @@ type
 Now you need to go to root of your HelenOS workspace and type `make` to
 re-build the OS image.
 
-Running
--------
+Using ccheck
+------------
 Ccheck runs as a pure parser in the sense that it does not actually preprocess
 or compile the code. This means it does not recurse into the included header
 files, so there is no need for you to provide path to includes, defines or

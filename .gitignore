@@ -1,6 +1,8 @@
 *.o
 ccheck
 ccheck-hos
+syc
+syc-hos
 test/*/*-vg.txt
 test/*/*.c.diff
 test/*/*.h.diff

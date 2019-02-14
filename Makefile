@@ -35,33 +35,58 @@ INSTALL = install
 
 bkqual = $$(date '+%Y-%m-%d')
 
-sources_ccheck_common = \
+sources_common = \
     src/ast.c \
-    src/checker.c \
     src/file_input.c \
     src/lexer.c \
-    src/ccheck.c \
     src/parser.c \
-    src/src_pos.c \
+    src/src_pos.c
+
+sources_ccheck_common = \
+    $(sources_common) \
+    src/checker.c \
+    src/ccheck.c \
     src/str_input.c \
     src/test/ast.c \
     src/test/checker.c \
     src/test/lexer.c \
     src/test/parser.c
 
+sources_syc_common = \
+    $(sources_common) \
+    src/comp.c \
+    src/syc.c
+
+sources_hcompat = \
+    src/hcompat/adt/list.c
+
 sources_ccheck = \
     $(sources_ccheck_common) \
-    src/hcompat/adt/list.c
+    $(sources_hcompat)
 
 sources_ccheck_hos = \
     $(sources_ccheck_common)
+
+sources_syc = \
+    $(sources_syc_common) \
+    $(sources_hcompat)
+
+sources_syc_hos = \
+    $(sources_syc_common)
 
 binary_ccheck = ccheck
 binary_ccheck_hos = ccheck-hos
 ccheck = ./$(binary_ccheck)
 
+binary_syc = syc
+binary_syc_hos = syc-hos
+
 objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
+
+objects_syc = $(sources_syc:.c=.o)
+objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
+
 headers = $(wildcard *.h */*.h */*/*.h)
 
 test_good_ins = $(wildcard test/good/*-in.c)
@@ -85,19 +110,27 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(text_ugly_h_out_diffs) $(test_vg_outs) \
     test/all.diff test/test-int.out test/selfcheck.out
 
-all: $(binary_ccheck)
+all: $(binary_ccheck) $(binary_syc)
 
 $(binary_ccheck): $(objects_ccheck)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-$(objects_ccheck): $(headers)
+$(binary_syc): $(objects_syc)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-hos: $(binary_ccheck_hos)
+$(objects_ccheck): $(headers)
+$(objects_syc): $(headers)
+
+hos: $(binary_ccheck_hos) $(binary_syc_hos)
 
 $(binary_ccheck_hos): $(objects_ccheck_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
 
+$(binary_syc_hos): $(objects_syc_hos)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
+
 $(objects_ccheck_hos): $(headers)
+$(objects_syc_hos): $(headers)
 
 %.hos.o: %.c
 	$(CC_hos) -c $(CFLAGS_hos) -o $@ $<
@@ -114,7 +147,7 @@ test-hos: install-hos
 
 clean:
 	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(binary_ccheck) \
-	$(binary_ccheck_hos) $(test_outs)
+	$(binary_ccheck_hos) $(binary_syc) $(binary_syc_hos) $(test_outs)
 
 test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
