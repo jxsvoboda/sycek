@@ -148,8 +148,9 @@ test-hos: install-hos
 	helenos-test
 
 clean:
-	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(binary_ccheck) \
-	$(binary_ccheck_hos) $(binary_syc) $(binary_syc_hos) $(test_outs)
+	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_syc) \
+	$(objects_syc_hos) $(binary_ccheck) $(binary_ccheck_hos) \
+	$(binary_syc) $(binary_syc_hos) $(test_outs)
 
 test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
