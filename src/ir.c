@@ -1,0 +1,697 @@
+/*
+ * Copyright 2019 Jiri Svoboda
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+/*
+ * Intermediate Representation
+ */
+
+#include <adt/list.h>
+#include <assert.h>
+#include <inttypes.h>
+#include <ir.h>
+#include <merrno.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void ir_decln_destroy(ir_decln_t *);
+
+/** Instruction names */
+static const char *instr_name[] = {
+	[iri_add] = "add",
+	[iri_ldimm] = "ldimm",
+	[iri_retv] = "retv"
+};
+
+/** @c true iff instruction has bit width specifier */
+static bool instr_has_width[] = {
+	[iri_add] = true,
+	[iri_ldimm] = true,
+	[iri_retv] = true
+};
+
+/** Create IR module.
+ *
+ * @param rmodule Place to store pointer to new module.
+ * @return EOK on success, ENOMEM if out of memory.
+ */
+int ir_module_create(ir_module_t **rmodule)
+{
+	ir_module_t *module;
+
+	module = calloc(1, sizeof(ir_module_t));
+	if (module == NULL)
+		return ENOMEM;
+
+	list_initialize(&module->declns);
+	*rmodule = module;
+	return EOK;
+}
+
+/** Append declaration to IR module.
+ *
+ * @param module IR module
+ * @param decln Declaration
+ */
+void ir_module_append(ir_module_t *module, ir_decln_t *decln)
+{
+	assert(decln->module == NULL);
+	decln->module = module;
+	list_append(&decln->ldeclns, &module->declns);
+}
+
+/** Get first declaration in IR module.
+ *
+ * @param module IR module
+ * @return First declaration or @c NULL if there is none
+ */
+ir_decln_t *ir_module_first(ir_module_t *module)
+{
+	link_t *link;
+
+	link = list_first(&module->declns);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_decln_t, ldeclns);
+}
+
+/** Get next declaration in IR module.
+ *
+ * @param cur Current declaration
+ * @return Next declaration or @c NULL if there is none
+ */
+ir_decln_t *ir_module_next(ir_decln_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->ldeclns, &cur->module->declns);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_decln_t, ldeclns);
+}
+
+/** Get last declaration in IR module.
+ *
+ * @param module IR module
+ * @return Last declaration or @c NULL if there is none
+ */
+ir_decln_t *ir_module_last(ir_module_t *module)
+{
+	link_t *link;
+
+	link = list_last(&module->declns);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_decln_t, ldeclns);
+}
+
+/** Get previous declaration in IR module.
+ *
+ * @param cur Current declaration
+ * @return Previous declaration or @c NULL if there is none
+ */
+ir_decln_t *ir_module_prev(ir_decln_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->ldeclns, &cur->module->declns);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_decln_t, ldeclns);
+}
+
+/** Print IR module.
+ *
+ * @param module IR module
+ * @param f Output file
+ */
+int ir_module_print(ir_module_t *module, FILE *f)
+{
+	ir_decln_t *decln;
+	int rc;
+
+	decln = ir_module_first(module);
+	while (decln != NULL) {
+		rc = ir_decln_print(decln, f);
+		if (rc != EOK)
+			return rc;
+
+		decln = ir_module_next(decln);
+	}
+
+	return EOK;
+}
+
+/** Destroy IR module.
+ *
+ * @param module IR module or @c NULL
+ */
+void ir_module_destroy(ir_module_t *module)
+{
+	ir_decln_t *decln;
+
+	if (module == NULL)
+		return;
+
+	decln = ir_module_first(module);
+	while (decln != NULL) {
+		list_remove(&decln->ldeclns);
+		ir_decln_destroy(decln);
+
+		decln = ir_module_first(module);
+	}
+}
+
+/** Destroy IR declaration.
+ *
+ * @param decln IR declaration or @c NULL
+ */
+static void ir_decln_destroy(ir_decln_t *decln)
+{
+	if (decln == NULL)
+		return;
+
+	switch (decln->dtype)
+	{
+	case ird_proc:
+		ir_proc_destroy((ir_proc_t *) decln->ext);
+		break;
+	}
+}
+
+/** Print IR declaration.
+ *
+ * @param decln IR declaration
+ * @param f Output file
+ *
+ * @return EOK on success or an error code
+ */
+int ir_decln_print(ir_decln_t *decln, FILE *f)
+{
+	switch (decln->dtype)
+	{
+	case ird_proc:
+		return ir_proc_print((ir_proc_t *) decln->ext, f);
+	}
+
+	/* Should not be reached */
+	assert(false);
+	return EINVAL;
+}
+
+/** Create IR procedure.
+ *
+ * @param ident Identifier (will be copied)
+ * @param lblock Labeled block
+ * @param rproc Place to store pointer to new procedure
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_proc_create(const char *ident, ir_lblock_t *lblock, ir_proc_t **rproc)
+{
+	ir_proc_t *proc;
+
+	proc = calloc(1, sizeof(ir_proc_t));
+	if (proc == NULL)
+		return ENOMEM;
+
+	proc->ident = strdup(ident);
+	if (proc->ident == NULL) {
+		free(proc);
+		return ENOMEM;
+	}
+
+	proc->lblock = lblock;
+	proc->decln.dtype = ird_proc;
+	proc->decln.ext = (void *) proc;
+	*rproc = proc;
+	return EOK;
+}
+
+/** Print IR procedure.
+ *
+ * @param proc IR procedure
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_proc_print(ir_proc_t *proc, FILE *f)
+{
+	int rv;
+	int rc;
+
+	rv = fprintf(f, "proc %s\n", proc->ident);
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "begin\n");
+	if (rv < 0)
+		return EIO;
+
+	rc = ir_lblock_print(proc->lblock, f);
+	if (rc != EOK)
+		return EIO;
+
+	rv = fprintf(f, "end\n\n");
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy IR procedure.
+ *
+ * @param proc IR procedure or @c NULL
+ */
+void ir_proc_destroy(ir_proc_t *proc)
+{
+	if (proc == NULL)
+		return;
+
+	if (proc->ident != NULL)
+		free(proc->ident);
+
+	ir_lblock_destroy(proc->lblock);
+	free(proc);
+}
+
+/** Create IR labeled block.
+ *
+ * @param rlblock Place to store pointer to new labeled block.
+ * @return EOK on success, ENOMEM if out of memory.
+ */
+int ir_lblock_create(ir_lblock_t **rlblock)
+{
+	ir_lblock_t *lblock;
+
+	lblock = calloc(1, sizeof(ir_lblock_t));
+	if (lblock == NULL)
+		return ENOMEM;
+
+	list_initialize(&lblock->entries);
+	*rlblock = lblock;
+	return EOK;
+}
+
+/** Append entry to IR labeled block.
+ *
+ * @param lblock IR labeled block
+ * @param label Label or @c NULL if none
+ * @param instr Instruction
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_lblock_append(ir_lblock_t *lblock, const char *label,
+    ir_instr_t *instr)
+{
+	char *dlabel;
+	ir_lblock_entry_t *entry;
+
+	if (label != NULL) {
+		dlabel = strdup(label);
+		if (dlabel == NULL)
+			return ENOMEM;
+	} else {
+		dlabel = NULL;
+	}
+
+	entry = calloc(1, sizeof(ir_lblock_entry_t));
+	if (entry == NULL) {
+		free(dlabel);
+		return ENOMEM;
+	}
+
+	entry->lblock = lblock;
+	list_append(&entry->lentries, &lblock->entries);
+	entry->label = dlabel;
+	entry->instr = instr;
+
+	return EOK;
+}
+
+/** Print IR block.
+ *
+ * @param lblock Labeled block
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_lblock_print(ir_lblock_t *lblock, FILE *f)
+{
+	ir_lblock_entry_t *entry;
+	int rc;
+	int rv;
+
+	entry = ir_lblock_first(lblock);
+	while (entry != NULL) {
+		if (entry->label != NULL) {
+			rv = fprintf(f, "%s:\n", entry->label);
+			if (rv < 0)
+				return EIO;
+		}
+
+		rc = ir_instr_print(entry->instr, f);
+		if (rc != EOK)
+			return rc;
+
+		entry = ir_lblock_next(entry);
+	}
+
+	return EOK;
+}
+
+/** Destroy IR labeled block.
+ *
+ * @param lblock Labeled block or @c NULL
+ */
+void ir_lblock_destroy(ir_lblock_t *lblock)
+{
+	ir_lblock_entry_t *entry;
+
+	if (lblock == NULL)
+		return;
+
+	entry = ir_lblock_first(lblock);
+	while (entry != NULL) {
+		list_remove(&entry->lentries);
+		if (entry->label != NULL)
+			free(entry->label);
+		ir_instr_destroy(entry->instr);
+		free(entry);
+
+		entry = ir_lblock_first(lblock);
+	}
+}
+
+/** Get first entry in IR labeled block.
+ *
+ * @param lblock IR labeled block
+ * @return First entry or @c NULL if there is none
+ */
+ir_lblock_entry_t *ir_lblock_first(ir_lblock_t *lblock)
+{
+	link_t *link;
+
+	link = list_first(&lblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lblock_entry_t, lentries);
+}
+
+/** Get next entry in IR labeled block.
+ *
+ * @param cur Current entry
+ * @return Next entry or @c NULL if there is none
+ */
+ir_lblock_entry_t *ir_lblock_next(ir_lblock_entry_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lentries, &cur->lblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lblock_entry_t, lentries);
+}
+
+/** Get last entry in IR labeled block.
+ *
+ * @param lblock IR labeled block
+ * @return Last entry or @c NULL if there is none
+ */
+ir_lblock_entry_t *ir_lblock_last(ir_lblock_t *lblock)
+{
+	link_t *link;
+
+	link = list_last(&lblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lblock_entry_t, lentries);
+}
+
+/** Get previous entry in IR labeled block.
+ *
+ * @param cur Current entry
+ * @return Previous entry or @c NULL if there is none
+ */
+ir_lblock_entry_t *ir_lblock_prev(ir_lblock_entry_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->lentries, &cur->lblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lblock_entry_t, lentries);
+}
+
+/** Create IR instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_instr_create(ir_instr_t **rinstr)
+{
+	ir_instr_t *instr;
+
+	instr = calloc(1, sizeof(ir_instr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print IR instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+int ir_instr_print(ir_instr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	if (instr_has_width[instr->itype]) {
+		rv = fprintf(f, "\t%s.%u ", instr_name[instr->itype],
+		    instr->width);
+	} else {
+		rv = fprintf(f, "\t%s ", instr_name[instr->itype]);
+	}
+
+	if (instr->dest != NULL) {
+		rc = ir_oper_print(instr->dest, f);
+		if (rc != EOK)
+			return rc;
+
+	} else {
+		rv = fputs("nul", f);
+		if (rv < 0)
+			return EIO;
+	}
+
+	if (instr->op1 != NULL) {
+		rv = fputs(", ", f);
+		if (rv < 0)
+			return EIO;
+
+		rc = ir_oper_print(instr->op1, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (instr->op2 != NULL) {
+		rv = fputs(", ", f);
+		if (rv < 0)
+			return EIO;
+
+		rc = ir_oper_print(instr->op2, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	rv = fputc('\n', f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy IR instruction.
+ *
+ * @param instr IR instruction or @c NULL
+ */
+void ir_instr_destroy(ir_instr_t *instr)
+{
+	if (instr == NULL)
+		return;
+
+	ir_oper_destroy(instr->dest);
+	ir_oper_destroy(instr->op1);
+	ir_oper_destroy(instr->op2);
+	free(instr);
+}
+
+/** Create IR immediate operand.
+ *
+ * @param value Value
+ * @param rimm Place to store pointer to new IR immediate operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_oper_imm_create(int32_t value, ir_oper_imm_t **rimm)
+{
+	ir_oper_imm_t *imm;
+
+	imm = calloc(1, sizeof(ir_oper_imm_t));
+	if (imm == NULL)
+		return ENOMEM;
+
+	imm->oper.optype = iro_imm;
+	imm->oper.ext = (void *) imm;
+	imm->value = value;
+
+	*rimm = imm;
+	return EOK;
+}
+
+/** Create IR variable operand.
+ *
+ * @param value Value
+ * @param rvar Place to store pointer to new IR immediate operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_oper_var_create(const char *varname, ir_oper_var_t **rvar)
+{
+	ir_oper_var_t *var;
+	char *dvarname;
+
+	dvarname = strdup(varname);
+	if (dvarname == NULL)
+		return ENOMEM;
+
+	var = calloc(1, sizeof(ir_oper_var_t));
+	if (var == NULL) {
+		free(dvarname);
+		return ENOMEM;
+	}
+
+	var->oper.optype = iro_var;
+	var->oper.ext = (void *) var;
+	var->varname = dvarname;
+
+	*rvar = var;
+	return EOK;
+}
+
+/** Print IR immediate operand.
+ *
+ * @param imm IR immediate operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_oper_imm_print(ir_oper_imm_t *imm, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "%" PRId32, imm->value);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print IR variable operand.
+ *
+ * @param var IR variable operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_oper_var_print(ir_oper_var_t *var, FILE *f)
+{
+	int rv;
+
+	rv = fputs(var->varname, f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print IR operand.
+ *
+ * @param oper IR operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_oper_print(ir_oper_t *oper, FILE *f)
+{
+	switch (oper->optype) {
+	case iro_imm:
+		return ir_oper_imm_print((ir_oper_imm_t *) oper->ext, f);
+	case iro_var:
+		return ir_oper_var_print((ir_oper_var_t *) oper->ext, f);
+	}
+
+	assert(false);
+	return EIO;
+}
+
+/** Destroy IR immediate operand.
+ *
+ * @param imm IR immediate operand
+ */
+static void ir_oper_imm_destroy(ir_oper_imm_t *imm)
+{
+	free(imm);
+}
+
+/** Destroy IR variable operand.
+ *
+ * @param var IR variable operand
+ */
+static void ir_oper_var_destroy(ir_oper_var_t *var)
+{
+	free(var->varname);
+	free(var);
+}
+
+/** Destroy IR operand.
+ *
+ * @param oper IR operand or @c NULL
+ */
+void ir_oper_destroy(ir_oper_t *oper)
+{
+	if (oper == NULL)
+		return;
+
+	switch (oper->optype) {
+	case iro_imm:
+		return ir_oper_imm_destroy((ir_oper_imm_t *) oper->ext);
+	case iro_var:
+		return ir_oper_var_destroy((ir_oper_var_t *) oper->ext);
+	}
+}

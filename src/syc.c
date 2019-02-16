@@ -32,12 +32,14 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <test/ir.h>
 
 static void print_syntax(void)
 {
 	printf("C compiler / static checker\n");
 	printf("syntax:\n"
 	    "\tsyc [options] <file> Compile / check the specified file\n"
+	    "\tsyc --test Run internal unit tests\n"
 	    "options:\n"
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
 	    "\t--dump-toks Dump tokenized source file\n");
@@ -105,6 +107,17 @@ int main(int argc, char *argv[])
 	if (argc < 2) {
 		print_syntax();
 		return 1;
+	}
+
+	if (argc == 2 && strcmp(argv[1], "--test") == 0) {
+		/* Run tests */
+		rc = test_ir();
+		printf("test_ir -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
+		printf("Tests passed.\n");
+		return 0;
 	}
 
 	i = 1;

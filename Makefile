@@ -55,7 +55,9 @@ sources_ccheck_common = \
 sources_syc_common = \
     $(sources_common) \
     src/comp.c \
-    src/syc.c
+    src/ir.c \
+    src/syc.c \
+    src/test/ir.c
 
 sources_hcompat = \
     src/hcompat/adt/list.c
