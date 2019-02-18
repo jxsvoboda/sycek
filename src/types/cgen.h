@@ -21,21 +21,15 @@
  */
 
 /*
- * Compiler
+ * Code generator
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TYPES_CGEN_H
+#define TYPES_CGEN_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
-
-extern int comp_create(lexer_input_ops_t *, void *, comp_t **);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *);
+/** Code generator */
+typedef struct {
+	int dummy;
+} cgen_t;
 
 #endif

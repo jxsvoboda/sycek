@@ -29,6 +29,8 @@
 
 #include <adt/list.h>
 #include <types/ast.h>
+#include <types/cgen.h>
+#include <types/ir.h>
 #include <types/lexer.h>
 
 /** Compiler token */
@@ -49,6 +51,8 @@ typedef struct comp_module {
 	list_t toks; /* of comp_tok_t */
 	/** Module AST */
 	ast_module_t *ast;
+	/** Module IR */
+	ir_module_t *ir;
 } comp_module_t;
 
 /** Compiler */
@@ -69,7 +73,9 @@ typedef enum {
 	/** Dump internal AST */
 	compf_dump_ast = 0x1,
 	/** Dump tokenized source file */
-	compf_dump_toks = 0x2
+	compf_dump_toks = 0x2,
+	/** Dump intermediate representation */
+	compf_dump_ir = 0x4
 } comp_flags_t;
 
 #endif

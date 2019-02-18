@@ -27,13 +27,14 @@
 #include <adt/list.h>
 #include <assert.h>
 #include <ast.h>
+#include <cgen.h>
 #include <comp.h>
+#include <ir.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <parser.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 
 static void comp_parser_read_tok(void *, void *, unsigned, bool,
     lexer_tok_t *);
@@ -366,6 +367,7 @@ static int comp_build_ast(comp_t *comp)
 int comp_run(comp_t *comp)
 {
 	int rc;
+	cgen_t *cgen = NULL;
 
 	if (comp->mod == NULL || comp->mod->ast == NULL) {
 		rc = comp_build_ast(comp);
@@ -373,7 +375,23 @@ int comp_run(comp_t *comp)
 			return rc;
 	}
 
+	if (comp->mod->ir == NULL) {
+		rc = cgen_create(&cgen);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_module(cgen, comp->mod->ast, &comp->mod->ir);
+		if (rc != EOK)
+			goto error;
+
+		cgen_destroy(cgen);
+		cgen = NULL;
+	}
+
 	return EOK;
+error:
+	cgen_destroy(cgen);
+	return rc;
 }
 
 /** Dump AST.
@@ -427,6 +445,21 @@ int comp_dump_toks(comp_t *comp, FILE *f)
 	}
 
 	return EOK;
+}
+
+/** Dump intermediate representation.
+ *
+ * @param comp Compiler
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int comp_dump_ir(comp_t *comp, FILE *f)
+{
+	int rc;
+
+	assert(comp->mod->ir != NULL);
+	rc = ir_module_print(comp->mod->ir, f);
+	return rc;
 }
 
 /** Parser function to read input token from compiler.

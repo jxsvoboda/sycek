@@ -245,6 +245,7 @@ int ir_proc_create(const char *ident, ir_lblock_t *lblock, ir_proc_t **rproc)
 		return ENOMEM;
 	}
 
+	assert(lblock != NULL);
 	proc->lblock = lblock;
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
@@ -263,7 +264,7 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 	int rv;
 	int rc;
 
-	rv = fprintf(f, "proc %s\n", proc->ident);
+	rv = fprintf(f, "\nproc %s\n", proc->ident);
 	if (rv < 0)
 		return EIO;
 
@@ -275,7 +276,7 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 	if (rc != EOK)
 		return EIO;
 
-	rv = fprintf(f, "end\n\n");
+	rv = fprintf(f, "end\n");
 	if (rv < 0)
 		return EIO;
 

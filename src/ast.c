@@ -4659,6 +4659,28 @@ bool ast_decl_is_vardecln(ast_node_t *decl)
 	}
 }
 
+/** Get identifier from global declaration.
+ *
+ * The global declaration must contain exactly one declarator (i.e.
+ * a function definition).
+ *
+ * @param gdecln Global declaration
+ * @return Pointer to identifier token
+ */
+ast_tok_t *ast_gdecln_get_ident(ast_gdecln_t *gdecln)
+{
+	ast_idlist_entry_t *entry;
+	ast_tok_t *ident;
+
+	entry = ast_idlist_first(gdecln->idlist);
+	assert(entry != NULL);
+	assert(ast_idlist_next(entry) == NULL);
+
+	ident = ast_decl_get_ident(entry->decl);
+	assert(ident != NULL);
+	return ident;
+}
+
 /** Create AST integer literal expression.
  *
  * @param reint Place to store pointer to new integer literal expression

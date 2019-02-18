@@ -21,21 +21,18 @@
  */
 
 /*
- * Compiler
+ * Code generator
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef CGEN_H
+#define CGEN_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <types/ast.h>
+#include <types/cgen.h>
+#include <types/ir.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_t **);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *);
+extern int cgen_create(cgen_t **);
+extern int cgen_module(cgen_t *, ast_module_t *, ir_module_t **);
+extern void cgen_destroy(cgen_t *);
 
 #endif

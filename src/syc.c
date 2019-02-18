@@ -42,7 +42,8 @@ static void print_syntax(void)
 	    "\tsyc --test Run internal unit tests\n"
 	    "options:\n"
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
-	    "\t--dump-toks Dump tokenized source file\n");
+	    "\t--dump-toks Dump tokenized source file\n"
+	    "\t--dump-ir Dump intermediate representation\n");
 }
 
 static int compile_file(const char *fname, comp_flags_t flags)
@@ -84,6 +85,12 @@ static int compile_file(const char *fname, comp_flags_t flags)
 	rc = comp_run(comp);
 	if (rc != EOK)
 		goto error;
+
+	if ((flags & compf_dump_ir) != 0) {
+		rc = comp_dump_ir(comp, stdout);
+		if (rc != EOK)
+			goto error;
+	}
 
 	fclose(f);
 
@@ -128,6 +135,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--dump-toks") == 0) {
 			++i;
 			flags |= compf_dump_toks;
+		} else if (strcmp(argv[i], "--dump-ir") == 0) {
+			++i;
+			flags |= compf_dump_ir;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;
