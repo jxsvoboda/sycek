@@ -380,6 +380,9 @@ int comp_run(comp_t *comp)
 		if (rc != EOK)
 			goto error;
 
+		/* Different arithmetic types not implemented yet */
+		cgen->arith_width = 16;
+
 		rc = cgen_module(cgen, comp->mod->ast, &comp->mod->ir);
 		if (rc != EOK)
 			goto error;

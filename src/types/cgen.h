@@ -29,7 +29,8 @@
 
 /** Code generator */
 typedef struct {
-	int dummy;
+	/** Arithmetic width */
+	int arith_width;
 } cgen_t;
 
 #endif

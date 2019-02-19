@@ -75,10 +75,117 @@ int cgen_create(cgen_t **rcgen)
 	return EOK;
 }
 
+/** Generate code for return statement.
+ *
+ * @param cgen Code generator
+ * @param block AST return statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_return(cgen_t *cgen, ast_return_t *areturn,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *var = NULL;
+	int rc;
+
+	(void) areturn;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create("%0", &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_retv;
+	instr->width = cgen->arith_width;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	ir_oper_destroy(&var->oper);
+	return rc;
+}
+
+/** Generate code for statement.
+ *
+ * @param cgen Code generator
+ * @param stmt AST statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_stmt(cgen_t *cgen, ast_node_t *stmt, ir_lblock_t *lblock)
+{
+	int rc;
+
+	switch (stmt->ntype) {
+	case ant_asm:
+	case ant_break:
+	case ant_continue:
+	case ant_goto:
+		fprintf(stderr, "This statement type is not implemented.\n");
+		rc = ENOTSUP; // TODO
+		break;
+	case ant_return:
+		rc = cgen_return(cgen, (ast_return_t *) stmt->ext, lblock);
+		break;
+	case ant_if:
+	case ant_while:
+	case ant_do:
+	case ant_for:
+	case ant_switch:
+	case ant_clabel:
+	case ant_glabel:
+	case ant_stexpr:
+	case ant_stdecln:
+	case ant_stnull:
+	case ant_lmacro:
+	case ant_block:
+		rc = ENOTSUP; // TODO
+		break;
+	default:
+		assert(false);
+		rc = EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+/** Generate code for block.
+ *
+ * @param cgen Code generator
+ * @param block AST block
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_block(cgen_t *cgen, ast_block_t *block, ir_lblock_t *lblock)
+{
+	ast_node_t *stmt;
+	int rc;
+
+	stmt = ast_block_first(block);
+	while (stmt != NULL) {
+		rc = cgen_stmt(cgen, stmt, lblock);
+		if (rc != EOK)
+			return rc;
+
+		stmt = ast_block_next(stmt);
+	}
+
+	return EOK;
+}
+
 /** Generate code for global declaration.
  *
  * @param cgen Code generator
  * @param gdecln Global declaration
+ * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
 static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
@@ -90,8 +197,6 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	char *pident = NULL;
 	int rc;
 
-	(void) cgen;
-
 	if (gdecln->body != NULL) {
 		aident = ast_gdecln_get_ident(gdecln);
 		ident = (comp_tok_t *) aident->data;
@@ -100,6 +205,10 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			goto error;
 
 		rc = ir_lblock_create(&lblock);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_block(cgen, gdecln->body, lblock);
 		if (rc != EOK)
 			goto error;
 
