@@ -35,4 +35,12 @@ typedef struct {
 	bool error;
 } cgen_t;
 
+/** Code generator for procedure */
+typedef struct {
+	/** Containing code generator */
+	cgen_t *cgen;
+	/** Next local variable number to allocate */
+	unsigned next_var;
+} cgen_proc_t;
+
 #endif
