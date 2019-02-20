@@ -31,6 +31,7 @@
 #include <comp.h>
 #include <cgen.h>
 #include <ir.h>
+#include <lexer.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,6 +122,8 @@ error:
  */
 static int cgen_stmt(cgen_t *cgen, ast_node_t *stmt, ir_lblock_t *lblock)
 {
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	int rc;
 
 	switch (stmt->ntype) {
@@ -128,7 +131,10 @@ static int cgen_stmt(cgen_t *cgen, ast_node_t *stmt, ir_lblock_t *lblock)
 	case ant_break:
 	case ant_continue:
 	case ant_goto:
-		fprintf(stderr, "This statement type is not implemented.\n");
+		atok = ast_tree_first_tok(stmt);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This statement type is not implemented.\n");
 		rc = ENOTSUP; // TODO
 		break;
 	case ant_return:
@@ -146,6 +152,10 @@ static int cgen_stmt(cgen_t *cgen, ast_node_t *stmt, ir_lblock_t *lblock)
 	case ant_stnull:
 	case ant_lmacro:
 	case ant_block:
+		atok = ast_tree_first_tok(stmt);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This statement type is not implemented.\n");
 		rc = ENOTSUP; // TODO
 		break;
 	default:
@@ -240,6 +250,8 @@ error:
  */
 static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln, ir_module_t *irmod)
 {
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	int rc;
 
 	switch (decln->ntype) {
@@ -253,7 +265,11 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln, ir_module_t *irmod
 	case ant_nulldecln:
 	case ant_externc:
 		// TODO
-		rc = EOK;
+		atok = ast_tree_first_tok(decln);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This declaration type is not implemented.\n");
+		rc = ENOTSUP;
 		break;
 	default:
 		assert(false);
