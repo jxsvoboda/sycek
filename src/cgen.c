@@ -72,6 +72,7 @@ int cgen_create(cgen_t **rcgen)
 	if (cgen == NULL)
 		return ENOMEM;
 
+	cgen->error = false;
 	*rcgen = cgen;
 	return EOK;
 }
@@ -135,7 +136,8 @@ static int cgen_stmt(cgen_t *cgen, ast_node_t *stmt, ir_lblock_t *lblock)
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This statement type is not implemented.\n");
-		rc = ENOTSUP; // TODO
+		cgen->error = true; // TODO
+		rc = EOK;
 		break;
 	case ant_return:
 		rc = cgen_return(cgen, (ast_return_t *) stmt->ext, lblock);
@@ -156,7 +158,8 @@ static int cgen_stmt(cgen_t *cgen, ast_node_t *stmt, ir_lblock_t *lblock)
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This statement type is not implemented.\n");
-		rc = ENOTSUP; // TODO
+		cgen->error = true; // TODO
+		rc = EOK;
 		break;
 	default:
 		assert(false);
@@ -264,12 +267,12 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln, ir_module_t *irmod
 		break;
 	case ant_nulldecln:
 	case ant_externc:
-		// TODO
 		atok = ast_tree_first_tok(decln);
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This declaration type is not implemented.\n");
-		rc = ENOTSUP;
+		cgen->error = true; // TODO
+		rc = EOK;
 		break;
 	default:
 		assert(false);

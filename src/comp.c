@@ -387,6 +387,12 @@ int comp_run(comp_t *comp)
 		if (rc != EOK)
 			goto error;
 
+		/* Check for non-fatal code generator errors */
+		if (cgen->error) {
+			rc = EINVAL;
+			goto error;
+		}
+
 		cgen_destroy(cgen);
 		cgen = NULL;
 	}

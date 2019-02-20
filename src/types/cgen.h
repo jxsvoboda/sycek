@@ -31,6 +31,8 @@
 typedef struct {
 	/** Arithmetic width */
 	int arith_width;
+	/** Code generator hit an error */
+	bool error;
 } cgen_t;
 
 #endif
