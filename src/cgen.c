@@ -36,6 +36,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int cgen_expr(cgen_t *, ast_node_t *, ir_lblock_t *);
+
 /** Prefix identifier with '@' global variable prefix.
  *
  * @param ident Identifier
@@ -59,6 +61,30 @@ static int cgen_gprefix(const char *ident, char **rpident)
 	return EOK;
 }
 
+/** Get value of integer literal token.
+ *
+ * @param tlit Literal token
+ * @param rval Place to store value
+ * @return EOK on success, EINVAL if token format is invalid
+ */
+static int cgen_intlit_val(comp_tok_t *tlit, int32_t *rval)
+{
+	const char *text = tlit->tok.text;
+	int32_t val;
+
+	val = 0;
+	while (*text != '\0') {
+		if (*text < '0' || *text > '9')
+			return EINVAL;
+
+		val = val * 10 + (*text - '0');
+		++text;
+	}
+
+	*rval = val;
+	return EOK;
+}
+
 /** Create code generator.
  *
  * @param rcgen Place to store pointer to new code generator
@@ -77,6 +103,182 @@ int cgen_create(cgen_t **rcgen)
 	return EOK;
 }
 
+/** Generate code for integer literal expression.
+ *
+ * @param cgen Code generator
+ * @param eint AST integer literal expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_eint(cgen_t *cgen, ast_eint_t *eint, ir_lblock_t *lblock)
+{
+	comp_tok_t *lit;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_imm_t *imm = NULL;
+	int32_t val;
+	int rc;
+
+	lit = (comp_tok_t *) eint->tlit.data;
+	rc = cgen_intlit_val(lit, &val);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create("%0", &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(val, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_ldimm;
+	instr->width = cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	return rc;
+}
+
+/** Generate code for binary operator expression.
+ *
+ * @param cgen Code generator
+ * @param ebinop AST binary operator expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_ebinop(cgen_t *cgen, ast_ebinop_t *ebinop, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	int rc;
+
+	rc = cgen_expr(cgen, ebinop->larg, lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr(cgen, ebinop->rarg, lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create("%0", &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create("%0", &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create("%0", &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_add;
+	instr->width = cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
+
+/** Generate code for expression.
+ *
+ * @param cgen Code generator
+ * @param expr AST expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_expr(cgen_t *cgen, ast_node_t *expr, ir_lblock_t *lblock)
+{
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	int rc;
+
+	(void) lblock;
+
+	switch (expr->ntype) {
+	case ant_eint:
+		rc = cgen_eint(cgen, (ast_eint_t *) expr->ext, lblock);
+		break;
+	case ant_echar:
+	case ant_estring:
+	case ant_eident:
+	case ant_eparen:
+	case ant_econcat:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgen->error = true; // TODO
+		rc = EOK;
+		break;
+	case ant_ebinop:
+		rc = cgen_ebinop(cgen, (ast_ebinop_t *) expr->ext, lblock);
+		break;
+	case ant_etcond:
+	case ant_ecomma:
+	case ant_ecall:
+	case ant_eindex:
+	case ant_ederef:
+	case ant_eaddr:
+	case ant_esizeof:
+	case ant_ecast:
+	case ant_ecliteral:
+	case ant_emember:
+	case ant_eindmember:
+	case ant_eusign:
+	case ant_elnot:
+	case ant_ebnot:
+	case ant_epreadj:
+	case ant_epostadj:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgen->error = true; // TODO
+		rc = EOK;
+		break;
+	default:
+		assert(false);
+		rc = EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+
 /** Generate code for return statement.
  *
  * @param cgen Code generator
@@ -91,7 +293,9 @@ static int cgen_return(cgen_t *cgen, ast_return_t *areturn,
 	ir_oper_var_t *var = NULL;
 	int rc;
 
-	(void) areturn;
+	rc = cgen_expr(cgen, areturn->arg, lblock);
+	if (rc != EOK)
+		goto error;
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -103,6 +307,7 @@ static int cgen_return(cgen_t *cgen, ast_return_t *areturn,
 
 	instr->itype = iri_retv;
 	instr->width = cgen->arith_width;
+	instr->dest = NULL;
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
@@ -110,7 +315,8 @@ static int cgen_return(cgen_t *cgen, ast_return_t *areturn,
 	return EOK;
 error:
 	ir_instr_destroy(instr);
-	ir_oper_destroy(&var->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
 	return rc;
 }
 
