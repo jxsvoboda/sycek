@@ -38,6 +38,7 @@ bkqual = $$(date '+%Y-%m-%d')
 sources_common = \
     src/ast.c \
     src/file_input.c \
+    src/str_input.c \
     src/lexer.c \
     src/parser.c \
     src/src_pos.c
@@ -46,7 +47,6 @@ sources_ccheck_common = \
     $(sources_common) \
     src/checker.c \
     src/ccheck.c \
-    src/str_input.c \
     src/test/ast.c \
     src/test/checker.c \
     src/test/lexer.c \
@@ -58,6 +58,7 @@ sources_syc_common = \
     src/comp.c \
     src/ir.c \
     src/syc.c \
+    src/test/comp.c \
     src/test/ir.c
 
 sources_hcompat = \

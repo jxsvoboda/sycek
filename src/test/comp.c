@@ -21,60 +21,67 @@
  */
 
 /*
- * Test checker
+ * Test compiler
  */
 
-#include <checker.h>
+#include <comp.h>
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdbool.h>
 #include <str_input.h>
 #include <string.h>
-#include <test/checker.h>
+#include <test/comp.h>
 
 static const char *str_hello =
-    "int main(void) {\nreturn 0; return 0; return 0; return 0;\n"
-    "return 0;\nreturn 0;\nreturn 0 ; return 0;\n"
-    "return 0; return 0;}\n";
+    "int main(void) {\nreturn 1 + 1;\n}\n";
 
-/** Run checker test on a code fragment.
+/** Run compiler test on a code fragment.
  *
  * @param str Code fragment
  * @return EOK on success or non-zero error code
  */
-static int test_check_string(const char *str)
+static int test_comp_string(const char *str)
 {
 	int rc;
-	checker_t *checker;
+	comp_t *comp;
 	str_input_t sinput;
-	checker_cfg_t cfg;
-
-	checker_cfg_init(&cfg);
 
 	str_input_init(&sinput, str);
 
-	rc = checker_create(&lexer_str_input, &sinput, cmod_c, &cfg, &checker);
+	rc = comp_create(&lexer_str_input, &sinput, &comp);
 	if (rc != EOK)
 		return rc;
 
-	rc = checker_run(checker, false);
+	rc = comp_run(comp);
 	if (rc != EOK)
 		return rc;
 
-	checker_destroy(checker);
+	rc = comp_dump_toks(comp, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rc = comp_dump_ast(comp, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rc = comp_dump_ir(comp, stdout);
+	if (rc != EOK)
+		return rc;
+
+	comp_destroy(comp);
 
 	return EOK;
 }
 
-/** Run checker tests.
+/** Run compiler tests.
  *
  * @return EOK on success or non-zero error code
  */
-int test_checker(void)
+int test_comp(void)
 {
 	int rc;
 
-	rc = test_check_string(str_hello);
+	rc = test_comp_string(str_hello);
 	if (rc != EOK)
 		return rc;
 

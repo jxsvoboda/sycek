@@ -20,63 +20,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-/*
- * Test checker
- */
+#ifndef TEST_COMP_H
+#define TEST_COMP_H
 
-#include <checker.h>
-#include <merrno.h>
-#include <src_pos.h>
-#include <stdbool.h>
-#include <str_input.h>
-#include <string.h>
-#include <test/checker.h>
+extern int test_comp(void);
 
-static const char *str_hello =
-    "int main(void) {\nreturn 0; return 0; return 0; return 0;\n"
-    "return 0;\nreturn 0;\nreturn 0 ; return 0;\n"
-    "return 0; return 0;}\n";
-
-/** Run checker test on a code fragment.
- *
- * @param str Code fragment
- * @return EOK on success or non-zero error code
- */
-static int test_check_string(const char *str)
-{
-	int rc;
-	checker_t *checker;
-	str_input_t sinput;
-	checker_cfg_t cfg;
-
-	checker_cfg_init(&cfg);
-
-	str_input_init(&sinput, str);
-
-	rc = checker_create(&lexer_str_input, &sinput, cmod_c, &cfg, &checker);
-	if (rc != EOK)
-		return rc;
-
-	rc = checker_run(checker, false);
-	if (rc != EOK)
-		return rc;
-
-	checker_destroy(checker);
-
-	return EOK;
-}
-
-/** Run checker tests.
- *
- * @return EOK on success or non-zero error code
- */
-int test_checker(void)
-{
-	int rc;
-
-	rc = test_check_string(str_hello);
-	if (rc != EOK)
-		return rc;
-
-	return EOK;
-}
+#endif
