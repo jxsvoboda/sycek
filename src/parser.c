@@ -5591,7 +5591,7 @@ static int parser_process_malist(parser_t *parser, ast_malist_t **rmalist)
 {
 	lexer_toktype_t ltt;
 	ast_malist_t *malist;
-	ast_mattr_t *mattr;
+	ast_mattr_t *mattr = NULL;
 	int rc;
 
 	rc = ast_malist_create(&malist);
@@ -5921,6 +5921,8 @@ static int parser_process_global_decln(parser_t *parser, ast_node_t **rnode)
 		ltt = parser_next_ttype(parser);
 		if (ltt == ltt_extern)
 			ltt2 = parser_next_next_ttype(parser);
+		else
+			ltt2 = ltt_eof; /* Just to make compiler happy */
 
 		if (ltt == ltt_extern && ltt2 == ltt_strlit) {
 			rc = parser_process_externc(parser, &externc);

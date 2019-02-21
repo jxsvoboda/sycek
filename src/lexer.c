@@ -1393,6 +1393,9 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 {
 	int rc;
 
+	/* Prevent compiler warning */
+	rc = EINVAL;
+
 	switch (lexer->state) {
 	case ls_normal:
 		rc = lexer_get_tok_normal(lexer, tok);

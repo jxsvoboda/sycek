@@ -5556,6 +5556,7 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 	bof = true;
 	/* Number of consecutive empty lines */
 	empty_lc = 0;
+	etok = NULL;
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
@@ -5580,6 +5581,7 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 					return rc;
 
 				empty_lc = 0;
+				etok = NULL;
 			}
 
 			bof = false;
