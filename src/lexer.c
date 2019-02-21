@@ -1393,8 +1393,14 @@ int lexer_get_tok(lexer_t *lexer, lexer_tok_t *tok)
 {
 	int rc;
 
-	/* Prevent compiler warning */
+#ifndef __clang_analyzer__
+	/*
+	 * Prevent compiler warning. GCC thinks we could take the default
+	 * branch (and hence miss rc initialization), bug Clang analyzer
+	 * assumes this is not possible and would warn about dead assignment.
+	 */
 	rc = EINVAL;
+#endif
 
 	switch (lexer->state) {
 	case ls_normal:

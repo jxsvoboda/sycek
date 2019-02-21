@@ -238,8 +238,8 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
-	const char *lvar;
-	const char *rvar;
+	const char *lvar = NULL;
+	const char *rvar = NULL;
 	int rc;
 
 	rc = cgen_expr(cgproc, ebinop->larg, lblock, &lvar);
@@ -369,7 +369,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *arg = NULL;
-	const char *avar;
+	const char *avar = NULL;
 	int rc;
 
 	rc = cgen_expr(cgproc, areturn->arg, lblock, &avar);

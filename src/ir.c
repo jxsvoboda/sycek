@@ -500,8 +500,12 @@ int ir_instr_print(ir_instr_t *instr, FILE *f)
 	if (instr_has_width[instr->itype]) {
 		rv = fprintf(f, "\t%s.%u ", instr_name[instr->itype],
 		    instr->width);
+		if (rv < 0)
+			return EIO;
 	} else {
 		rv = fprintf(f, "\t%s ", instr_name[instr->itype]);
+		if (rv < 0)
+			return EIO;
 	}
 
 	if (instr->dest != NULL) {
