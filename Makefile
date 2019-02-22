@@ -58,6 +58,7 @@ sources_syc_common = \
     src/comp.c \
     src/ir.c \
     src/syc.c \
+    src/test/cgen.c \
     src/test/comp.c \
     src/test/ir.c
 

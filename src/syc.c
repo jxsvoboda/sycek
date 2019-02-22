@@ -32,6 +32,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <test/cgen.h>
 #include <test/comp.h>
 #include <test/ir.h>
 
@@ -119,6 +120,11 @@ int main(int argc, char *argv[])
 
 	if (argc == 2 && strcmp(argv[1], "--test") == 0) {
 		/* Run tests */
+		rc = test_cgen();
+		printf("test_cgen -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
 		rc = test_comp();
 		printf("test_comp -> %d\n", rc);
 		if (rc != EOK)
