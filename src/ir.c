@@ -195,8 +195,7 @@ static void ir_decln_destroy(ir_decln_t *decln)
 	if (decln == NULL)
 		return;
 
-	switch (decln->dtype)
-	{
+	switch (decln->dtype) {
 	case ird_proc:
 		ir_proc_destroy((ir_proc_t *) decln->ext);
 		break;
@@ -212,8 +211,7 @@ static void ir_decln_destroy(ir_decln_t *decln)
  */
 int ir_decln_print(ir_decln_t *decln, FILE *f)
 {
-	switch (decln->dtype)
-	{
+	switch (decln->dtype) {
 	case ird_proc:
 		return ir_proc_print((ir_proc_t *) decln->ext, f);
 	}
@@ -586,7 +584,7 @@ int ir_oper_imm_create(int32_t value, ir_oper_imm_t **rimm)
 /** Create IR variable operand.
  *
  * @param value Value
- * @param rvar Place to store pointer to new IR immediate operand
+ * @param rvar Place to store pointer to new IR variable operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int ir_oper_var_create(const char *varname, ir_oper_var_t **rvar)

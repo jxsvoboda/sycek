@@ -35,6 +35,7 @@
 #include <test/cgen.h>
 #include <test/comp.h>
 #include <test/ir.h>
+#include <test/z80ic.h>
 
 static void print_syntax(void)
 {
@@ -132,6 +133,11 @@ int main(int argc, char *argv[])
 
 		rc = test_ir();
 		printf("test_ir -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
+		rc = test_z80ic();
+		printf("test_z80ic -> %d\n", rc);
 		if (rc != EOK)
 			return 1;
 

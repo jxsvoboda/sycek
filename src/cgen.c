@@ -286,7 +286,6 @@ error:
 	return rc;
 }
 
-
 /** Generate code for expression.
  *
  * @param cgproc Code generator for procedure
@@ -355,7 +354,6 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 
 	return rc;
 }
-
 
 /** Generate code for return statement.
  *

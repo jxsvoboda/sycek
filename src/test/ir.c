@@ -310,8 +310,7 @@ static int test_ir_oper(void)
 }
 
 /** Run IR tests.
-
-/ *
+ *
  * @return EOK on success or non-zero error code
  */
 int test_ir(void)

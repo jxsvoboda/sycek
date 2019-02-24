@@ -60,7 +60,9 @@ sources_syc_common = \
     src/syc.c \
     src/test/cgen.c \
     src/test/comp.c \
-    src/test/ir.c
+    src/test/ir.c \
+    src/test/z80ic.c \
+    src/z80/z80ic.c
 
 sources_hcompat = \
     src/hcompat/adt/list.c
