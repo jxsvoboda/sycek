@@ -47,7 +47,7 @@ static const char *z80ic_reg_name[] = {
 	[z80ic_reg_l] = "L"
 };
 
-/** Create IR module.
+/** Create Z80 IC module.
  *
  * @param rmodule Place to store pointer to new module.
  * @return EOK on success, ENOMEM if out of memory.
@@ -65,9 +65,9 @@ int z80ic_module_create(z80ic_module_t **rmodule)
 	return EOK;
 }
 
-/** Append declaration to IR module.
+/** Append declaration to Z80 IC module.
  *
- * @param module IR module
+ * @param module Z80 IC module
  * @param decln Declaration
  */
 void z80ic_module_append(z80ic_module_t *module, z80ic_decln_t *decln)
@@ -77,9 +77,9 @@ void z80ic_module_append(z80ic_module_t *module, z80ic_decln_t *decln)
 	list_append(&decln->ldeclns, &module->declns);
 }
 
-/** Get first declaration in IR module.
+/** Get first declaration in Z80 IC module.
  *
- * @param module IR module
+ * @param module Z80 IC module
  * @return First declaration or @c NULL if there is none
  */
 z80ic_decln_t *z80ic_module_first(z80ic_module_t *module)
@@ -93,7 +93,7 @@ z80ic_decln_t *z80ic_module_first(z80ic_module_t *module)
 	return list_get_instance(link, z80ic_decln_t, ldeclns);
 }
 
-/** Get next declaration in IR module.
+/** Get next declaration in Z80 IC module.
  *
  * @param cur Current declaration
  * @return Next declaration or @c NULL if there is none
@@ -109,9 +109,9 @@ z80ic_decln_t *z80ic_module_next(z80ic_decln_t *cur)
 	return list_get_instance(link, z80ic_decln_t, ldeclns);
 }
 
-/** Get last declaration in IR module.
+/** Get last declaration in Z80 IC module.
  *
- * @param module IR module
+ * @param module Z80 IC module
  * @return Last declaration or @c NULL if there is none
  */
 z80ic_decln_t *z80ic_module_last(z80ic_module_t *module)
@@ -125,7 +125,7 @@ z80ic_decln_t *z80ic_module_last(z80ic_module_t *module)
 	return list_get_instance(link, z80ic_decln_t, ldeclns);
 }
 
-/** Get previous declaration in IR module.
+/** Get previous declaration in Z80 IC module.
  *
  * @param cur Current declaration
  * @return Previous declaration or @c NULL if there is none
@@ -141,9 +141,9 @@ z80ic_decln_t *z80ic_module_prev(z80ic_decln_t *cur)
 	return list_get_instance(link, z80ic_decln_t, ldeclns);
 }
 
-/** Print IR module.
+/** Print Z80 IC module.
  *
- * @param module IR module
+ * @param module Z80 IC module
  * @param f Output file
  */
 int z80ic_module_print(z80ic_module_t *module, FILE *f)
@@ -163,9 +163,9 @@ int z80ic_module_print(z80ic_module_t *module, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR module.
+/** Destroy Z80 IC module.
  *
- * @param module IR module or @c NULL
+ * @param module Z80 IC module or @c NULL
  */
 void z80ic_module_destroy(z80ic_module_t *module)
 {
@@ -183,9 +183,9 @@ void z80ic_module_destroy(z80ic_module_t *module)
 	}
 }
 
-/** Destroy IR declaration.
+/** Destroy Z80 IC declaration.
  *
- * @param decln IR declaration or @c NULL
+ * @param decln Z80 IC declaration or @c NULL
  */
 static void z80ic_decln_destroy(z80ic_decln_t *decln)
 {
@@ -199,9 +199,9 @@ static void z80ic_decln_destroy(z80ic_decln_t *decln)
 	}
 }
 
-/** Print IR declaration.
+/** Print Z80 IC declaration.
  *
- * @param decln IR declaration
+ * @param decln Z80 IC declaration
  * @param f Output file
  *
  * @return EOK on success or an error code
@@ -218,7 +218,7 @@ int z80ic_decln_print(z80ic_decln_t *decln, FILE *f)
 	return EINVAL;
 }
 
-/** Create IR procedure.
+/** Create Z80 IC procedure.
  *
  * @param ident Identifier (will be copied)
  * @param lblock Labeled block
@@ -248,9 +248,9 @@ int z80ic_proc_create(const char *ident, z80ic_lblock_t *lblock, z80ic_proc_t **
 	return EOK;
 }
 
-/** Print IR procedure.
+/** Print Z80 IC procedure.
  *
- * @param proc IR procedure
+ * @param proc Z80 IC procedure
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -278,9 +278,9 @@ int z80ic_proc_print(z80ic_proc_t *proc, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR procedure.
+/** Destroy Z80 IC procedure.
  *
- * @param proc IR procedure or @c NULL
+ * @param proc Z80 IC procedure or @c NULL
  */
 void z80ic_proc_destroy(z80ic_proc_t *proc)
 {
@@ -294,7 +294,7 @@ void z80ic_proc_destroy(z80ic_proc_t *proc)
 	free(proc);
 }
 
-/** Create IR labeled block.
+/** Create Z80 IC labeled block.
  *
  * @param rlblock Place to store pointer to new labeled block.
  * @return EOK on success, ENOMEM if out of memory.
@@ -312,9 +312,9 @@ int z80ic_lblock_create(z80ic_lblock_t **rlblock)
 	return EOK;
 }
 
-/** Append entry to IR labeled block.
+/** Append entry to Z80 IC labeled block.
  *
- * @param lblock IR labeled block
+ * @param lblock Z80 IC labeled block
  * @param label Label or @c NULL if none
  * @param instr Instruction
  *
@@ -348,7 +348,7 @@ int z80ic_lblock_append(z80ic_lblock_t *lblock, const char *label,
 	return EOK;
 }
 
-/** Print IR block.
+/** Print Z80 IC block.
  *
  * @param lblock Labeled block
  * @param f Output file
@@ -378,7 +378,7 @@ int z80ic_lblock_print(z80ic_lblock_t *lblock, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR labeled block.
+/** Destroy Z80 IC labeled block.
  *
  * @param lblock Labeled block or @c NULL
  */
@@ -401,9 +401,9 @@ void z80ic_lblock_destroy(z80ic_lblock_t *lblock)
 	}
 }
 
-/** Get first entry in IR labeled block.
+/** Get first entry in Z80 IC labeled block.
  *
- * @param lblock IR labeled block
+ * @param lblock Z80 IC labeled block
  * @return First entry or @c NULL if there is none
  */
 z80ic_lblock_entry_t *z80ic_lblock_first(z80ic_lblock_t *lblock)
@@ -417,7 +417,7 @@ z80ic_lblock_entry_t *z80ic_lblock_first(z80ic_lblock_t *lblock)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
-/** Get next entry in IR labeled block.
+/** Get next entry in Z80 IC labeled block.
  *
  * @param cur Current entry
  * @return Next entry or @c NULL if there is none
@@ -433,9 +433,9 @@ z80ic_lblock_entry_t *z80ic_lblock_next(z80ic_lblock_entry_t *cur)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
-/** Get last entry in IR labeled block.
+/** Get last entry in Z80 IC labeled block.
  *
- * @param lblock IR labeled block
+ * @param lblock Z80 IC labeled block
  * @return Last entry or @c NULL if there is none
  */
 z80ic_lblock_entry_t *z80ic_lblock_last(z80ic_lblock_t *lblock)
@@ -449,7 +449,7 @@ z80ic_lblock_entry_t *z80ic_lblock_last(z80ic_lblock_t *lblock)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
-/** Get previous entry in IR labeled block.
+/** Get previous entry in Z80 IC labeled block.
  *
  * @param cur Current entry
  * @return Previous entry or @c NULL if there is none
@@ -465,7 +465,7 @@ z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *cur)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
-/** Create IR instruction load virtual register pair from 16-bit immediate.
+/** Create Z80 IC instruction load virtual register pair from 16-bit immediate.
  *
  * @param rinstr Place to store pointer to new instruction
  * @return EOK on success, ENOMEM if out of memory
@@ -482,7 +482,7 @@ int z80ic_instr_ld_vrr_nn_create(z80ic_instr_ld_vrr_nn_t **rinstr)
 	return EOK;
 }
 
-/** Print IR instruction.
+/** Print Z80 IC instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -501,9 +501,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR instruction.
+/** Destroy Z80 IC instruction.
  *
- * @param instr IR instruction or @c NULL
+ * @param instr Z80 IC instruction or @c NULL
  */
 void z80ic_instr_destroy(z80ic_instr_t *instr)
 {
@@ -515,10 +515,10 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	free(instr);
 }
 
-/** Create IR 8-bit immediate operand.
+/** Create Z80 IC 8-bit immediate operand.
  *
  * @param value Value
- * @param rimm Place to store pointer to new IR immediate operand
+ * @param rimm Place to store pointer to new Z80 IC immediate operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int z80ic_oper_imm8_create(uint8_t value, z80ic_oper_imm8_t **rimm)
@@ -535,9 +535,9 @@ int z80ic_oper_imm8_create(uint8_t value, z80ic_oper_imm8_t **rimm)
 	return EOK;
 }
 
-/** Print IR 8-bit immediate operand.
+/** Print Z80 IC 8-bit immediate operand.
  *
- * @param imm IR 8-bit immediate operand
+ * @param imm Z80 IC 8-bit immediate operand
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -552,19 +552,19 @@ int z80ic_oper_imm8_print(z80ic_oper_imm8_t *imm, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR 8-bit immediate operand.
+/** Destroy Z80 IC 8-bit immediate operand.
  *
- * @param imm IR 8-bit immediate operand
+ * @param imm Z80 IC 8-bit immediate operand
  */
 void z80ic_oper_imm8_destroy(z80ic_oper_imm8_t *imm)
 {
 	free(imm);
 }
 
-/** Create IR 16-bit immediate operand with value.
+/** Create Z80 IC 16-bit immediate operand with value.
  *
  * @param value Value
- * @param rimm Place to store pointer to new IR immediate operand
+ * @param rimm Place to store pointer to new Z80 IC immediate operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int z80ic_oper_imm16_create_val(uint16_t value, z80ic_oper_imm16_t **rimm)
@@ -582,10 +582,10 @@ int z80ic_oper_imm16_create_val(uint16_t value, z80ic_oper_imm16_t **rimm)
 	return EOK;
 }
 
-/** Create IR 16-bit immediate operand with symbol reference.
+/** Create Z80 IC 16-bit immediate operand with symbol reference.
  *
  * @param symbol Symbol
- * @param rimm Place to store pointer to new IR immediate operand
+ * @param rimm Place to store pointer to new Z80 IC immediate operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int z80ic_oper_imm16_create_symbol(const char *symbol,
@@ -611,9 +611,9 @@ int z80ic_oper_imm16_create_symbol(const char *symbol,
 	return EOK;
 }
 
-/** Print IR 16-bit immediate operand.
+/** Print Z80 IC 16-bit immediate operand.
  *
- * @param imm IR 16-bit immediate operand
+ * @param imm Z80 IC 16-bit immediate operand
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -634,9 +634,9 @@ int z80ic_oper_imm16_print(z80ic_oper_imm16_t *imm, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR 16-bit immediate operand.
+/** Destroy Z80 IC 16-bit immediate operand.
  *
- * @param imm IR 16-bit immediate operand
+ * @param imm Z80 IC 16-bit immediate operand
  */
 void z80ic_oper_imm16_destroy(z80ic_oper_imm16_t *imm)
 {
@@ -645,10 +645,10 @@ void z80ic_oper_imm16_destroy(z80ic_oper_imm16_t *imm)
 	free(imm);
 }
 
-/** Create IR register operand.
+/** Create Z80 IC register operand.
  *
  * @param reg Register
- * @param rreg Place to store pointer to new IR register operand
+ * @param rreg Place to store pointer to new Z80 IC register operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int z80ic_oper_reg_create(z80ic_reg_t reg, z80ic_oper_reg_t **rreg)
@@ -665,9 +665,9 @@ int z80ic_oper_reg_create(z80ic_reg_t reg, z80ic_oper_reg_t **rreg)
 	return EOK;
 }
 
-/** Print IR register operand.
+/** Print Z80 IC register operand.
  *
- * @param reg IR register operand
+ * @param reg Z80 IC register operand
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -682,19 +682,19 @@ int z80ic_oper_reg_print(z80ic_oper_reg_t *reg, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR register operand.
+/** Destroy Z80 IC register operand.
  *
- * @param reg IR register operand
+ * @param reg Z80 IC register operand
  */
 void z80ic_oper_reg_destroy(z80ic_oper_reg_t *reg)
 {
 	free(reg);
 }
 
-/** Create IR virtual register operand.
+/** Create Z80 IC virtual register operand.
  *
  * @param vregno Virtual register number
- * @param rvr Place to store pointer to new IR virtual register operand
+ * @param rvr Place to store pointer to new Z80 IC virtual register operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int z80ic_oper_vr_create(unsigned vregno, z80ic_oper_vr_t **rvr)
@@ -711,9 +711,9 @@ int z80ic_oper_vr_create(unsigned vregno, z80ic_oper_vr_t **rvr)
 	return EOK;
 }
 
-/** Print IR virtual register operand.
+/** Print Z80 IC virtual register operand.
  *
- * @param vr IR virtual register operand
+ * @param vr Z80 IC virtual register operand
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -728,19 +728,19 @@ int z80ic_oper_vr_print(z80ic_oper_vr_t *vr, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR virtual register operand.
+/** Destroy Z80 IC virtual register operand.
  *
- * @param reg IR virtual register operand
+ * @param reg Z80 IC virtual register operand
  */
 void z80ic_oper_vr_destroy(z80ic_oper_vr_t *vr)
 {
 	free(vr);
 }
 
-/** Create IR virtual register pair operand.
+/** Create Z80 IC virtual register pair operand.
  *
  * @param vregno Virtual register pair number
- * @param rvr Place to store pointer to new IR virtual register pair operand
+ * @param rvr Place to store pointer to new Z80 IC virtual register pair operand
  * @return EOK on success, ENOMEM if out of memory
  */
 int z80ic_oper_vrr_create(unsigned vregno, z80ic_oper_vrr_t **rvrr)
@@ -757,9 +757,9 @@ int z80ic_oper_vrr_create(unsigned vregno, z80ic_oper_vrr_t **rvrr)
 	return EOK;
 }
 
-/** Print IR virtual register pair operand.
+/** Print Z80 IC virtual register pair operand.
  *
- * @param vrr IR virtual register pair operand
+ * @param vrr Z80 IC virtual register pair operand
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -774,9 +774,9 @@ int z80ic_oper_vrr_print(z80ic_oper_vrr_t *vrr, FILE *f)
 	return EOK;
 }
 
-/** Destroy IR virtual register pair operand.
+/** Destroy Z80 IC virtual register pair operand.
  *
- * @param reg IR virtual register pair operand
+ * @param reg Z80 IC virtual register pair operand
  */
 void z80ic_oper_vrr_destroy(z80ic_oper_vrr_t *vrr)
 {
