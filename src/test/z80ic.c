@@ -26,7 +26,6 @@
 
 #include <assert.h>
 #include <merrno.h>
-#include <stdio.h>
 #include <string.h>
 #include <test/z80ic.h>
 #include <z80/z80ic.h>
@@ -149,7 +148,11 @@ static int test_z80ic_lblock(void)
 {
 	z80ic_lblock_t *lblock = NULL;
 	z80ic_instr_ld_vrr_nn_t *instr1 = NULL;
+	z80ic_oper_vrr_t *dest1 = NULL;
+	z80ic_oper_imm16_t *op1 = NULL;
 	z80ic_instr_ld_vrr_nn_t *instr2 = NULL;
+	z80ic_oper_vrr_t *dest2 = NULL;
+	z80ic_oper_imm16_t *op2 = NULL;
 	z80ic_lblock_entry_t *entry;
 	int rc;
 
@@ -165,11 +168,33 @@ static int test_z80ic_lblock(void)
 
 	assert(instr1 != NULL);
 
+	rc = z80ic_oper_vrr_create(0, &dest1);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_oper_imm16_create_val(42, &op1);
+	if (rc != EOK)
+		return rc;
+
+	instr1->dest = dest1;
+	instr1->imm16 = op1;
+
 	rc = z80ic_instr_ld_vrr_nn_create(&instr2);
 	if (rc != EOK)
 		return rc;
 
 	assert(instr2 != NULL);
+
+	rc = z80ic_oper_vrr_create(0, &dest2);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_oper_imm16_create_val(42, &op2);
+	if (rc != EOK)
+		return rc;
+
+	instr2->dest = dest2;
+	instr2->imm16 = op2;
 
 	rc = z80ic_lblock_append(lblock, NULL, &instr1->instr);
 	if (rc != EOK)

@@ -478,7 +478,39 @@ int z80ic_instr_ld_vrr_nn_create(z80ic_instr_ld_vrr_nn_t **rinstr)
 	if (instr == NULL)
 		return ENOMEM;
 
+	instr->instr.itype = z80i_ld_vrr_nn;
+	instr->instr.ext = instr;
 	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load 16-bit immediate to virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_instr_ld_vrr_nn_print(z80ic_instr_ld_vrr_nn_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("LD ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+
 	return EOK;
 }
 
@@ -489,16 +521,28 @@ int z80ic_instr_ld_vrr_nn_create(z80ic_instr_ld_vrr_nn_t **rinstr)
  */
 int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 {
+	int rc;
 	int rv;
 
-	// TODO
-	(void)instr;
+	rv = fputc('\t', f);
+	if (rv < 0)
+		return EIO;
+
+	switch (instr->itype) {
+	case z80i_ld_vrr_nn:
+		rc = z80ic_instr_ld_vrr_nn_print(
+		    (z80ic_instr_ld_vrr_nn_t *) instr->ext, f);
+		break;
+	default:
+		rc = ENOTSUP;
+		break;
+	}
 
 	rv = fputc('\n', f);
 	if (rv < 0)
 		return EIO;
 
-	return EOK;
+	return rc;
 }
 
 /** Destroy Z80 IC instruction.
