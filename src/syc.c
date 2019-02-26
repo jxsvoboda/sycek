@@ -35,7 +35,8 @@
 #include <test/cgen.h>
 #include <test/comp.h>
 #include <test/ir.h>
-#include <test/z80ic.h>
+#include <test/z80/isel.h>
+#include <test/z80/z80ic.h>
 
 static void print_syntax(void)
 {
@@ -46,7 +47,8 @@ static void print_syntax(void)
 	    "options:\n"
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
 	    "\t--dump-toks Dump tokenized source file\n"
-	    "\t--dump-ir Dump intermediate representation\n");
+	    "\t--dump-ir Dump intermediate representation\n"
+	    "\t--dump-vric Dump instruction code with virtual registers\n");
 }
 
 static int compile_file(const char *fname, comp_flags_t flags)
@@ -91,6 +93,12 @@ static int compile_file(const char *fname, comp_flags_t flags)
 
 	if ((flags & compf_dump_ir) != 0) {
 		rc = comp_dump_ir(comp, stdout);
+		if (rc != EOK)
+			goto error;
+	}
+
+	if ((flags & compf_dump_vric) != 0) {
+		rc = comp_dump_vric(comp, stdout);
 		if (rc != EOK)
 			goto error;
 	}
@@ -141,6 +149,11 @@ int main(int argc, char *argv[])
 		if (rc != EOK)
 			return 1;
 
+		rc = test_z80_isel();
+		printf("test_z80_isel -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
 		printf("Tests passed.\n");
 		return 0;
 	}
@@ -156,6 +169,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--dump-ir") == 0) {
 			++i;
 			flags |= compf_dump_ir;
+		} else if (strcmp(argv[i], "--dump-vric") == 0) {
+			++i;
+			flags |= compf_dump_vric;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;

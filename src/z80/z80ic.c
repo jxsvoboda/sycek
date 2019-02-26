@@ -510,7 +510,6 @@ static int z80ic_instr_ld_vrr_nn_print(z80ic_instr_ld_vrr_nn_t *instr, FILE *f)
 	if (rc != EOK)
 		return rc;
 
-
 	return EOK;
 }
 

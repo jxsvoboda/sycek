@@ -543,9 +543,11 @@ error:
  *
  * @param cgen Code generator
  * @param decln Global (macro, extern) declaration
+ * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln, ir_module_t *irmod)
+static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
+    ir_module_t *irmod)
 {
 	ast_tok_t *atok;
 	comp_tok_t *tok;
@@ -589,9 +591,6 @@ int cgen_module(cgen_t *cgen, ast_module_t *astmod, ir_module_t **rirmod)
 	ir_module_t *irmod;
 	int rc;
 	ast_node_t *decln;
-
-	(void) cgen;
-	(void) astmod;
 
 	rc = ir_module_create(&irmod);
 	if (rc != EOK)

@@ -35,6 +35,8 @@
 #include <parser.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <z80/isel.h>
+#include <z80/z80ic.h>
 
 static void comp_parser_read_tok(void *, void *, unsigned, bool,
     lexer_tok_t *);
@@ -368,6 +370,7 @@ int comp_run(comp_t *comp)
 {
 	int rc;
 	cgen_t *cgen = NULL;
+	z80_isel_t *isel = NULL;
 
 	if (comp->mod == NULL || comp->mod->ast == NULL) {
 		rc = comp_build_ast(comp);
@@ -397,9 +400,23 @@ int comp_run(comp_t *comp)
 		cgen = NULL;
 	}
 
+	if (comp->mod->vric == NULL) {
+		rc = z80_isel_create(&isel);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80_isel_module(isel, comp->mod->ir, &comp->mod->vric);
+		if (rc != EOK)
+			goto error;
+
+		z80_isel_destroy(isel);
+		isel = NULL;
+	}
+
 	return EOK;
 error:
 	cgen_destroy(cgen);
+	z80_isel_destroy(isel);
 	return rc;
 }
 
@@ -468,6 +485,21 @@ int comp_dump_ir(comp_t *comp, FILE *f)
 
 	assert(comp->mod->ir != NULL);
 	rc = ir_module_print(comp->mod->ir, f);
+	return rc;
+}
+
+/** Dump instruction code with virtual registers.
+ *
+ * @param comp Compiler
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int comp_dump_vric(comp_t *comp, FILE *f)
+{
+	int rc;
+
+	assert(comp->mod->vric != NULL);
+	rc = z80ic_module_print(comp->mod->vric, f);
 	return rc;
 }
 

@@ -21,22 +21,21 @@
  */
 
 /*
- * Compiler
+ * Z80 instruction selection
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TYPES_Z80_ISEL_H
+#define TYPES_Z80_ISEL_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+/** Z80 instruction selector */
+typedef struct {
+	int dummy;
+} z80_isel_t;
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_t **);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *);
+/** Z80 instruction selector for procedure */
+typedef struct {
+	/** Containing instruction selector */
+	z80_isel_t *isel;
+} z80_isel_proc_t;
 
 #endif

@@ -1,0 +1,219 @@
+/*
+ * Copyright 2019 Jiri Svoboda
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+/*
+ * Instruction selector
+ *
+ * Generate IR (machine-independent assembly) from abstract syntax tree (AST).
+ */
+
+#include <assert.h>
+#include <ir.h>
+#include <merrno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <z80/isel.h>
+#include <z80/z80ic.h>
+
+/** Create instruction selector.
+ *
+ * @param rz80_isel Place to store pointer to new instruction selector
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80_isel_create(z80_isel_t **rz80_isel)
+{
+	z80_isel_t *isel;
+
+	isel = calloc(1, sizeof(z80_isel_t));
+	if (isel == NULL)
+		return ENOMEM;
+
+	*rz80_isel = isel;
+	return EOK;
+}
+
+/** Create instruction selector.
+ *
+ * @param rz80_isel Place to store pointer to new instruction selector
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_isel_proc_create(z80_isel_t *isel, z80_isel_proc_t **risproc)
+{
+	z80_isel_proc_t *isproc;
+
+	isproc = calloc(1, sizeof(z80_isel_proc_t));
+	if (isproc == NULL)
+		return ENOMEM;
+
+	isproc->isel = isel;
+	*risproc = isproc;
+	return EOK;
+}
+
+/** Destroy instruction selector for procedure.
+ *
+ * @param isel Instruction selector or @c NULL
+ */
+static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
+{
+	if (isproc == NULL)
+		return;
+
+	free(isproc);
+}
+
+/** Select Z80 IC instructions code for IR instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR instruction
+ * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	(void) isproc;
+	(void) label;
+	(void) irinstr;
+	(void) lblock;
+	return EOK;
+}
+
+/** Select instructions code for procedure.
+ *
+ * @param isel Instruction selector
+ * @param proc IR procedure
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
+    z80ic_module_t *icmod)
+{
+	z80_isel_proc_t *isproc = NULL;
+	ir_lblock_entry_t *entry;
+	z80ic_proc_t *icproc = NULL;
+	z80ic_lblock_t *lblock = NULL;
+	z80ic_instr_t *instr = NULL;
+	int rc;
+
+	rc = z80_isel_proc_create(isel, &isproc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_create(&lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_proc_create("foo", lblock, &icproc);
+	if (rc != EOK)
+		goto error;
+
+	entry = ir_lblock_first(irproc->lblock);
+	while (entry != NULL) {
+		rc = z80_isel_instr(isproc, entry->label, entry->instr, lblock);
+		if (rc != EOK)
+			goto error;
+
+		entry = ir_lblock_next(entry);
+	}
+
+	z80_isel_proc_destroy(isproc);
+	z80ic_module_append(icmod, &icproc->decln);
+	return EOK;
+error:
+	z80ic_proc_destroy(icproc);
+	z80ic_lblock_destroy(lblock);
+	z80ic_instr_destroy(instr);
+	z80_isel_proc_destroy(isproc);
+	return rc;
+}
+
+/** Select instructions code for declaration.
+ *
+ * @param isel Instruction selector
+ * @param decln IR declaration
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_isel_decln(z80_isel_t *isel, ir_decln_t *decln,
+    z80ic_module_t *icmod)
+{
+	int rc;
+
+	switch (decln->dtype) {
+	case ird_proc:
+		rc = z80_isel_proc(isel, (ir_proc_t *) decln->ext, icmod);
+		break;
+	default:
+		assert(false);
+		rc = EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+/** Select instructions for module.
+ *
+ * @param isel Instruction selector
+ * @param irmod IR module
+ * @param ricmod Place to store pointer to new Z80 IC module
+ * @return EOK on success or an error code
+ */
+int z80_isel_module(z80_isel_t *isel, ir_module_t *irmod,
+    z80ic_module_t **ricmod)
+{
+	z80ic_module_t *icmod;
+	int rc;
+	ir_decln_t *decln;
+
+	rc = z80ic_module_create(&icmod);
+	if (rc != EOK)
+		return rc;
+
+	decln = ir_module_first(irmod);
+	while (decln != NULL) {
+		rc = z80_isel_decln(isel, decln, icmod);
+		if (rc != EOK)
+			goto error;
+
+		decln = ir_module_next(decln);
+	}
+
+	*ricmod = icmod;
+	return EOK;
+error:
+	z80ic_module_destroy(icmod);
+	return rc;
+}
+
+/** Destroy instruction selector.
+ *
+ * @param isel Instruction selector or @c NULL
+ */
+void z80_isel_destroy(z80_isel_t *isel)
+{
+	if (isel == NULL)
+		return;
+
+	free(isel);
+}

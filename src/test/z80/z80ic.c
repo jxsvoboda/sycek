@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <merrno.h>
 #include <string.h>
-#include <test/z80ic.h>
+#include <test/z80/z80ic.h>
 #include <z80/z80ic.h>
 
 /** Test Z80 IC module.

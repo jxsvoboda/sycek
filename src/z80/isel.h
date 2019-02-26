@@ -21,66 +21,18 @@
  */
 
 /*
- * Compiler types
+ * Z80 instruction selection
  */
 
-#ifndef TYPES_COMP_H
-#define TYPES_COMP_H
+#ifndef Z80_ISEL_H
+#define Z80_ISEL_H
 
-#include <adt/list.h>
-#include <types/ast.h>
-#include <types/cgen.h>
 #include <types/ir.h>
-#include <types/lexer.h>
+#include <types/z80/isel.h>
 #include <types/z80/z80ic.h>
 
-/** Compiler token */
-typedef struct {
-	/** Containing compiler module */
-	struct comp_module *mod;
-	/** Link in list of tokens */
-	link_t ltoks;
-	/** Lexer token */
-	lexer_tok_t tok;
-} comp_tok_t;
-
-/** Compiler module */
-typedef struct comp_module {
-	/** Containing compiler */
-	struct comp *comp;
-	/** Tokens */
-	list_t toks; /* of comp_tok_t */
-	/** Module AST */
-	ast_module_t *ast;
-	/** Module IR */
-	ir_module_t *ir;
-	/** Module Z80 IC with virtual registers */
-	z80ic_module_t *vric;
-} comp_module_t;
-
-/** Compiler */
-typedef struct comp {
-	/** Lexer */
-	lexer_t *lexer;
-	/** Module */
-	comp_module_t *mod;
-} comp_t;
-
-/** Compiler parser input */
-typedef struct {
-	int dummy;
-} comp_parser_input_t;
-
-/** Compiler flags */
-typedef enum {
-	/** Dump internal AST */
-	compf_dump_ast = 0x1,
-	/** Dump tokenized source file */
-	compf_dump_toks = 0x2,
-	/** Dump intermediate representation */
-	compf_dump_ir = 0x4,
-	/** Dump instruction code with virtual registers */
-	compf_dump_vric = 0x8
-} comp_flags_t;
+extern int z80_isel_create(z80_isel_t **);
+extern int z80_isel_module(z80_isel_t *, ir_module_t *, z80ic_module_t **);
+extern void z80_isel_destroy(z80_isel_t *);
 
 #endif
