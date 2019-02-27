@@ -259,11 +259,7 @@ int z80ic_proc_print(z80ic_proc_t *proc, FILE *f)
 	int rv;
 	int rc;
 
-	rv = fprintf(f, "\nproc %s\n", proc->ident);
-	if (rv < 0)
-		return EIO;
-
-	rv = fprintf(f, "begin\n");
+	rv = fprintf(f, "\n; proc %s\n.%s\n", proc->ident, proc->ident);
 	if (rv < 0)
 		return EIO;
 
@@ -271,7 +267,7 @@ int z80ic_proc_print(z80ic_proc_t *proc, FILE *f)
 	if (rc != EOK)
 		return EIO;
 
-	rv = fprintf(f, "end\n");
+	rv = fprintf(f, "\n; end proc %s\n\n", proc->ident);
 	if (rv < 0)
 		return EIO;
 

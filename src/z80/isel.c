@@ -34,6 +34,27 @@
 #include <z80/isel.h>
 #include <z80/z80ic.h>
 
+/** Mangle procedure identifier.
+ *
+ * @param irident IR procedure identifier
+ * @param rident Place to store pointer to IC procedure identifier
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_isel_mangle_proc_ident(const char *irident, char **rident)
+{
+	int rv;
+	char *ident;
+
+	assert(irident[0] == '@');
+
+	rv = asprintf(&ident, "_%s", &irident[1]);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rident = ident;
+	return EOK;
+}
+
 /** Create instruction selector.
  *
  * @param rz80_isel Place to store pointer to new instruction selector
@@ -113,6 +134,7 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 	z80ic_proc_t *icproc = NULL;
 	z80ic_lblock_t *lblock = NULL;
 	z80ic_instr_t *instr = NULL;
+	char *ident = NULL;
 	int rc;
 
 	rc = z80_isel_proc_create(isel, &isproc);
@@ -123,7 +145,11 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_proc_create("foo", lblock, &icproc);
+	rc = z80_isel_mangle_proc_ident(irproc->ident, &ident);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_proc_create(ident, lblock, &icproc);
 	if (rc != EOK)
 		goto error;
 
@@ -136,10 +162,13 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 		entry = ir_lblock_next(entry);
 	}
 
+	free(ident);
 	z80_isel_proc_destroy(isproc);
 	z80ic_module_append(icmod, &icproc->decln);
 	return EOK;
 error:
+	if (ident != NULL)
+		free(ident);
 	z80ic_proc_destroy(icproc);
 	z80ic_lblock_destroy(lblock);
 	z80ic_instr_destroy(instr);
