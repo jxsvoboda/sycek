@@ -147,10 +147,10 @@ static int test_z80ic_proc(void)
 static int test_z80ic_lblock(void)
 {
 	z80ic_lblock_t *lblock = NULL;
-	z80ic_instr_ld_vrr_nn_t *instr1 = NULL;
+	z80ic_ld_vrr_nn_t *instr1 = NULL;
 	z80ic_oper_vrr_t *dest1 = NULL;
 	z80ic_oper_imm16_t *op1 = NULL;
-	z80ic_instr_ld_vrr_nn_t *instr2 = NULL;
+	z80ic_ld_vrr_nn_t *instr2 = NULL;
 	z80ic_oper_vrr_t *dest2 = NULL;
 	z80ic_oper_imm16_t *op2 = NULL;
 	z80ic_lblock_entry_t *entry;
@@ -162,7 +162,7 @@ static int test_z80ic_lblock(void)
 
 	assert(lblock != NULL);
 
-	rc = z80ic_instr_ld_vrr_nn_create(&instr1);
+	rc = z80ic_ld_vrr_nn_create(&instr1);
 	if (rc != EOK)
 		return rc;
 
@@ -179,7 +179,7 @@ static int test_z80ic_lblock(void)
 	instr1->dest = dest1;
 	instr1->imm16 = op1;
 
-	rc = z80ic_instr_ld_vrr_nn_create(&instr2);
+	rc = z80ic_ld_vrr_nn_create(&instr2);
 	if (rc != EOK)
 		return rc;
 
@@ -246,14 +246,14 @@ static int test_z80ic_lblock(void)
  *
  * @return EOK on success or non-zero error code
  */
-static int test_z80ic_instr_ld_vrr_nn(void)
+static int test_z80ic_ld_vrr_nn(void)
 {
-	z80ic_instr_ld_vrr_nn_t *instr = NULL;
+	z80ic_ld_vrr_nn_t *instr = NULL;
 	z80ic_oper_vrr_t *dest = NULL;
 	z80ic_oper_imm16_t *op = NULL;
 	int rc;
 
-	rc = z80ic_instr_ld_vrr_nn_create(&instr);
+	rc = z80ic_ld_vrr_nn_create(&instr);
 	if (rc != EOK)
 		return rc;
 
@@ -407,7 +407,7 @@ int test_z80ic(void)
 	if (rc != EOK)
 		return rc;
 
-	rc = test_z80ic_instr_ld_vrr_nn();
+	rc = test_z80ic_ld_vrr_nn();
 	if (rc != EOK)
 		return rc;
 

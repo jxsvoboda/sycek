@@ -466,11 +466,11 @@ z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *cur)
  * @param rinstr Place to store pointer to new instruction
  * @return EOK on success, ENOMEM if out of memory
  */
-int z80ic_instr_ld_vrr_nn_create(z80ic_instr_ld_vrr_nn_t **rinstr)
+int z80ic_ld_vrr_nn_create(z80ic_ld_vrr_nn_t **rinstr)
 {
-	z80ic_instr_ld_vrr_nn_t *instr;
+	z80ic_ld_vrr_nn_t *instr;
 
-	instr = calloc(1, sizeof(z80ic_instr_ld_vrr_nn_t));
+	instr = calloc(1, sizeof(z80ic_ld_vrr_nn_t));
 	if (instr == NULL)
 		return ENOMEM;
 
@@ -485,7 +485,7 @@ int z80ic_instr_ld_vrr_nn_create(z80ic_instr_ld_vrr_nn_t **rinstr)
  * @param instr Instruction
  * @param f Output file
  */
-static int z80ic_instr_ld_vrr_nn_print(z80ic_instr_ld_vrr_nn_t *instr, FILE *f)
+static int z80ic_ld_vrr_nn_print(z80ic_ld_vrr_nn_t *instr, FILE *f)
 {
 	int rc;
 	int rv;
@@ -525,8 +525,7 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 
 	switch (instr->itype) {
 	case z80i_ld_vrr_nn:
-		rc = z80ic_instr_ld_vrr_nn_print(
-		    (z80ic_instr_ld_vrr_nn_t *) instr->ext, f);
+		rc = z80ic_ld_vrr_nn_print((z80ic_ld_vrr_nn_t *) instr->ext, f);
 		break;
 	default:
 		rc = ENOTSUP;

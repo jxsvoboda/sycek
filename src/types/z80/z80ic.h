@@ -729,7 +729,7 @@ typedef struct {
 	z80ic_oper_reg_t *dest;
 	/** Source register */
 	z80ic_oper_reg_t *src;
-} z80ic_instr_ld_r_r_t;
+} z80ic_ld_r_r_t;
 
 /** Z80 IC load register from 8-bit immediate */
 typedef struct {
@@ -739,7 +739,7 @@ typedef struct {
 	z80ic_oper_reg_t *dest;
 	/** Immediate operand */
 	z80ic_oper_imm8_t *imm8;
-} z80ic_instr_ld_r_n_t;
+} z80ic_ld_r_n_t;
 
 /** Z80 IC load register from (HL) */
 typedef struct {
@@ -747,7 +747,7 @@ typedef struct {
 	z80ic_instr_t instr;
 	/** Destination register */
 	z80ic_oper_reg_t *dest;
-} z80ic_instr_ld_r_ihl_t;
+} z80ic_ld_r_ihl_t;
 
 /** Z80 IC load register from (IX+d) */
 typedef struct {
@@ -757,7 +757,7 @@ typedef struct {
 	z80ic_oper_reg_t *dest;
 	/** Displacement */
 	int8_t disp;
-} z80ic_instr_ld_r_iixd_t;
+} z80ic_ld_r_iixd_t;
 
 /** Z80 IC load register from (IY+d) */
 typedef struct {
@@ -767,7 +767,7 @@ typedef struct {
 	z80ic_oper_reg_t *dest;
 	/** Displacement */
 	int8_t disp;
-} z80ic_instr_ld_r_iiyd_t;
+} z80ic_ld_r_iiyd_t;
 
 /** Z80 IC load virtual register pair from 16-bit immediate */
 typedef struct {
@@ -777,7 +777,7 @@ typedef struct {
 	z80ic_oper_vrr_t *dest;
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
-} z80ic_instr_ld_vrr_nn_t;
+} z80ic_ld_vrr_nn_t;
 
 /** Z80 IC labeled block entry */
 typedef struct {

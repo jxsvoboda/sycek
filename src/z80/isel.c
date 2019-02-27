@@ -55,6 +55,27 @@ static int z80_isel_mangle_proc_ident(const char *irident, char **rident)
 	return EOK;
 }
 
+/** Get virtual register number from variable name.
+ *
+ * @param oper Variable operand referring to a local numbered variable
+ * @return Virtual register number (same as variable number)
+ */
+static unsigned z80_isel_get_vregno(ir_oper_t *oper)
+{
+	ir_oper_var_t *opvar;
+	char *endptr;
+	unsigned long rn;
+
+	assert(oper->optype == iro_var);
+	opvar = (ir_oper_var_t *) oper->ext;
+
+	assert(opvar->varname[0] == '%');
+	rn = strtoul(&opvar->varname[1], &endptr, 10);
+	assert(*endptr == '\0');
+
+	return (unsigned) rn;
+}
+
 /** Create instruction selector.
  *
  * @param rz80_isel Place to store pointer to new instruction selector
@@ -102,7 +123,103 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
 	free(isproc);
 }
 
-/** Select Z80 IC instructions code for IR instruction.
+/** Select Z80 IC instructions code for IR add instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	assert(irinstr->itype == iri_add);
+
+	(void) isproc;
+	(void) label;
+	(void) lblock;
+
+	return EOK;
+}
+
+/** Select Z80 IC instructions code for IR load immediate instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ldimm(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_vrr_nn_t *ldimm = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	ir_oper_imm_t *irimm;
+	unsigned vregno;
+	int rc;
+
+	assert(irinstr->itype == iri_ldimm);
+	assert(irinstr->width == 16);
+
+	assert(irinstr->op1->optype == iro_imm);
+	irimm = (ir_oper_imm_t *) irinstr->op1->ext;
+
+	assert(irinstr->op2 == NULL);
+
+	(void) isproc;
+
+	vregno = z80_isel_get_vregno(irinstr->dest);
+
+	rc = z80ic_ld_vrr_nn_create(&ldimm);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vregno, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_val(irimm->value, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldimm->dest = vrr;
+	ldimm->imm16 = imm;
+	vrr = NULL;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ldimm->instr);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_instr_destroy(&ldimm->instr);
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_imm16_destroy(imm);
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR return value instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	assert(irinstr->itype == iri_retv);
+
+	(void) isproc;
+	(void) label;
+	(void) lblock;
+
+	return EOK;
+}
+
+/** Select Z80 IC instructions for IR instruction.
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR instruction
@@ -112,11 +229,17 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
 static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	(void) isproc;
-	(void) label;
-	(void) irinstr;
-	(void) lblock;
-	return EOK;
+	switch (irinstr->itype) {
+	case iri_add:
+		return z80_isel_add(isproc, label, irinstr, lblock);
+	case iri_ldimm:
+		return z80_isel_ldimm(isproc, label, irinstr, lblock);
+	case iri_retv:
+		return z80_isel_retv(isproc, label, irinstr, lblock);
+	}
+
+	assert(false);
+	return EINVAL;
 }
 
 /** Select instructions code for procedure.
