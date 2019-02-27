@@ -473,6 +473,14 @@ typedef enum {
 	/** Load fixed memory location from virtual register */
 	z80i_ld_inn_vr,
 
+	/** Load virtual register pair from virtual register pair.
+	 *
+	 * This supplants a pair of 8-bit loads operating on the two
+	 * halves of the virtual register pair (because to use ld_vr_vr
+	 * we'd have to be able to access the halves of the pair individually.
+	 */
+	z80i_ld_vrr_vrr,
+
 	/** Load virt. register pair from 16-bit immediate */
 	z80i_ld_vrr_nn,
 	/** Load virt. register pair from fixed memory address */
@@ -769,6 +777,16 @@ typedef struct {
 	int8_t disp;
 } z80ic_ld_r_iiyd_t;
 
+/** Z80 IC load virtual register pair from virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register pair */
+	z80ic_oper_vrr_t *dest;
+	/** Immediate */
+	z80ic_oper_vrr_t *src;
+} z80ic_ld_vrr_vrr_t;
+
 /** Z80 IC load virtual register pair from 16-bit immediate */
 typedef struct {
 	/** Base object */
@@ -778,6 +796,16 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_nn_t;
+
+/** Z80 IC add virtual register pair to virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register pair */
+	z80ic_oper_vrr_t *dest;
+	/** Immediate */
+	z80ic_oper_vrr_t *src;
+} z80ic_add_vrr_vrr_t;
 
 /** Z80 IC labeled block entry */
 typedef struct {

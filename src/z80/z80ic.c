@@ -461,6 +461,26 @@ z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *cur)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
+/** Create Z80 IC instruction load virtual register pair from virtual
+ * register pair.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_vrr_vrr_create(z80ic_ld_vrr_vrr_t **rinstr)
+{
+	z80ic_ld_vrr_vrr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_vrr_vrr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_vrr_vrr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
 /** Create Z80 IC instruction load virtual register pair from 16-bit immediate.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -480,7 +500,57 @@ int z80ic_ld_vrr_nn_create(z80ic_ld_vrr_nn_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC load 16-bit immediate to virtual register instruction.
+/** Create Z80 IC instruction add virtual register pair to virtual
+ * register pair.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_add_vrr_vrr_create(z80ic_add_vrr_vrr_t **rinstr)
+{
+	z80ic_add_vrr_vrr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_add_vrr_vrr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_add_vrr_vrr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load virtual register pair from virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_vrr_vrr_print(z80ic_ld_vrr_vrr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Print Z80 IC load virtual register pair from 16-bit immediate instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -490,7 +560,7 @@ static int z80ic_ld_vrr_nn_print(z80ic_ld_vrr_nn_t *instr, FILE *f)
 	int rc;
 	int rv;
 
-	rv = fputs("LD ", f);
+	rv = fputs("ld ", f);
 	if (rv < 0)
 		return EIO;
 
@@ -503,6 +573,36 @@ static int z80ic_ld_vrr_nn_print(z80ic_ld_vrr_nn_t *instr, FILE *f)
 		return EIO;
 
 	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Print Z80 IC add virtual register pair to virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_add_vrr_vrr_print(z80ic_add_vrr_vrr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("add ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->src, f);
 	if (rc != EOK)
 		return rc;
 
@@ -524,10 +624,19 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		return EIO;
 
 	switch (instr->itype) {
+	case z80i_ld_vrr_vrr:
+		rc = z80ic_ld_vrr_vrr_print((z80ic_ld_vrr_vrr_t *) instr->ext,
+		    f);
+		break;
 	case z80i_ld_vrr_nn:
 		rc = z80ic_ld_vrr_nn_print((z80ic_ld_vrr_nn_t *) instr->ext, f);
 		break;
+	case z80i_add_vrr_vrr:
+		rc = z80ic_add_vrr_vrr_print((z80ic_add_vrr_vrr_t *) instr->ext,
+		    f);
+		break;
 	default:
+		assert(false);
 		rc = ENOTSUP;
 		break;
 	}

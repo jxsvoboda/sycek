@@ -133,13 +133,81 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
 static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
+	z80ic_oper_vrr_t *dest = NULL;
+	z80ic_oper_vrr_t *src = NULL;
+	z80ic_ld_vrr_vrr_t *ld = NULL;
+	z80ic_add_vrr_vrr_t *add = NULL;
+	unsigned destvr;
+	unsigned vr1, vr2;
+	int rc;
+
 	assert(irinstr->itype == iri_add);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
 
 	(void) isproc;
-	(void) label;
-	(void) lblock;
+
+	destvr = z80_isel_get_vregno(irinstr->dest);
+	vr1 = z80_isel_get_vregno(irinstr->op1);
+	vr2 = z80_isel_get_vregno(irinstr->op2);
+
+	/* Load instruction */
+
+	rc = z80ic_ld_vrr_vrr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr1, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* Add instruction */
+
+	rc = z80ic_add_vrr_vrr_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr2, &src);
+	if (rc != EOK)
+		goto error;
+
+	add->dest = dest;
+	add->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
+error:
+	z80ic_instr_destroy(&ld->instr);
+	z80ic_instr_destroy(&add->instr);
+	z80ic_oper_vrr_destroy(dest);
+	z80ic_oper_vrr_destroy(src);
+
+	return rc;
 }
 
 /** Select Z80 IC instructions code for IR load immediate instruction.
