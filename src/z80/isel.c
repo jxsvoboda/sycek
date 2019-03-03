@@ -278,13 +278,67 @@ error:
 static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
+	z80ic_oper_r16_t *dest = NULL;
+	z80ic_oper_vrr_t *src = NULL;
+	z80ic_ld_r16_vrr_t *ld = NULL;
+	z80ic_ret_t *ret = NULL;
+	unsigned vr;
+	int rc;
+
 	assert(irinstr->itype == iri_retv);
+	assert(irinstr->width == 16);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
 
 	(void) isproc;
-	(void) label;
-	(void) lblock;
 
+	vr = z80_isel_get_vregno(irinstr->op1);
+
+	/* Load instruction */
+
+	rc = z80ic_ld_r16_vrr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(z80ic_r16_bc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* Ret instruction */
+
+	rc = z80ic_ret_create(&ret);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
+	ret = NULL;
 	return EOK;
+error:
+	z80ic_instr_destroy(&ld->instr);
+	z80ic_instr_destroy(&ret->instr);
+	z80ic_oper_r16_destroy(dest);
+	z80ic_oper_vrr_destroy(src);
+
+	return rc;
 }
 
 /** Select Z80 IC instructions for IR instruction.
