@@ -1,11 +1,11 @@
 Sycek
 =====
 
-Sycek aims to provide tools based around a modular C language parser.
+Sycek aims to provide tools based around a modular C language frontend.
 The available tools are
 
   * `ccheck` a C code style checker
-  * `syc` a C compiler / static checker (stub)
+  * `syc` a C compiler for ZX Spectrum (WIP), static checker (not yet)
 
 Sycek is available under an MIT-style license.
 
@@ -35,8 +35,11 @@ Sycek is available under an MIT-style license.
 
 Syc
 ---
-`syc` is meant to work as a compiler or static checker. This is
-under construction and does not do anything particularly useful yet.
+`syc` is meant to work as a compiler or static checker. Currently
+work is in progress on compiling C for Sinclair ZX Spectrum
+(Zilog Z80 processor).
+
+NOTE: This is in early stages of development and does not do much!
 
 Downloading
 -----------
@@ -194,6 +197,34 @@ It's easy to use ccheck if you are starting from scratch. Applying it
 to an existing codebase other than HelenOS is likely to require some,
 possibly non-trivial, changes to that code base before it would be fully
 parsable by ccheck.
+
+Using Syc
+---------
+Syc is a C cross-compiler under construction, targetting the Sinclair
+ZX Spectrum platform / Zilog Z80 processor. The scaffolding for most
+compilation stages is in place, but functionality is minimal.
+
+syc only starts after preprocessing stage (i.e. there must not be any
+preprocessor directives in the C source file) and outputs an .asm
+file in the end. This is supposed to be consumed by a Z80 assembler,
+such as z80asm from z88dk project.
+
+Running `syc` without arguments will print a syntax help. To compile
+the example C source file, type
+
+    $ ./syc example/test.c
+
+which will produce `example/test.asm`. Note that this cannot be used to
+produce a working binary yet! Also, this is a minimal example and trying
+to compile any other file will most probably fail.
+
+There are options available to print out the
+program in various compilation stages to the standard output:
+
+ * `--dump-ast` Dump internal abstract syntax tree
+ * `--dump-toks` Dump tokenized source file
+ * `--dump-ir` Dump intermediate representation
+ * `--dump-vric` Dump instruction code before register allocation
 
 Developer Notes
 ---------------
