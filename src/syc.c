@@ -31,11 +31,13 @@
 #include <parser.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <test/cgen.h>
 #include <test/comp.h>
 #include <test/ir.h>
 #include <test/z80/isel.h>
+#include <test/z80/ralloc.h>
 #include <test/z80/z80ic.h>
 
 static void print_syntax(void)
@@ -51,17 +53,80 @@ static void print_syntax(void)
 	    "\t--dump-vric Dump instruction code with virtual registers\n");
 }
 
+/** Replace filename extension with a different one.
+ *
+ * Extension is considered to be the part of filename after the last
+ * period '.'. This part is replaced with @a newext. If file has no
+ * extension, @a newext is added after a period.
+ *
+ * @param fname File name
+ * @param newext New extension
+ * @param rnewname Place to store pointer to newly constructed name
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int ext_replace(const char *fname, const char *newext,
+    char **rnewname)
+{
+	char *period;
+	char *basename = NULL;
+	char *newname = NULL;
+	size_t nchars;
+	int rv;
+
+	period = strrchr(fname, '.');
+
+	/* Compute number of characters to copy (this excludes the '.') */
+	if (period != NULL)
+		nchars = period - fname;
+	else
+		nchars = strlen(fname);
+
+	/* Copy just the base name */
+	basename = malloc(nchars + 1);
+	if (basename == NULL)
+		goto error;
+
+	strncpy(basename, fname, nchars);
+	basename[nchars] = '\0';
+
+	rv = asprintf(&newname, "%s.%s", basename, newext);
+	if (rv < 0) {
+		newname = NULL;
+		goto error;
+	}
+
+	*rnewname = newname;
+	return EOK;
+error:
+	if (basename != NULL)
+		free(basename);
+	return ENOMEM;
+}
+
 static int compile_file(const char *fname, comp_flags_t flags)
 {
 	int rc;
 	comp_t *comp = NULL;
 	file_input_t finput;
 	FILE *f = NULL;
+	FILE *outf = NULL;
+	char *outfname = NULL;
+
+	rc = ext_replace(fname, "asm", &outfname);
+	if (rc != EOK)
+		goto error;
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
 		fprintf(stderr, "Cannot open '%s'.\n", fname);
 		rc = ENOENT;
+		goto error;
+	}
+
+	outf = fopen(outfname, "wt");
+	if (outf == NULL) {
+		fprintf(stderr, "Cannot open '%s'.\n", outfname);
+		rc = EIO;
 		goto error;
 	}
 
@@ -87,7 +152,7 @@ static int compile_file(const char *fname, comp_flags_t flags)
 		printf("\n");
 	}
 
-	rc = comp_run(comp);
+	rc = comp_run(comp, outf);
 	if (rc != EOK)
 		goto error;
 
@@ -103,8 +168,14 @@ static int compile_file(const char *fname, comp_flags_t flags)
 			goto error;
 	}
 
-	fclose(f);
+	if (fflush(outf) < 0) {
+		fprintf(stderr, "Error writing to '%s'.\n", outfname);
+		rc = EIO;
+		goto error;
+	}
 
+	fclose(f);
+	fclose(outf);
 	comp_destroy(comp);
 
 	return EOK;
@@ -113,6 +184,8 @@ error:
 		comp_destroy(comp);
 	if (f != NULL)
 		fclose(f);
+	if (outf != NULL)
+		fclose(outf);
 	return rc;
 }
 
@@ -151,6 +224,11 @@ int main(int argc, char *argv[])
 
 		rc = test_z80_isel();
 		printf("test_z80_isel -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
+		rc = test_z80_ralloc();
+		printf("test_z80_ralloc -> %d\n", rc);
 		if (rc != EOK)
 			return 1;
 

@@ -52,7 +52,7 @@ static int test_comp_string(const char *str)
 	if (rc != EOK)
 		return rc;
 
-	rc = comp_run(comp);
+	rc = comp_run(comp, stdout);
 	if (rc != EOK)
 		return rc;
 

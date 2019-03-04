@@ -56,6 +56,8 @@ typedef struct comp_module {
 	ir_module_t *ir;
 	/** Module Z80 IC with virtual registers */
 	z80ic_module_t *vric;
+	/** Module Z80 IC */
+	z80ic_module_t *ic;
 } comp_module_t;
 
 /** Compiler */

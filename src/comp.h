@@ -36,7 +36,8 @@ extern int comp_dump_ast(comp_t *, FILE *);
 extern int comp_dump_toks(comp_t *, FILE *);
 extern int comp_dump_ir(comp_t *, FILE *);
 extern int comp_dump_vric(comp_t *, FILE *);
+extern int comp_dump_ic(comp_t *, FILE *);
 extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *);
+extern int comp_run(comp_t *, FILE *);
 
 #endif

@@ -36,6 +36,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <z80/isel.h>
+#include <z80/ralloc.h>
 #include <z80/z80ic.h>
 
 static void comp_parser_read_tok(void *, void *, unsigned, bool,
@@ -365,12 +366,14 @@ static int comp_build_ast(comp_t *comp)
 /** Run compiler.
  *
  * @param comp Compiler
+ * @param outf Output file (for writing assembly)
  */
-int comp_run(comp_t *comp)
+int comp_run(comp_t *comp, FILE *outf)
 {
 	int rc;
 	cgen_t *cgen = NULL;
 	z80_isel_t *isel = NULL;
+	z80_ralloc_t *ralloc = NULL;
 
 	if (comp->mod == NULL || comp->mod->ast == NULL) {
 		rc = comp_build_ast(comp);
@@ -411,6 +414,26 @@ int comp_run(comp_t *comp)
 
 		z80_isel_destroy(isel);
 		isel = NULL;
+	}
+
+	if (comp->mod->ic == NULL) {
+		rc = z80_ralloc_create(&ralloc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80_ralloc_module(ralloc, comp->mod->vric,
+		    &comp->mod->ic);
+		if (rc != EOK)
+			goto error;
+
+		z80_ralloc_destroy(ralloc);
+		ralloc = NULL;
+	}
+
+	if (outf != NULL) {
+		rc = comp_dump_ic(comp, outf);
+		if (rc != EOK)
+			goto error;
 	}
 
 	return EOK;
@@ -500,6 +523,21 @@ int comp_dump_vric(comp_t *comp, FILE *f)
 
 	assert(comp->mod->vric != NULL);
 	rc = z80ic_module_print(comp->mod->vric, f);
+	return rc;
+}
+
+/** Dump instruction code.
+ *
+ * @param comp Compiler
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int comp_dump_ic(comp_t *comp, FILE *f)
+{
+	int rc;
+
+	assert(comp->mod->ic != NULL);
+	rc = z80ic_module_print(comp->mod->ic, f);
 	return rc;
 }
 

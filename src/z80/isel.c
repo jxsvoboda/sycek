@@ -21,9 +21,9 @@
  */
 
 /*
- * Instruction selector
+ * Z80 Instruction selector
  *
- * Generate IR (machine-independent assembly) from abstract syntax tree (AST).
+ * Convert (machine-independent) IR to Z80 IC with virtual registers.
  */
 
 #include <assert.h>
@@ -127,7 +127,7 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR add instruction
- * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
 static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
@@ -214,7 +214,7 @@ error:
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR add instruction
- * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
 static int z80_isel_ldimm(z80_isel_proc_t *isproc, const char *label,
@@ -272,7 +272,7 @@ error:
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR add instruction
- * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
 static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
@@ -345,7 +345,7 @@ error:
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR instruction
- * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
 static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
@@ -367,7 +367,7 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 /** Select instructions code for procedure.
  *
  * @param isel Instruction selector
- * @param proc IR procedure
+ * @param irproc IR procedure
  * @param icmod Z80 IC module to which the code should be appended
  * @return EOK on success or an error code
  */

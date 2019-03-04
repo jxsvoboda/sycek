@@ -21,61 +21,18 @@
  */
 
 /*
- * Test instruction selection
+ * Z80 register allocation
  */
 
-#include <ir.h>
-#include <merrno.h>
-#include <test/z80/isel.h>
-#include <z80/isel.h>
-#include <z80/z80ic.h>
+#ifndef Z80_RALLOC_H
+#define Z80_RALLOC_H
 
-/** Test instruction selection for module.
- *
- * @return EOK on success or non-zero error code
- */
-static int test_isel_module(void)
-{
-	int rc;
-	z80_isel_t *isel = NULL;
-	ir_module_t *irmodule = NULL;
-	z80ic_module_t *icmodule = NULL;
+#include <types/z80/ralloc.h>
+#include <types/z80/z80ic.h>
 
-	rc = z80_isel_create(&isel);
-	if (rc != EOK)
-		goto error;
+extern int z80_ralloc_create(z80_ralloc_t **);
+extern int z80_ralloc_module(z80_ralloc_t *, z80ic_module_t *,
+    z80ic_module_t **);
+extern void z80_ralloc_destroy(z80_ralloc_t *);
 
-	rc = ir_module_create(&irmodule);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80_isel_module(isel, irmodule, &icmodule);
-	if (rc != EOK)
-		goto error;
-
-	ir_module_destroy(irmodule);
-	z80ic_module_destroy(icmodule);
-	z80_isel_destroy(isel);
-
-	return EOK;
-error:
-	ir_module_destroy(irmodule);
-	z80ic_module_destroy(icmodule);
-	z80_isel_destroy(isel);
-	return rc;
-}
-
-/** Run instruction selection tests.
- *
- * @return EOK on success or non-zero error code
- */
-int test_z80_isel(void)
-{
-	int rc;
-
-	rc = test_isel_module();
-	if (rc != EOK)
-		return rc;
-
-	return EOK;
-}
+#endif

@@ -62,8 +62,10 @@ sources_syc_common = \
     src/test/comp.c \
     src/test/ir.c \
     src/test/z80/isel.c \
+    src/test/z80/ralloc.c \
     src/test/z80/z80ic.c \
     src/z80/isel.c \
+    src/z80/ralloc.c \
     src/z80/z80ic.c
 
 sources_hcompat = \
