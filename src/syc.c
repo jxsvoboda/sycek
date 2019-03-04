@@ -95,6 +95,7 @@ static int ext_replace(const char *fname, const char *newext,
 		goto error;
 	}
 
+	free(basename);
 	*rnewname = newname;
 	return EOK;
 error:
@@ -176,6 +177,7 @@ static int compile_file(const char *fname, comp_flags_t flags)
 
 	fclose(f);
 	fclose(outf);
+	free(outfname);
 	comp_destroy(comp);
 
 	return EOK;
@@ -186,6 +188,8 @@ error:
 		fclose(f);
 	if (outf != NULL)
 		fclose(outf);
+	if (outfname != NULL)
+		free(outfname);
 	return rc;
 }
 
