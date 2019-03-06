@@ -83,6 +83,18 @@ static void z80_ralloc_proc_destroy(z80_ralloc_proc_t *raproc)
 	free(raproc);
 }
 
+/** Check and return displacement.
+ *
+ * XXX Make this a mandatory part of setting the displacement in z80ic
+ */
+static int8_t z80_ralloc_disp(long disp)
+{
+	assert(disp >= -128);
+	assert(disp <= 127);
+
+	return (int8_t) disp;
+}
+
 /** Add instructions to allocate a stack frame.
  *
  * @param nbytes Stack frame size in bytes
@@ -230,6 +242,82 @@ error:
 	return rc;
 }
 
+/** Save 16-bit register to stack frame slot of particular VR.
+ *
+ * @param raproc Register allocator for procedure
+ * @param label Label for the first instruction
+ * @param reg Physical register to save
+ * @param vregno Virtual register number
+ * @param lblock Labeled block to which to append the instructions
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_spill_r16(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_r16_t reg, unsigned vregno, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_iixd_r_t *ldl = NULL;
+	z80ic_oper_reg_t *regl = NULL;
+	z80ic_ld_iixd_r_t *ldh = NULL;
+	z80ic_oper_reg_t *regh = NULL;
+	int rc;
+
+	(void) raproc;
+
+	assert(reg == z80ic_r16_hl);
+
+	/* ld (IX+d), L */
+
+	rc = z80ic_ld_iixd_r_create(&ldl);
+	if (rc != EOK)
+		goto error;
+
+	ldl->disp = z80_ralloc_disp(-2 * (1 + (long) vregno));
+
+	rc = z80ic_oper_reg_create(z80ic_reg_l, &regl);
+	if (rc != EOK)
+		goto error;
+
+	ldl->src = regl;
+	regl = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ldl->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldl = NULL;
+
+	/* ld (IX+d), H */
+
+	rc = z80ic_ld_iixd_r_create(&ldh);
+	if (rc != EOK)
+		goto error;
+
+	ldh->disp = z80_ralloc_disp(-2 * (1 + (long) vregno) + 1);
+
+	rc = z80ic_oper_reg_create(z80ic_reg_h, &regh);
+	if (rc != EOK)
+		goto error;
+
+	ldh->src = regh;
+	regh = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldh->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldh = NULL;
+	return EOK;
+error:
+	if (ldl != NULL)
+		z80ic_instr_destroy(&ldl->instr);
+	if (ldh != NULL)
+		z80ic_instr_destroy(&ldh->instr);
+	z80ic_oper_reg_destroy(regl);
+	z80ic_oper_reg_destroy(regh);
+
+	return rc;
+}
+
 /** Append instructions to de allocate the stack frame.
  *
  * @param lblock Logical block
@@ -262,8 +350,8 @@ error:
 /** Allocate registers for Z80 return instruction.
  *
  * @param raproc Register allocator for procedure
- * @param vrret Return instruction with VR
- * @param lblock Labeled block where to append the new instruction
+ * @param vrret Return instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
  * @return EOK on success or an error code
  */
 static int z80_ralloc_ret(z80_ralloc_proc_t *raproc, const char *label,
@@ -291,7 +379,64 @@ static int z80_ralloc_ret(z80_ralloc_proc_t *raproc, const char *label,
 	ret = NULL;
 	return EOK;
 error:
-	z80ic_instr_destroy(&ret->instr);
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+	return rc;
+}
+
+/** Allocate registers for Z80 load virtual register pair from 16-bit
+ * immediate instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrld Load instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_ld_vrr_nn(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_ld_vrr_nn_t *vrld, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_dd_nn_t *ldnn = NULL;
+	z80ic_oper_dd_t *dd = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	int rc;
+
+	(void) raproc;
+
+	/* ld HL, nn */
+
+	rc = z80ic_ld_dd_nn_create(&ldnn);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_dd_create(z80ic_dd_hl, &dd);
+	if (rc != EOK)
+		goto error;
+
+	ldnn->dest = dd;
+
+	rc = z80ic_oper_imm16_create_val(vrld->imm16->imm16, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldnn->imm16 = imm;
+
+	rc = z80ic_lblock_append(lblock, label, &ldnn->instr);
+	if (rc != EOK)
+		goto error;
+
+	/* Spill HL */
+	rc = z80_ralloc_spill_r16(raproc, NULL, z80ic_r16_hl,
+	    vrld->dest->vregno, lblock);
+	if (rc != EOK)
+		goto error;
+
+	ldnn = NULL;
+	return EOK;
+error:
+	if (ldnn != NULL)
+		z80ic_instr_destroy(&ldnn->instr);
+	z80ic_oper_dd_destroy(dd);
+	z80ic_oper_imm16_destroy(imm);
 	return rc;
 }
 
@@ -309,6 +454,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ret:
 		return z80_ralloc_ret(raproc, label,
 		    (z80ic_ret_t *) vrinstr->ext, lblock);
+	case z80i_ld_vrr_nn:
+		return z80_ralloc_ld_vrr_nn(raproc, label,
+		    (z80ic_ld_vrr_nn_t *) vrinstr->ext, lblock);
 	default:
 		return EOK;
 		assert(false);

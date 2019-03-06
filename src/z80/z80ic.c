@@ -47,6 +47,14 @@ static const char *z80ic_reg_name[] = {
 	[z80ic_reg_l] = "L"
 };
 
+/** Z80 16-bit dd register names */
+static const char *z80ic_dd_name[] = {
+	[z80ic_pp_bc] = "BC",
+	[z80ic_pp_de] = "DE",
+	[z80ic_pp_ix] = "HL",
+	[z80ic_pp_sp] = "SP"
+};
+
 /** Z80 16-bit pp register names */
 static const char *z80ic_pp_name[] = {
 	[z80ic_pp_bc] = "BC",
@@ -480,6 +488,94 @@ z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *cur)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
+/** Create Z80 IC load (IX+d) from register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_iixd_r_create(z80ic_ld_iixd_r_t **rinstr)
+{
+	z80ic_ld_iixd_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_iixd_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_iixd_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load (IX+d) from register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_iixd_r_print(z80ic_ld_iixd_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "ld (IX%+" PRId8 "), ", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Create Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_dd_nn_create(z80ic_ld_dd_nn_t **rinstr)
+{
+	z80ic_ld_dd_nn_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_dd_nn_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_dd_nn;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_dd_nn_print(z80ic_ld_dd_nn_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_dd_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 /** Create Z80 IC load IX from 16-bit immediate instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -499,8 +595,7 @@ int z80ic_ld_ix_nn_create(z80ic_ld_ix_nn_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC load virtual register pair from virtual register pair
- * instruction.
+/** Print Z80 IC load IX from 16-bit immediate instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -924,6 +1019,12 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		return EIO;
 
 	switch (instr->itype) {
+	case z80i_ld_iixd_r:
+		rc = z80ic_ld_iixd_r_print((z80ic_ld_iixd_r_t *) instr->ext, f);
+		break;
+	case z80i_ld_dd_nn:
+		rc = z80ic_ld_dd_nn_print((z80ic_ld_dd_nn_t *) instr->ext, f);
+		break;
 	case z80i_ld_ix_nn:
 		rc = z80ic_ld_ix_nn_print((z80ic_ld_ix_nn_t *) instr->ext, f);
 		break;
@@ -1158,6 +1259,52 @@ int z80ic_oper_reg_print(z80ic_oper_reg_t *reg, FILE *f)
 void z80ic_oper_reg_destroy(z80ic_oper_reg_t *reg)
 {
 	free(reg);
+}
+
+/** Create Z80 IC 16-bit dd register operand.
+ *
+ * @param rdd 16-bit dd register
+ * @param rreg Place to store pointer to new Z80 IC register operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_oper_dd_create(z80ic_dd_t rdd, z80ic_oper_dd_t **rodd)
+{
+	z80ic_oper_dd_t *odd;
+
+	odd = calloc(1, sizeof(z80ic_oper_dd_t));
+	if (odd == NULL)
+		return ENOMEM;
+
+	odd->rdd = rdd;
+
+	*rodd = odd;
+	return EOK;
+}
+
+/** Print Z80 IC 16-bit dd register operand.
+ *
+ * @param dd Z80 IC 16-bit dd register operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_oper_dd_print(z80ic_oper_dd_t *dd, FILE *f)
+{
+	int rv;
+
+	rv = fputs(z80ic_dd_name[dd->rdd], f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC 16-bit dd register operand.
+ *
+ * @param dd Z80 IC 16-bit dd register operand
+ */
+void z80ic_oper_dd_destroy(z80ic_oper_dd_t *dd)
+{
+	free(dd);
 }
 
 /** Create Z80 IC 16-bit pp register operand.

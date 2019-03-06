@@ -684,6 +684,21 @@ typedef enum {
 	z80ic_reg_l = 0x5
 } z80ic_reg_t;
 
+/** Z80 IC dd register pair.
+ *
+ * One of the four 16-bit registers BC, DE, HL, SP.
+ */
+typedef enum {
+	/** BC register pair */
+	z80ic_dd_bc,
+	/** DE register pair */
+	z80ic_dd_de,
+	/** HL register pair */
+	z80ic_dd_hl,
+	/** SP 16-bit register */
+	z80ic_dd_sp
+} z80ic_dd_t;
+
 /** Z80 IC pp register pair.
  *
  * One of the four 16-bit registers BC, DE, IX, SP.
@@ -731,6 +746,15 @@ typedef struct {
 	/** Register */
 	z80ic_reg_t reg;
 } z80ic_oper_reg_t;
+
+/** Z80 IC dd register pair operand.
+ *
+ * One of the four 16-bit registers BC, DE, HL, SP.
+ */
+typedef struct {
+	/** Register */
+	z80ic_dd_t rdd;
+} z80ic_oper_dd_t;
 
 /** Z80 IC pp register pair operand.
  *
@@ -841,6 +865,26 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_ld_r_iiyd_t;
+
+/** Z80 IC load (IX+d) from register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_ld_iixd_r_t;
+
+/** Z80 IC load 16-bit dd register from 16-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_dd_t *dest;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_dd_nn_t;
 
 /** Z80 IC load IY register from 16-bit immediate */
 typedef struct {
