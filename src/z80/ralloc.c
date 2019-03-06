@@ -83,6 +83,182 @@ static void z80_ralloc_proc_destroy(z80_ralloc_proc_t *raproc)
 	free(raproc);
 }
 
+/** Add instructions to allocate a stack frame.
+ *
+ * @param nbytes Stack frame size in bytes
+ * @param lblock Logical block (must be empty)
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_sfalloc(size_t nbytes, z80ic_lblock_t *lblock)
+{
+	z80ic_push_ix_t *push = NULL;
+	z80ic_ld_ix_nn_t *ldix = NULL;
+	z80ic_add_ix_pp_t *addix = NULL;
+	z80ic_ld_sp_ix_t *ldspix = NULL;
+	z80ic_oper_pp_t *pp;
+	z80ic_oper_imm16_t *imm;
+	int rc;
+
+	(void) nbytes;
+
+	/*
+	 * With all the glory of the Z80 instruction set where we cannot
+	 * read the SP or add to SP, the only really feasible way to set up
+	 * a stack frame is:
+	 *
+	 *	push IX			; store previous frame pointer
+	 *	ld IX, -nbytes		; compute new stack top
+	 *	add IX, SP
+	 *	ld SP, IX		; save to SP
+	 *
+	 *	ld IX, +nbytes		; make IX point to the bottom of
+	 *	add IX, SP		; the stack frame again
+	 *
+	 * The last two instructions could be skipped as an optimization,
+	 * if we are sure the stack frame fits into 127 bytes anyway or
+	 * modified to cover more area if we have little arguments and
+	 * many locals or vice versa.
+	 */
+
+	/* push IX */
+
+	rc = z80ic_push_ix_create(&push);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
+	push = NULL;
+
+	/* ld IX, -nbytes */
+
+	rc = z80ic_ld_ix_nn_create(&ldix);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_val(-(uint16_t) nbytes, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldix->imm16 = imm;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldix = NULL;
+
+	/* add IX, SP */
+
+	rc = z80ic_add_ix_pp_create(&addix);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_pp_create(z80ic_pp_sp, &pp);
+	if (rc != EOK)
+		goto error;
+
+	addix->src = pp;
+
+	rc = z80ic_lblock_append(lblock, NULL, &addix->instr);
+	if (rc != EOK)
+		goto error;
+
+	addix = NULL;
+
+	/* ld SP, IX */
+
+	rc = z80ic_ld_sp_ix_create(&ldspix);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldspix->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldspix = NULL;
+
+	/* ld IX, +nbytes */
+
+	rc = z80ic_ld_ix_nn_create(&ldix);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_val((uint16_t) nbytes, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldix->imm16 = imm;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldix = NULL;
+
+	/* add IX, SP */
+
+	rc = z80ic_add_ix_pp_create(&addix);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_pp_create(z80ic_pp_sp, &pp);
+	if (rc != EOK)
+		goto error;
+
+	addix->src = pp;
+
+	rc = z80ic_lblock_append(lblock, NULL, &addix->instr);
+	if (rc != EOK)
+		goto error;
+
+	addix = NULL;
+
+	return EOK;
+error:
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	if (ldix != NULL)
+		z80ic_instr_destroy(&ldix->instr);
+	if (addix != NULL)
+		z80ic_instr_destroy(&addix->instr);
+	if (ldspix != NULL)
+		z80ic_instr_destroy(&ldspix->instr);
+
+	return rc;
+}
+
+/** Append instructions to de allocate the stack frame.
+ *
+ * @param lblock Logical block
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_sffree(z80ic_lblock_t *lblock)
+{
+	z80ic_pop_ix_t *pop = NULL;
+	int rc;
+
+	/* pop IX */
+
+	rc = z80ic_pop_ix_create(&pop);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
+	if (rc != EOK)
+		goto error;
+
+	pop = NULL;
+	return EOK;
+error:
+	if (pop != NULL)
+		z80ic_instr_destroy(&pop->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 return instruction.
  *
  * @param raproc Register allocator for procedure
@@ -99,6 +275,11 @@ static int z80_ralloc_ret(z80_ralloc_proc_t *raproc, const char *label,
 	(void) raproc;
 	(void) vrret;
 
+	/* Insert epilogue to free the stack frame */
+	rc = z80_ralloc_sffree(lblock);
+	if (rc != EOK)
+		goto error;
+
 	rc = z80ic_ret_create(&ret);
 	if (rc != EOK)
 		goto error;
@@ -113,7 +294,6 @@ error:
 	z80ic_instr_destroy(&ret->instr);
 	return rc;
 }
-
 
 /** Allocate registers for Z80 instruction.
  *
@@ -168,6 +348,12 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	if (rc != EOK)
 		goto error;
 
+	/* Insert prologue to allocate a stack frame */
+	rc = z80_ralloc_sfalloc(42, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert each instruction */
 	entry = z80ic_lblock_first(vrproc->lblock);
 	while (entry != NULL) {
 		rc = z80_ralloc_instr(raproc, entry->label, entry->instr, lblock);
