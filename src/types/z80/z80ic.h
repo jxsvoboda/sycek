@@ -966,6 +966,8 @@ typedef struct {
 	char *ident;
 	/** Labeled block containing the implementation */
 	z80ic_lblock_t *lblock;
+	/** Number of used virtual registers */
+	size_t used_vrs;
 } z80ic_proc_t;
 
 /** Z80 IC module */

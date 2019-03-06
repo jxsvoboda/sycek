@@ -57,10 +57,12 @@ static int z80_isel_mangle_proc_ident(const char *irident, char **rident)
 
 /** Get virtual register number from variable name.
  *
+ * @param rz80_isel Place to store pointer to new instruction selector
  * @param oper Variable operand referring to a local numbered variable
+ *
  * @return Virtual register number (same as variable number)
  */
-static unsigned z80_isel_get_vregno(ir_oper_t *oper)
+static unsigned z80_isel_get_vregno(z80_isel_proc_t *isproc, ir_oper_t *oper)
 {
 	ir_oper_var_t *opvar;
 	char *endptr;
@@ -72,6 +74,11 @@ static unsigned z80_isel_get_vregno(ir_oper_t *oper)
 	assert(opvar->varname[0] == '%');
 	rn = strtoul(&opvar->varname[1], &endptr, 10);
 	assert(*endptr == '\0');
+
+	/* Remember maximum size of virtual register space used */
+	if (rn + 1 > isproc->used_vrs) {
+		isproc->used_vrs = rn + 1;
+	}
 
 	return (unsigned) rn;
 }
@@ -107,6 +114,7 @@ static int z80_isel_proc_create(z80_isel_t *isel, z80_isel_proc_t **risproc)
 		return ENOMEM;
 
 	isproc->isel = isel;
+	isproc->used_vrs = 0;
 	*risproc = isproc;
 	return EOK;
 }
@@ -148,9 +156,9 @@ static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
 
 	(void) isproc;
 
-	destvr = z80_isel_get_vregno(irinstr->dest);
-	vr1 = z80_isel_get_vregno(irinstr->op1);
-	vr2 = z80_isel_get_vregno(irinstr->op2);
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
 
 	/* Load instruction */
 
@@ -237,7 +245,7 @@ static int z80_isel_ldimm(z80_isel_proc_t *isproc, const char *label,
 
 	(void) isproc;
 
-	vregno = z80_isel_get_vregno(irinstr->dest);
+	vregno = z80_isel_get_vregno(isproc, irinstr->dest);
 
 	rc = z80ic_ld_vrr_nn_create(&ldimm);
 	if (rc != EOK)
@@ -293,7 +301,7 @@ static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
 
 	(void) isproc;
 
-	vr = z80_isel_get_vregno(irinstr->op1);
+	vr = z80_isel_get_vregno(isproc, irinstr->op1);
 
 	/* Load instruction */
 
@@ -406,6 +414,8 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 
 		entry = ir_lblock_next(entry);
 	}
+
+	icproc->used_vrs = isproc->used_vrs;
 
 	free(ident);
 	z80_isel_proc_destroy(isproc);

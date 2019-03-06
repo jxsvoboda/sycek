@@ -334,7 +334,11 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	z80ic_proc_t *icproc = NULL;
 	z80ic_lblock_t *lblock = NULL;
 	z80ic_instr_t *instr = NULL;
+	size_t sfsize;
 	int rc;
+
+	/* XXX Assumes all virtual registers are 16-bit */
+	sfsize = vrproc->used_vrs * 2;
 
 	rc = z80_ralloc_proc_create(ralloc, &raproc);
 	if (rc != EOK)
@@ -349,7 +353,7 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 		goto error;
 
 	/* Insert prologue to allocate a stack frame */
-	rc = z80_ralloc_sfalloc(42, lblock);
+	rc = z80_ralloc_sfalloc(sfsize, lblock);
 	if (rc != EOK)
 		goto error;
 
