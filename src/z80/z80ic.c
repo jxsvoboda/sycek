@@ -63,6 +63,14 @@ static const char *z80ic_pp_name[] = {
 	[z80ic_pp_sp] = "SP"
 };
 
+/** Z80 16-bit ss register names */
+static const char *z80ic_ss_name[] = {
+	[z80ic_ss_bc] = "BC",
+	[z80ic_ss_de] = "DE",
+	[z80ic_ss_hl] = "HL",
+	[z80ic_ss_sp] = "SP"
+};
+
 /** Z80 16-bit register names */
 static const char *z80ic_r16_name[] = {
 	[z80ic_r16_af] = "AF",
@@ -488,6 +496,50 @@ z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *cur)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
+/** Create Z80 IC load register from (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_r_iixd_create(z80ic_ld_r_iixd_t **rinstr)
+{
+	z80ic_ld_r_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_r_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_r_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load register from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_r_iixd_print(z80ic_ld_r_iixd_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fprintf(f, ", (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Create Z80 IC load (IX+d) from register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -673,8 +725,7 @@ int z80ic_push_ix_create(z80ic_push_ix_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC load virtual register pair from virtual register pair
- * instruction.
+/** Print Z80 IC push IX instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -711,8 +762,7 @@ int z80ic_pop_ix_create(z80ic_pop_ix_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC load virtual register pair from virtual register pair
- * instruction.
+/** Print Z80 IC pop IX instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -726,6 +776,46 @@ static int z80ic_pop_ix_print(z80ic_pop_ix_t *instr, FILE *f)
 	rv = fputs("pop IX", f);
 	if (rv < 0)
 		return EIO;
+
+	return EOK;
+}
+
+/** Create Z80 IC add 16-bit ss register to HL instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_add_hl_ss_create(z80ic_add_hl_ss_t **rinstr)
+{
+	z80ic_add_hl_ss_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_add_hl_ss_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_add_hl_ss;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add 16-bit ss register to HL instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_add_hl_ss_print(z80ic_add_hl_ss_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("add HL, ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_ss_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1019,6 +1109,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		return EIO;
 
 	switch (instr->itype) {
+	case z80i_ld_r_iixd:
+		rc = z80ic_ld_r_iixd_print((z80ic_ld_r_iixd_t *) instr->ext, f);
+		break;
 	case z80i_ld_iixd_r:
 		rc = z80ic_ld_iixd_r_print((z80ic_ld_iixd_r_t *) instr->ext, f);
 		break;
@@ -1036,6 +1129,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_pop_ix:
 		rc = z80ic_pop_ix_print((z80ic_pop_ix_t *) instr->ext, f);
+		break;
+	case z80i_add_hl_ss:
+		rc = z80ic_add_hl_ss_print((z80ic_add_hl_ss_t *) instr->ext, f);
 		break;
 	case z80i_add_ix_pp:
 		rc = z80ic_add_ix_pp_print((z80ic_add_ix_pp_t *) instr->ext, f);
@@ -1353,6 +1449,52 @@ void z80ic_oper_pp_destroy(z80ic_oper_pp_t *pp)
 	free(pp);
 }
 
+/** Create Z80 IC 16-bit ss register operand.
+ *
+ * @param rss 16-bit ss register
+ * @param rreg Place to store pointer to new Z80 IC register operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_oper_ss_create(z80ic_ss_t rss, z80ic_oper_ss_t **ross)
+{
+	z80ic_oper_ss_t *oss;
+
+	oss = calloc(1, sizeof(z80ic_oper_ss_t));
+	if (oss == NULL)
+		return ENOMEM;
+
+	oss->rss = rss;
+
+	*ross = oss;
+	return EOK;
+}
+
+/** Print Z80 IC 16-bit ss register operand.
+ *
+ * @param ss Z80 IC 16-bit ss register operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_oper_ss_print(z80ic_oper_ss_t *ss, FILE *f)
+{
+	int rv;
+
+	rv = fputs(z80ic_ss_name[ss->rss], f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC 16-bit ss register operand.
+ *
+ * @param ss Z80 IC 16-bit ss register operand
+ */
+void z80ic_oper_ss_destroy(z80ic_oper_ss_t *ss)
+{
+	free(ss);
+}
+
 /** Create Z80 IC 16-bit register operand.
  *
  * @param reg Register
@@ -1488,4 +1630,65 @@ int z80ic_oper_vrr_print(z80ic_oper_vrr_t *vrr, FILE *f)
 void z80ic_oper_vrr_destroy(z80ic_oper_vrr_t *vrr)
 {
 	free(vrr);
+}
+
+/** Get lower half of 16-bit register.
+ *
+ * The lower half of the register must be addressable, otherwise the
+ * result is undefined (cannot address lower half of AF, IX, IY, SP)
+ *
+ * @param r16 16-bit register (must be a register pair, not AF)
+ * @return Which 8-bit register is the lower half of the pair
+ */
+z80ic_reg_t z80ic_r16_lo(z80ic_r16_t r16)
+{
+	switch (r16) {
+	case z80ic_r16_af:
+		assert(false);
+		return 0;
+	case z80ic_r16_bc:
+		return z80ic_reg_c;
+	case z80ic_r16_de:
+		return z80ic_reg_e;
+	case z80ic_r16_hl:
+		return z80ic_reg_l;
+	case z80ic_r16_ix:
+	case z80ic_r16_iy:
+	case z80ic_r16_sp:
+		assert(false);
+		return 0;
+	}
+
+	assert(false);
+	return 0;
+}
+
+/** Get upper half of 16-bit register.
+ *
+ * The upper half of the register must be addressable, otherwise the
+ * result is undefined (cannot address upper half of IX, IY, SP)
+ *
+ * @param r16 16-bit register (must be a register pair)
+ * @return Which 8-bit register is the upper half of the pair
+ */
+z80ic_reg_t z80ic_r16_hi(z80ic_r16_t r16)
+{
+	switch (r16) {
+	case z80ic_r16_af:
+		return z80ic_reg_a;
+	case z80ic_r16_bc:
+		return z80ic_reg_b;
+	case z80ic_r16_de:
+		return z80ic_reg_d;
+	case z80ic_r16_hl:
+		return z80ic_reg_h;
+	case z80ic_r16_ix:
+	case z80ic_r16_iy:
+	case z80ic_r16_sp:
+		assert(false);
+		return 0;
+	}
+
+	assert(false);
+	return 0;
 }

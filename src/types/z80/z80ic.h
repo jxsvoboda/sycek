@@ -47,6 +47,10 @@ typedef enum {
 	z80i_ld_r_n,
 	/** Load register from (HL) */
 	z80i_ld_r_ihl,
+	/** Load register from (IX+d) */
+	z80i_ld_r_iixd,
+	/** Load register from (IY+d) */
+	z80i_ld_r_iiyd,
 	/** Load (HL) from register */
 	z80i_ld_ihl_r,
 	/** Load (IX+d) from register */
@@ -714,6 +718,21 @@ typedef enum {
 	z80ic_pp_sp
 } z80ic_pp_t;
 
+/** Z80 IC ss register pair.
+ *
+ * One of the four 16-bit registers BC, DE, HL, SP.
+ */
+typedef enum {
+	/** BC register pair */
+	z80ic_ss_bc,
+	/** DE register pair */
+	z80ic_ss_de,
+	/** HL register pair */
+	z80ic_ss_hl,
+	/** SP 16-bit register */
+	z80ic_ss_sp
+} z80ic_ss_t;
+
 /** Z80 IC 16-bit register.
  *
  * This specifies any register pair / 16-bit register. This is not used
@@ -764,6 +783,15 @@ typedef struct {
 	/** Register */
 	z80ic_pp_t rpp;
 } z80ic_oper_pp_t;
+
+/** Z80 IC ss register pair operand.
+ *
+ * One of the four 16-bit registers BC, DE, IX, SP.
+ */
+typedef struct {
+	/** Register */
+	z80ic_ss_t rss;
+} z80ic_oper_ss_t;
 
 /** Z80 IC 16-bit register operand.
  *
@@ -911,6 +939,14 @@ typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
+
+/** Z80 IC add 16-bit register to HL */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register pair */
+	z80ic_oper_ss_t *src;
+} z80ic_add_hl_ss_t;
 
 /** Z80 IC add 16-bit register to IX */
 typedef struct {
