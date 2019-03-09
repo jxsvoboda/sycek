@@ -28,7 +28,6 @@
  */
 
 #include <assert.h>
-#include <ir.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -743,7 +742,7 @@ static int z80_ralloc_decln(z80_ralloc_t *ralloc, z80ic_decln_t *decln,
 	int rc;
 
 	switch (decln->dtype) {
-	case ird_proc:
+	case z80icd_proc:
 		rc = z80_ralloc_proc(ralloc, (z80ic_proc_t *) decln->ext, icmod);
 		break;
 	default:
