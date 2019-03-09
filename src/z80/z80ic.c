@@ -216,6 +216,8 @@ void z80ic_module_destroy(z80ic_module_t *module)
 
 		decln = z80ic_module_first(module);
 	}
+
+	free(module);
 }
 
 /** Destroy Z80 IC declaration.
@@ -430,6 +432,8 @@ void z80ic_lblock_destroy(z80ic_lblock_t *lblock)
 
 		entry = z80ic_lblock_first(lblock);
 	}
+
+	free(lblock);
 }
 
 /** Get first entry in Z80 IC labeled block.
@@ -540,6 +544,15 @@ static int z80ic_ld_r_iixd_print(z80ic_ld_r_iixd_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load register from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_r_iixd_destroy(z80ic_ld_r_iixd_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->dest);
+}
+
 /** Create Z80 IC load (IX+d) from register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -578,6 +591,15 @@ static int z80ic_ld_iixd_r_print(z80ic_ld_iixd_r_t *instr, FILE *f)
 		return rc;
 
 	return EOK;
+}
+
+/** Destroy Z80 IC load (IX+d) from register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_iixd_r_destroy(z80ic_ld_iixd_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->src);
 }
 
 /** Create Z80 IC load 16-bit dd register from 16-bit immediate instruction.
@@ -628,6 +650,16 @@ static int z80ic_ld_dd_nn_print(z80ic_ld_dd_nn_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_dd_nn_destroy(z80ic_ld_dd_nn_t *instr)
+{
+	z80ic_oper_dd_destroy(instr->dest);
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
 /** Create Z80 IC load IX from 16-bit immediate instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -668,6 +700,15 @@ static int z80ic_ld_ix_nn_print(z80ic_ld_ix_nn_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load IX from 16-bit immediate instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_ix_nn_destroy(z80ic_ld_ix_nn_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
 /** Create Z80 IC load SP from IX instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -706,6 +747,18 @@ static int z80ic_ld_sp_ix_print(z80ic_ld_sp_ix_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load virtual register pair from virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_sp_ix_destroy(z80ic_ld_sp_ix_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+
 /** Create Z80 IC push IX instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -743,6 +796,16 @@ static int z80ic_push_ix_print(z80ic_push_ix_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC push IX instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_push_ix_destroy(z80ic_push_ix_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
 /** Create Z80 IC pop IX instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -778,6 +841,16 @@ static int z80ic_pop_ix_print(z80ic_pop_ix_t *instr, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy Z80 IC pop IX instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_pop_ix_destroy(z80ic_pop_ix_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
 }
 
 /** Create Z80 IC add 16-bit ss register to HL instruction.
@@ -818,6 +891,15 @@ static int z80ic_add_hl_ss_print(z80ic_add_hl_ss_t *instr, FILE *f)
 		return rc;
 
 	return EOK;
+}
+
+/** Destroy Z80 IC add 16-bit ss register to HL instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_add_hl_ss_destroy(z80ic_add_hl_ss_t *instr)
+{
+	z80ic_oper_ss_destroy(instr->src);
 }
 
 /** Create Z80 IC add 16-bit pp register to IX instruction.
@@ -861,6 +943,16 @@ static int z80ic_add_ix_pp_print(z80ic_add_ix_pp_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load virtual register pair from virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_add_ix_pp_destroy(z80ic_add_ix_pp_t *instr)
+{
+	z80ic_oper_pp_destroy(instr->src);
+}
+
 /** Create Z80 IC return instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -896,6 +988,16 @@ static int z80ic_ret_print(z80ic_ret_t *instr, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Destroy Z80 IC return instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ret_destroy(z80ic_ret_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
 }
 
 /** Create Z80 IC load virtual register pair from virtual register pair
@@ -948,6 +1050,17 @@ static int z80ic_ld_vrr_vrr_print(z80ic_ld_vrr_vrr_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load virtual register pair from virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_vrr_vrr_destroy(z80ic_ld_vrr_vrr_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->dest);
+	z80ic_oper_vrr_destroy(instr->src);
+}
+
 /** Create Z80 IC load 16-bit register from virtual register pair instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -994,6 +1107,16 @@ static int z80ic_ld_r16_vrr_print(z80ic_ld_r16_vrr_t *instr, FILE *f)
 		return rc;
 
 	return EOK;
+}
+
+/** Destroy Z80 IC load 16-bit register from virtual register pair instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_r16_vrr_destroy(z80ic_ld_r16_vrr_t *instr)
+{
+	z80ic_oper_r16_destroy(instr->dest);
+	z80ic_oper_vrr_destroy(instr->src);
 }
 
 /** Create Z80 IC load virtual register pair from 16-bit immediate instruction.
@@ -1044,6 +1167,16 @@ static int z80ic_ld_vrr_nn_print(z80ic_ld_vrr_nn_t *instr, FILE *f)
 	return EOK;
 }
 
+/** Destroy Z80 IC load virtual register pair from 16-bit immediate instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_vrr_nn_destroy(z80ic_ld_vrr_nn_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->dest);
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
 /** Create Z80 IC add virtual register pair to virtual register
  * pair instruction.
  *
@@ -1092,6 +1225,17 @@ static int z80ic_add_vrr_vrr_print(z80ic_add_vrr_vrr_t *instr, FILE *f)
 		return rc;
 
 	return EOK;
+}
+
+/** Destroy Z80 IC add virtual register pair to virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_add_vrr_vrr_destroy(z80ic_add_vrr_vrr_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->dest);
+	z80ic_oper_vrr_destroy(instr->src);
 }
 
 /** Print Z80 IC instruction.
@@ -1176,7 +1320,53 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	if (instr == NULL)
 		return;
 
-	// TODO
+	switch (instr->itype) {
+	case z80i_ld_r_iixd:
+		z80ic_ld_r_iixd_destroy((z80ic_ld_r_iixd_t *) instr->ext);
+		break;
+	case z80i_ld_iixd_r:
+		z80ic_ld_iixd_r_destroy((z80ic_ld_iixd_r_t *) instr->ext);
+		break;
+	case z80i_ld_dd_nn:
+		z80ic_ld_dd_nn_destroy((z80ic_ld_dd_nn_t *) instr->ext);
+		break;
+	case z80i_ld_ix_nn:
+		z80ic_ld_ix_nn_destroy((z80ic_ld_ix_nn_t *) instr->ext);
+		break;
+	case z80i_ld_sp_ix:
+		z80ic_ld_sp_ix_destroy((z80ic_ld_sp_ix_t *) instr->ext);
+		break;
+	case z80i_push_ix:
+		z80ic_push_ix_destroy((z80ic_push_ix_t *) instr->ext);
+		break;
+	case z80i_pop_ix:
+		z80ic_pop_ix_destroy((z80ic_pop_ix_t *) instr->ext);
+		break;
+	case z80i_add_hl_ss:
+		z80ic_add_hl_ss_destroy((z80ic_add_hl_ss_t *) instr->ext);
+		break;
+	case z80i_add_ix_pp:
+		z80ic_add_ix_pp_destroy((z80ic_add_ix_pp_t *) instr->ext);
+		break;
+	case z80i_ret:
+		z80ic_ret_destroy((z80ic_ret_t *) instr->ext);
+		break;
+	case z80i_ld_vrr_vrr:
+		z80ic_ld_vrr_vrr_destroy((z80ic_ld_vrr_vrr_t *) instr->ext);
+		break;
+	case z80i_ld_r16_vrr:
+		z80ic_ld_r16_vrr_destroy((z80ic_ld_r16_vrr_t *) instr->ext);
+		break;
+	case z80i_ld_vrr_nn:
+		z80ic_ld_vrr_nn_destroy((z80ic_ld_vrr_nn_t *) instr->ext);
+		break;
+	case z80i_add_vrr_vrr:
+		z80ic_add_vrr_vrr_destroy((z80ic_add_vrr_vrr_t *) instr->ext);
+		break;
+	default:
+		assert(false);
+		break;
+	}
 
 	free(instr);
 }

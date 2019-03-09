@@ -113,6 +113,8 @@ static int cgen_create_new_lvar_oper(cgen_proc_t *cgproc,
 	if (rc != EOK)
 		goto error;
 
+	free(svar);
+
 	*roper = oper;
 	return EOK;
 error:

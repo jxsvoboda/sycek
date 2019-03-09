@@ -184,6 +184,8 @@ void ir_module_destroy(ir_module_t *module)
 
 		decln = ir_module_first(module);
 	}
+
+	free(module);
 }
 
 /** Destroy IR declaration.
@@ -402,6 +404,8 @@ void ir_lblock_destroy(ir_lblock_t *lblock)
 
 		entry = ir_lblock_first(lblock);
 	}
+
+	free(lblock);
 }
 
 /** Get first entry in IR labeled block.

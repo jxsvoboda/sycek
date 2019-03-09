@@ -87,14 +87,18 @@ static void comp_module_destroy(comp_module_t *module)
 	if (module == NULL)
 		return;
 
-	if (module->ast != NULL)
-		ast_tree_destroy(&module->ast->node);
-
 	tok = comp_module_first_tok(module);
 	while (tok != NULL) {
 		comp_remove_token(tok);
 		tok = comp_module_first_tok(module);
 	}
+
+	if (module->ast != NULL)
+		ast_tree_destroy(&module->ast->node);
+
+	ir_module_destroy(module->ir);
+	z80ic_module_destroy(module->vric);
+	z80ic_module_destroy(module->ic);
 
 	free(module);
 }
