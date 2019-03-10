@@ -242,6 +242,48 @@ error:
 	return rc;
 }
 
+/** Append instructions to deallocate the stack frame.
+ *
+ * @param lblock Logical block
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_sffree(z80ic_lblock_t *lblock)
+{
+	z80ic_ld_sp_ix_t *ldspix = NULL;
+	z80ic_pop_ix_t *pop = NULL;
+	int rc;
+
+	/* ld SP, IX */
+
+	rc = z80ic_ld_sp_ix_create(&ldspix);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldspix->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldspix = NULL;
+
+	/* pop IX */
+
+	rc = z80ic_pop_ix_create(&pop);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
+	if (rc != EOK)
+		goto error;
+
+	pop = NULL;
+	return EOK;
+error:
+	if (pop != NULL)
+		z80ic_instr_destroy(&pop->instr);
+
+	return rc;
+}
+
 /** Load 16-bit register from stack frame slot of particular VR.
  *
  * @param raproc Register allocator for procedure
@@ -386,35 +428,6 @@ error:
 		z80ic_instr_destroy(&ldh->instr);
 	z80ic_oper_reg_destroy(regl);
 	z80ic_oper_reg_destroy(regh);
-
-	return rc;
-}
-
-/** Append instructions to de allocate the stack frame.
- *
- * @param lblock Logical block
- * @return EOK on success, ENOMEM if out of memory
- */
-static int z80_ralloc_sffree(z80ic_lblock_t *lblock)
-{
-	z80ic_pop_ix_t *pop = NULL;
-	int rc;
-
-	/* pop IX */
-
-	rc = z80ic_pop_ix_create(&pop);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
-	if (rc != EOK)
-		goto error;
-
-	pop = NULL;
-	return EOK;
-error:
-	if (pop != NULL)
-		z80ic_instr_destroy(&pop->instr);
 
 	return rc;
 }
