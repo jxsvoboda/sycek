@@ -2,6 +2,8 @@
  * Example file for compilation with Syc.
  */
 
+int a, b = 1, c = 2;
+
 int foo(void)
 {
 	/*

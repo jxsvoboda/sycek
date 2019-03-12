@@ -356,7 +356,7 @@ static int ir_dentry_int_print(ir_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == ird_int);
 
-	rv = fprintf(f, "int.%u %" PRId32 "\n", dentry->width, dentry->value);
+	rv = fprintf(f, "int.%u %" PRId32, dentry->width, dentry->value);
 	if (rv < 0)
 		return EIO;
 
@@ -375,7 +375,7 @@ static int ir_dentry_uint_print(ir_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == ird_uint);
 
-	rv = fprintf(f, "uint.%u %" PRId32 "\n", dentry->width, dentry->value);
+	rv = fprintf(f, "uint.%u %" PRId32, dentry->width, dentry->value);
 	if (rv < 0)
 		return EIO;
 
@@ -496,6 +496,10 @@ int ir_dentry_print(ir_dentry_t *dentry, FILE *f)
 		break;
 	case ird_uint:
 		rc = ir_dentry_uint_print(dentry, f);
+		break;
+	default:
+		assert(false);
+		rc = ENOTSUP;
 		break;
 	}
 

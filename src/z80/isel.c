@@ -444,6 +444,9 @@ static int z80_isel_decln(z80_isel_t *isel, ir_decln_t *decln,
 	int rc;
 
 	switch (decln->dtype) {
+	case ird_var:
+		rc = EOK; // TODO
+		break;
 	case ird_proc:
 		rc = z80_isel_proc(isel, (ir_proc_t *) decln->ext, icmod);
 		break;

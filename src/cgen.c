@@ -481,14 +481,14 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 	return EOK;
 }
 
-/** Generate code for global declaration.
+/** Generate code for function definition.
  *
  * @param cgen Code generator
- * @param gdecln Global declaration
+ * @param gdecln Global declaration that is a function definition
  * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
+static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 {
 	ir_proc_t *proc = NULL;
 	ir_lblock_t *lblock = NULL;
@@ -498,39 +498,37 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	char *pident = NULL;
 	int rc;
 
-	if (gdecln->body != NULL) {
-		aident = ast_gdecln_get_ident(gdecln);
-		ident = (comp_tok_t *) aident->data;
-		rc = cgen_gprefix(ident->tok.text, &pident);
-		if (rc != EOK)
-			goto error;
+	aident = ast_gdecln_get_ident(gdecln);
+	ident = (comp_tok_t *) aident->data;
+	rc = cgen_gprefix(ident->tok.text, &pident);
+	if (rc != EOK)
+		goto error;
 
-		rc = ir_lblock_create(&lblock);
-		if (rc != EOK)
-			goto error;
+	rc = ir_lblock_create(&lblock);
+	if (rc != EOK)
+		goto error;
 
-		rc = cgen_proc_create(cgen, &cgproc);
-		if (rc != EOK)
-			goto error;
+	rc = cgen_proc_create(cgen, &cgproc);
+	if (rc != EOK)
+		goto error;
 
-		rc = cgen_block(cgproc, gdecln->body, lblock);
-		if (rc != EOK)
-			goto error;
+	rc = cgen_block(cgproc, gdecln->body, lblock);
+	if (rc != EOK)
+		goto error;
 
-		rc = ir_proc_create(pident, lblock, &proc);
-		if (rc != EOK)
-			goto error;
+	rc = ir_proc_create(pident, lblock, &proc);
+	if (rc != EOK)
+		goto error;
 
-		free(pident);
-		pident = NULL;
-		lblock = NULL;
+	free(pident);
+	pident = NULL;
+	lblock = NULL;
 
-		ir_module_append(irmod, &proc->decln);
-		proc = NULL;
+	ir_module_append(irmod, &proc->decln);
+	proc = NULL;
 
-		cgen_proc_destroy(cgproc);
-		cgproc = NULL;
-	}
+	cgen_proc_destroy(cgproc);
+	cgproc = NULL;
 
 	return EOK;
 error:
@@ -538,6 +536,120 @@ error:
 	cgen_proc_destroy(cgproc);
 	if (pident != NULL)
 		free(pident);
+	return rc;
+}
+
+/** Generate code for global variable definition.
+ *
+ * @param cgen Code generator
+ * @param entry Init-declarator list entry that declares a variable
+ * @param irmod IR module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
+    ir_module_t *irmod)
+{
+	ir_var_t *var = NULL;
+	ir_dblock_t *dblock = NULL;
+	ir_dentry_t *dentry = NULL;
+	ast_tok_t *aident;
+	ast_eint_t *eint;
+	comp_tok_t *ident;
+	comp_tok_t *lit;
+	char *pident = NULL;
+	int32_t initval;
+	int rc;
+
+	(void) cgen;
+
+	aident = ast_decl_get_ident(entry->decl);
+	ident = (comp_tok_t *) aident->data;
+
+	if (entry->init != NULL) {
+		if (entry->init->ntype != ant_eint)
+			goto error;
+
+		eint = (ast_eint_t *) entry->init->ext;
+
+		lit = (comp_tok_t *) eint->tlit.data;
+		rc = cgen_intlit_val(lit, &initval);
+		if (rc != EOK)
+			goto error;
+	} else {
+	}
+
+	rc = cgen_gprefix(ident->tok.text, &pident);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_create(&dblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_var_create(pident, dblock, &var);
+	if (rc != EOK)
+		goto error;
+
+	free(pident);
+	pident = NULL;
+	dblock = NULL;
+
+	rc = ir_dentry_create_int(cgen->arith_width, initval, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_append(var->dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	dentry = NULL;
+
+	ir_module_append(irmod, &var->decln);
+	var = NULL;
+
+	return EOK;
+error:
+	ir_var_destroy(var);
+	ir_dentry_destroy(dentry);
+	if (pident != NULL)
+		free(pident);
+	return rc;
+}
+
+/** Generate code for global declaration.
+ *
+ * @param cgen Code generator
+ * @param gdecln Global declaration
+ * @param irmod IR module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
+{
+	ast_idlist_entry_t *entry;
+	int rc;
+
+	if (gdecln->body != NULL) {
+		rc = cgen_fundef(cgen, gdecln, irmod);
+		if (rc != EOK)
+			goto error;
+	} else if (gdecln->idlist != NULL) {
+		/* Possibly variable declarations */
+		entry = ast_idlist_first(gdecln->idlist);
+		while (entry != NULL) {
+			if (ast_decl_is_vardecln(entry->decl)) {
+				/* Variable declaration */
+				rc = cgen_vardef(cgen, entry, irmod);
+				if (rc != EOK)
+					goto error;
+			}
+
+			entry = ast_idlist_next(entry);
+		}
+	}
+
+
+	return EOK;
+error:
 	return rc;
 }
 
