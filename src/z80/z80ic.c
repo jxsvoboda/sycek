@@ -758,7 +758,6 @@ static void z80ic_ld_sp_ix_destroy(z80ic_ld_sp_ix_t *instr)
 	(void) instr;
 }
 
-
 /** Create Z80 IC push IX instruction.
  *
  * @param rinstr Place to store pointer to new instruction

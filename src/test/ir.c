@@ -110,6 +110,107 @@ static int test_ir_module(void)
 	return EOK;
 }
 
+/** Test IR variable.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int test_ir_var(void)
+{
+	ir_var_t *var = NULL;
+	ir_dblock_t *dblock = NULL;
+	int rc;
+
+	rc = ir_dblock_create(&dblock);
+	if (rc != EOK)
+		return rc;
+
+	assert(dblock != NULL);
+
+	rc = ir_var_create("@myvar", dblock, &var);
+	if (rc != EOK)
+		return rc;
+
+	assert(var != NULL);
+
+	rc = ir_var_print(var, stdout);
+	if (rc != EOK)
+		return rc;
+
+	ir_var_destroy(var);
+
+	return EOK;
+}
+
+/** Test IR data block.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int test_ir_dblock(void)
+{
+	ir_dblock_t *dblock = NULL;
+	ir_dentry_t *dentry1 = NULL;
+	ir_dentry_t *dentry2 = NULL;
+	ir_dblock_entry_t *entry;
+	int rc;
+
+	rc = ir_dblock_create(&dblock);
+	if (rc != EOK)
+		return rc;
+
+	assert(dblock != NULL);
+
+	rc = ir_dentry_create_int(16, -1, &dentry1);
+	if (rc != EOK)
+		return rc;
+
+	assert(dentry1 != NULL);
+
+	rc = ir_dentry_create_uint(16, 0xffff, &dentry2);
+	if (rc != EOK)
+		return rc;
+
+	assert(dentry2 != NULL);
+
+	rc = ir_dblock_append(dblock, dentry1);
+	if (rc != EOK)
+		return rc;
+
+	rc = ir_dblock_append(dblock, dentry2);
+	if (rc != EOK)
+		return rc;
+
+	rc = ir_dblock_print(dblock, stdout);
+	if (rc != EOK)
+		return rc;
+
+	/* Forward iteration */
+	entry = ir_dblock_first(dblock);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry1);
+
+	entry = ir_dblock_next(entry);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry2);
+
+	entry = ir_dblock_next(entry);
+	assert(entry == NULL);
+
+	/* Backward iteration */
+	entry = ir_dblock_last(dblock);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry2);
+
+	entry = ir_dblock_prev(entry);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry1);
+
+	entry = ir_dblock_prev(entry);
+	assert(entry == NULL);
+
+	ir_dblock_destroy(dblock);
+	return EOK;
+}
+
 /** Test IR procedure.
  *
  * @return EOK on success or non-zero error code
@@ -318,6 +419,14 @@ int test_ir(void)
 	int rc;
 
 	rc = test_ir_module();
+	if (rc != EOK)
+		return rc;
+
+	rc = test_ir_var();
+	if (rc != EOK)
+		return rc;
+
+	rc = test_ir_dblock();
 	if (rc != EOK)
 		return rc;
 

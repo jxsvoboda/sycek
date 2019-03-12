@@ -198,6 +198,9 @@ static void ir_decln_destroy(ir_decln_t *decln)
 		return;
 
 	switch (decln->dtype) {
+	case ird_var:
+		ir_var_destroy((ir_var_t *) decln->ext);
+		break;
 	case ird_proc:
 		ir_proc_destroy((ir_proc_t *) decln->ext);
 		break;
@@ -214,6 +217,8 @@ static void ir_decln_destroy(ir_decln_t *decln)
 int ir_decln_print(ir_decln_t *decln, FILE *f)
 {
 	switch (decln->dtype) {
+	case ird_var:
+		return ir_var_print((ir_var_t *) decln->ext, f);
 	case ird_proc:
 		return ir_proc_print((ir_proc_t *) decln->ext, f);
 	}
@@ -223,10 +228,367 @@ int ir_decln_print(ir_decln_t *decln, FILE *f)
 	return EINVAL;
 }
 
+/** Create IR variable.
+ *
+ * @param ident Identifier (will be copied)
+ * @param dblock Data block
+ * @param rvar Place to store pointer to new variable
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_var_create(const char *ident, ir_dblock_t *dblock, ir_var_t **rvar)
+{
+	ir_var_t *var;
+
+	var = calloc(1, sizeof(ir_var_t));
+	if (var == NULL)
+		return ENOMEM;
+
+	var->ident = strdup(ident);
+	if (var->ident == NULL) {
+		free(var);
+		return ENOMEM;
+	}
+
+	assert(dblock != NULL);
+	var->dblock = dblock;
+	var->decln.dtype = ird_var;
+	var->decln.ext = (void *) var;
+	*rvar = var;
+	return EOK;
+}
+
+/** Print IR variable.
+ *
+ * @param proc IR procedure
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_var_print(ir_var_t *var, FILE *f)
+{
+	int rv;
+	int rc;
+
+	rv = fprintf(f, "\nvar %s\n", var->ident);
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "begin\n");
+	if (rv < 0)
+		return EIO;
+
+	rc = ir_dblock_print(var->dblock, f);
+	if (rc != EOK)
+		return EIO;
+
+	rv = fprintf(f, "end\n");
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy IR variable.
+ *
+ * @param var IR variable or @c NULL
+ */
+void ir_var_destroy(ir_var_t *var)
+{
+	if (var == NULL)
+		return;
+
+	if (var->ident != NULL)
+		free(var->ident);
+
+	ir_dblock_destroy(var->dblock);
+	free(var);
+}
+
+/** Create IR data block.
+ *
+ * @param rdblock Place to store pointer to new data block.
+ * @return EOK on success, ENOMEM if out of memory.
+ */
+int ir_dblock_create(ir_dblock_t **rdblock)
+{
+	ir_dblock_t *dblock;
+
+	dblock = calloc(1, sizeof(ir_dblock_t));
+	if (dblock == NULL)
+		return ENOMEM;
+
+	list_initialize(&dblock->entries);
+	*rdblock = dblock;
+	return EOK;
+}
+
+/** Append data entry to IR data block.
+ *
+ * @param dblock IR data block
+ * @param dentry Data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_dblock_append(ir_dblock_t *dblock, ir_dentry_t *dentry)
+{
+	ir_dblock_entry_t *entry;
+
+	entry = calloc(1, sizeof(ir_dblock_entry_t));
+	if (entry == NULL)
+		return ENOMEM;
+
+	entry->dblock = dblock;
+	list_append(&entry->lentries, &dblock->entries);
+
+	entry->dentry = dentry;
+	return EOK;
+}
+
+/** Print IR integer data entry.
+ *
+ * @param dentry IR integer data entry
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_dentry_int_print(ir_dentry_t *dentry, FILE *f)
+{
+	int rv;
+
+	assert(dentry->dtype == ird_int);
+
+	rv = fprintf(f, "int.%u %" PRId32 "\n", dentry->width, dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print IR unsigned integer data entry.
+ *
+ * @param dentry IR unsigned integer data entry
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_dentry_uint_print(ir_dentry_t *dentry, FILE *f)
+{
+	int rv;
+
+	assert(dentry->dtype == ird_uint);
+
+	rv = fprintf(f, "uint.%u %" PRId32 "\n", dentry->width, dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print IR data block.
+ *
+ * @param dblock Labeled block
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_dblock_print(ir_dblock_t *dblock, FILE *f)
+{
+	ir_dblock_entry_t *entry;
+	int rc;
+
+	entry = ir_dblock_first(dblock);
+	while (entry != NULL) {
+		rc = ir_dentry_print(entry->dentry, f);
+		if (rc != EOK)
+			return rc;
+
+		entry = ir_dblock_next(entry);
+	}
+
+	return EOK;
+}
+
+/** Destroy IR data block.
+ *
+ * @param dblock Data block or @c NULL
+ */
+void ir_dblock_destroy(ir_dblock_t *dblock)
+{
+	ir_dblock_entry_t *entry;
+
+	if (dblock == NULL)
+		return;
+
+	entry = ir_dblock_first(dblock);
+	while (entry != NULL) {
+		list_remove(&entry->lentries);
+		free(entry);
+
+		entry = ir_dblock_first(dblock);
+	}
+
+	free(dblock);
+}
+
+/** Create IR integer data entry.
+ *
+ * @param width Width of data entry in bits
+ * @param value Value
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_dentry_create_int(unsigned width, int32_t value, ir_dentry_t **rdentry)
+{
+	ir_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(ir_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = ird_int;
+	dentry->width = width;
+	dentry->value = value;
+
+	*rdentry = dentry;
+	return EOK;
+}
+
+/** Create IR unsigned integer data entry.
+ *
+ * @param width Width of data entry in bits
+ * @param value Value
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_dentry_create_uint(unsigned width, int32_t value, ir_dentry_t **rdentry)
+{
+	ir_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(ir_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = ird_uint;
+	dentry->width = width;
+	dentry->value = value;
+
+	*rdentry = dentry;
+	return EOK;
+}
+
+/** Print IR data entry.
+ *
+ * @param dblock Labeled block
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_dentry_print(ir_dentry_t *dentry, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputc('\t', f);
+	if (rv < 0)
+		return EIO;
+
+	switch (dentry->dtype) {
+	case ird_int:
+		rc = ir_dentry_int_print(dentry, f);
+		break;
+	case ird_uint:
+		rc = ir_dentry_uint_print(dentry, f);
+		break;
+	}
+
+	if (rc != EOK)
+		return rc;
+
+	rv = fputc('\n', f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy IR data entry.
+ *
+ * @param dentry Data entry or @c NULL
+ */
+void ir_dentry_destroy(ir_dentry_t *dentry)
+{
+	if (dentry == NULL)
+		return;
+
+	free(dentry);
+}
+
+/** Get first entry in IR data block.
+ *
+ * @param dblock IR data block
+ * @return First entry or @c NULL if there is none
+ */
+ir_dblock_entry_t *ir_dblock_first(ir_dblock_t *dblock)
+{
+	link_t *link;
+
+	link = list_first(&dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_dblock_entry_t, lentries);
+}
+
+/** Get next entry in IR data block.
+ *
+ * @param cur Current entry
+ * @return Next entry or @c NULL if there is none
+ */
+ir_dblock_entry_t *ir_dblock_next(ir_dblock_entry_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lentries, &cur->dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_dblock_entry_t, lentries);
+}
+
+/** Get last entry in IR data block.
+ *
+ * @param dblock IR data block
+ * @return Last entry or @c NULL if there is none
+ */
+ir_dblock_entry_t *ir_dblock_last(ir_dblock_t *dblock)
+{
+	link_t *link;
+
+	link = list_last(&dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_dblock_entry_t, lentries);
+}
+
+/** Get previous entry in IR data block.
+ *
+ * @param cur Current entry
+ * @return Previous entry or @c NULL if there is none
+ */
+ir_dblock_entry_t *ir_dblock_prev(ir_dblock_entry_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->lentries, &cur->dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_dblock_entry_t, lentries);
+}
+
 /** Create IR procedure.
  *
  * @param ident Identifier (will be copied)
- * @param lblock Labeled block
+ * @param lblock data block
  * @param rproc Place to store pointer to new procedure
  *
  * @return EOK on success, ENOMEM if out of memory
@@ -353,7 +715,7 @@ int ir_lblock_append(ir_lblock_t *lblock, const char *label,
 	return EOK;
 }
 
-/** Print IR block.
+/** Print IR labeled block.
  *
  * @param lblock Labeled block
  * @param f Output file

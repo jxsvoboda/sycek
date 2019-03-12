@@ -28,6 +28,7 @@
 #define IR_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <types/ir.h>
 
@@ -40,6 +41,21 @@ extern ir_decln_t *ir_module_prev(ir_decln_t *);
 extern int ir_module_print(ir_module_t *, FILE *);
 extern void ir_module_destroy(ir_module_t *);
 extern int ir_decln_print(ir_decln_t *, FILE *);
+extern int ir_var_create(const char *, ir_dblock_t *, ir_var_t **);
+extern void ir_var_destroy(ir_var_t *);
+extern int ir_var_print(ir_var_t *, FILE *);
+extern int ir_dblock_create(ir_dblock_t **);
+extern int ir_dblock_append(ir_dblock_t *, ir_dentry_t *);
+extern int ir_dblock_print(ir_dblock_t *, FILE *);
+extern void ir_dblock_destroy(ir_dblock_t *);
+extern ir_dblock_entry_t *ir_dblock_first(ir_dblock_t *);
+extern ir_dblock_entry_t *ir_dblock_next(ir_dblock_entry_t *);
+extern ir_dblock_entry_t *ir_dblock_last(ir_dblock_t *);
+extern ir_dblock_entry_t *ir_dblock_prev(ir_dblock_entry_t *);
+extern int ir_dentry_create_int(unsigned, int32_t, ir_dentry_t **);
+extern int ir_dentry_create_uint(unsigned, int32_t, ir_dentry_t **);
+extern int ir_dentry_print(ir_dentry_t *, FILE *);
+extern void ir_dentry_destroy(ir_dentry_t *);
 extern int ir_proc_create(const char *, ir_lblock_t *, ir_proc_t **);
 extern void ir_proc_destroy(ir_proc_t *);
 extern int ir_proc_print(ir_proc_t *, FILE *);
