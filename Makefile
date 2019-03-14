@@ -98,7 +98,7 @@ objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
 objects_syc = $(sources_syc:.c=.o)
 objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
 
-headers = $(wildcard *.h */*.h */*/*.h)
+headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h)
 
 test_good_ins = $(wildcard test/good/*-in.c)
 test_good_out_diffs = $(test_good_ins:-in.c=-out.txt.diff)
