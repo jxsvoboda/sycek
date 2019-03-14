@@ -230,6 +230,9 @@ static void z80ic_decln_destroy(z80ic_decln_t *decln)
 		return;
 
 	switch (decln->dtype) {
+	case z80icd_var:
+		z80ic_var_destroy((z80ic_var_t *) decln->ext);
+		break;
 	case z80icd_proc:
 		z80ic_proc_destroy((z80ic_proc_t *) decln->ext);
 		break;
@@ -246,6 +249,8 @@ static void z80ic_decln_destroy(z80ic_decln_t *decln)
 int z80ic_decln_print(z80ic_decln_t *decln, FILE *f)
 {
 	switch (decln->dtype) {
+	case z80icd_var:
+		return z80ic_var_print((z80ic_var_t *) decln->ext, f);
 	case z80icd_proc:
 		return z80ic_proc_print((z80ic_proc_t *) decln->ext, f);
 	}
@@ -253,6 +258,363 @@ int z80ic_decln_print(z80ic_decln_t *decln, FILE *f)
 	/* Should not be reached */
 	assert(false);
 	return EINVAL;
+}
+
+/** Create Z80 IC variable.
+ *
+ * @param ident Identifier (will be copied)
+ * @param dblock Data block
+ * @param rvar Place to store pointer to new variable
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_var_create(const char *ident, z80ic_dblock_t *dblock, z80ic_var_t **rvar)
+{
+	z80ic_var_t *var;
+
+	var = calloc(1, sizeof(z80ic_var_t));
+	if (var == NULL)
+		return ENOMEM;
+
+	var->ident = strdup(ident);
+	if (var->ident == NULL) {
+		free(var);
+		return ENOMEM;
+	}
+
+	assert(dblock != NULL);
+	var->dblock = dblock;
+	var->decln.dtype = z80icd_var;
+	var->decln.ext = (void *) var;
+	*rvar = var;
+	return EOK;
+}
+
+/** Print Z80 IC variable.
+ *
+ * @param proc Z80 IC procedure
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_var_print(z80ic_var_t *var, FILE *f)
+{
+	int rv;
+	int rc;
+
+	rv = fprintf(f, "\nvar %s\n", var->ident);
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "begin\n");
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_dblock_print(var->dblock, f);
+	if (rc != EOK)
+		return EIO;
+
+	rv = fprintf(f, "end\n");
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC variable.
+ *
+ * @param var Z80 IC variable or @c NULL
+ */
+void z80ic_var_destroy(z80ic_var_t *var)
+{
+	if (var == NULL)
+		return;
+
+	if (var->ident != NULL)
+		free(var->ident);
+
+	z80ic_dblock_destroy(var->dblock);
+	free(var);
+}
+
+/** Create Z80 IC data block.
+ *
+ * @param rdblock Place to store pointer to new data block.
+ * @return EOK on success, ENOMEM if out of memory.
+ */
+int z80ic_dblock_create(z80ic_dblock_t **rdblock)
+{
+	z80ic_dblock_t *dblock;
+
+	dblock = calloc(1, sizeof(z80ic_dblock_t));
+	if (dblock == NULL)
+		return ENOMEM;
+
+	list_initialize(&dblock->entries);
+	*rdblock = dblock;
+	return EOK;
+}
+
+/** Append data entry to Z80 IC data block.
+ *
+ * @param dblock Z80 IC data block
+ * @param dentry Data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dblock_append(z80ic_dblock_t *dblock, z80ic_dentry_t *dentry)
+{
+	z80ic_dblock_entry_t *entry;
+
+	entry = calloc(1, sizeof(z80ic_dblock_entry_t));
+	if (entry == NULL)
+		return ENOMEM;
+
+	entry->dblock = dblock;
+	list_append(&entry->lentries, &dblock->entries);
+
+	entry->dentry = dentry;
+	return EOK;
+}
+
+/** Print Z80 IC DEFB data entry.
+ *
+ * @param dentry Z80 IC DEFB data entry
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int z80ic_dentry_defb_print(z80ic_dentry_t *dentry, FILE *f)
+{
+	int rv;
+
+	assert(dentry->dtype == z80icd_defb);
+
+	rv = fprintf(f, "defb $%" PRIx16, dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print Z80 IC DEFW data entry.
+ *
+ * @param dentry Z80 IC DEFB data entry
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int z80ic_dentry_defw_print(z80ic_dentry_t *dentry, FILE *f)
+{
+	int rv;
+
+	assert(dentry->dtype == z80icd_defw);
+
+	rv = fprintf(f, "defw $%" PRIx16, dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print Z80 IC data block.
+ *
+ * @param dblock Labeled block
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_dblock_print(z80ic_dblock_t *dblock, FILE *f)
+{
+	z80ic_dblock_entry_t *entry;
+	int rc;
+
+	entry = z80ic_dblock_first(dblock);
+	while (entry != NULL) {
+		rc = z80ic_dentry_print(entry->dentry, f);
+		if (rc != EOK)
+			return rc;
+
+		entry = z80ic_dblock_next(entry);
+	}
+
+	return EOK;
+}
+
+/** Destroy Z80 IC data block.
+ *
+ * @param dblock Data block or @c NULL
+ */
+void z80ic_dblock_destroy(z80ic_dblock_t *dblock)
+{
+	z80ic_dblock_entry_t *entry;
+
+	if (dblock == NULL)
+		return;
+
+	entry = z80ic_dblock_first(dblock);
+	while (entry != NULL) {
+		list_remove(&entry->lentries);
+		free(entry);
+
+		entry = z80ic_dblock_first(dblock);
+	}
+
+	free(dblock);
+}
+
+/** Create Z80 IC DEFB data entry.
+ *
+ * @param value Value
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dentry_create_defb(uint8_t value, z80ic_dentry_t **rdentry)
+{
+	z80ic_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(z80ic_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = z80icd_defb;
+	dentry->value = value;
+
+	*rdentry = dentry;
+	return EOK;
+}
+
+/** Create Z80 IC DEFW data entry.
+ *
+ * @param value Value
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dentry_create_defw(uint16_t value, z80ic_dentry_t **rdentry)
+{
+	z80ic_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(z80ic_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = z80icd_defw;
+	dentry->value = value;
+
+	*rdentry = dentry;
+	return EOK;
+}
+
+/** Print Z80 IC data entry.
+ *
+ * @param dblock Labeled block
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_dentry_print(z80ic_dentry_t *dentry, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputc('\t', f);
+	if (rv < 0)
+		return EIO;
+
+	switch (dentry->dtype) {
+	case z80icd_defb:
+		rc = z80ic_dentry_defb_print(dentry, f);
+		break;
+	case z80icd_defw:
+		rc = z80ic_dentry_defw_print(dentry, f);
+		break;
+	default:
+		assert(false);
+		rc = ENOTSUP;
+		break;
+	}
+
+	if (rc != EOK)
+		return rc;
+
+	rv = fputc('\n', f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC data entry.
+ *
+ * @param dentry Data entry or @c NULL
+ */
+void z80ic_dentry_destroy(z80ic_dentry_t *dentry)
+{
+	if (dentry == NULL)
+		return;
+
+	free(dentry);
+}
+
+/** Get first entry in Z80 IC data block.
+ *
+ * @param dblock Z80 IC data block
+ * @return First entry or @c NULL if there is none
+ */
+z80ic_dblock_entry_t *z80ic_dblock_first(z80ic_dblock_t *dblock)
+{
+	link_t *link;
+
+	link = list_first(&dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_dblock_entry_t, lentries);
+}
+
+/** Get next entry in Z80 IC data block.
+ *
+ * @param cur Current entry
+ * @return Next entry or @c NULL if there is none
+ */
+z80ic_dblock_entry_t *z80ic_dblock_next(z80ic_dblock_entry_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lentries, &cur->dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_dblock_entry_t, lentries);
+}
+
+/** Get last entry in Z80 IC data block.
+ *
+ * @param dblock Z80 IC data block
+ * @return Last entry or @c NULL if there is none
+ */
+z80ic_dblock_entry_t *z80ic_dblock_last(z80ic_dblock_t *dblock)
+{
+	link_t *link;
+
+	link = list_last(&dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_dblock_entry_t, lentries);
+}
+
+/** Get previous entry in Z80 IC data block.
+ *
+ * @param cur Current entry
+ * @return Previous entry or @c NULL if there is none
+ */
+z80ic_dblock_entry_t *z80ic_dblock_prev(z80ic_dblock_entry_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->lentries, &cur->dblock->entries);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_dblock_entry_t, lentries);
 }
 
 /** Create Z80 IC procedure.
@@ -728,7 +1090,7 @@ int z80ic_ld_sp_ix_create(z80ic_ld_sp_ix_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC load virtual register pair from virtual register pair
+/** Print Z80 IC load virtual register pair IC from virtual register pair
  * instruction.
  *
  * @param instr Instruction
@@ -747,7 +1109,7 @@ static int z80ic_ld_sp_ix_print(z80ic_ld_sp_ix_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy Z80 IC load virtual register pair from virtual register pair
+/** Destroy Z80 IC load virtual register pair IC from virtual register pair
  * instruction.
  *
  * @param instr Instruction

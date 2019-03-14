@@ -109,6 +109,109 @@ static int test_z80ic_module(void)
 	return EOK;
 }
 
+/** Test Z80 IC variable.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int test_z80ic_var(void)
+{
+	z80ic_var_t *var = NULL;
+	z80ic_dblock_t *dblock = NULL;
+	int rc;
+
+	rc = z80ic_dblock_create(&dblock);
+	if (rc != EOK)
+		return rc;
+
+	assert(dblock != NULL);
+
+	rc = z80ic_var_create("@myvar", dblock, &var);
+	if (rc != EOK)
+		return rc;
+
+	assert(var != NULL);
+
+	rc = z80ic_var_print(var, stdout);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_var_destroy(var);
+
+	return EOK;
+}
+
+/** Test Z80 IC data block.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int test_z80ic_dblock(void)
+{
+	z80ic_dblock_t *dblock = NULL;
+	z80ic_dentry_t *dentry1 = NULL;
+	z80ic_dentry_t *dentry2 = NULL;
+	z80ic_dblock_entry_t *entry;
+	int rc;
+
+	rc = z80ic_dblock_create(&dblock);
+	if (rc != EOK)
+		return rc;
+
+	assert(dblock != NULL);
+
+	rc = z80ic_dentry_create_defb(0xff, &dentry1);
+	if (rc != EOK)
+		return rc;
+
+	assert(dentry1 != NULL);
+
+	rc = z80ic_dentry_create_defw(0xffff, &dentry2);
+	if (rc != EOK)
+		return rc;
+
+	assert(dentry2 != NULL);
+
+	rc = z80ic_dblock_append(dblock, dentry1);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_dblock_append(dblock, dentry2);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_dblock_print(dblock, stdout);
+	if (rc != EOK)
+		return rc;
+
+	/* Forward iteration */
+	entry = z80ic_dblock_first(dblock);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry1);
+
+	entry = z80ic_dblock_next(entry);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry2);
+
+	entry = z80ic_dblock_next(entry);
+	assert(entry == NULL);
+
+	/* Backward iteration */
+	entry = z80ic_dblock_last(dblock);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry2);
+
+	entry = z80ic_dblock_prev(entry);
+	assert(entry != NULL);
+	assert(entry->dentry == dentry1);
+
+	entry = z80ic_dblock_prev(entry);
+	assert(entry == NULL);
+
+	z80ic_dblock_destroy(dblock);
+	return EOK;
+}
+
+
+
 /** Test Z80 IC procedure.
  *
  * @return EOK on success or non-zero error code
@@ -396,6 +499,14 @@ int test_z80ic(void)
 	int rc;
 
 	rc = test_z80ic_module();
+	if (rc != EOK)
+		return rc;
+
+	rc = test_z80ic_var();
+	if (rc != EOK)
+		return rc;
+
+	rc = test_z80ic_dblock();
 	if (rc != EOK)
 		return rc;
 

@@ -1020,13 +1020,47 @@ typedef struct z80ic_lblock {
 	list_t entries; /* of z80ic_lblock_entry_t */
 } z80ic_lblock_t;
 
-/** IR Declaration Type */
+/** Z80 IC data entry type */
 typedef enum {
+	/** Define byte */
+	z80icd_defb,
+	/** Define 16-bit word */
+	z80icd_defw
+} z80ic_dentry_type_t;
+
+/** Z80 IC data entry */
+typedef struct {
+	/** Data entry type */
+	z80ic_dentry_type_t dtype;
+	/** Value */
+	uint16_t value;
+} z80ic_dentry_t;
+
+/** Z80 IC data block entry */
+typedef struct {
+	/** Containing data block */
+	struct z80ic_dblock *dblock;
+	/** Link to @c dblock->entries */
+	link_t lentries;
+	/** Data entry */
+	z80ic_dentry_t *dentry;
+} z80ic_dblock_entry_t;
+
+/** Z80 IC data block */
+typedef struct z80ic_dblock {
+	/** Entries */
+	list_t entries; /* of z80ic_dblock_entry_t */
+} z80ic_dblock_t;
+
+/** Z80 IC declaration Type */
+typedef enum {
+	/** Variable declaration */
+	z80icd_var,
 	/** Procedure declaration */
 	z80icd_proc
 } z80ic_decln_type_t;
 
-/** Z80 IC Declaration */
+/** Z80 IC declaration */
 typedef struct {
 	/** Containing module */
 	struct z80ic_module *module;
@@ -1037,6 +1071,16 @@ typedef struct {
 	/** Pointer to entire/specific structure */
 	void *ext;
 } z80ic_decln_t;
+
+/** Z80 IC variable definition */
+typedef struct {
+	/** Base object */
+	z80ic_decln_t decln;
+	/** Indentifier */
+	char *ident;
+	/** Data block containing variable data */
+	z80ic_dblock_t *dblock;
+} z80ic_var_t;
 
 /** Z80 IC procedure definition */
 typedef struct {
