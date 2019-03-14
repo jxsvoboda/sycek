@@ -647,7 +647,6 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		}
 	}
 
-
 	return EOK;
 error:
 	return rc;

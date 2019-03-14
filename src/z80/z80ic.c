@@ -301,11 +301,11 @@ int z80ic_var_print(z80ic_var_t *var, FILE *f)
 	int rv;
 	int rc;
 
-	rv = fprintf(f, "\nvar %s\n", var->ident);
+	rv = fprintf(f, "\n; var %s\n", var->ident);
 	if (rv < 0)
 		return EIO;
 
-	rv = fprintf(f, "begin\n");
+	rv = fprintf(f, ".%s\n", var->ident);
 	if (rv < 0)
 		return EIO;
 
@@ -313,7 +313,7 @@ int z80ic_var_print(z80ic_var_t *var, FILE *f)
 	if (rc != EOK)
 		return EIO;
 
-	rv = fprintf(f, "end\n");
+	rv = fprintf(f, "; end var %s\n", var->ident);
 	if (rv < 0)
 		return EIO;
 

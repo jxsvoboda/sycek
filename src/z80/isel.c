@@ -34,17 +34,18 @@
 #include <z80/isel.h>
 #include <z80/z80ic.h>
 
-/** Mangle procedure identifier.
+/** Mangle global identifier.
  *
- * @param irident IR procedure identifier
+ * @param irident IR global identifier
  * @param rident Place to store pointer to IC procedure identifier
  * @return EOK on success, ENOMEM if out of memory
  */
-static int z80_isel_mangle_proc_ident(const char *irident, char **rident)
+static int z80_isel_mangle_global_ident(const char *irident, char **rident)
 {
 	int rv;
 	char *ident;
 
+	/* The indentifier must have global scope */
 	assert(irident[0] == '@');
 
 	rv = asprintf(&ident, "_%s", &irident[1]);
@@ -372,6 +373,135 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	return EINVAL;
 }
 
+/** Select Z80 IC instructions for IR integer data entry.
+ *
+ * @param isel Instruction selector
+ * @param irdentry IR integer data entry
+ * @param dblock Labeled block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_isel_int(z80_isel_t *isel, ir_dentry_t *irdentry,
+    z80ic_dblock_t *dblock)
+{
+	z80ic_dentry_t *dentry = NULL;
+	int rc;
+
+	(void) isel;
+	assert(irdentry->dtype == ird_int);
+
+	rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Select Z80 IC instructions for IR unsigned integer data entry.
+ *
+ * @param isel Instruction selector
+ * @param irdentry IR integer data entry
+ * @param dblock Labeled block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_isel_uint(z80_isel_t *isel, ir_dentry_t *irdentry,
+    z80ic_dblock_t *dblock)
+{
+	z80ic_dentry_t *dentry = NULL;
+	int rc;
+
+	(void) isel;
+	assert(irdentry->dtype == ird_uint);
+
+	rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Select Z80 IC instructions for IR data entry.
+ *
+ * @param isel Instruction selector
+ * @param irdentry IR data entry
+ * @param dblock Labeled block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_isel_dentry(z80_isel_t *isel, ir_dentry_t *irdentry,
+    z80ic_dblock_t *dblock)
+{
+	switch (irdentry->dtype) {
+	case ird_int:
+		return z80_isel_int(isel, irdentry, dblock);
+	case ird_uint:
+		return z80_isel_uint(isel, irdentry, dblock);
+	}
+
+	assert(false);
+	return EINVAL;
+}
+
+/** Select instructions code for variable.
+ *
+ * @param isel Instruction selector
+ * @param irvar IR variable
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_isel_var(z80_isel_t *isel, ir_var_t *irvar,
+    z80ic_module_t *icmod)
+{
+	ir_dblock_entry_t *entry;
+	z80ic_var_t *icvar = NULL;
+	z80ic_dblock_t *dblock = NULL;
+	char *ident = NULL;
+	int rc;
+
+	rc = z80ic_dblock_create(&dblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_mangle_global_ident(irvar->ident, &ident);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_var_create(ident, dblock, &icvar);
+	if (rc != EOK)
+		goto error;
+
+	entry = ir_dblock_first(irvar->dblock);
+	while (entry != NULL) {
+		rc = z80_isel_dentry(isel, entry->dentry, dblock);
+		if (rc != EOK)
+			goto error;
+
+		entry = ir_dblock_next(entry);
+	}
+
+	free(ident);
+	z80ic_module_append(icmod, &icvar->decln);
+	return EOK;
+error:
+	if (ident != NULL)
+		free(ident);
+	z80ic_var_destroy(icvar);
+	z80ic_dblock_destroy(dblock);
+	return rc;
+}
+
 /** Select instructions code for procedure.
  *
  * @param isel Instruction selector
@@ -386,7 +516,6 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 	ir_lblock_entry_t *entry;
 	z80ic_proc_t *icproc = NULL;
 	z80ic_lblock_t *lblock = NULL;
-	z80ic_instr_t *instr = NULL;
 	char *ident = NULL;
 	int rc;
 
@@ -398,7 +527,7 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80_isel_mangle_proc_ident(irproc->ident, &ident);
+	rc = z80_isel_mangle_global_ident(irproc->ident, &ident);
 	if (rc != EOK)
 		goto error;
 
@@ -426,7 +555,6 @@ error:
 		free(ident);
 	z80ic_proc_destroy(icproc);
 	z80ic_lblock_destroy(lblock);
-	z80ic_instr_destroy(instr);
 	z80_isel_proc_destroy(isproc);
 	return rc;
 }
@@ -445,7 +573,7 @@ static int z80_isel_decln(z80_isel_t *isel, ir_decln_t *decln,
 
 	switch (decln->dtype) {
 	case ird_var:
-		rc = EOK; // TODO
+		rc = z80_isel_var(isel, (ir_var_t *) decln->ext, icmod);
 		break;
 	case ird_proc:
 		rc = z80_isel_proc(isel, (ir_proc_t *) decln->ext, icmod);

@@ -210,8 +210,6 @@ static int test_z80ic_dblock(void)
 	return EOK;
 }
 
-
-
 /** Test Z80 IC procedure.
  *
  * @return EOK on success or non-zero error code
