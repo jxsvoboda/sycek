@@ -377,7 +377,7 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
  *
  * @param isel Instruction selector
  * @param irdentry IR integer data entry
- * @param dblock Labeled block where to append the new data entry
+ * @param dblock Data block where to append the new data entry
  * @return EOK on success or an error code
  */
 static int z80_isel_int(z80_isel_t *isel, ir_dentry_t *irdentry,
@@ -407,7 +407,7 @@ error:
  *
  * @param isel Instruction selector
  * @param irdentry IR integer data entry
- * @param dblock Labeled block where to append the new data entry
+ * @param dblock Data block where to append the new data entry
  * @return EOK on success or an error code
  */
 static int z80_isel_uint(z80_isel_t *isel, ir_dentry_t *irdentry,
@@ -437,7 +437,7 @@ error:
  *
  * @param isel Instruction selector
  * @param irdentry IR data entry
- * @param dblock Labeled block where to append the new data entry
+ * @param dblock Data block where to append the new data entry
  * @return EOK on success or an error code
  */
 static int z80_isel_dentry(z80_isel_t *isel, ir_dentry_t *irdentry,

@@ -637,7 +637,7 @@ error:
 /** Allocate registers for Z80 instruction.
  *
  * @param raproc Register allocator for procedure
- * @param vrinstr IR instruction
+ * @param vrinstr Instruction with virtual registers
  * @param ricinstr Place to store pointer to new Z80 IC instruction
  * @return EOK on success or an error code
  */
@@ -670,10 +670,131 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	return EINVAL;
 }
 
+/** Copy over Z80 IC DEFB data entry through register allocation stage.
+ *
+ * @param ralloc Register allocator
+ * @param vrdentry Data entry from Z80 IC module with virtual registers
+ * @param dblock Data block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_defb(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
+    z80ic_dblock_t *dblock)
+{
+	z80ic_dentry_t *dentry = NULL;
+	int rc;
+
+	(void) ralloc;
+	assert(vrdentry->dtype == z80icd_defb);
+
+	rc = z80ic_dentry_create_defb(vrdentry->value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Copy over Z80 IC DEFW data entry through register allocation stage.
+ *
+ * @param ralloc Register allocator
+ * @param vrdentry Data entry from Z80 IC module with virtual registers
+ * @param dblock Data block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_defw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
+    z80ic_dblock_t *dblock)
+{
+	z80ic_dentry_t *dentry = NULL;
+	int rc;
+
+	(void) ralloc;
+	assert(vrdentry->dtype == z80icd_defw);
+
+	rc = z80ic_dentry_create_defw(vrdentry->value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Copy over Z80 IC data entry through register allocation stage.
+ *
+ * @param ralloc Register allocator
+ * @param vrdentry Z80 IC data entry
+ * @param dblock Labeled block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_dentry(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
+    z80ic_dblock_t *dblock)
+{
+	switch (vrdentry->dtype) {
+	case z80icd_defb:
+		return z80_ralloc_defb(ralloc, vrdentry, dblock);
+	case z80icd_defw:
+		return z80_ralloc_defw(ralloc, vrdentry, dblock);
+	}
+
+	assert(false);
+	return EINVAL;
+}
+
+/** Copy over variable declaration through the regster allocation stage
+ *
+ * @param ralloc Register allocator
+ * @param vrvar IR variable
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_var(z80_ralloc_t *ralloc, z80ic_var_t *vrvar,
+    z80ic_module_t *icmod)
+{
+	z80ic_dblock_entry_t *entry;
+	z80ic_var_t *icvar = NULL;
+	z80ic_dblock_t *dblock = NULL;
+	int rc;
+
+	rc = z80ic_dblock_create(&dblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_var_create(vrvar->ident, dblock, &icvar);
+	if (rc != EOK)
+		goto error;
+
+	entry = z80ic_dblock_first(vrvar->dblock);
+	while (entry != NULL) {
+		rc = z80_ralloc_dentry(ralloc, entry->dentry, dblock);
+		if (rc != EOK)
+			goto error;
+
+		entry = z80ic_dblock_next(entry);
+	}
+
+	z80ic_module_append(icmod, &icvar->decln);
+	return EOK;
+error:
+	z80ic_var_destroy(icvar);
+	z80ic_dblock_destroy(dblock);
+	return rc;
+}
+
 /** Allocate registers for Z80 procedure.
  *
  * @param ralloc Register allocator
- * @param proc IR procedure
+ * @param proc Z80 procedure with virtual registers
  * @param icmod Z80 IC module to which the code should be appended
  * @return EOK on success or an error code
  */
@@ -743,7 +864,7 @@ static int z80_ralloc_decln(z80_ralloc_t *ralloc, z80ic_decln_t *decln,
 
 	switch (decln->dtype) {
 	case z80icd_var:
-		rc = EOK; // TODO
+		rc = z80_ralloc_var(ralloc, (z80ic_var_t *) decln->ext, icmod);
 		break;
 	case z80icd_proc:
 		rc = z80_ralloc_proc(ralloc, (z80ic_proc_t *) decln->ext, icmod);
