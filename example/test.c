@@ -13,6 +13,12 @@ int foo(void)
 	return 1 + 2 + 3;
 }
 
+int bar(void)
+{
+	/* Read the contents of initialized global variable */
+	return a;
+}
+
 int main(void)
 {
 	return 0;

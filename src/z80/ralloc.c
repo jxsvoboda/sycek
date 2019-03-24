@@ -550,7 +550,7 @@ static int z80_ralloc_ld_vrr_nn(z80_ralloc_proc_t *raproc, const char *label,
 
 	ldnn->dest = dd;
 
-	rc = z80ic_oper_imm16_create_val(vrld->imm16->imm16, &imm);
+	rc = z80ic_oper_imm16_copy(vrld->imm16, &imm);
 	if (rc != EOK)
 		goto error;
 

@@ -207,7 +207,7 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_ldimm;
+	instr->itype = iri_imm;
 	instr->width = cgproc->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
@@ -225,6 +225,88 @@ error:
 	return rc;
 }
 
+/** Generate code for identifier expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eident AST identifier expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param dname Place to store pointer to destination variable name
+ * @return EOK on success or an error code
+ */
+static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
+    ir_lblock_t *lblock, const char **dname)
+{
+	comp_tok_t *ident;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *var = NULL;
+	char *pident = NULL;
+	char *ptr_varname;
+	int rc;
+
+	ident = (comp_tok_t *) eident->tident.data;
+	rc = cgen_gprefix(ident->tok.text, &pident);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(pident, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_varptr;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ptr_varname = dest->varname;
+
+	ir_lblock_append(lblock, NULL, instr);
+	dest = NULL;
+	var = NULL;
+	free(pident);
+	pident = NULL;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ptr_varname, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	*dname = dest->varname;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
+	if (pident != NULL)
+		free(pident);
+	return rc;
+}
 /** Generate code for binary operator expression.
  *
  * @param cgproc Code generator for procedure
@@ -312,6 +394,9 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 	case ant_echar:
 	case ant_estring:
 	case ant_eident:
+		rc = cgen_eident(cgproc, (ast_eident_t *) expr->ext, lblock,
+		    dname);
+		break;
 	case ant_eparen:
 	case ant_econcat:
 		atok = ast_tree_first_tok(expr);

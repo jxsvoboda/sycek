@@ -273,7 +273,7 @@ static int test_ir_lblock(void)
 		return rc;
 
 	assert(instr2 != NULL);
-	instr2->itype = iri_ldimm;
+	instr2->itype = iri_imm;
 	instr2->width = 16;
 
 	rc = ir_lblock_append(lblock, NULL, instr1);

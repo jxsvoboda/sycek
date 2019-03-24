@@ -155,8 +155,6 @@ static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_var);
 
-	(void) isproc;
-
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
@@ -226,7 +224,7 @@ error:
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
-static int z80_isel_ldimm(z80_isel_proc_t *isproc, const char *label,
+static int z80_isel_imm(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
 	z80ic_ld_vrr_nn_t *ldimm = NULL;
@@ -236,15 +234,13 @@ static int z80_isel_ldimm(z80_isel_proc_t *isproc, const char *label,
 	unsigned vregno;
 	int rc;
 
-	assert(irinstr->itype == iri_ldimm);
+	assert(irinstr->itype == iri_imm);
 	assert(irinstr->width == 16);
 
 	assert(irinstr->op1->optype == iro_imm);
 	irimm = (ir_oper_imm_t *) irinstr->op1->ext;
 
 	assert(irinstr->op2 == NULL);
-
-	(void) isproc;
 
 	vregno = z80_isel_get_vregno(isproc, irinstr->dest);
 
@@ -277,6 +273,22 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR read instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR read instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	(void) isproc; (void) label; (void) irinstr; (void) lblock;
+	/* ld HL, vrr */
+	/* ld vrr, (HL) */
+	return EOK;
+}
+
 /** Select Z80 IC instructions code for IR return value instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -299,8 +311,6 @@ static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
 	assert(irinstr->dest == NULL);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2 == NULL);
-
-	(void) isproc;
 
 	vr = z80_isel_get_vregno(isproc, irinstr->op1);
 
@@ -350,6 +360,71 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR variable pointer instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_varptr(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vrr_t *dest = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_ld_vrr_nn_t *ld = NULL;
+	unsigned destvr;
+	ir_oper_var_t *op1;
+	char *varident = NULL;
+	int rc;
+
+	assert(irinstr->itype == iri_varptr);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	op1 = (ir_oper_var_t *) irinstr->op1->ext;
+
+	rc = z80_isel_mangle_global_ident(op1->varname, &varident);
+	if (rc != EOK)
+		goto error;
+
+	/* Load instruction */
+
+	rc = z80ic_ld_vrr_nn_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(varident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->imm16 = imm;
+	dest = NULL;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	return EOK;
+error:
+	if (varident != NULL)
+		free(varident);
+	z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_vrr_destroy(dest);
+	z80ic_oper_imm16_destroy(imm);
+
+	return rc;
+}
 /** Select Z80 IC instructions for IR instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -363,10 +438,14 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	switch (irinstr->itype) {
 	case iri_add:
 		return z80_isel_add(isproc, label, irinstr, lblock);
-	case iri_ldimm:
-		return z80_isel_ldimm(isproc, label, irinstr, lblock);
+	case iri_imm:
+		return z80_isel_imm(isproc, label, irinstr, lblock);
+	case iri_read:
+		return z80_isel_read(isproc, label, irinstr, lblock);
 	case iri_retv:
 		return z80_isel_retv(isproc, label, irinstr, lblock);
+	case iri_varptr:
+		return z80_isel_varptr(isproc, label, irinstr, lblock);
 	}
 
 	assert(false);

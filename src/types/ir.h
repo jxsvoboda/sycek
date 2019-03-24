@@ -34,10 +34,14 @@
 typedef enum {
 	/** Addition */
 	iri_add,
-	/** Load immediate value */
-	iri_ldimm,
+	/** Introduce immediate value */
+	iri_imm,
+	/** Read from memory */
+	iri_read,
 	/** Return value */
-	iri_retv
+	iri_retv,
+	/** Get pointer to global variable */
+	iri_varptr
 } ir_instr_type_t;
 
 /** IR operand type */

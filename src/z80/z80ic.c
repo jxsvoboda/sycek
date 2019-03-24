@@ -1828,6 +1828,35 @@ int z80ic_oper_imm16_create_symbol(const char *symbol,
 	return EOK;
 }
 
+/** Create copy of Z80 IC 16-bit immediate operand.
+ *
+ * @param orig Source 16-bit immediate operand
+ * @param rimm Place to store pointer to new Z80 IC immediate operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_oper_imm16_copy(z80ic_oper_imm16_t *orig, z80ic_oper_imm16_t **rimm)
+{
+	z80ic_oper_imm16_t *imm;
+	int rc;
+
+	imm = calloc(1, sizeof(z80ic_oper_imm16_t));
+	if (imm == NULL)
+		return ENOMEM;
+
+	if (orig->symbol != NULL) {
+		rc = z80ic_oper_imm16_create_symbol(orig->symbol, &imm);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = z80ic_oper_imm16_create_val(orig->imm16, &imm);
+		if (rc != EOK)
+			return rc;
+	}
+
+	*rimm = imm;
+	return EOK;
+}
+
 /** Print Z80 IC 16-bit immediate operand.
  *
  * @param imm Z80 IC 16-bit immediate operand
