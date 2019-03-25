@@ -390,6 +390,8 @@ static int test_z80ic_oper(void)
 	z80ic_oper_imm16_t *imm16s = NULL;
 	z80ic_oper_reg_t *reg = NULL;
 	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_vr_t *vrl = NULL;
+	z80ic_oper_vr_t *vrh = NULL;
 	z80ic_oper_vrr_t *vrr = NULL;
 	int rc;
 	int rv;
@@ -418,11 +420,23 @@ static int test_z80ic_oper(void)
 
 	assert(reg != NULL);
 
-	rc = z80ic_oper_vr_create(1, &vr);
+	rc = z80ic_oper_vr_create(1, z80ic_vrp_r8, &vr);
 	if (rc != EOK)
 		return rc;
 
 	assert(vr != NULL);
+
+	rc = z80ic_oper_vr_create(1, z80ic_vrp_r16l, &vrl);
+	if (rc != EOK)
+		return rc;
+
+	assert(vrl != NULL);
+
+	rc = z80ic_oper_vr_create(1, z80ic_vrp_r16h, &vrh);
+	if (rc != EOK)
+		return rc;
+
+	assert(vrh != NULL);
 
 	rc = z80ic_oper_vrr_create(2, &vrr);
 	if (rc != EOK)
@@ -470,6 +484,22 @@ static int test_z80ic_oper(void)
 	if (rv < 0)
 		return EIO;
 
+	rc = z80ic_oper_vr_print(vrl, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputc('\n', stdout);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(vrh, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputc('\n', stdout);
+	if (rv < 0)
+		return EIO;
+
 	rc = z80ic_oper_vrr_print(vrr, stdout);
 	if (rc != EOK)
 		return rc;
@@ -483,6 +513,8 @@ static int test_z80ic_oper(void)
 	z80ic_oper_imm16_destroy(imm16s);
 	z80ic_oper_reg_destroy(reg);
 	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_vr_destroy(vrl);
+	z80ic_oper_vr_destroy(vrh);
 	z80ic_oper_vrr_destroy(vrr);
 
 	return EOK;

@@ -460,6 +460,8 @@ typedef enum {
 	z80i_ld_vr_vr,
 	/** Load virtual register from 8-bit immediate */
 	z80i_ld_vr_n,
+	/** Load virtual register from (HL) */
+	z80i_ld_vr_ihl,
 	/** Load virtual register from address stored in virt. reg. pair */
 	z80i_ld_vr_ivrr,
 	/** Load virtual register from address stored in virt. reg. pair + d. */
@@ -756,6 +758,16 @@ typedef enum {
 	z80ic_r16_sp
 } z80ic_r16_t;
 
+/** Virtual register part */
+typedef enum {
+	/** Entire 8-bit virtual register */
+	z80ic_vrp_r8,
+	/** Lower half of virtual register pair */
+	z80ic_vrp_r16l,
+	/** Upper half of virtual register pair */
+	z80ic_vrp_r16h
+} z80ic_vr_part_t;
+
 /** Z80 IC register operand.
  *
  * This is simply one of the real general-purpose 8-bit registers
@@ -830,6 +842,8 @@ typedef struct {
 typedef struct {
 	/** Virtual register number */
 	unsigned vregno;
+	/** Virtual register part */
+	z80ic_vr_part_t part;
 } z80ic_oper_vr_t;
 
 /** Z80 IC virtual register pair operand */
@@ -956,11 +970,27 @@ typedef struct {
 	z80ic_oper_pp_t *src;
 } z80ic_add_ix_pp_t;
 
+/** Z80 IC increment 16-bit ss register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination / source register pair */
+	z80ic_oper_ss_t *dest;
+} z80ic_inc_ss_t;
+
 /** Z80 IC return instruction */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_ret_t;
+
+/** Z80 IC load virtual register from (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register */
+	z80ic_oper_vr_t *dest;
+} z80ic_ld_vr_ihl_t;
 
 /** Z80 IC load virtual register pair from virtual register pair */
 typedef struct {
