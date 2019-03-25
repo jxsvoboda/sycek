@@ -66,6 +66,7 @@ extern z80ic_lblock_entry_t *z80ic_lblock_first(z80ic_lblock_t *);
 extern z80ic_lblock_entry_t *z80ic_lblock_next(z80ic_lblock_entry_t *);
 extern z80ic_lblock_entry_t *z80ic_lblock_last(z80ic_lblock_t *);
 extern z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *);
+extern int z80ic_ld_r_ihl_create(z80ic_ld_r_ihl_t **);
 extern int z80ic_ld_r_iixd_create(z80ic_ld_r_iixd_t **);
 extern int z80ic_ld_iixd_r_create(z80ic_ld_iixd_r_t **);
 extern int z80ic_ld_dd_nn_create(z80ic_ld_dd_nn_t **);

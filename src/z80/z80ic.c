@@ -862,6 +862,59 @@ z80ic_lblock_entry_t *z80ic_lblock_prev(z80ic_lblock_entry_t *cur)
 	return list_get_instance(link, z80ic_lblock_entry_t, lentries);
 }
 
+/** Create Z80 IC load register from (HL) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_r_ihl_create(z80ic_ld_r_ihl_t **rinstr)
+{
+	z80ic_ld_r_ihl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_r_ihl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_r_ihl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load register from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_r_ihl_print(z80ic_ld_r_ihl_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", (HL)", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load register from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_r_ihl_destroy(z80ic_ld_r_ihl_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->dest);
+}
+
 /** Create Z80 IC load register from (IX+d) instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1716,6 +1769,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		return EIO;
 
 	switch (instr->itype) {
+	case z80i_ld_r_ihl:
+		rc = z80ic_ld_r_ihl_print((z80ic_ld_r_ihl_t *) instr->ext, f);
+		break;
 	case z80i_ld_r_iixd:
 		rc = z80ic_ld_r_iixd_print((z80ic_ld_r_iixd_t *) instr->ext, f);
 		break;
@@ -1791,6 +1847,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		return;
 
 	switch (instr->itype) {
+	case z80i_ld_r_ihl:
+		z80ic_ld_r_ihl_destroy((z80ic_ld_r_ihl_t *) instr->ext);
+		break;
 	case z80i_ld_r_iixd:
 		z80ic_ld_r_iixd_destroy((z80ic_ld_r_iixd_t *) instr->ext);
 		break;

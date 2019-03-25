@@ -16,7 +16,7 @@ int foo(void)
 int bar(void)
 {
 	/* Read the contents of initialized global variable */
-	return a;
+	return c;
 }
 
 int main(void)
