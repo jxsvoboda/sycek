@@ -318,7 +318,7 @@ error:
  */
 static int z80_ralloc_fill_reg(z80_ralloc_proc_t *raproc, const char *label,
     unsigned vregno, z80ic_vr_part_t part, z80ic_reg_t reg,
-	z80ic_lblock_t *lblock)
+    z80ic_lblock_t *lblock)
 {
 	z80ic_ld_r_iixd_t *ld = NULL;
 	z80ic_oper_reg_t *oreg = NULL;
@@ -398,7 +398,7 @@ static int z80_ralloc_fill_r16(z80_ralloc_proc_t *raproc, const char *label,
  */
 static int z80_ralloc_spill_reg(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_reg_t reg, unsigned vregno, z80ic_vr_part_t part,
-	z80ic_lblock_t *lblock)
+    z80ic_lblock_t *lblock)
 {
 	z80ic_ld_iixd_r_t *ld = NULL;
 	z80ic_oper_reg_t *oreg = NULL;

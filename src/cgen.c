@@ -445,7 +445,7 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 /** Generate code for return statement.
  *
  * @param cgproc Code generator for procedure
- * @param block AST return statement
+ * @param areturn AST return statement
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
@@ -481,6 +481,31 @@ error:
 	ir_instr_destroy(instr);
 	if (arg != NULL)
 		ir_oper_destroy(&arg->oper);
+	return rc;
+}
+
+/** Generate code for expression statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stexpr AST expression statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_stexpr(cgen_proc_t *cgproc, ast_stexpr_t *stexpr,
+    ir_lblock_t *lblock)
+{
+	const char *avar = NULL;
+	int rc;
+
+	rc = cgen_expr(cgproc, stexpr->expr, lblock, &avar);
+	if (rc != EOK)
+		goto error;
+
+	/* Ignore the value of the expression */
+	(void) avar;
+
+	return EOK;
+error:
 	return rc;
 }
 
@@ -521,6 +546,8 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 	case ant_clabel:
 	case ant_glabel:
 	case ant_stexpr:
+		rc = cgen_stexpr(cgproc, (ast_stexpr_t *) stmt->ext, lblock);
+		break;
 	case ant_stdecln:
 	case ant_stnull:
 	case ant_lmacro:
