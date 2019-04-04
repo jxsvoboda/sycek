@@ -91,6 +91,7 @@ ccheck = ./$(binary_ccheck)
 
 binary_syc = syc
 binary_syc_hos = syc-hos
+syc = ./$(binary_syc)
 
 objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
@@ -120,6 +121,8 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_ugly_h_fixed_diffs) $(test_ugly_err_diffs) $(test_ugly_out_diffs) \
     $(text_ugly_h_out_diffs) $(test_vg_outs) \
     test/all.diff test/test-int.out test/selfcheck.out
+example_outs = example/test.asm example/test.o example/test.bin \
+    example/test.map example/test.tap
 
 all: $(binary_ccheck) $(binary_syc)
 
@@ -159,7 +162,7 @@ test-hos: install-hos
 clean:
 	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_syc) \
 	$(objects_syc_hos) $(binary_ccheck) $(binary_ccheck_hos) \
-	$(binary_syc) $(binary_syc_hos) $(test_outs)
+	$(binary_syc) $(binary_syc_hos) $(test_outs) $(example_outs)
 
 test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
@@ -225,6 +228,17 @@ selfcheck: test/selfcheck.out
 test/selfcheck.out: $(ccheck)
 	PATH=$$PATH:$$PWD ./ccheck-run.sh src > $@
 	grep "^Ccheck passed." $@
+
+#
+# Compiler example
+#
+example/test.asm: example/test.c $(syc)
+	$(syc) $<
+example/test.bin: example/test.asm
+	z80asm +zx --origin=32768 -b -m $<
+example/test.tap: example/test.bin
+	appmake +zx --org=32768 -b $<
+examples: example/test.tap
 
 #
 # Note that if any of the diffs is not empty, that diff command will

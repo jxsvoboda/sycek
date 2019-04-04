@@ -217,9 +217,10 @@ the example C source file, type
 which will produce `example/test.asm`. We can convert it to a tape file
 using tools from the z88dk project
 
-    $ z80asm -b example/test.asm
+    $ z80asm +zx --origin=32768 -b -m example/test.asm
     $ appmake +zx --org=32768 -b example/test.bin
 
+Or you can just type `make examples` to build it automatically.
 This produces the file `example/test.tap`. We can transfer that to a real
 Spectrum or open it in an emulator (such as [GZX][4]). To load the binary
 use the BASIC command
@@ -227,11 +228,14 @@ use the BASIC command
     LOAD ""CODE
 
 this skips the BASIC loader and loads just the machine code block.
-Function `foo` starts at address 32768, computes the value of 1 + 2 + 3
-and returns it in the BC register, so it can be used as a User Service
-Routine. We can test it with the basic command
+Consult the file `example/test.map` to determine the address where
+the function `add` starts at and convert it from hex to decimal.
+Let's say it starts at address 0x802a = 32810. This function computes
+the value of the expression 1 + 2 + 3 and returns it in the BC register,
+so it can be used as a User Service Routine. We can test it with
+the basic command
 
-    PRINT USR 32768
+    PRINT USR 32810
 
 this should print `6`.
 
