@@ -1320,6 +1320,55 @@ static void z80ic_pop_ix_destroy(z80ic_pop_ix_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC and with register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_and_r_create(z80ic_and_r_t **rinstr)
+{
+	z80ic_and_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_and_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_and_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC and with register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_and_r_print(z80ic_and_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("and ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC and with register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_and_r_destroy(z80ic_and_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->src);
+}
+
 /** Create Z80 IC add 16-bit ss register to HL instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1365,6 +1414,55 @@ static int z80ic_add_hl_ss_print(z80ic_add_hl_ss_t *instr, FILE *f)
  * @param instr Instruction
  */
 static void z80ic_add_hl_ss_destroy(z80ic_add_hl_ss_t *instr)
+{
+	z80ic_oper_ss_destroy(instr->src);
+}
+
+/** Create Z80 IC subtract 16-bit ss register from HL with carry instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_sbc_hl_ss_create(z80ic_sbc_hl_ss_t **rinstr)
+{
+	z80ic_sbc_hl_ss_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_sbc_hl_ss_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_sbc_hl_ss;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC subtract 16-bit ss register from HL with carry instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_sbc_hl_ss_print(z80ic_sbc_hl_ss_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("sbc HL, ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_ss_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC subtract 16-bit ss register from HL with carry instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_sbc_hl_ss_destroy(z80ic_sbc_hl_ss_t *instr)
 {
 	z80ic_oper_ss_destroy(instr->src);
 }
@@ -1860,6 +1958,67 @@ static void z80ic_add_vrr_vrr_destroy(z80ic_add_vrr_vrr_t *instr)
 	z80ic_oper_vrr_destroy(instr->src);
 }
 
+/** Create Z80 IC subtract virtual register pair from virtual register
+ * pair instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_sub_vrr_vrr_create(z80ic_sub_vrr_vrr_t **rinstr)
+{
+	z80ic_sub_vrr_vrr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_sub_vrr_vrr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_sub_vrr_vrr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC subtract virtual register pair from virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_sub_vrr_vrr_print(z80ic_sub_vrr_vrr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("sub ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC subtract virtual register pair from virtual register pair
+ * instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_sub_vrr_vrr_destroy(z80ic_sub_vrr_vrr_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->dest);
+	z80ic_oper_vrr_destroy(instr->src);
+}
+
 /** Print Z80 IC instruction.
  *
  * @param instr Instruction
@@ -1902,8 +2061,14 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_pop_ix:
 		rc = z80ic_pop_ix_print((z80ic_pop_ix_t *) instr->ext, f);
 		break;
+	case z80i_and_r:
+		rc = z80ic_and_r_print((z80ic_and_r_t *) instr->ext, f);
+		break;
 	case z80i_add_hl_ss:
 		rc = z80ic_add_hl_ss_print((z80ic_add_hl_ss_t *) instr->ext, f);
+		break;
+	case z80i_sbc_hl_ss:
+		rc = z80ic_sbc_hl_ss_print((z80ic_sbc_hl_ss_t *) instr->ext, f);
 		break;
 	case z80i_add_ix_pp:
 		rc = z80ic_add_ix_pp_print((z80ic_add_ix_pp_t *) instr->ext, f);
@@ -1935,6 +2100,10 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_add_vrr_vrr:
 		rc = z80ic_add_vrr_vrr_print((z80ic_add_vrr_vrr_t *) instr->ext,
+		    f);
+		break;
+	case z80i_sub_vrr_vrr:
+		rc = z80ic_sub_vrr_vrr_print((z80ic_sub_vrr_vrr_t *) instr->ext,
 		    f);
 		break;
 	default:
@@ -1990,6 +2159,12 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_add_hl_ss:
 		z80ic_add_hl_ss_destroy((z80ic_add_hl_ss_t *) instr->ext);
 		break;
+	case z80i_and_r:
+		z80ic_and_r_destroy((z80ic_and_r_t *) instr->ext);
+		break;
+	case z80i_sbc_hl_ss:
+		z80ic_sbc_hl_ss_destroy((z80ic_sbc_hl_ss_t *) instr->ext);
+		break;
 	case z80i_add_ix_pp:
 		z80ic_add_ix_pp_destroy((z80ic_add_ix_pp_t *) instr->ext);
 		break;
@@ -2016,6 +2191,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_add_vrr_vrr:
 		z80ic_add_vrr_vrr_destroy((z80ic_add_vrr_vrr_t *) instr->ext);
+		break;
+	case z80i_sub_vrr_vrr:
+		z80ic_sub_vrr_vrr_destroy((z80ic_sub_vrr_vrr_t *) instr->ext);
 		break;
 	default:
 		assert(false);

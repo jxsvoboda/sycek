@@ -797,6 +797,97 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 subtract virtual register pair from virtual
+ * register pair instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vradd Add instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_sub_vrr_vrr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_sub_vrr_vrr_t *vrsub, z80ic_lblock_t *lblock)
+{
+	z80ic_sbc_hl_ss_t *sbc = NULL;
+	z80ic_oper_ss_t *ss = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_and_r_t *anda = NULL;
+	int rc;
+
+	/* Fill HL */
+	rc = z80_ralloc_fill_r16(raproc, label, vrsub->dest->vregno,
+	    z80ic_r16_hl, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Fill BC */
+	rc = z80_ralloc_fill_r16(raproc, label, vrsub->src->vregno,
+	    z80ic_r16_bc, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* and A */
+
+	rc = z80ic_and_r_create(&anda);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	anda->src = reg;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &anda->instr);
+	if (rc != EOK)
+		goto error;
+
+	anda = NULL;
+
+	/*
+	 * sbc HL, BC
+	 *
+	 * This instruction is pretty slow (15 T states, 2 bytes) plus
+	 * and instruction (4 T states, 2 bytes). It seems it would be
+	 * more efficient to actually implement this as 8-bit sub +
+	 * 8-bit sbc.
+	 */
+
+	rc = z80ic_sbc_hl_ss_create(&sbc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(z80ic_ss_bc, &ss);
+	if (rc != EOK)
+		goto error;
+
+	sbc->src = ss;
+
+	rc = z80ic_lblock_append(lblock, label, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
+	sbc = NULL;
+
+	/* Spill HL */
+	rc = z80_ralloc_spill_r16(raproc, NULL, z80ic_r16_hl,
+	    vrsub->dest->vregno, lblock);
+	if (rc != EOK)
+		goto error;
+
+	sbc = NULL;
+	return EOK;
+error:
+	if (anda != NULL)
+		z80ic_instr_destroy(&anda->instr);
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+	z80ic_oper_ss_destroy(ss);
+	z80ic_oper_reg_destroy(reg);
+	return rc;
+}
+
 /** Allocate registers for Z80 instruction.
  *
  * @param raproc Register allocator for procedure
@@ -832,6 +923,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_add_vrr_vrr:
 		return z80_ralloc_add_vrr_vrr(raproc, label,
 		    (z80ic_add_vrr_vrr_t *) vrinstr->ext, lblock);
+	case z80i_sub_vrr_vrr:
+		return z80_ralloc_sub_vrr_vrr(raproc, label,
+		    (z80ic_sub_vrr_vrr_t *) vrinstr->ext, lblock);
 	default:
 		assert(false);
 		return EINVAL;

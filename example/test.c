@@ -4,7 +4,12 @@
 
 int a, b = 1, c = 2;
 
-int foo(void)
+int ret_const(void)
+{
+	return 1;
+}
+
+int add(void)
 {
 	/*
 	 * Despite being constant, the expression will be translated
@@ -13,7 +18,12 @@ int foo(void)
 	return 1 + 2 + 3;
 }
 
-int bar(void)
+int subtract(void)
+{
+	return 5 - 1 - 1;
+}
+
+int read_var(void)
 {
 	/* Read the contents of initialized global variable */
 	return c;

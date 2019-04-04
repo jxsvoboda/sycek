@@ -34,6 +34,8 @@
 typedef enum {
 	/** Addition */
 	iri_add,
+	/** Subtraction */
+	iri_sub,
 	/** Introduce immediate value */
 	iri_imm,
 	/** Read from memory */

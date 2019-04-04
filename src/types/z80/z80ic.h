@@ -600,6 +600,8 @@ typedef enum {
 	z80i_adc_vrr_vrr,
 	/** Subtract virt. register pair from virt. register pair with carry */
 	z80i_sbc_vrr_vrr,
+	/** Subtract virt. register pair from virt. register pair */
+	z80i_sub_vrr_vrr,
 	/** Increment virtual register pair */
 	z80i_inc_vrr,
 	/** Decrement virtual register pair */
@@ -964,6 +966,14 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
 
+/** Z80 IC bitwise and with register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_and_r_t;
+
 /** Z80 IC add 16-bit register to HL */
 typedef struct {
 	/** Base object */
@@ -971,6 +981,14 @@ typedef struct {
 	/** Source register pair */
 	z80ic_oper_ss_t *src;
 } z80ic_add_hl_ss_t;
+
+/** Z80 IC subtract 16-bit register from HL with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register pair */
+	z80ic_oper_ss_t *src;
+} z80ic_sbc_hl_ss_t;
 
 /** Z80 IC add 16-bit register to IX */
 typedef struct {
@@ -1046,9 +1064,19 @@ typedef struct {
 	z80ic_instr_t instr;
 	/** Destination virtual register pair */
 	z80ic_oper_vrr_t *dest;
-	/** Immediate */
+	/** Source virtual register pair */
 	z80ic_oper_vrr_t *src;
 } z80ic_add_vrr_vrr_t;
+
+/** Z80 IC subtract virtual register pair from virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register pair */
+	z80ic_oper_vrr_t *dest;
+	/** Source virtual register pair */
+	z80ic_oper_vrr_t *src;
+} z80ic_sub_vrr_vrr_t;
 
 /** Z80 IC labeled block entry */
 typedef struct {

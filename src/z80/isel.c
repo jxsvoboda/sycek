@@ -217,6 +217,91 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR sub instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_sub(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vrr_t *dest = NULL;
+	z80ic_oper_vrr_t *src = NULL;
+	z80ic_ld_vrr_vrr_t *ld = NULL;
+	z80ic_sub_vrr_vrr_t *sub = NULL;
+	unsigned destvr;
+	unsigned vr1, vr2;
+	int rc;
+
+	assert(irinstr->itype == iri_sub);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+
+	/* Load instruction */
+
+	rc = z80ic_ld_vrr_vrr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr1, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* Subtract instruction */
+
+	rc = z80ic_sub_vrr_vrr_create(&sub);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr2, &src);
+	if (rc != EOK)
+		goto error;
+
+	sub->dest = dest;
+	sub->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_instr_destroy(&ld->instr);
+	z80ic_instr_destroy(&sub->instr);
+	z80ic_oper_vrr_destroy(dest);
+	z80ic_oper_vrr_destroy(src);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR load immediate instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -673,6 +758,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	switch (irinstr->itype) {
 	case iri_add:
 		return z80_isel_add(isproc, label, irinstr, lblock);
+	case iri_sub:
+		return z80_isel_sub(isproc, label, irinstr, lblock);
 	case iri_imm:
 		return z80_isel_imm(isproc, label, irinstr, lblock);
 	case iri_read:
