@@ -254,7 +254,7 @@ static bool lexer_is_eof(lexer_t *lexer)
 {
 	char *lc;
 
-	/* Make sure buffer is filled, if possible*/
+	/* Make sure buffer is filled, if possible */
 	lc = lexer_chars(lexer);
 	(void) lc;
 
@@ -297,7 +297,7 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 		tok->text[tok->text_size + 1] = '\0';
 		tok->text_size++;
 		++lexer->buf_pos;
-		assert(lexer->buf_pos < lexer_buf_size);
+		assert(lexer->buf_pos <= lexer_buf_size);
 		src_pos_fwd_char(&lexer->pos, p[0]);
 		--nchars;
 	}
@@ -436,7 +436,7 @@ static int lexer_ctext(lexer_t *lexer, lexer_tok_t *tok)
 	lexer_get_pos(lexer, &tok->bpos);
 
 	p = lexer_chars(lexer);
-	while (p[0] != ' ' && p[0] != '\t' && p[0] != '\n' &&
+	while (p[0] != '\0' && p[0] != ' ' && p[0] != '\t' && p[0] != '\n' &&
 	    (p[0] != '*' || p[1] != '/')) {
 		lexer_get_pos(lexer, &tok->epos);
 
