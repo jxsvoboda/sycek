@@ -546,7 +546,7 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
-		rc = EOK;
+		rc = EINVAL;
 		break;
 	case ant_ebinop:
 		rc = cgen_ebinop(cgproc, (ast_ebinop_t *) expr->ext, lblock,
@@ -573,7 +573,7 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
-		rc = EOK;
+		rc = EINVAL;
 		break;
 	default:
 		assert(false);
@@ -773,7 +773,7 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This statement type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
-		rc = EOK;
+		rc = EINVAL;
 		break;
 	case ant_return:
 		rc = cgen_return(cgproc, (ast_return_t *) stmt->ext, lblock);
@@ -797,7 +797,7 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This statement type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
-		rc = EOK;
+		rc = EINVAL;
 		break;
 	default:
 		assert(false);
@@ -1033,7 +1033,7 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This declaration type is not implemented.\n");
 		cgen->error = true; // TODO
-		rc = EOK;
+		rc = EINVAL;
 		break;
 	default:
 		assert(false);
