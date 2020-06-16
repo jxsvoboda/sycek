@@ -1,0 +1,23 @@
+language: c
+compiler:
+  - gcc
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "MDA6IP9NQZTnQmgzNFd7jvMHhi3jAbDqFSooiQkP08r8aAgC9TutOYvtXDj/LtASL63bM1CD2c32a3YDdb803JqNUd70RW2n+lSa5KHPAEQH/mRUeP6OsBL9NP5pX2jrMd2l8/q/CZMkmONGPhq0vxRioLNe9IXKu5NPI7eUj4vafr3rYiEsix2FWFFjdkJopletuKoPTP1wv7CQLy40B4MaQ26E+TXFkMjXCK2rnyJv3sbIP2Ny6Gt/5GzOPexUShQA0Ea4Wla4JJkOyqdKROB1LBdDGfZmjYDX9iypgUH9LlzrEA/j++6YIP9PYjZyjZeTEJ/6+u5gsTVWAYlHFBVQF9PGl0/GpIJg2PRENy3K82xUGAFRVtLzWl2QsqDrhZj2JF3KZMMobfbSo3R1D1rO0Cls7+K6Aw2Ok/lYrvvQnEfCSXg702A6motY10ChLY7HiO3AakTbiVKW66+VpdMyFP1jOrVM6RFkfwDRUoIn42DTARoVZcWT/O9jYZa9EdimXktcVNDiM8KWBEvy6CJVmu77KxiJp4ob5fOvm1noTu2THxfK/YYCFeIlFUEkqIdvfU5exOAK3reHhdEeoJ/7YEQVLG2Oxt+WsMMUu9zk0fUhWTkysNhjmNsjO/+t6K0WtezW5j+bbUtt4tvByrETZFmwsYrD28zKaMFS2YY="
+
+before_install:
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+addons:
+  coverity_scan:
+    project:
+      name: "jxsvoboda/sycek"
+      description: "Tools based around a modular C language frontend"
+    build_command: "make"
+    branch_pattern: coverity_scan
+
+script:
+  - make
