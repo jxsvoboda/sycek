@@ -113,6 +113,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 		goto error;
 
 	fclose(f);
+	f = NULL;
 
 	if ((flags & cf_fix) != 0) {
 		if (asprintf(&bkname, "%s.orig", fname) < 0) {
@@ -139,10 +140,13 @@ static int check_file(const char *fname, checker_flags_t flags,
 			goto error;
 
 		if (fclose(f) < 0) {
+			f = NULL;
 			fprintf(stderr, "Error writing '%s'.\n", fname);
 			rc = EIO;
 			goto error;
 		}
+
+		f = NULL;
 	}
 
 	checker_destroy(checker);
