@@ -1,0 +1,5 @@
+<test/ugly/preproc-in.c:8:5-15:preproc>: Non-continuation line should not have any spaces for indentation (found 4)
+<test/ugly/preproc-in.c:8:5-15:preproc>: Line is indented by 4 spaces (should be 0)
+<test/ugly/preproc-in.c:9:5-25:preproc>: Non-continuation line should not have any spaces for indentation (found 4)
+<test/ugly/preproc-in.c:9:5-25:preproc>: Line is indented by 4 spaces (should be 0)
+<test/ugly/preproc-in.c:13:9-19:preproc>: Wrong indentation: found 1 tabs, should be 0 tabs
