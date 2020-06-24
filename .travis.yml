@@ -16,6 +16,7 @@ addons:
     project:
       name: "jxsvoboda/sycek"
       description: "Tools based around a modular C language frontend"
+    notification_email: sycek-devel@centrum.cz
     build_command: "make"
     branch_pattern: coverity_scan
 
