@@ -1103,8 +1103,6 @@ static int checker_check_asm_op(checker_scope_t *scope, ast_asm_op_t *aop)
 
 		checker_check_nows_before(scope, tsymname,
 		    "Unexpected whitespace before symbolic name.");
-		if (rc != EOK)
-			return rc;
 
 		checker_check_nows_before(scope, trbracket,
 		    "Unexpected whitespace before ']'.");
@@ -2663,8 +2661,6 @@ static int checker_check_regassign(checker_scope_t *scope,
 
 	checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
-	if (rc != EOK)
-		return rc;
 
 	checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");

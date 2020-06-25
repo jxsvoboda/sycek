@@ -2529,8 +2529,6 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_colon) {
 		parser_skip(parser, &dcolon1);
-		if (rc != EOK)
-			goto error;
 
 		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
@@ -2553,8 +2551,6 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_colon) {
 		parser_skip(parser, &dcolon2);
-		if (rc != EOK)
-			goto error;
 
 		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
@@ -2577,8 +2573,6 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_colon) {
 		parser_skip(parser, &dcolon3);
-		if (rc != EOK)
-			goto error;
 
 		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
@@ -2601,8 +2595,6 @@ static int parser_process_asm(parser_t *parser, ast_node_t **rasm)
 	ltt = parser_next_ttype(parser);
 	if (ltt == ltt_colon) {
 		parser_skip(parser, &dcolon4);
-		if (rc != EOK)
-			goto error;
 
 		rc = parser_create_secindent_sub(parser, &iparser);
 		if (rc != EOK)
