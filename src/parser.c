@@ -4079,12 +4079,13 @@ static int parser_process_tsrecord(parser_t *parser, ast_node_t **rtype)
 		break;
 	default:
 		assert(false);
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	rc = ast_tsrecord_create(rt, &precord);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	parser_skip(parser, &dsu);
 	precord->tsu.data = dsu;
