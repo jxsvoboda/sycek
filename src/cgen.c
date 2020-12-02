@@ -937,6 +937,8 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 		if (rc != EOK)
 			goto error;
 	} else {
+		/* Initialize with zero (TODO: uninitialized?) */
+		initval = 0;
 	}
 
 	rc = cgen_gprefix(ident->tok.text, &pident);
