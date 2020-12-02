@@ -2310,10 +2310,6 @@ int z80ic_oper_imm16_copy(z80ic_oper_imm16_t *orig, z80ic_oper_imm16_t **rimm)
 	z80ic_oper_imm16_t *imm;
 	int rc;
 
-	imm = calloc(1, sizeof(z80ic_oper_imm16_t));
-	if (imm == NULL)
-		return ENOMEM;
-
 	if (orig->symbol != NULL) {
 		rc = z80ic_oper_imm16_create_symbol(orig->symbol, &imm);
 		if (rc != EOK)
