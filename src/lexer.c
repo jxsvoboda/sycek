@@ -361,6 +361,7 @@ static int lexer_copen(lexer_t *lexer, lexer_tok_t *tok)
  */
 static int lexer_dcopen(lexer_t *lexer, lexer_tok_t *tok)
 {
+	char *p;
 	int rc;
 
 	lexer_get_pos(lexer, &tok->bpos);
@@ -383,7 +384,22 @@ static int lexer_dcopen(lexer_t *lexer, lexer_tok_t *tok)
 		return rc;
 	}
 
-	tok->ttype = ltt_dcopen;
+	p = lexer_chars(lexer);
+	if (p[0] == '<') {
+		/* Trailing documentation comment */
+		lexer_get_pos(lexer, &tok->epos);
+
+		rc = lexer_advance(lexer, 1, tok);
+		if (rc != EOK) {
+			lexer_free_tok(tok);
+			return rc;
+		}
+
+		tok->ttype = ltt_dctopen;
+	} else {
+		tok->ttype = ltt_dcopen;
+	}
+
 	lexer->state = ls_comment;
 	return EOK;
 }
@@ -1456,6 +1472,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'*/'";
 	case ltt_dcopen:
 		return "'/**'";
+	case ltt_dctopen:
+		return "'/**<'";
 	case ltt_dscomment:
 		return "dscomment";
 	case ltt_preproc:
@@ -1815,7 +1833,7 @@ int lexer_print_tok(lexer_tok_t *tok, FILE *f)
 bool lexer_is_comment(lexer_toktype_t ltt)
 {
 	return ltt == ltt_copen || ltt == ltt_ctext || ltt == ltt_ccont ||
-	    ltt == ltt_cclose || ltt == ltt_dscomment || ltt == ltt_dcopen;
+	    ltt == ltt_cclose || ltt == ltt_dscomment || ltt == ltt_dcopen || ltt == ltt_dctopen;
 }
 
 /** Determine if token type is a whitespace token.

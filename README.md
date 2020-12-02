@@ -174,6 +174,10 @@ extensions, such as
 ccheck also understands the C++ `extern "C"` declaration embedded in
 a header file.
 
+ccheck can recognize Doxygen-style comments (`/**` and `/**<`) and check
+they are spaced apart from the text within. It will also warn about
+`/**<` incorrectly placed at the beginning of a line.
+
 Since ccheck does not expand macros, thus it can fail to parse a source file
 that uses the C preprocessor in a way that alters the language syntax.
 Ccheck, however, supports some specific use cases of macros altering

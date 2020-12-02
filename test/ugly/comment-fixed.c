@@ -14,6 +14,13 @@ typedef struct foo {
 	/* Comment at the end of structure */
 } foo_t;
 
+int a1; /* Single-line comment spacing */
+/** Single-line doc comment spacing */
+int a2;
+int a3; /**< Trailing doc comment spacing */
+/**< Misplaced trailing doc comment */
+int a4;
+
 enum {
 	/* Comment in an enum */
 	a,

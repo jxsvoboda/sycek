@@ -615,6 +615,7 @@ static void checker_prev_comments_nocont(checker_tok_t *tok)
 	    lexer_is_comment(t->tok.ttype) || t->tok.ttype == ltt_preproc)) {
 		if ((t->tok.ttype == ltt_copen || t->tok.ttype == ltt_ctext ||
 		    t->tok.ttype == ltt_cclose || t->tok.ttype == ltt_dcopen ||
+		    t->tok.ttype == ltt_dctopen ||
 		    t->tok.ttype == ltt_dscomment) &&
 		    checker_is_tok_lbegin(t)) {
 			t->lbegin = true;
@@ -4994,10 +4995,17 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	    tok->tok.ttype == ltt_copen ||
 	    tok->tok.ttype == ltt_ctext ||
 	    tok->tok.ttype == ltt_cclose ||
-	    tok->tok.ttype == ltt_dcopen) {
+	    tok->tok.ttype == ltt_dcopen ||
+	    tok->tok.ttype == ltt_dctopen) {
 		/* For comments, only the parser knows the indentation */
 		tok->indlvl = tok->pindlvl;
 		tok->seccont = tok->pseccont;
+	}
+
+	if (tok->tok.ttype == ltt_dctopen) {
+		/* Trailing doc comment at the beginning of line */
+		lexer_dprint_tok(&tok->tok, stdout);
+		printf(": Unexpected trailing comment at the beginning of a line.\n");
 	}
 
 	/*
@@ -5258,12 +5266,39 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 		return EOK;
 	}
 
-	if (tok->tok.ttype != ltt_eof)
-		tok = checker_next_tok(tok);
+	tclose = tok;
+	tok = checker_next_tok(tok);
 
 	if (lbreaks == 0) {
 		/* Single-line comment */
 		*tnext = tok;
+
+		tok = checker_next_tok(tbegin);
+		if (!lexer_is_wspace(tok->tok.ttype)) {
+			if (fix) {
+				rc = checker_prepend_tok(tok, ltt_space, " ");
+				if (rc != EOK)
+					return rc;
+			} else {
+				lexer_dprint_tok(&tbegin->tok, stdout);
+				if (tbegin->tok.ttype == ltt_dctopen)
+					printf(": Space expected after '<'.\n");
+				else
+					printf(": Space expected after '*'.\n");
+			}
+		}
+
+		tok = checker_prev_tok(tclose);
+		if (!lexer_is_wspace(tok->tok.ttype)) {
+			if (fix) {
+				rc = checker_append_tok(tok, ltt_space, " ");
+				if (rc != EOK)
+					return rc;
+			} else {
+				lexer_dprint_tok(&tclose->tok, stdout);
+				printf(": Space expected before '*'.\n");
+			}
+		}
 		return EOK;
 	}
 
@@ -5379,7 +5414,8 @@ static int checker_module_comments(checker_module_t *mod, bool fix)
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
 		if (tok->tok.ttype == ltt_copen ||
-		    tok->tok.ttype == ltt_dcopen) {
+		    tok->tok.ttype == ltt_dcopen ||
+		    tok->tok.ttype == ltt_dctopen) {
 			rc = checker_module_comment(tok, fix, &tnext);
 			if (rc != EOK)
 				return rc;

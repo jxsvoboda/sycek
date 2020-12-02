@@ -209,8 +209,9 @@ bool parser_ttype_ignore(lexer_toktype_t ttype)
 	    ttype == ltt_newline || ttype == ltt_copen ||
 	    ttype == ltt_ctext || ttype == ltt_ccont ||
 	    ttype == ltt_cclose || ttype == ltt_dscomment ||
-	    ttype == ltt_dcopen || ttype == ltt_preproc ||
-	    ttype == ltt_elbspace || ttype == ltt_invchar;
+	    ttype == ltt_dcopen || ttype == ltt_dctopen ||
+	    ttype == ltt_preproc || ttype == ltt_elbspace ||
+	    ttype == ltt_invchar;
 }
 
 /** Return @c true if token type is an assignment operator.
