@@ -908,6 +908,8 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 	ast_eint_t *eint;
 	comp_tok_t *ident;
 	comp_tok_t *lit;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	char *pident = NULL;
 	int32_t initval;
 	int rc;
@@ -918,8 +920,15 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 	ident = (comp_tok_t *) aident->data;
 
 	if (entry->init != NULL) {
-		if (entry->init->ntype != ant_eint)
+		if (entry->init->ntype != ant_eint) {
+			atok = ast_tree_first_tok(entry->init);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Unsupported initializer.\n");
+			cgen->error = true;
+			rc = EINVAL;
 			goto error;
+		}
 
 		eint = (ast_eint_t *) entry->init->ext;
 
