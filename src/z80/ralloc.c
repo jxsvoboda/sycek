@@ -504,6 +504,45 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 call instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrcall Call instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_call_nn(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_call_nn_t *vrcall, z80ic_lblock_t *lblock)
+{
+	z80ic_call_nn_t *call = NULL;
+	z80ic_oper_imm16_t *imm;
+	int rc;
+
+	(void) raproc;
+	(void) vrcall;
+
+	rc = z80ic_call_nn_create(&call);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_copy(vrcall->imm16, &imm);
+	if (rc != EOK)
+		goto error;
+
+	call->imm16 = imm;
+
+	rc = z80ic_lblock_append(lblock, label, &call->instr);
+	if (rc != EOK)
+		goto error;
+
+	call = NULL;
+	return EOK;
+error:
+	if (call != NULL)
+		z80ic_instr_destroy(&call->instr);
+	return rc;
+}
+
 /** Allocate registers for Z80 return instruction.
  *
  * @param raproc Register allocator for procedure
@@ -661,7 +700,7 @@ error:
 	return rc;
 }
 
-/** Allocate registers for Z80 load register pair from virtual register
+/** Allocate registers for Z80 load 16-bit register from virtual register
  * pair instruction.
  *
  * @param raproc Register allocator for procedure
@@ -674,7 +713,7 @@ static int z80_ralloc_ld_r16_vrr(z80_ralloc_proc_t *raproc, const char *label,
 {
 	int rc;
 
-	/* Fill register pair */
+	/* Fill 16-bit register */
 	rc = z80_ralloc_fill_r16(raproc, label, vrld->src->vregno,
 	    vrld->dest->r16, lblock);
 	if (rc != EOK)
@@ -684,6 +723,31 @@ static int z80_ralloc_ld_r16_vrr(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	return rc;
 }
+
+/** Allocate registers for Z80 load virtual register pair from 16-bit register
+ * instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrld Load instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_ld_vrr_r16(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_ld_vrr_r16_t *vrld, z80ic_lblock_t *lblock)
+{
+	int rc;
+
+	/* Spill 16-bit register */
+	rc = z80_ralloc_spill_r16(raproc, label, vrld->src->r16,
+	    vrld->dest->vregno, lblock);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
 
 /** Allocate registers for Z80 load virtual register pair from 16-bit
  * immediate instruction.
@@ -902,6 +966,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_inc_ss:
 		return z80_ralloc_inc_ss(raproc, label,
 		    (z80ic_inc_ss_t *) vrinstr->ext, lblock);
+	case z80i_call_nn:
+		return z80_ralloc_call_nn(raproc, label,
+		    (z80ic_call_nn_t *) vrinstr->ext, lblock);
 	case z80i_ret:
 		return z80_ralloc_ret(raproc, label,
 		    (z80ic_ret_t *) vrinstr->ext, lblock);
@@ -917,6 +984,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_r16_vrr:
 		return z80_ralloc_ld_r16_vrr(raproc, label,
 		    (z80ic_ld_r16_vrr_t *) vrinstr->ext, lblock);
+	case z80i_ld_vrr_r16:
+		return z80_ralloc_ld_vrr_r16(raproc, label,
+		    (z80ic_ld_vrr_r16_t *) vrinstr->ext, lblock);
 	case z80i_ld_vrr_nn:
 		return z80_ralloc_ld_vrr_nn(raproc, label,
 		    (z80ic_ld_vrr_nn_t *) vrinstr->ext, lblock);

@@ -1567,6 +1567,59 @@ static void z80ic_inc_ss_destroy(z80ic_inc_ss_t *instr)
 	z80ic_oper_ss_destroy(instr->dest);
 }
 
+/** Create Z80 IC call instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_call_nn_create(z80ic_call_nn_t **rinstr)
+{
+	z80ic_call_nn_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_call_nn_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_call_nn;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC call instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_call_nn_print(z80ic_call_nn_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("call ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC call instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_call_nn_destroy(z80ic_call_nn_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+
 /** Create Z80 IC return instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1839,6 +1892,65 @@ static void z80ic_ld_r16_vrr_destroy(z80ic_ld_r16_vrr_t *instr)
 	z80ic_oper_vrr_destroy(instr->src);
 }
 
+/** Create Z80 IC load virtual register pair from 16-bit register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_vrr_r16_create(z80ic_ld_vrr_r16_t **rinstr)
+{
+	z80ic_ld_vrr_r16_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_vrr_r16_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_vrr_r16;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load virtual register pair from 16-bit register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_vrr_r16_print(z80ic_ld_vrr_r16_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(", ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_r16_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load virtual register pair from 16-bit register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_vrr_r16_destroy(z80ic_ld_vrr_r16_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->dest);
+	z80ic_oper_r16_destroy(instr->src);
+}
+
+
 /** Create Z80 IC load virtual register pair from 16-bit immediate instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -2076,6 +2188,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_inc_ss:
 		rc = z80ic_inc_ss_print((z80ic_inc_ss_t *) instr->ext, f);
 		break;
+	case z80i_call_nn:
+		rc = z80ic_call_nn_print((z80ic_call_nn_t *) instr->ext, f);
+		break;
 	case z80i_ret:
 		rc = z80ic_ret_print((z80ic_ret_t *) instr->ext, f);
 		break;
@@ -2093,6 +2208,10 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_ld_r16_vrr:
 		rc = z80ic_ld_r16_vrr_print((z80ic_ld_r16_vrr_t *) instr->ext,
+		    f);
+		break;
+	case z80i_ld_vrr_r16:
+		rc = z80ic_ld_vrr_r16_print((z80ic_ld_vrr_r16_t *) instr->ext,
 		    f);
 		break;
 	case z80i_ld_vrr_nn:
@@ -2171,6 +2290,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_inc_ss:
 		z80ic_inc_ss_destroy((z80ic_inc_ss_t *) instr->ext);
 		break;
+	case z80i_call_nn:
+		z80ic_call_nn_destroy((z80ic_call_nn_t *) instr->ext);
+		break;
 	case z80i_ret:
 		z80ic_ret_destroy((z80ic_ret_t *) instr->ext);
 		break;
@@ -2185,6 +2307,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_ld_r16_vrr:
 		z80ic_ld_r16_vrr_destroy((z80ic_ld_r16_vrr_t *) instr->ext);
+		break;
+	case z80i_ld_vrr_r16:
+		z80ic_ld_vrr_r16_destroy((z80ic_ld_vrr_r16_t *) instr->ext);
 		break;
 	case z80i_ld_vrr_nn:
 		z80ic_ld_vrr_nn_destroy((z80ic_ld_vrr_nn_t *) instr->ext);

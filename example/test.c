@@ -23,6 +23,11 @@ int subtract(void)
 	return 5 - 1 - 1;
 }
 
+int funcall(void)
+{
+	return 1 + ret_const();
+}
+
 int read_var(void)
 {
 	/* Read the contents of initialized global variable */

@@ -512,6 +512,79 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	}
 }
 
+/** Generate code for call expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ecall AST call expression)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	comp_tok_t *ident;
+	ast_eident_t *eident;
+	char *pident = NULL;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *fun = NULL;
+	int rc;
+
+	if (ecall->fexpr->ntype != ant_eident) {
+		atok = ast_tree_first_tok(ecall->fexpr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Function call needs an identifier (not implemented).\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	eident = (ast_eident_t *) ecall->fexpr->ext;
+	ident = (comp_tok_t *) eident->tident.data;
+	rc = cgen_gprefix(ident->tok.text, &pident);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(pident, &fun);
+	if (rc != EOK)
+		goto error;
+
+	free(pident);
+
+	instr->itype = iri_call;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &fun->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (fun != NULL)
+		ir_oper_destroy(&fun->oper);
+	if (pident != NULL)
+		free(pident);
+	return rc;
+}
+
+
 /** Generate code for expression.
  *
  * @param cgproc Code generator for procedure
@@ -554,7 +627,17 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		break;
 	case ant_etcond:
 	case ant_ecomma:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_ecall:
+		rc = cgen_ecall(cgproc, (ast_ecall_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_eindex:
 	case ant_ederef:
 	case ant_eaddr:

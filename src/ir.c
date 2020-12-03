@@ -39,6 +39,7 @@ static void ir_decln_destroy(ir_decln_t *);
 /** Instruction names */
 static const char *instr_name[] = {
 	[iri_add] = "add",
+	[iri_call] = "call",
 	[iri_sub] = "sub",
 	[iri_imm] = "imm",
 	[iri_read] = "read",

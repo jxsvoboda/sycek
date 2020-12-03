@@ -217,6 +217,95 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR call instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_r16_t *ldsrc = NULL;
+	z80ic_oper_vrr_t *lddest = NULL;
+	z80ic_call_nn_t *call = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_ld_vrr_r16_t *ld = NULL;
+	ir_oper_var_t *op1;
+	char *varident = NULL;
+	unsigned destvr;
+	int rc;
+
+	assert(irinstr->itype == iri_call);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	op1 = (ir_oper_var_t *) irinstr->op1->ext;
+
+	rc = z80_isel_mangle_global_ident(op1->varname, &varident);
+	if (rc != EOK)
+		goto error;
+
+	/* Call instruction */
+
+	rc = z80ic_call_nn_create(&call);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(varident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	call->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &call->instr);
+	if (rc != EOK)
+		goto error;
+
+	call = NULL;
+
+	/* ld vrr, BC */
+
+	rc = z80ic_ld_vrr_r16_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &lddest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(z80ic_r16_bc, &ldsrc);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = lddest;
+	ld->src = ldsrc;
+	lddest = NULL;
+	ldsrc = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (call != NULL)
+		z80ic_instr_destroy(&call->instr);
+	z80ic_oper_vrr_destroy(lddest);
+	z80ic_oper_r16_destroy(ldsrc);
+	z80ic_oper_imm16_destroy(imm);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR sub instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -758,6 +847,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	switch (irinstr->itype) {
 	case iri_add:
 		return z80_isel_add(isproc, label, irinstr, lblock);
+	case iri_call:
+		return z80_isel_call(isproc, label, irinstr, lblock);
 	case iri_sub:
 		return z80_isel_sub(isproc, label, irinstr, lblock);
 	case iri_imm:
