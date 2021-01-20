@@ -1290,7 +1290,6 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	case abo_band_assign:
 	case abo_bxor_assign:
 	case abo_bor_assign:
-	case abo_comma:
 		tok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Unimplemented binary operator.\n");

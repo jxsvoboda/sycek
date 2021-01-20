@@ -260,9 +260,7 @@ typedef enum {
 	/** '^=' assignment by bitwise xor */
 	abo_bxor_assign,
 	/** '|=' assignment by bitwise or */
-	abo_bor_assign,
-	/** Comma */
-	abo_comma
+	abo_bor_assign
 } ast_binop_t;
 
 /** Unary sign operator type */
