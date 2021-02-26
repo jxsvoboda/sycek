@@ -1356,7 +1356,7 @@ typedef struct {
 	ast_tok_t tlparen;
 	/** Loop initialization or @c NULL */
 	ast_node_t *linit;
-	/** Declaration specifiers or @c NULL*/
+	/** Declaration specifiers or @c NULL */
 	ast_dspecs_t *dspecs;
 	/** Init-declarator list or @c NULL */
 	ast_idlist_t *idlist;

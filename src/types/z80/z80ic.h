@@ -474,7 +474,7 @@ typedef enum {
 	z80i_ld_ivrrd_vr,
 	/** Load 8-bit immediate to address stored in virt. reg. pair */
 	z80i_ld_ivrr_n,
-	/** Load 8-bit immediate to address stored in virt. reg. pair + d.*/
+	/** Load 8-bit immediate to address stored in virt. reg. pair + d. */
 	z80i_ld_ivrrd_n,
 	/** Load virtual register from fixed memory location */
 	z80i_ld_vr_inn,

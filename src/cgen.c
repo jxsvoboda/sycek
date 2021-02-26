@@ -584,7 +584,6 @@ error:
 	return rc;
 }
 
-
 /** Generate code for expression.
  *
  * @param cgproc Code generator for procedure

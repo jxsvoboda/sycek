@@ -5348,7 +5348,7 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 		if (tok->tok.ttype == ltt_cclose)
 			break;
 
-		if (!first/* && tok->tok.ttype != ltt_newline*/) {
+		if (!first) {
 			rc = checker_block_comment_line(tok, fix);
 			if (rc != EOK)
 				return rc;

@@ -748,7 +748,6 @@ error:
 	return rc;
 }
 
-
 /** Allocate registers for Z80 load virtual register pair from 16-bit
  * immediate instruction.
  *

@@ -1619,7 +1619,6 @@ static void z80ic_call_nn_destroy(z80ic_call_nn_t *instr)
 	(void) instr;
 }
 
-
 /** Create Z80 IC return instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1949,7 +1948,6 @@ static void z80ic_ld_vrr_r16_destroy(z80ic_ld_vrr_r16_t *instr)
 	z80ic_oper_vrr_destroy(instr->dest);
 	z80ic_oper_r16_destroy(instr->src);
 }
-
 
 /** Create Z80 IC load virtual register pair from 16-bit immediate instruction.
  *
