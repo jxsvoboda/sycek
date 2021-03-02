@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -71,8 +71,14 @@ extern int ir_instr_create(ir_instr_t **);
 extern int ir_instr_print(ir_instr_t *, FILE *);
 extern void ir_instr_destroy(ir_instr_t *);
 extern int ir_oper_imm_create(int32_t, ir_oper_imm_t **);
+extern int ir_oper_list_create(ir_oper_list_t **);
 extern int ir_oper_var_create(const char *, ir_oper_var_t **);
 extern int ir_oper_print(ir_oper_t *, FILE *);
 extern void ir_oper_destroy(ir_oper_t *);
+extern void ir_oper_list_append(ir_oper_list_t *, ir_oper_t *);
+extern ir_oper_t *ir_oper_list_first(ir_oper_list_t *);
+extern ir_oper_t *ir_oper_list_next(ir_oper_t *);
+extern ir_oper_t *ir_oper_list_last(ir_oper_list_t *);
+extern ir_oper_t *ir_oper_list_prev(ir_oper_t *);
 
 #endif

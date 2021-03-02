@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -960,6 +960,27 @@ int ir_oper_imm_create(int32_t value, ir_oper_imm_t **rimm)
 	return EOK;
 }
 
+/** Create IR list operand.
+ *
+ * @param rlist Place to store pointer to new IR list operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_oper_list_create(ir_oper_list_t **rlist)
+{
+	ir_oper_list_t *list;
+
+	list = calloc(1, sizeof(ir_oper_list_t));
+	if (list == NULL)
+		return ENOMEM;
+
+	list->oper.optype = iro_list;
+	list->oper.ext = (void *) list;
+	list_initialize(&list->list);
+
+	*rlist = list;
+	return EOK;
+}
+
 /** Create IR variable operand.
  *
  * @param value Value
@@ -1006,6 +1027,50 @@ static int ir_oper_imm_print(ir_oper_imm_t *imm, FILE *f)
 	return EOK;
 }
 
+/** Print IR list operand.
+ *
+ * @param list IR list operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_oper_list_print(ir_oper_list_t *list, FILE *f)
+{
+	ir_oper_t *oper;
+	int rc;
+	int rv;
+
+	rv = fputs("{", f);
+	if (rv < 0)
+		return EIO;
+
+	oper = ir_oper_list_first(list);
+
+	while (oper != NULL) {
+		rv = fputs(" ", f);
+		if (rv < 0)
+			return EIO;
+
+		rc = ir_oper_print(oper, f);
+		if (rc != EOK)
+			return rc;
+
+		oper = ir_oper_list_next(oper);
+		if (oper == NULL)
+			break;
+
+		rv = fputs(",", f);
+		if (rv < 0)
+			return EIO;
+
+	}
+
+	rv = fputs(" }", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Print IR variable operand.
  *
  * @param var IR variable operand
@@ -1034,6 +1099,8 @@ int ir_oper_print(ir_oper_t *oper, FILE *f)
 	switch (oper->optype) {
 	case iro_imm:
 		return ir_oper_imm_print((ir_oper_imm_t *) oper->ext, f);
+	case iro_list:
+		return ir_oper_list_print((ir_oper_list_t *) oper->ext, f);
 	case iro_var:
 		return ir_oper_var_print((ir_oper_var_t *) oper->ext, f);
 	}
@@ -1049,6 +1116,25 @@ int ir_oper_print(ir_oper_t *oper, FILE *f)
 static void ir_oper_imm_destroy(ir_oper_imm_t *imm)
 {
 	free(imm);
+}
+
+/** Destroy IR list operand.
+ *
+ * @param list IR list operand
+ */
+static void ir_oper_list_destroy(ir_oper_list_t *list)
+{
+	ir_oper_t *oper;
+
+	oper = ir_oper_list_first(list);
+	while (oper != NULL) {
+		list_remove(&oper->llist);
+		ir_oper_destroy(oper);
+
+		oper = ir_oper_list_first(list);
+	}
+
+	free(list);
 }
 
 /** Destroy IR variable operand.
@@ -1073,7 +1159,85 @@ void ir_oper_destroy(ir_oper_t *oper)
 	switch (oper->optype) {
 	case iro_imm:
 		return ir_oper_imm_destroy((ir_oper_imm_t *) oper->ext);
+	case iro_list:
+		return ir_oper_list_destroy((ir_oper_list_t *) oper->ext);
 	case iro_var:
 		return ir_oper_var_destroy((ir_oper_var_t *) oper->ext);
 	}
+}
+
+/** Append entry to IR list operand.
+ *
+ * @param list IR list operand
+ * @param oper IR operand (new list entry)
+ */
+void ir_oper_list_append(ir_oper_list_t *list, ir_oper_t *oper)
+{
+	assert(oper->parent == NULL);
+	oper->parent = list;
+	list_append(&oper->llist, &list->list);
+}
+
+/** Get first entry in IR list operand.
+ *
+ * @param list IR list operand
+ * @return First entry or @c NULL if there is none
+ */
+ir_oper_t *ir_oper_list_first(ir_oper_list_t *list)
+{
+	link_t *link;
+
+	link = list_first(&list->list);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_oper_t, llist);
+}
+
+/** Get next entry in IR list operand.
+ *
+ * @param cur Current entry
+ * @return Next entry or @c NULL if there is none
+ */
+ir_oper_t *ir_oper_list_next(ir_oper_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->llist, &cur->parent->list);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_oper_t, llist);
+}
+
+/** Get last entry in IR list operand.
+ *
+ * @param list IR list operand
+ * @return Last entry or @c NULL if there is none
+ */
+ir_oper_t *ir_oper_list_last(ir_oper_list_t *list)
+{
+	link_t *link;
+
+	link = list_last(&list->list);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_oper_t, llist);
+}
+
+/** Get previous entry in IR list operand.
+ *
+ * @param cur Current entry
+ * @return Previous entry or @c NULL if there is none
+ */
+ir_oper_t *ir_oper_list_prev(ir_oper_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->llist, &cur->parent->list);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_oper_t, llist);
 }

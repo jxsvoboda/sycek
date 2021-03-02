@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -366,7 +366,7 @@ static int test_ir_instr(void)
 	return EOK;
 }
 
-/** Test IR operand.
+/** Test IR operand (except list).
  *
  * @return EOK on success or non-zero error code
  */
@@ -410,6 +410,59 @@ static int test_ir_oper(void)
 	return EOK;
 }
 
+/** Test IR list operand.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int test_ir_oper_list(void)
+{
+	ir_oper_list_t *list = NULL;
+	ir_oper_var_t *v1 = NULL;
+	ir_oper_var_t *v2 = NULL;
+	ir_oper_var_t *v3 = NULL;
+	int rc;
+	int rv;
+
+	rc = ir_oper_list_create(&list);
+	if (rc != EOK)
+		return rc;
+
+	assert(list != NULL);
+
+	rc = ir_oper_var_create("%1", &v1);
+	if (rc != EOK)
+		return rc;
+
+	assert(v1 != NULL);
+
+	rc = ir_oper_var_create("%2", &v2);
+	if (rc != EOK)
+		return rc;
+
+	assert(v2 != NULL);
+
+	rc = ir_oper_var_create("%3", &v3);
+	if (rc != EOK)
+		return rc;
+
+	assert(v3 != NULL);
+
+	ir_oper_list_append(list, &v1->oper);
+	ir_oper_list_append(list, &v2->oper);
+	ir_oper_list_append(list, &v3->oper);
+
+	rc = ir_oper_print(&list->oper, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputc('\n', stdout);
+	if (rv < 0)
+		return EIO;
+
+	ir_oper_destroy(&list->oper);
+	return EOK;
+}
+
 /** Run IR tests.
  *
  * @return EOK on success or non-zero error code
@@ -443,6 +496,10 @@ int test_ir(void)
 		return rc;
 
 	rc = test_ir_oper();
+	if (rc != EOK)
+		return rc;
+
+	rc = test_ir_oper_list();
 	if (rc != EOK)
 		return rc;
 

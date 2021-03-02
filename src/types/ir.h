@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -54,6 +54,8 @@ typedef enum {
 typedef enum {
 	/** Immediate value */
 	iro_imm,
+	/** List */
+	iro_list,
 	/** Variable reference */
 	iro_var
 } ir_oper_type_t;
@@ -62,6 +64,11 @@ typedef enum {
 typedef struct {
 	/** Operand Type */
 	ir_oper_type_t optype;
+	/** Parent list operand */
+	struct ir_oper_list *parent;
+	/** Link to containing list operand */
+	link_t llist;
+	/** Type-specific data */
 	void *ext;
 } ir_oper_t;
 
@@ -72,6 +79,14 @@ typedef struct {
 	/** Value */
 	int32_t value;
 } ir_oper_imm_t;
+
+/** IR list operand */
+typedef struct ir_oper_list {
+	/** Base object */
+	ir_oper_t oper;
+	/** List of ir_oper_t */
+	list_t list;
+} ir_oper_list_t;
 
 /** IR variable reference operand */
 typedef struct {
