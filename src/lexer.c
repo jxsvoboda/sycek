@@ -1664,7 +1664,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "error";
 	}
 
-	return EOK;
+	assert(false);
+	return "unknown";
 }
 
 /** Print token type.
