@@ -240,7 +240,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	assert(irinstr->itype == iri_call);
 	assert(irinstr->width == 16);
 	assert(irinstr->op1->optype == iro_var);
-	assert(irinstr->op2 == NULL);
+	assert(irinstr->op2->optype == iro_list);
 
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	op1 = (ir_oper_var_t *) irinstr->op1->ext;

@@ -40,6 +40,8 @@ static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
+static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
+    cgen_eres_t *);
 
 /** Prefix identifier with '@' global variable prefix.
  *
@@ -528,9 +530,13 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	comp_tok_t *ident;
 	ast_eident_t *eident;
 	char *pident = NULL;
+	ast_ecall_arg_t *earg;
+	cgen_eres_t ares;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *fun = NULL;
+	ir_oper_list_t *args = NULL;
+	ir_oper_var_t *arg = NULL;
 	int rc;
 
 	if (ecall->fexpr->ntype != ant_eident) {
@@ -553,11 +559,36 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+
+	rc = ir_oper_var_create(pident, &fun);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(pident, &fun);
+	rc = ir_oper_list_create(&args);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Each argument needs to be evaluated. The code for evaluating
+	 * arguments will precede the call instruction. The resulting
+	 * value of each argument needs to be appended to the argument
+	 * list.
+	 */
+	earg = ast_ecall_first(ecall);
+	while (earg != NULL) {
+		rc = cgen_expr(cgproc, earg->arg, lblock, &ares);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(ares.varname, &arg);
+		if (rc != EOK)
+			goto error;
+
+		ir_oper_list_append(args, &arg->oper);
+		earg = ast_ecall_next(earg);
+	}
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -567,7 +598,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	instr->width = cgproc->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &fun->oper;
-	instr->op2 = NULL;
+	instr->op2 = &args->oper;
 
 	ir_lblock_append(lblock, NULL, instr);
 	eres->varname = dest->varname;
@@ -579,6 +610,8 @@ error:
 		ir_oper_destroy(&dest->oper);
 	if (fun != NULL)
 		ir_oper_destroy(&fun->oper);
+	if (args != NULL)
+		ir_oper_destroy(&args->oper);
 	if (pident != NULL)
 		free(pident);
 	return rc;
