@@ -23,6 +23,9 @@ int add_const(void)
 //{
 //	return x + y;
 //}
+int add(void)
+{
+}
 
 int subtract(void)
 {

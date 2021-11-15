@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -220,7 +220,7 @@ error:
 /** Select Z80 IC instructions code for IR call instruction.
  *
  * @param isproc Instruction selector for procedure
- * @param irinstr IR add instruction
+ * @param irinstr IR call instruction
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
@@ -232,9 +232,17 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	z80ic_call_nn_t *call = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	z80ic_ld_vrr_r16_t *ld = NULL;
+	z80ic_oper_vrr_t *ldasrc = NULL;
+	z80ic_oper_r16_t *ldadest = NULL;
+	z80ic_ld_r16_vrr_t *ldarg = NULL;
 	ir_oper_var_t *op1;
+	ir_oper_list_t *op2;
+	ir_oper_t *arg;
+	unsigned argvr;
 	char *varident = NULL;
 	unsigned destvr;
+	unsigned aidx;
+	z80ic_r16_t argreg;
 	int rc;
 
 	assert(irinstr->itype == iri_call);
@@ -244,10 +252,60 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	op1 = (ir_oper_var_t *) irinstr->op1->ext;
+	op2 = (ir_oper_list_t *) irinstr->op2->ext;
 
 	rc = z80_isel_mangle_global_ident(op1->varname, &varident);
 	if (rc != EOK)
 		goto error;
+
+	/* Load arguments to designated registers (BC, DE, HL) */
+	arg = ir_oper_list_first(op2);
+	aidx = 0;
+	while (arg != NULL) {
+		/* ld BC|DE|HL, vrr */
+
+		rc = z80ic_ld_r16_vrr_create(&ldarg);
+		if (rc != EOK)
+			goto error;
+
+		switch (aidx) {
+		case 0:
+			argreg = z80ic_r16_bc;
+			break;
+		case 1:
+			argreg = z80ic_r16_de;
+			break;
+		case 2:
+			argreg = z80ic_r16_hl;
+			break;
+		default:
+			fprintf(stderr, "Too many arguments to function '%s' "
+			    "(not implemented).\n", op1->varname);
+			goto error;
+		}
+
+		rc = z80ic_oper_r16_create(argreg, &ldadest);
+		if (rc != EOK)
+			goto error;
+
+		argvr = z80_isel_get_vregno(isproc, arg);
+		rc = z80ic_oper_vrr_create(argvr, &ldasrc);
+		if (rc != EOK)
+			goto error;
+
+		ldarg->dest = ldadest;
+		ldarg->src = ldasrc;
+		ldadest = NULL;
+		ldasrc = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldarg->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldarg = NULL;
+		arg = ir_oper_list_next(arg);
+		++aidx;
+	}
 
 	/* Call instruction */
 
