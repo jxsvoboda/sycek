@@ -192,12 +192,24 @@ typedef struct {
 	ir_dblock_t *dblock;
 } ir_var_t;
 
-/** IR procedure definition */
+/** IR argument in procedure definition */
 typedef struct {
+	/** Containing procedure definition */
+	struct ir_proc *proc;
+	/** Link to @c proc->args */
+	link_t largs;
+	/** Identifier */
+	char *ident;
+} ir_proc_arg_t;
+
+/** IR procedure definition */
+typedef struct ir_proc {
 	/** Base object */
 	ir_decln_t decln;
 	/** Indentifier */
 	char *ident;
+	/** Arguments */
+	list_t args; /* of ir_proc_arg_t */
 	/** Labeled block containing the implementation */
 	ir_lblock_t *lblock;
 } ir_proc_t;

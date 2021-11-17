@@ -218,6 +218,7 @@ static int test_ir_dblock(void)
 static int test_ir_proc(void)
 {
 	ir_proc_t *proc = NULL;
+	ir_proc_arg_t *arg = NULL;
 	ir_lblock_t *lblock = NULL;
 	int rc;
 
@@ -232,6 +233,17 @@ static int test_ir_proc(void)
 		return rc;
 
 	assert(proc != NULL);
+
+	rc = ir_proc_arg_create("a1", &arg);
+	if (rc != EOK)
+		return rc;
+
+	assert(arg != NULL);
+	rc = ir_proc_arg_print(arg, stdout);
+	if (rc != EOK)
+		return rc;
+
+	ir_proc_append_arg(proc, arg);
 
 	rc = ir_proc_print(proc, stdout);
 	if (rc != EOK)

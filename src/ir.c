@@ -624,6 +624,7 @@ int ir_proc_create(const char *ident, ir_lblock_t *lblock, ir_proc_t **rproc)
 	proc->lblock = lblock;
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
+	list_initialize(&proc->args);
 	*rproc = proc;
 	return EOK;
 }
@@ -636,10 +637,36 @@ int ir_proc_create(const char *ident, ir_lblock_t *lblock, ir_proc_t **rproc)
  */
 int ir_proc_print(ir_proc_t *proc, FILE *f)
 {
+	ir_proc_arg_t *arg;
 	int rv;
 	int rc;
 
-	rv = fprintf(f, "\nproc %s\n", proc->ident);
+	rv = fprintf(f, "\nproc %s(", proc->ident);
+	if (rv < 0)
+		return EIO;
+
+	/* Print argument list */
+	arg = ir_proc_first_arg(proc);
+	if (arg != NULL) {
+		rc = ir_proc_arg_print(arg, f);
+		if (rc != EOK)
+			return rc;
+
+		arg = ir_proc_next_arg(arg);
+		while (arg != NULL) {
+			rv = fputs(", ", f);
+			if (rv < 0)
+				return EIO;
+
+			rc = ir_proc_arg_print(arg, f);
+			if (rc != EOK)
+				return rc;
+
+			arg = ir_proc_next_arg(arg);
+		}
+	}
+
+	rv = fputs(")\n", f);
 	if (rv < 0)
 		return EIO;
 
@@ -658,20 +685,156 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 	return EOK;
 }
 
+/** Append argument to IR procedure.
+ *
+ * @param proc IR procedure
+ * @param arg Argument
+ */
+void ir_proc_append_arg(ir_proc_t *proc, ir_proc_arg_t *arg)
+{
+	assert(arg->proc == NULL);
+	arg->proc = proc;
+	list_append(&arg->largs, &proc->args);
+}
+
 /** Destroy IR procedure.
  *
  * @param proc IR procedure or @c NULL
  */
 void ir_proc_destroy(ir_proc_t *proc)
 {
+	ir_proc_arg_t *arg;
+
 	if (proc == NULL)
 		return;
 
 	if (proc->ident != NULL)
 		free(proc->ident);
 
+	arg = ir_proc_first_arg(proc);
+	while (arg != NULL) {
+		list_remove(&arg->largs);
+		ir_proc_arg_destroy(arg);
+		arg = ir_proc_first_arg(proc);
+	}
+
 	ir_lblock_destroy(proc->lblock);
 	free(proc);
+}
+
+/** Get first argument of IR procedure.
+ *
+ * @param proc IR procedure
+ * @return First argument or @c NULL if there is none
+ */
+ir_proc_arg_t *ir_proc_first_arg(ir_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_first(&proc->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_arg_t, largs);
+}
+
+/** Get next argument of IR procedure.
+ *
+ * @param cur Current argument
+ * @return Next argument or @c NULL if @a cur is the last argument
+ */
+ir_proc_arg_t *ir_proc_next_arg(ir_proc_arg_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->largs, &cur->proc->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_arg_t, largs);
+}
+
+/** Get last argument of IR procedure.
+ *
+ * @param proc IR procedure
+ * @return Last argument or @c NULL if there is none
+ */
+ir_proc_arg_t *ir_proc_last_arg(ir_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_last(&proc->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_arg_t, largs);
+}
+
+/** Get previous argument of IR procedure.
+ *
+ * @param cur Current argument
+ * @return Previous argument or @c NULL if @a cur is the first argument
+ */
+ir_proc_arg_t *ir_proc_prev_arg(ir_proc_arg_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->largs, &cur->proc->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_arg_t, largs);
+}
+
+/** Create IR procedure argument.
+ *
+ * @param ident Argument identifier
+ * @param rarg Place to store pointer to new argument
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_proc_arg_create(const char *ident, ir_proc_arg_t **rarg)
+{
+	ir_proc_arg_t *arg;
+
+	arg = calloc(1, sizeof(ir_proc_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->ident = strdup(ident);
+	if (arg->ident == NULL) {
+		free(arg);
+		return ENOMEM;
+	}
+
+	*rarg = arg;
+	return EOK;
+}
+
+/** Destroy IR procedure argument.
+ *
+ * @param arg Argument
+ */
+void ir_proc_arg_destroy(ir_proc_arg_t *arg)
+{
+	free(arg->ident);
+	free(arg);
+}
+
+/** Print IR procedure argument.
+ *
+ * @param arg Argument
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_proc_arg_print(ir_proc_arg_t *arg, FILE *f)
+{
+	int rv;
+
+	rv = fputs(arg->ident, f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
 }
 
 /** Create IR labeled block.
