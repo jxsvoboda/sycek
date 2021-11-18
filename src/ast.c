@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -3793,6 +3793,13 @@ static int ast_dfun_print(ast_dfun_t *dfun, FILE *f)
 	int rc;
 
 	if (fprintf(f, "dfun(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(dfun->bdecl, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, "; ") < 0)
 		return EIO;
 
 	arg = ast_dfun_first(dfun);
