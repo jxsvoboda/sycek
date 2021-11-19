@@ -1,0 +1,3 @@
+<test/ugly/spfun-in.c:6:5:'('>: Superfluous parentheses around function identifier.
+<test/ugly/spfun-in.c:12:5:'('>: Superfluous parentheses around function identifier.
+<test/ugly/spfun-in.c:15:13:'('>: Superfluous parentheses around function identifier.

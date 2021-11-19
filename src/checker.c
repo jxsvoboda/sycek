@@ -2227,6 +2227,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 	checker_tok_t *tlparen;
 	ast_dfun_arg_t *arg;
 	ast_tok_t *adecl;
+	ast_dparen_t *dparen;
 	checker_tok_t *tdecl;
 	checker_tok_t *tcomma;
 	checker_tok_t *tellipsis;
@@ -2236,6 +2237,27 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 	rc = checker_check_decl(scope, dfun->bdecl);
 	if (rc != EOK)
 		return rc;
+
+	if (dfun->bdecl->ntype == ant_dparen) {
+		dparen = (ast_dparen_t *)dfun->bdecl->ext;
+		if (dparen->bdecl->ntype == ant_dident &&
+		    checker_scfg(scope)->decl) {
+			tlparen = (checker_tok_t *)dparen->tlparen.data;
+			trparen = (checker_tok_t *)dparen->trparen.data;
+
+			if (scope->fix) {
+				checker_remove_token(tlparen);
+				checker_remove_token(trparen);
+				dfun->bdecl = dparen->bdecl;
+				dparen->bdecl = NULL;
+				ast_tree_destroy(&dparen->node);
+			} else {
+				lexer_dprint_tok(&tlparen->tok, stdout);
+				printf(": Superfluous parentheses around "
+				    "function identifier.\n");
+			}
+		}
+	}
 
 	tlparen = (checker_tok_t *)dfun->tlparen.data;
 	checker_check_nsbrk_after(scope, tlparen,
