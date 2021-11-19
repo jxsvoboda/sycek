@@ -1,5 +1,6 @@
 /*
  * Superfluous parentheses around function identifier
+ * or function type declarator is missing '*'
  */
 
 /* Superfluous parentheses in function definition */
@@ -11,8 +12,8 @@ int (a)(void)
 /* Superfluous parentheses in function declaration */
 int (b)(void);
 
-/* Superfluous parenteses in function-type definition */
+/* Function type declaration is missing '*' */
 typedef int (c)(void);
 
-/* Parenteses around function pointer are okay */
+/* Parentheses around function pointer are okay */
 int (*d)(void);

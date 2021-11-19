@@ -559,7 +559,6 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	if (rc != EOK)
 		goto error;
 
-
 	rc = ir_oper_var_create(pident, &fun);
 	if (rc != EOK)
 		goto error;

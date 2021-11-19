@@ -2243,19 +2243,19 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 		if (dparen->bdecl->ntype == ant_dident &&
 		    checker_scfg(scope)->decl) {
 			tlparen = (checker_tok_t *)dparen->tlparen.data;
-			trparen = (checker_tok_t *)dparen->trparen.data;
 
-			if (scope->fix) {
-				checker_remove_token(tlparen);
-				checker_remove_token(trparen);
-				dfun->bdecl = dparen->bdecl;
-				dparen->bdecl = NULL;
-				ast_tree_destroy(&dparen->node);
-			} else {
-				lexer_dprint_tok(&tlparen->tok, stdout);
-				printf(": Superfluous parentheses around "
-				    "function identifier.\n");
-			}
+			/*
+			 * XXX If we could determine whether this is a
+			 * function declaration, or a function
+			 * type declaration, then we could give
+			 * a more specific error message and, in addition,
+			 * we could detect function pointer declaration
+			 * missing both parentheses and '*'.
+			 */
+			lexer_dprint_tok(&tlparen->tok, stdout);
+			printf(": Superfluous parentheses around "
+			    "function identifier or function pointer "
+			    "declaration is missing '*'.\n");
 		}
 	}
 
