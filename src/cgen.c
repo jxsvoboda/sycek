@@ -961,8 +961,17 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	cgen_proc_t *cgproc = NULL;
+	ast_idlist_entry_t *idle;
+	ast_dfun_t *dfun;
+	ast_dfun_arg_t *arg;
+	ir_proc_arg_t *iarg;
+	int aidx;
 	char *pident = NULL;
+	char *arg_ident = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	int rc;
+	int rv;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
@@ -986,6 +995,45 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	if (rc != EOK)
 		goto error;
 
+	/* Identifier-declarator list entry */
+	idle = ast_idlist_first(gdecln->idlist);
+	assert(idle != NULL);
+	assert(ast_idlist_next(idle) == NULL);
+
+	/* Get the function declarator */
+	if (idle->decl->ntype != ant_dfun) {
+		atok = ast_tree_first_tok(idle->decl);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Function declarator required.\n");
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	dfun = (ast_dfun_t *)idle->decl->ext;
+
+	/* Arguments */
+	arg = ast_dfun_first(dfun);
+	aidx = 0;
+	while (arg != NULL) {
+		rv = asprintf(&arg_ident, "%%%d", aidx);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		rc = ir_proc_arg_create(arg_ident, &iarg);
+		if (rc != EOK)
+			goto error;
+
+		free(arg_ident);
+		arg_ident = NULL;
+
+		ir_proc_append_arg(proc, iarg);
+		arg = ast_dfun_next(arg);
+		++aidx;
+	}
+
 	free(pident);
 	pident = NULL;
 	lblock = NULL;
@@ -1002,6 +1050,8 @@ error:
 	cgen_proc_destroy(cgproc);
 	if (pident != NULL)
 		free(pident);
+	if (arg_ident != NULL)
+		free(arg_ident);
 	return rc;
 }
 
