@@ -122,7 +122,7 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
     $(test_ugly_h_fixed_diffs) $(test_ugly_err_diffs) $(test_ugly_out_diffs) \
     $(text_ugly_h_out_diffs) $(test_vg_outs) \
-    test/all.diff test/test-int.out test/selfcheck.out
+    test/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
 example_outs = example/test.asm example/test.o example/test.bin \
     example/test.map example/test.tap
 
@@ -221,9 +221,13 @@ test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
     $(test_vg_out_diffs)
 	cat $^ > $@
 
-# Run internal unit tests
+# Run ccheck internal unit tests
 test/test-int.out: $(ccheck)
 	$(ccheck) --test >test/test-int.out
+
+# Run syc internal unit tests
+test/test-syc-int.out: $(syc)
+	$(syc) --test >test/test-syc-int.out
 
 selfcheck: test/selfcheck.out
 
@@ -246,7 +250,8 @@ examples: example/test.tap
 # Note that if any of the diffs is not empty, that diff command will
 # return non-zero exit code, failing the make
 #
-test: test/test-int.out test/all.diff $(test_vg_outs) test/selfcheck.out
+test: test/test-int.out test/test-syc-int.out test/all.diff \
+    $(test_vg_outs) test/selfcheck.out
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk

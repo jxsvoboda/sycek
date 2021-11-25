@@ -271,6 +271,7 @@ After making any changes run `make test` command which runs a number of tests
  * Runs `ccheck` on the regression tests in `test/` and check output
  * Runs `ccheck` under Valgrind on all tests in `test/` and verify that
    all memory blocks have been freed
+ * Runs `syc` internal unit tests
 
 Everything should finish successfully (exit code from `make` should be zero).
 
