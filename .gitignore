@@ -6,7 +6,9 @@ syc-hos
 example/test.asm
 example/test.bin
 example/test.map
+example/test.ir
 example/test.tap
+example/test.vric
 test/*/*-vg.txt
 test/*/*.c.diff
 test/*/*.h.diff

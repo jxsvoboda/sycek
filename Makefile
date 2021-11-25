@@ -124,7 +124,7 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(text_ugly_h_out_diffs) $(test_vg_outs) \
     test/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
 example_outs = example/test.asm example/test.o example/test.bin \
-    example/test.map example/test.tap
+    example/test.map example/test.tap example/test.ir example/test.vric
 
 all: $(binary_ccheck) $(binary_syc)
 
@@ -240,11 +240,15 @@ test/selfcheck.out: $(ccheck)
 #
 example/test.asm: example/test.c $(syc)
 	$(syc) $<
+example/test.ir: example/test.c $(syc)
+	$(syc) --dump-ir $< >$@
+example/test.vric: example/test.c $(syc)
+	$(syc) --dump-vric $< >$@
 example/test.bin: example/test.asm
 	z80asm +zx --origin=32768 -b -m $<
 example/test.tap: example/test.bin
 	appmake +zx --org=32768 -b $<
-examples: example/test.tap
+examples: example/test.tap example/test.ir example/test.vric
 
 #
 # Note that if any of the diffs is not empty, that diff command will
