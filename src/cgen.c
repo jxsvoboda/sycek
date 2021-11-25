@@ -1007,7 +1007,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Function declarator required.\n");
 		cgproc->cgen->error = true; // TODO
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	dfun = (ast_dfun_t *)idle->decl->ext;
