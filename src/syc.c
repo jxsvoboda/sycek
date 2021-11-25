@@ -36,6 +36,7 @@
 #include <test/cgen.h>
 #include <test/comp.h>
 #include <test/ir.h>
+#include <test/scope.h>
 #include <test/z80/isel.h>
 #include <test/z80/ralloc.h>
 #include <test/z80/z80ic.h>
@@ -218,6 +219,11 @@ int main(int argc, char *argv[])
 
 		rc = test_ir();
 		printf("test_ir -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
+		rc = test_scope();
+		printf("test_scope -> %d\n", rc);
 		if (rc != EOK)
 			return 1;
 
