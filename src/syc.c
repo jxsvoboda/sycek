@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -189,8 +189,10 @@ error:
 		fclose(f);
 	if (outf != NULL)
 		fclose(outf);
-	if (outfname != NULL)
+	if (outfname != NULL) {
+		(void) remove(outfname);
 		free(outfname);
+	}
 	return rc;
 }
 
