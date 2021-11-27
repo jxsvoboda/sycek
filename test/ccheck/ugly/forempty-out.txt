@@ -1,0 +1,1 @@
+<test/ccheck/ugly/forempty-in.c:9:29:')'>: For loop with empty next expression. Use while instead.

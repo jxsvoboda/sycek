@@ -1,2 +1,0 @@
-<test/ugly/sclass-in.c:6:1-6:'extern'>: Improper use of storage class 'extern' with function definition.
-<test/ugly/sclass-in.c:12:1-6:'extern'>: Improper use of storage class 'extern' with function definition.

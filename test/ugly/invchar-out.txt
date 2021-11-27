@@ -1,4 +1,0 @@
-<test/ugly/invchar-in.c:6:12:str>: Invalid character '#08' inside string literal.
-<test/ugly/invchar-in.c:8:10:char>: Invalid character '#08' inside character literal.
-<test/ugly/invchar-in.c:10:24:ctext>: Invalid character '#08' inside comment.
-<test/ugly/invchar-in.c:11:37:dscomment>: Invalid character '#08' inside comment.

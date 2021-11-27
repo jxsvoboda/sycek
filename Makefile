@@ -103,15 +103,15 @@ objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
 
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h)
 
-test_good_ins = $(wildcard test/good/*-in.c)
+test_good_ins = $(wildcard test/ccheck/good/*-in.c)
 test_good_out_diffs = $(test_good_ins:-in.c=-out.txt.diff)
-test_bad_ins = $(wildcard test/bad/*-in.c)
+test_bad_ins = $(wildcard test/ccheck/bad/*-in.c)
 test_bad_errs = $(test_bad_ins:-in.c=-err-t.txt)
 test_bad_err_diffs = $(test_bad_ins:-in.c=-err.txt.diff)
-test_ugly_ins = $(wildcard test/ugly/*-in.c)
+test_ugly_ins = $(wildcard test/ccheck/ugly/*-in.c)
 test_ugly_fixed_diffs = $(test_ugly_ins:-in.c=-fixed.c.diff)
 test_ugly_out_diffs = $(test_ugly_ins:-in.c=-out.txt.diff)
-test_ugly_h_ins = $(wildcard test/ugly/*-in.h)
+test_ugly_h_ins = $(wildcard test/ccheck/ugly/*-in.h)
 test_ugly_h_fixed_diffs = $(test_ugly_h_ins:-in.h=-fixed.h.diff)
 test_ugly_h_out_diffs = $(test_ugly_h_ins:-in.h=-out.txt.diff)
 test_vg_outs = \
@@ -122,7 +122,7 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
     $(test_ugly_h_fixed_diffs) $(test_ugly_err_diffs) $(test_ugly_out_diffs) \
     $(text_ugly_h_out_diffs) $(test_vg_outs) \
-    test/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
+    test/ccheck/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
 example_outs = example/test.asm example/test.o example/test.bin \
     example/test.map example/test.tap example/test.ir example/test.vric
 
@@ -166,56 +166,56 @@ clean:
 	$(objects_syc_hos) $(binary_ccheck) $(binary_ccheck_hos) \
 	$(binary_syc) $(binary_syc_hos) $(test_outs) $(example_outs)
 
-test/good/%-out-t.txt: test/good/%-in.c $(ccheck)
+test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
 
-test/good/%-out.txt.diff: /dev/null test/good/%-out-t.txt
+test/ccheck/good/%-out.txt.diff: /dev/null test/ccheck/good/%-out-t.txt
 	diff -u $^ >$@
 
-test/good/%-vg.txt: test/good/%-in.c $(ccheck)
+test/ccheck/good/%-vg.txt: test/ccheck/good/%-in.c $(ccheck)
 	valgrind $(ccheck) $^ 2>$@
 	grep -q 'no leaks are possible' $@
 
-test/bad/%-err-t.txt: test/bad/%-in.c $(ccheck)
+test/ccheck/bad/%-err-t.txt: test/ccheck/bad/%-in.c $(ccheck)
 	-$(ccheck) $< 2>$@
 
-test/bad/%-err.txt.diff: test/bad/%-err.txt test/bad/%-err-t.txt
+test/ccheck/bad/%-err.txt.diff: test/ccheck/bad/%-err.txt test/ccheck/bad/%-err-t.txt
 	diff -u $^ >$@
 
-test/ugly/%-fixed-t.c: test/ugly/%-in.c $(ccheck)
+test/ccheck/ugly/%-fixed-t.c: test/ccheck/ugly/%-in.c $(ccheck)
 	cp $< $@
 	$(ccheck) --fix $@
 	rm -f $@.orig
 
-test/ugly/%-fixed-t.h: test/ugly/%-in.h $(ccheck)
+test/ccheck/ugly/%-fixed-t.h: test/ccheck/ugly/%-in.h $(ccheck)
 	cp $< $@
 	$(ccheck) --fix $@
 	rm -f $@.orig
 
-test/ugly/%-fixed.c.diff: test/ugly/%-fixed.c test/ugly/%-fixed-t.c
+test/ccheck/ugly/%-fixed.c.diff: test/ccheck/ugly/%-fixed.c test/ccheck/ugly/%-fixed-t.c
 	diff -u $^ >$@
 
-test/ugly/%-fixed.h.diff: test/ugly/%-fixed.h test/ugly/%-fixed-t.h
+test/ccheck/ugly/%-fixed.h.diff: test/ccheck/ugly/%-fixed.h test/ccheck/ugly/%-fixed-t.h
 	diff -u $^ >$@
 
-test/ugly/%-out-t.txt: test/ugly/%-in.c $(ccheck)
+test/ccheck/ugly/%-out-t.txt: test/ccheck/ugly/%-in.c $(ccheck)
 	$(ccheck) $< >$@
 
-test/ugly/%-out-t.txt: test/ugly/%-in.h $(ccheck)
+test/ccheck/ugly/%-out-t.txt: test/ccheck/ugly/%-in.h $(ccheck)
 	$(ccheck) $< >$@
 
-test/ugly/%-out.txt.diff: test/ugly/%-out.txt test/ugly/%-out-t.txt
+test/ccheck/ugly/%-out.txt.diff: test/ccheck/ugly/%-out.txt test/ccheck/ugly/%-out-t.txt
 	diff -u $^ >$@
 
-test/ugly/%-vg.txt: test/ugly/%-in.c $(ccheck)
+test/ccheck/ugly/%-vg.txt: test/ccheck/ugly/%-in.c $(ccheck)
 	valgrind $(ccheck) $< >/dev/null 2>$@
 	grep -q 'no leaks are possible' $@
 
-test/ugly/%-vg.txt: test/ugly/%-in.h $(ccheck)
+test/ccheck/ugly/%-vg.txt: test/ccheck/ugly/%-in.h $(ccheck)
 	valgrind $(ccheck) $< >/dev/null 2>$@
 	grep -q 'no leaks are possible' $@
 
-test/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
+test/ccheck/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
     $(test_ugly_fixed_diffs) $(test_ugly_h_fixed_diffs) \
     $(test_ugly_out_diffs) $(test_ugly_h_out_diffs) \
     $(test_vg_out_diffs)
@@ -254,7 +254,7 @@ examples: example/test.tap example/test.ir example/test.vric
 # Note that if any of the diffs is not empty, that diff command will
 # return non-zero exit code, failing the make
 #
-test: test/test-int.out test/test-syc-int.out test/all.diff \
+test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     $(test_vg_outs) test/selfcheck.out
 
 backup: clean

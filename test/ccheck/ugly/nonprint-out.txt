@@ -1,0 +1,26 @@
+<test/ccheck/ugly/nonprint-in.c:1:1:invchar:#01>: Invalid character '#01'.
+<test/ccheck/ugly/nonprint-in.c:1:2:invchar:#02>: Invalid character '#02'.
+<test/ccheck/ugly/nonprint-in.c:1:3:invchar:#03>: Invalid character '#03'.
+<test/ccheck/ugly/nonprint-in.c:1:4:invchar:#04>: Invalid character '#04'.
+<test/ccheck/ugly/nonprint-in.c:1:5:invchar:#05>: Invalid character '#05'.
+<test/ccheck/ugly/nonprint-in.c:1:6:invchar:#06>: Invalid character '#06'.
+<test/ccheck/ugly/nonprint-in.c:1:7:invchar:#07>: Invalid character '#07'.
+<test/ccheck/ugly/nonprint-in.c:1:8:invchar:#08>: Invalid character '#08'.
+<test/ccheck/ugly/nonprint-in.c:1:9:invchar:#0b>: Invalid character '#0b'.
+<test/ccheck/ugly/nonprint-in.c:1:10:invchar:#0c>: Invalid character '#0c'.
+<test/ccheck/ugly/nonprint-in.c:1:11:invchar:#0d>: Invalid character '#0d'.
+<test/ccheck/ugly/nonprint-in.c:1:12:invchar:#0e>: Invalid character '#0e'.
+<test/ccheck/ugly/nonprint-in.c:1:13:invchar:#0f>: Invalid character '#0f'.
+<test/ccheck/ugly/nonprint-in.c:1:14:invchar:#10>: Invalid character '#10'.
+<test/ccheck/ugly/nonprint-in.c:1:15:invchar:#11>: Invalid character '#11'.
+<test/ccheck/ugly/nonprint-in.c:1:16:invchar:#12>: Invalid character '#12'.
+<test/ccheck/ugly/nonprint-in.c:1:17:invchar:#13>: Invalid character '#13'.
+<test/ccheck/ugly/nonprint-in.c:1:18:invchar:#14>: Invalid character '#14'.
+<test/ccheck/ugly/nonprint-in.c:1:19:invchar:#15>: Invalid character '#15'.
+<test/ccheck/ugly/nonprint-in.c:1:20:invchar:#16>: Invalid character '#16'.
+<test/ccheck/ugly/nonprint-in.c:1:21:invchar:#17>: Invalid character '#17'.
+<test/ccheck/ugly/nonprint-in.c:1:22:invchar:#18>: Invalid character '#18'.
+<test/ccheck/ugly/nonprint-in.c:1:23:invchar:#19>: Invalid character '#19'.
+<test/ccheck/ugly/nonprint-in.c:1:24:invchar:#7f>: Invalid character '#7f'.
+<test/ccheck/ugly/nonprint-in.c:1:1:invchar:#01>: Line is indented by 0 spaces (should be 4)
+<test/ccheck/ugly/nonprint-in.c:1:25:eof>: Expected newline at end of file.

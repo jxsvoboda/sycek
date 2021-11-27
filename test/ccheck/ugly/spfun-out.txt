@@ -1,0 +1,3 @@
+<test/ccheck/ugly/spfun-in.c:7:5:'('>: Superfluous parentheses around function identifier or function pointer declaration is missing '*'.
+<test/ccheck/ugly/spfun-in.c:13:5:'('>: Superfluous parentheses around function identifier or function pointer declaration is missing '*'.
+<test/ccheck/ugly/spfun-in.c:16:13:'('>: Superfluous parentheses around function identifier or function pointer declaration is missing '*'.

@@ -1,1 +1,0 @@
-Error: <test/bad/backslash-in.c:4:25:invalid:\> unexpected, expected ','.

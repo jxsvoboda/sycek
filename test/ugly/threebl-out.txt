@@ -1,1 +1,0 @@
-<test/ugly/threebl-in.c:6:1:newline>: Unexpected multiple consecutive empty lines.

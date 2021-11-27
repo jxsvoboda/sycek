@@ -1,0 +1,2 @@
+<test/ccheck/ugly/nblock-in.c:9:17:'{'>: Gratuitous nested block.
+<test/ccheck/ugly/nblock-in.c:15:9:'{'>: Gratuitous nested block.

@@ -1,0 +1,4 @@
+<test/ccheck/ugly/c11-in.c:9:8:space>: Unexpected whitespace before '('.
+<test/ccheck/ugly/c11-in.c:9:10:space>: Unexpected space after '('.
+<test/ccheck/ugly/c11-in.c:9:17:space>: Unexpected whitespace after '*'.
+<test/ccheck/ugly/c11-in.c:9:17:space>: Unexpected whitespace before ')'.

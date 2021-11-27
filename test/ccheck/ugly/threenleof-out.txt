@@ -1,0 +1,1 @@
+<test/ccheck/ugly/threenleof-in.c:7:1:newline>: Unexpected empty lines at end of file.

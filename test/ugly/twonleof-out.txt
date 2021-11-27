@@ -1,1 +1,0 @@
-<test/ugly/twonleof-in.c:6:1:newline>: Unexpected empty lines at end of file.

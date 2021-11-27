@@ -1,1 +1,0 @@
-<test/ugly/eofppcomment-in.c:6:15:eof>: Expected newline at end of file.

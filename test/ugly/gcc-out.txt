@@ -1,2 +1,0 @@
-<test/ugly/gcc-in.c:4:14:space>: Unexpected space after '('.
-<test/ugly/gcc-in.c:4:22:space>: Unexpected whitespace before ')'.

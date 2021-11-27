@@ -1,2 +1,0 @@
-<test/ugly/nulldecln-in.c:6:1:';'>: Empty declaration.
-<test/ugly/nulldecln-in.c:10:9:';'>: Empty struct or union member declaration.
