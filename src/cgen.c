@@ -33,6 +33,7 @@
 #include <ir.h>
 #include <lexer.h>
 #include <merrno.h>
+#include <scope.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -135,10 +136,17 @@ error:
 int cgen_create(cgen_t **rcgen)
 {
 	cgen_t *cgen;
+	int rc;
 
 	cgen = calloc(1, sizeof(cgen_t));
 	if (cgen == NULL)
 		return ENOMEM;
+
+	rc = scope_create(NULL, &cgen->scope);
+	if (rc != 0) {
+		free(cgen);
+		return ENOMEM;
+	}
 
 	cgen->error = false;
 	*rcgen = cgen;
@@ -245,10 +253,22 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
+	scope_member_t *member;
 	char *pident = NULL;
 	int rc;
 
 	ident = (comp_tok_t *) eident->tident.data;
+
+	/* Check if the identifier is declared */
+	member = scope_lookup(cgproc->cgen->scope, ident->tok.text);
+	if (member == NULL) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Undeclared identifier '%s'.\n",
+		    ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
 		goto error;
@@ -529,6 +549,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	comp_tok_t *tok;
 	comp_tok_t *ident;
 	ast_eident_t *eident;
+	scope_member_t *member;
 	char *pident = NULL;
 	ast_ecall_arg_t *earg;
 	cgen_eres_t ares;
@@ -551,6 +572,17 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 
 	eident = (ast_eident_t *) ecall->fexpr->ext;
 	ident = (comp_tok_t *) eident->tident.data;
+
+	/* Check if the identifier is declared */
+	member = scope_lookup(cgproc->cgen->scope, ident->tok.text);
+	if (member == NULL) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Undeclared identifier '%s'.\n",
+		    ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
 		goto error;
@@ -975,6 +1007,12 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
+
+	/* Insert identifier into module scope */
+	rc = scope_insert_gsym(cgen->scope, ident->tok.text);
+	if (rc == ENOMEM)
+		goto error;
+
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
 		goto error;
@@ -1083,6 +1121,11 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
+
+	/* Insert identifier into module scope */
+	rc = scope_insert_gsym(cgen->scope, ident->tok.text);
+	if (rc == ENOMEM)
+		goto error;
 
 	if (entry->init != NULL) {
 		if (entry->init->ntype != ant_eint) {
@@ -1262,5 +1305,6 @@ void cgen_destroy(cgen_t *cgen)
 	if (cgen == NULL)
 		return;
 
+	scope_destroy(cgen->scope);
 	free(cgen);
 }

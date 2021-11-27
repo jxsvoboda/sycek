@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -33,6 +33,8 @@ typedef struct {
 	int arith_width;
 	/** Code generator hit an error */
 	bool error;
+	/** Module scope */
+	struct scope *scope;
 } cgen_t;
 
 /** Code generator for procedure */
