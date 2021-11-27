@@ -255,23 +255,32 @@ Developer Notes
 ---------------
 These are notes on maintaining Sycek code base.
 
-The regression tests (`test/*/*-in.c`) are split into three groups, good,
-bad and ugly. Good tests should result in a clean run of ccheck with no
-output (i.e. no error and no issues found). Bad tests should result in
-a fatal error and a specific error message (`test/bad/*-err.txt`)
-printed to standard error output. Ugly tests should result
-in ccheck finding specific issues (`test/ugly/*-out.txt`) and
-if ccheck run with `--fix`, it should transform the source code to
-look like `test/ugly/*-fixed.c`).
+The ccheck regression tests (`test/ccheck/*/*-in.c`) are split into
+three groups, good, bad and ugly. Good tests should result in a clean
+run of ccheck with no output (i.e. no error and no issues found).
+Bad tests should result in a fatal error and a specific error message
+(`test/ccheck/bad/*-err.txt`) printed to standard error output.
+Ugly tests should result in ccheck finding specific issues
+(`test/ccheck/ugly/*-out.txt`) and if ccheck run with `--fix`, it should
+transform the source code to look like `test/ugly/*-fixed.c`).
+
+The syc regression tests (`test/syc/*/*.c`) are also split into three
+groups, good bad and ugly. Good tests should result in a clean compilation
+with no errors or warnings produced. Bad tests should result in a compilation
+error and a specific error message (`test/syc/bad/*.txt`) printed to standard
+error output. Ugly tests should result in successful compilation with
+specific warnings (`test/syc/ugly/*.txt`) printed to the standard error
+output. (NOTE: Good and ugly syc tests are not implemented yet.)
 
 After making any changes run `make test` command which runs a number of tests
 
  * Runs `ccheck` on the source code (self-test)
  * Runs `ccheck` internal unit tests (very sparse)
- * Runs `ccheck` on the regression tests in `test/` and check output
- * Runs `ccheck` under Valgrind on all tests in `test/` and verify that
+ * Runs `ccheck` on the regression tests in `test/ccheck` and checks output
+ * Runs `ccheck` under Valgrind on all tests in `test/` and verifies that
    all memory blocks have been freed
  * Runs `syc` internal unit tests
+ * Runs `syc` on the regression tests in `test/syc` and checks output
 
 Everything should finish successfully (exit code from `make` should be zero).
 

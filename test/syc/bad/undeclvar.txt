@@ -1,0 +1,1 @@
+<test/syc/bad/undeclvar.c:8:16:id:a>: Undeclared identifier 'a'.

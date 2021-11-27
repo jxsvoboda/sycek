@@ -121,8 +121,14 @@ test_vg_outs = \
 test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
     $(test_ugly_h_fixed_diffs) $(test_ugly_err_diffs) $(test_ugly_out_diffs) \
-    $(text_ugly_h_out_diffs) $(test_vg_outs) \
+    $(test_ugly_h_out_diffs) $(test_vg_outs) \
     test/ccheck/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
+test_syc_bad_srcs = $(wildcard test/syc/bad/*.c)
+test_syc_bad_asms = $(test_syc_bad_srcs:.c=.asm)
+test_syc_bad_diffs = $(test_syc_bad_srcs:.c=.txt.diff)
+test_syc_vg_outs = \
+    $(test_syc_bad_srcs:.c=-vg.txt)
+test_syc_outs = $(test_syc_bad_diffs) $(test_syc_vg_outs) test/syc/all.diff
 example_outs = example/test.asm example/test.o example/test.bin \
     example/test.map example/test.tap example/test.ir example/test.vric
 
@@ -164,7 +170,8 @@ test-hos: install-hos
 clean:
 	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_syc) \
 	$(objects_syc_hos) $(binary_ccheck) $(binary_ccheck_hos) \
-	$(binary_syc) $(binary_syc_hos) $(test_outs) $(example_outs)
+	$(binary_syc) $(binary_syc_hos) $(test_outs) $(test_syc_outs) \
+	$(example_outs)
 
 test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
@@ -221,6 +228,19 @@ test/ccheck/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
     $(test_vg_out_diffs)
 	cat $^ > $@
 
+test/syc/bad/%-t.txt: test/syc/bad/%.c $(syc)
+	-$(syc) $< 2>$@
+
+test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
+	diff -u $^ >$@
+
+test/syc/bad/%-vg.txt: test/syc/bad/%.c $(syc)
+	valgrind $(syc) $^ 2>$@
+	grep -q 'no leaks are possible' $@
+
+test/syc/all.diff: $(test_syc_bad_diffs)
+	cat $^ > $@
+
 # Run ccheck internal unit tests
 test/test-int.out: $(ccheck)
 	$(ccheck) --test >test/test-int.out
@@ -255,7 +275,8 @@ examples: example/test.tap example/test.ir example/test.vric
 # return non-zero exit code, failing the make
 #
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
-    $(test_vg_outs) test/selfcheck.out
+    test/syc/all.diff $(test_vg_outs) test/selfcheck.out
+# XXX Add $(test_syc_vg_outs) once leaks are fixed
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
