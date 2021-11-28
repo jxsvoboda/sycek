@@ -1,5 +1,5 @@
 #
-# Copyright 2018 Jiri Svoboda
+# Copyright 2021 Jiri Svoboda
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # copy of this software and associated documentation files (the "Software"),
@@ -180,7 +180,7 @@ test/ccheck/good/%-out.txt.diff: /dev/null test/ccheck/good/%-out-t.txt
 	diff -u $^ >$@
 
 test/ccheck/good/%-vg.txt: test/ccheck/good/%-in.c $(ccheck)
-	valgrind $(ccheck) $^ 2>$@
+	valgrind $(ccheck) $< 2>$@
 	grep -q 'no leaks are possible' $@
 
 test/ccheck/bad/%-err-t.txt: test/ccheck/bad/%-in.c $(ccheck)
@@ -235,7 +235,7 @@ test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
 	diff -u $^ >$@
 
 test/syc/bad/%-vg.txt: test/syc/bad/%.c $(syc)
-	valgrind $(syc) $^ 2>$@
+	valgrind $(syc) $< 2>$@
 	grep -q 'no leaks are possible' $@
 
 test/syc/all.diff: $(test_syc_bad_diffs)

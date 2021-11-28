@@ -60,6 +60,7 @@ void scope_destroy(scope_t *scope)
 	member = scope_first(scope);
 	while (member != NULL) {
 		list_remove(&member->lmembers);
+		free(member->ident);
 		free(member);
 		member = scope_first(scope);
 	}

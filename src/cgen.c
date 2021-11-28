@@ -1033,6 +1033,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	if (rc != EOK)
 		goto error;
 
+	/* lblock is now owned by proc */
+	lblock = NULL;
+
 	/* Identifier-declarator list entry */
 	idle = ast_idlist_first(gdecln->idlist);
 	assert(idle != NULL);
@@ -1075,7 +1078,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	free(pident);
 	pident = NULL;
-	lblock = NULL;
 
 	ir_module_append(irmod, &proc->decln);
 	proc = NULL;
@@ -1087,6 +1089,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 error:
 	ir_proc_destroy(proc);
 	cgen_proc_destroy(cgproc);
+	if (lblock != NULL)
+		ir_lblock_destroy(lblock);
 	if (pident != NULL)
 		free(pident);
 	if (arg_ident != NULL)
