@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -451,6 +451,7 @@ void z80ic_dblock_destroy(z80ic_dblock_t *dblock)
 	entry = z80ic_dblock_first(dblock);
 	while (entry != NULL) {
 		list_remove(&entry->lentries);
+		z80ic_dentry_destroy(entry->dentry);
 		free(entry);
 
 		entry = z80ic_dblock_first(dblock);
@@ -1615,8 +1616,7 @@ static int z80ic_call_nn_print(z80ic_call_nn_t *instr, FILE *f)
  */
 static void z80ic_call_nn_destroy(z80ic_call_nn_t *instr)
 {
-	/* Intentionally empty */
-	(void) instr;
+	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
 /** Create Z80 IC return instruction.

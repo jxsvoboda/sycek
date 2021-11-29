@@ -270,17 +270,19 @@ with no errors or warnings produced. Bad tests should result in a compilation
 error and a specific error message (`test/syc/bad/*.txt`) printed to standard
 error output. Ugly tests should result in successful compilation with
 specific warnings (`test/syc/ugly/*.txt`) printed to the standard error
-output. (NOTE: Good and ugly syc tests are not implemented yet.)
+output. (NOTE: ugly syc tests are not implemented yet.)
 
 After making any changes run `make test` command which runs a number of tests
 
  * Runs `ccheck` on the source code (self-test)
  * Runs `ccheck` internal unit tests (very sparse)
  * Runs `ccheck` on the regression tests in `test/ccheck` and checks output
- * Runs `ccheck` under Valgrind on all tests in `test/` and verifies that
-   all memory blocks have been freed
+ * Runs `ccheck` under Valgrind on all tests in `test/ccheck/` (except bad)
+   and verifies that all memory blocks have been freed
  * Runs `syc` internal unit tests
  * Runs `syc` on the regression tests in `test/syc` and checks output
+ * Runs `syc` under Valgrind on all tests in `test/syc/` (except bad)
+   and verifies that all memory blocks have been freed
 
 Everything should finish successfully (exit code from `make` should be zero).
 

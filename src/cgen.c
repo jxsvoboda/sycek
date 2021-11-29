@@ -453,7 +453,6 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
@@ -469,10 +468,6 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -496,8 +491,6 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	return EOK;
 error:
 	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
 	if (larg != NULL)
 		ir_oper_destroy(&larg->oper);
 	if (rarg != NULL)

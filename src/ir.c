@@ -428,6 +428,7 @@ void ir_dblock_destroy(ir_dblock_t *dblock)
 	entry = ir_dblock_first(dblock);
 	while (entry != NULL) {
 		list_remove(&entry->lentries);
+		ir_dentry_destroy(entry->dentry);
 		free(entry);
 
 		entry = ir_dblock_first(dblock);

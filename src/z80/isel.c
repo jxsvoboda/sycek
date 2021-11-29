@@ -351,8 +351,11 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 	ld = NULL;
 
+	free(varident);
 	return EOK;
 error:
+	if (varident != NULL)
+		free(varident);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	if (call != NULL)
@@ -755,7 +758,7 @@ static int z80_isel_varptr(z80_isel_proc_t *isproc, const char *label,
 		goto error;
 
 	ld = NULL;
-
+	free(varident);
 	return EOK;
 error:
 	if (varident != NULL)

@@ -15,6 +15,8 @@
 /test/ccheck/*/*.txt.diff
 /test/ccheck/all.diff
 /test/selfcheck.out
+/test/syc/*/*.asm
+/test/syc/*/*-vg.txt
 /test/syc/*/*.txt.diff
 /test/syc/all.diff
 /test/test-int.out
