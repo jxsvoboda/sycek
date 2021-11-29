@@ -100,11 +100,11 @@ static int test_scope_insert_arg(void)
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_arg(scope, "a", 42);
+	rc = scope_insert_arg(scope, "a", "%0");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_arg(scope, "a", 42);
+	rc = scope_insert_arg(scope, "a", "%1");
 	if (rc != EEXIST)
 		goto error;
 

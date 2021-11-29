@@ -91,22 +91,18 @@ static int cgen_intlit_val(comp_tok_t *tlit, int32_t *rval)
 	return EOK;
 }
 
-/** Create new numbered local variable operand.
+/** Create local variable operand with specific number.
  *
- * @param cgproc Code generator for procedure
+ * @param var Variable number
  * @param roper Place to store pointer to new variable operand
  * @return EOK on success, ENOMEM if out of memory
  */
-static int cgen_create_new_lvar_oper(cgen_proc_t *cgproc,
-    ir_oper_var_t **roper)
+static int cgen_create_lvar_num_oper(unsigned var, ir_oper_var_t **roper)
 {
 	int rc;
 	int rv;
 	ir_oper_var_t *oper = NULL;
-	unsigned var;
 	char *svar = NULL;
-
-	var = cgproc->next_var++;
 
 	rv = asprintf(&svar, "%%%u", var);
 	if (rv < 0) {
@@ -126,6 +122,21 @@ error:
 	if (svar != NULL)
 		free(svar);
 	return rc;
+}
+
+/** Create new numbered local variable operand.
+ *
+ * @param cgproc Code generator for procedure
+ * @param roper Place to store pointer to new variable operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgen_create_new_lvar_oper(cgen_proc_t *cgproc,
+    ir_oper_var_t **roper)
+{
+	unsigned var;
+
+	var = cgproc->next_var++;
+	return cgen_create_lvar_num_oper(var, roper);
 }
 
 /** Create code generator.
@@ -247,7 +258,7 @@ error:
 	return rc;
 }
 
-/** Generate code for identifier expression.
+/** Generate code for identifier expression referencing global symbol.
  *
  * @param cgproc Code generator for procedure
  * @param eident AST identifier expression
@@ -255,28 +266,17 @@ error:
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
+static int cgen_eident_gsym(cgen_proc_t *cgproc, ast_eident_t *eident,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ident;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
-	scope_member_t *member;
 	char *pident = NULL;
 	int rc;
 
 	ident = (comp_tok_t *) eident->tident.data;
-
-	/* Check if the identifier is declared */
-	member = scope_lookup(cgproc->cgen->scope, ident->tok.text);
-	if (member == NULL) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Undeclared identifier '%s'.\n",
-		    ident->tok.text);
-		cgproc->cgen->error = true; // TODO
-		return EINVAL;
-	}
 
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
@@ -319,6 +319,76 @@ error:
 		ir_oper_destroy(&var->oper);
 	if (pident != NULL)
 		free(pident);
+	return rc;
+}
+
+/** Generate code for identifier expression referencing function argument.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eident AST identifier expression
+ * @param vident Identifier of IR variable holding the argument
+ * @param idx Argument index
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ 
+ * @return EOK on success or an error code
+ */
+static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,
+    const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	(void) cgproc;
+	(void) eident;
+	(void) lblock;
+
+	eres->varname = vident;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+}
+
+/** Generate code for identifier expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eident AST identifier expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	comp_tok_t *ident;
+	scope_member_t *member;
+	int rc;
+
+	ident = (comp_tok_t *) eident->tident.data;
+
+	/* Check if the identifier is declared */
+	member = scope_lookup(cgproc->arg_scope, ident->tok.text);
+	if (member == NULL) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Undeclared identifier '%s'.\n",
+		    ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	switch (member->mtype) {
+	case sm_gsym:
+		rc = cgen_eident_gsym(cgproc, eident, lblock, eres);
+		break;
+	case sm_arg:
+		rc = cgen_eident_arg(cgproc, eident, member->m.arg.vident,
+		    lblock, eres);
+		break;
+	case sm_lvar:
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Referencing local variable '%s' "
+		    "is not implemented.\n", ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		rc = ENOTSUP;
+		break;
+	}
+
 	return rc;
 }
 
@@ -999,7 +1069,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	ast_dfun_t *dfun;
 	ast_dfun_arg_t *arg;
 	ir_proc_arg_t *iarg;
-	int aidx;
 	char *pident = NULL;
 	char *arg_ident = NULL;
 	ast_tok_t *atok;
@@ -1026,10 +1095,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		goto error;
 
 	rc = cgen_proc_create(cgen, &cgproc);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_block(cgproc, gdecln->body, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -1060,7 +1125,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	/* Arguments */
 	arg = ast_dfun_first(dfun);
-	aidx = 0;
 	while (arg != NULL) {
 		// XXX Process arg->dspecs
 
@@ -1104,19 +1168,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			++cgen->warnings;
 		}
 
-		/* Insert identifier into module scope */
-		rc = scope_insert_arg(cgproc->arg_scope, tok->tok.text, aidx);
-		if (rc != EOK) {
-			if (rc == EEXIST) {
-				lexer_dprint_tok(&tok->tok, stderr);
-				fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
-				    tok->tok.text);
-				cgen->error = true; // XXX
-				return EINVAL;
-			}
-		}
-
-		rv = asprintf(&arg_ident, "%%%d", aidx);
+		rv = asprintf(&arg_ident, "%%%d", cgproc->next_var++);
 		if (rv < 0) {
 			rc = ENOMEM;
 			goto error;
@@ -1129,10 +1181,25 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		free(arg_ident);
 		arg_ident = NULL;
 
+		/* Insert identifier into argument scope */
+		rc = scope_insert_arg(cgproc->arg_scope, tok->tok.text, iarg->ident);
+		if (rc != EOK) {
+			if (rc == EEXIST) {
+				lexer_dprint_tok(&tok->tok, stderr);
+				fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
+				    tok->tok.text);
+				cgen->error = true; // XXX
+				return EINVAL;
+			}
+		}
+
 		ir_proc_append_arg(proc, iarg);
 		arg = ast_dfun_next(arg);
-		++aidx;
 	}
+
+	rc = cgen_block(cgproc, gdecln->body, proc->lblock);
+	if (rc != EOK)
+		goto error;
 
 	free(pident);
 	pident = NULL;

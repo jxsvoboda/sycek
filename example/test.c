@@ -20,10 +20,8 @@ int add_const(void)
 
 /** Add two numbers to test passing arguments to function */
 int add(int x, int y)
-//{
-//	return x + y;
-//}
 {
+	return x + y;
 }
 
 int subtract(void)

@@ -107,11 +107,11 @@ int scope_insert_gsym(scope_t *scope, const char *ident)
  *
  * @param scope Scope
  * @param ident Identifier
- * @param idx Argument index (starting from zero)
+ * @param idx Argument variable identifer (e.g. '%0')
  * @return Zero on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_arg(scope_t *scope, const char *ident, unsigned idx)
+int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
 {
 	scope_member_t *member;
 	char *dident;
@@ -134,7 +134,7 @@ int scope_insert_arg(scope_t *scope, const char *ident, unsigned idx)
 
 	member->ident = dident;
 	member->mtype = sm_arg;
-	member->m.arg.idx = idx;
+	member->m.arg.vident = vident;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
 	return 0;

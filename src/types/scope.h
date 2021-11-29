@@ -49,8 +49,8 @@ typedef enum {
 
 /** Scope member - function argument */
 typedef struct {
-	/** Argument index (starting with zero) */
-	unsigned idx;
+	/** Argument IR variable identifier (e.g. '%0', '%1', etc.) */
+	const char *vident;
 } scope_member_arg_t;
 
 /** Scope member */
