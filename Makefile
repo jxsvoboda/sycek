@@ -126,11 +126,16 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
 test_syc_good_srcs = $(wildcard test/syc/good/*.c)
 test_syc_good_asms = $(test_syc_good_srcs:.c=.asm)
 test_syc_bad_srcs = $(wildcard test/syc/bad/*.c)
-test_syc_bad_asms = $(test_syc_bad_srcs:.c=.asm)
 test_syc_bad_diffs = $(test_syc_bad_srcs:.c=.txt.diff)
+test_syc_ugly_srcs = $(wildcard test/syc/ugly/*.c)
+test_syc_ugly_asms = $(test_syc_ugly_srcs:.c=.asm)
+test_syc_ugly_diffs = $(test_syc_ugly_srcs:.c=.txt.diff)
 test_syc_vg_outs = \
-    $(test_syc_good_srcs:.c=-vg.txt)
-test_syc_outs = $(test_syc_bad_diffs) $(test_syc_vg_outs) test/syc/all.diff
+    $(test_syc_good_srcs:.c=-vg.txt) \
+    $(test_syc_ugly_srcs:.c=-vg.txt)
+test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
+    $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
+    test/syc/all.diff
 example_outs = example/test.asm example/test.o example/test.bin \
     example/test.map example/test.tap example/test.ir example/test.vric
 
@@ -240,7 +245,17 @@ test/syc/good/%-vg.txt: test/syc/good/%.c $(syc)
 	valgrind $(syc) $< 2>$@
 	grep -q 'no leaks are possible' $@
 
-test/syc/all.diff: $(test_syc_bad_diffs)
+test/syc/ugly/%-t.txt: test/syc/ugly/%.c $(syc)
+	$(syc) $< 2>$@
+
+test/syc/ugly/%.txt.diff: test/syc/ugly/%.txt test/syc/ugly/%-t.txt
+	diff -u $^ >$@
+
+test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
+	valgrind $(syc) $< 2>$@
+	grep -q 'no leaks are possible' $@
+
+test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@
 
 # Run ccheck internal unit tests

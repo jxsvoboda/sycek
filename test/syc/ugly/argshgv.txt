@@ -1,0 +1,1 @@
+<test/syc/ugly/argshgv.c:7:13:id:a>: Warning: Declaration of 'a' shadows a wider-scope declaration.

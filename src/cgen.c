@@ -1005,6 +1005,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	ast_tok_t *atok;
 	ast_dident_t *dident;
 	comp_tok_t *tok;
+	scope_member_t *member;
 	int rc;
 	int rv;
 
@@ -1091,6 +1092,16 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Warning: Atribute specifier not implemented.\n");
 			++cgproc->cgen->warnings;
+		}
+
+		/* Check for shadowing a global-scope identifier */
+		member = scope_lookup(cgen->scope, tok->tok.text);
+		if (member != NULL) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Declaration of '%s' "
+			    "shadows a wider-scope declaration.\n",
+			    tok->tok.text);
+			++cgen->warnings;
 		}
 
 		/* Insert identifier into module scope */
