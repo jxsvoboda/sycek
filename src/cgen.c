@@ -149,6 +149,7 @@ int cgen_create(cgen_t **rcgen)
 	}
 
 	cgen->error = false;
+	cgen->warnings = 0;
 	*rcgen = cgen;
 	return EOK;
 }
@@ -161,10 +162,17 @@ int cgen_create(cgen_t **rcgen)
 static int cgen_proc_create(cgen_t *cgen, cgen_proc_t **rcgproc)
 {
 	cgen_proc_t *cgproc;
+	int rc;
 
 	cgproc = calloc(1, sizeof(cgen_proc_t));
 	if (cgproc == NULL)
 		return ENOMEM;
+
+	rc = scope_create(cgen->scope, &cgproc->arg_scope);
+	if (rc != 0) {
+		free(cgproc);
+		return ENOMEM;
+	}
 
 	cgproc->cgen = cgen;
 	cgproc->next_var = 0;
@@ -181,6 +189,7 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 	if (cgproc == NULL)
 		return;
 
+	scope_destroy(cgproc->arg_scope);
 	free(cgproc);
 }
 
@@ -994,6 +1003,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	char *pident = NULL;
 	char *arg_ident = NULL;
 	ast_tok_t *atok;
+	ast_dident_t *dident;
 	comp_tok_t *tok;
 	int rc;
 	int rv;
@@ -1051,6 +1061,50 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	arg = ast_dfun_first(dfun);
 	aidx = 0;
 	while (arg != NULL) {
+		// XXX Process arg->dspecs
+
+		if (arg->decl->ntype == ant_dnoident) {
+			/* Should be void */
+			arg = ast_dfun_next(arg);
+			if (arg != NULL) {
+				fprintf(stderr, ": 'void' must be the only parameter.\n");
+				cgproc->cgen->error = true; // XXX
+				return EINVAL;
+			}
+
+			break;
+		}
+
+		if (arg->decl->ntype != ant_dident) {
+			atok = ast_tree_first_tok(arg->decl);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Declarator not implemented.\n");
+			cgproc->cgen->error = true; // XXX
+			return EINVAL;
+		}
+
+		dident = (ast_dident_t *) arg->decl->ext;
+		tok = (comp_tok_t *) dident->tident.data;
+
+		if (arg->aslist != NULL) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Atribute specifier not implemented.\n");
+			++cgproc->cgen->warnings;
+		}
+
+		/* Insert identifier into module scope */
+		rc = scope_insert_arg(cgproc->arg_scope, tok->tok.text, aidx);
+		if (rc != EOK) {
+			if (rc == EEXIST) {
+				lexer_dprint_tok(&tok->tok, stderr);
+				fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
+				    tok->tok.text);
+				cgen->error = true; // XXX
+				return EINVAL;
+			}
+		}
+
 		rv = asprintf(&arg_ident, "%%%d", aidx);
 		if (rv < 0) {
 			rc = ENOMEM;

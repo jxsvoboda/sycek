@@ -33,6 +33,8 @@ typedef struct {
 	int arith_width;
 	/** Code generator hit an error */
 	bool error;
+	/** Number of warnings produced by code generator */
+	int warnings;
 	/** Module scope */
 	struct scope *scope;
 } cgen_t;
@@ -43,6 +45,8 @@ typedef struct {
 	cgen_t *cgen;
 	/** Next local variable number to allocate */
 	unsigned next_var;
+	/** Argument scope for this procedure */
+	struct scope *arg_scope;
 } cgen_proc_t;
 
 /** Value type.
