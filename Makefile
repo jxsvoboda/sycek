@@ -184,17 +184,17 @@ test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
 
 test/ccheck/good/%-out.txt.diff: /dev/null test/ccheck/good/%-out-t.txt
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/ccheck/good/%-vg.txt: test/ccheck/good/%-in.c $(ccheck)
-	valgrind $(ccheck) $< 2>$@
-	grep -q 'no leaks are possible' $@
+	valgrind $(ccheck) $< 2>$@ || (rm $@ ; false)
+	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/ccheck/bad/%-err-t.txt: test/ccheck/bad/%-in.c $(ccheck)
 	-$(ccheck) $< 2>$@
 
 test/ccheck/bad/%-err.txt.diff: test/ccheck/bad/%-err.txt test/ccheck/bad/%-err-t.txt
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/ccheck/ugly/%-fixed-t.c: test/ccheck/ugly/%-in.c $(ccheck)
 	cp $< $@
@@ -207,10 +207,10 @@ test/ccheck/ugly/%-fixed-t.h: test/ccheck/ugly/%-in.h $(ccheck)
 	rm -f $@.orig
 
 test/ccheck/ugly/%-fixed.c.diff: test/ccheck/ugly/%-fixed.c test/ccheck/ugly/%-fixed-t.c
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/ccheck/ugly/%-fixed.h.diff: test/ccheck/ugly/%-fixed.h test/ccheck/ugly/%-fixed-t.h
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/ccheck/ugly/%-out-t.txt: test/ccheck/ugly/%-in.c $(ccheck)
 	$(ccheck) $< >$@
@@ -219,15 +219,15 @@ test/ccheck/ugly/%-out-t.txt: test/ccheck/ugly/%-in.h $(ccheck)
 	$(ccheck) $< >$@
 
 test/ccheck/ugly/%-out.txt.diff: test/ccheck/ugly/%-out.txt test/ccheck/ugly/%-out-t.txt
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/ccheck/ugly/%-vg.txt: test/ccheck/ugly/%-in.c $(ccheck)
-	valgrind $(ccheck) $< >/dev/null 2>$@
-	grep -q 'no leaks are possible' $@
+	valgrind $(ccheck) $< >/dev/null 2>$@  || (rm $@ ; false)
+	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/ccheck/ugly/%-vg.txt: test/ccheck/ugly/%-in.h $(ccheck)
-	valgrind $(ccheck) $< >/dev/null 2>$@
-	grep -q 'no leaks are possible' $@
+	valgrind $(ccheck) $< >/dev/null 2>$@ || (rm $@ ; false)
+	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/ccheck/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
     $(test_ugly_fixed_diffs) $(test_ugly_h_fixed_diffs) \
@@ -239,21 +239,21 @@ test/syc/bad/%-t.txt: test/syc/bad/%.c $(syc)
 	-$(syc) $< 2>$@
 
 test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/good/%-vg.txt: test/syc/good/%.c $(syc)
-	valgrind $(syc) $< 2>$@
-	grep -q 'no leaks are possible' $@
+	valgrind $(syc) $< 2>$@ || (rm $@ ; false)
+	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/ugly/%-t.txt: test/syc/ugly/%.c $(syc)
 	$(syc) $< 2>$@
 
 test/syc/ugly/%.txt.diff: test/syc/ugly/%.txt test/syc/ugly/%-t.txt
-	diff -u $^ >$@
+	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
-	valgrind $(syc) $< 2>$@
-	grep -q 'no leaks are possible' $@
+	valgrind $(syc) $< 2>$@ || (rm $@ ; false)
+	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@
@@ -269,8 +269,7 @@ test/test-syc-int.out: $(syc)
 selfcheck: test/selfcheck.out
 
 test/selfcheck.out: $(ccheck)
-	PATH=$$PATH:$$PWD ./ccheck-run.sh src > $@
-	grep "^Ccheck passed." $@
+	PATH=$$PATH:$$PWD ./ccheck-run.sh src > $@ || (cat $@ ; rm $@ ; false)
 
 #
 # Compiler example
