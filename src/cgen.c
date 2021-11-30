@@ -330,7 +330,7 @@ error:
  * @param idx Argument index
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
- 
+ *
  * @return EOK on success or an error code
  */
 static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,

@@ -1057,6 +1057,81 @@ error:
 	return rc;
 }
 
+/** Select instructions to load procedure arguments to virtual registers.
+ *
+ * @param isel Instruction selector
+ * @param irproc IR procedure
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_oper_r16_t *ldsrc = NULL;
+	z80ic_oper_vrr_t *lddest = NULL;
+	z80ic_ld_vrr_r16_t *ld = NULL;
+	ir_proc_arg_t *arg;
+	unsigned argno;
+	z80ic_r16_t argreg;
+	int rc;
+
+	(void) isel;
+
+	arg = ir_proc_first_arg(irproc);
+	argno = 0;
+	while (arg != NULL) {
+		/* ld vrr, BC|DE|HL */
+		switch (argno) {
+		case 0:
+			argreg = z80ic_r16_bc;
+			break;
+		case 1:
+			argreg = z80ic_r16_de;
+			break;
+		case 2:
+			argreg = z80ic_r16_hl;
+			break;
+		default:
+			fprintf(stderr, "Function '%s' has too many arguments"
+			    "(not implemented).\n", irproc->ident);
+			goto error;
+		}
+
+		rc = z80ic_ld_vrr_r16_create(&ld);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(argno, &lddest);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_r16_create(argreg, &ldsrc);
+		if (rc != EOK)
+			goto error;
+
+		ld->dest = lddest;
+		ld->src = ldsrc;
+		lddest = NULL;
+		ldsrc = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+		if (rc != EOK)
+			goto error;
+
+		ld = NULL;
+		arg = ir_proc_next_arg(arg);
+		++argno;
+	}
+
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_vrr_destroy(lddest);
+	z80ic_oper_r16_destroy(ldsrc);
+	return rc;
+}
+
 /** Select instructions code for procedure.
  *
  * @param isel Instruction selector
@@ -1087,6 +1162,10 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 		goto error;
 
 	rc = z80ic_proc_create(ident, lblock, &icproc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_proc_args(isel, irproc, lblock);
 	if (rc != EOK)
 		goto error;
 
