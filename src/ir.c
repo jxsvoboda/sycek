@@ -225,16 +225,27 @@ static void ir_decln_destroy(ir_decln_t *decln)
  */
 int ir_decln_print(ir_decln_t *decln, FILE *f)
 {
+	int rc;
+	int rv;
+
+	rc = EINVAL;
 	switch (decln->dtype) {
 	case ird_var:
-		return ir_var_print((ir_var_t *) decln->ext, f);
+		rc = ir_var_print((ir_var_t *) decln->ext, f);
+		break;
 	case ird_proc:
-		return ir_proc_print((ir_proc_t *) decln->ext, f);
+		rc = ir_proc_print((ir_proc_t *) decln->ext, f);
+		break;
 	}
 
-	/* Should not be reached */
-	assert(false);
-	return EINVAL;
+	if (rc != EOK)
+		return rc;
+
+	rv = fprintf(f, ";\n");
+	if (rv < 0)
+		return EIO;
+
+	return 0;
 }
 
 /** Create IR variable.
@@ -290,7 +301,7 @@ int ir_var_print(ir_var_t *var, FILE *f)
 	if (rc != EOK)
 		return EIO;
 
-	rv = fprintf(f, "end\n");
+	rv = fprintf(f, "end");
 	if (rv < 0)
 		return EIO;
 
@@ -516,7 +527,7 @@ int ir_dentry_print(ir_dentry_t *dentry, FILE *f)
 	if (rc != EOK)
 		return rc;
 
-	rv = fputc('\n', f);
+	rv = fputs(";\n", f);
 	if (rv < 0)
 		return EIO;
 
@@ -679,7 +690,7 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 	if (rc != EOK)
 		return EIO;
 
-	rv = fprintf(f, "end\n");
+	rv = fprintf(f, "end");
 	if (rv < 0)
 		return EIO;
 
@@ -1080,7 +1091,7 @@ int ir_instr_print(ir_instr_t *instr, FILE *f)
 			return rc;
 	}
 
-	rv = fputc('\n', f);
+	rv = fputs(";\n", f);
 	if (rv < 0)
 		return EIO;
 
