@@ -22,6 +22,8 @@
 
 /*
  * Lexer (lexical analyzer)
+ *
+ * Lexical analyzer for the C language.
  */
 
 #include <assert.h>

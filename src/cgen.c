@@ -1134,7 +1134,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			if (arg != NULL) {
 				fprintf(stderr, ": 'void' must be the only parameter.\n");
 				cgproc->cgen->error = true; // XXX
-				return EINVAL;
+				rc = EINVAL;
+				goto error;
 			}
 
 			break;
@@ -1146,7 +1147,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Declarator not implemented.\n");
 			cgproc->cgen->error = true; // XXX
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
 
 		dident = (ast_dident_t *) arg->decl->ext;
@@ -1189,7 +1191,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 				fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
 				    tok->tok.text);
 				cgen->error = true; // XXX
-				return EINVAL;
+				rc = EINVAL;
+				goto error;
 			}
 		}
 

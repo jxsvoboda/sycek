@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -21,38 +21,30 @@
  */
 
 /*
- * Parser
+ * IR Lexer (lexical analyzer)
  */
 
-#ifndef TYPES_PARSER_H
-#define TYPES_PARSER_H
+#ifndef IRLEXER_H
+#define IRLEXER_H
 
-#include <types/lexer.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <types/irlexer.h>
+#include <types/linput.h>
 
-/** Parser input ops */
-typedef struct {
-	/** Read input token */
-	void (*read_tok)(void *, void *, unsigned, bool, lexer_tok_t *);
-	/** Return next token */
-	void *(*next_tok)(void *, void *);
-	/** Get data that should be stored into AST for a token */
-	void *(*tok_data)(void *, void *);
-} parser_input_ops_t;
-
-/** Parser */
-typedef struct {
-	/** Input ops */
-	parser_input_ops_t *input_ops;
-	/** Input argument */
-	void *input_arg;
-	/** Next token */
-	void *tok;
-	/** @c true to supress error messages */
-	bool silent;
-	/** Current indentation level */
-	unsigned indlvl;
-	/** Currently in secondary continuation? */
-	bool seccont;
-} parser_t;
+extern int ir_lexer_create(lexer_input_ops_t *, void *, ir_lexer_t **);
+extern void ir_lexer_destroy(ir_lexer_t *);
+extern int ir_lexer_get_tok(ir_lexer_t *, ir_lexer_tok_t *);
+extern void ir_lexer_free_tok(ir_lexer_tok_t *);
+extern int ir_lexer_dprint_char(char, FILE *);
+extern int ir_lexer_dprint_tok(ir_lexer_tok_t *, FILE *);
+extern int ir_lexer_dprint_tok_chr(ir_lexer_tok_t *, size_t, FILE *);
+extern int ir_lexer_print_tok(ir_lexer_tok_t *, FILE *);
+extern bool ir_lexer_tok_valid_chars(ir_lexer_tok_t *, size_t, size_t *);
+extern const char *ir_lexer_str_ttype(ir_lexer_toktype_t);
+extern int ir_lexer_print_ttype(ir_lexer_toktype_t, FILE *);
+extern bool ir_lexer_is_comment(ir_lexer_toktype_t);
+extern bool ir_lexer_is_wspace(ir_lexer_toktype_t);
+extern bool ir_lexer_is_resword(ir_lexer_toktype_t);
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -21,11 +21,11 @@
  */
 
 /*
- * Lexer (lexical analyzer)
+ * IR Lexer (lexical analyzer)
  */
 
-#ifndef TYPES_LEXER_H
-#define TYPES_LEXER_H
+#ifndef TYPES_IRLEXER_H
+#define TYPES_IRLEXER_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -33,151 +33,71 @@
 #include <types/src_pos.h>
 
 enum {
-	lexer_buf_size = 32,
-	lexer_buf_low_watermark = 16
+	ir_lexer_buf_size = 32,
+	ir_lexer_buf_low_watermark = 16
 };
 
-/** Token type */
+/** IR token type */
 typedef enum {
-	ltt_space,
-	ltt_tab,
-	ltt_newline,
-	ltt_elbspace,
-	ltt_copen,
-	ltt_ctext,
-	ltt_ccont,
-	ltt_cclose,
-	ltt_dcopen,
-	ltt_dctopen,
-	ltt_dscomment,
-	ltt_preproc,
-	ltt_lparen,
-	ltt_rparen,
-	ltt_lbrace,
-	ltt_rbrace,
-	ltt_lbracket,
-	ltt_rbracket,
-	ltt_comma,
-	ltt_colon,
-	ltt_scolon,
-	ltt_qmark,
-	ltt_period,
-	ltt_ellipsis,
-	ltt_arrow,
-	ltt_plus,
-	ltt_minus,
-	ltt_asterisk,
-	ltt_slash,
-	ltt_modulo,
-	ltt_shl,
-	ltt_shr,
-	ltt_inc,
-	ltt_dec,
-	ltt_amper,
-	ltt_bor,
-	ltt_bxor,
-	ltt_bnot,
-	ltt_land,
-	ltt_lor,
-	ltt_lnot,
-	ltt_less,
-	ltt_greater,
-	ltt_equal,
-	ltt_lteq,
-	ltt_gteq,
-	ltt_notequal,
-	ltt_assign,
-	ltt_plus_assign,
-	ltt_minus_assign,
-	ltt_times_assign,
-	ltt_divide_assign,
-	ltt_modulo_assign,
-	ltt_shl_assign,
-	ltt_shr_assign,
-	ltt_band_assign,
-	ltt_bor_assign,
-	ltt_bxor_assign,
+	itt_space,
+	itt_tab,
+	itt_newline,
+	itt_comment,
+	itt_lparen,
+	itt_rparen,
+	itt_lbrace,
+	itt_rbrace,
+	itt_comma,
+	itt_colon,
+	itt_scolon,
+	itt_period,
 
-	ltt_atomic,
-	ltt_attribute,
-	ltt_asm,
-	ltt_auto,
-	ltt_break,
-	ltt_case,
-	ltt_char,
-	ltt_const,
-	ltt_continue,
-	ltt_do,
-	ltt_double,
-	ltt_else,
-	ltt_enum,
-	ltt_extern,
-	ltt_float,
-	ltt_for,
-	ltt_goto,
-	ltt_if,
-	ltt_inline,
-	ltt_int,
-	ltt_int128,
-	ltt_long,
-	ltt_register,
-	ltt_restrict,
-	ltt_restrict_alt,
-	ltt_return,
-	ltt_short,
-	ltt_signed,
-	ltt_sizeof,
-	ltt_static,
-	ltt_struct,
-	ltt_switch,
-	ltt_typedef,
-	ltt_union,
-	ltt_unsigned,
-	ltt_void,
-	ltt_volatile,
-	ltt_while,
+	itt_add,
+	itt_begin,
+	itt_call,
+	itt_end,
+	itt_imm,
+	itt_int,
+	itt_proc,
+	itt_read,
+	itt_retv,
+	itt_sub,
+	itt_var,
+	itt_varptr,
+	itt_write,
 
-	ltt_ident,
-	ltt_number,
-	ltt_charlit,
-	ltt_strlit,
+	itt_ident,
+	itt_number,
 
-	ltt_invalid,
-	ltt_invchar,
-	ltt_eof,
-	ltt_error
-} lexer_toktype_t;
+	itt_invalid,
+	itt_invchar,
+	itt_eof,
+	itt_error
+} ir_lexer_toktype_t;
 
-#define ltt_resword_first ltt_attribute
-#define ltt_resword_last ltt_while
+#define itt_resword_first itt_add
+#define itt_resword_last itt_write
 
-/** Lexer token */
+/** IR lexer token */
 typedef struct {
 	/** Position of beginning of token */
 	src_pos_t bpos;
 	/** Position of end of token */
 	src_pos_t epos;
 	/** Token type */
-	lexer_toktype_t ttype;
+	ir_lexer_toktype_t ttype;
 	/** Token full text */
 	char *text;
 	/** Text size not including null terminator */
 	size_t text_size;
 	/** User data that can be piggybacked on the token */
 	void *udata;
-} lexer_tok_t;
+} ir_lexer_tok_t;
 
-typedef enum {
-	/** Normal state */
-	ls_normal,
-	/** Comment state */
-	ls_comment
-} lexer_state_t;
-
-/** Lexer */
+/** IR Lexer */
 typedef struct {
 	/** Input buffer */
-	char buf[lexer_buf_size];
+	char buf[ir_lexer_buf_size];
 	/** Buffer position */
 	size_t buf_pos;
 	/** Number of used bytes in buf */
@@ -192,8 +112,6 @@ typedef struct {
 	lexer_input_ops_t *input_ops;
 	/** Input argument */
 	void *input_arg;
-	/** State */
-	lexer_state_t state;
-} lexer_t;
+} ir_lexer_t;
 
 #endif

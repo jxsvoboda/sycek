@@ -57,11 +57,13 @@ sources_syc_common = \
     src/cgen.c \
     src/comp.c \
     src/ir.c \
+    src/irlexer.c \
     src/scope.c \
     src/syc.c \
     src/test/cgen.c \
     src/test/comp.c \
     src/test/ir.c \
+    src/test/irlexer.c \
     src/test/scope.c \
     src/test/z80/isel.c \
     src/test/z80/ralloc.c \

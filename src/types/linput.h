@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -21,38 +21,18 @@
  */
 
 /*
- * Parser
+ * Lexer input
  */
 
-#ifndef TYPES_PARSER_H
-#define TYPES_PARSER_H
+#ifndef TYPES_LINPUT_H
+#define TYPES_LINPUT_H
 
-#include <types/lexer.h>
+#include <stddef.h>
+#include <types/src_pos.h>
 
-/** Parser input ops */
+/** Lexer input ops */
 typedef struct {
-	/** Read input token */
-	void (*read_tok)(void *, void *, unsigned, bool, lexer_tok_t *);
-	/** Return next token */
-	void *(*next_tok)(void *, void *);
-	/** Get data that should be stored into AST for a token */
-	void *(*tok_data)(void *, void *);
-} parser_input_ops_t;
-
-/** Parser */
-typedef struct {
-	/** Input ops */
-	parser_input_ops_t *input_ops;
-	/** Input argument */
-	void *input_arg;
-	/** Next token */
-	void *tok;
-	/** @c true to supress error messages */
-	bool silent;
-	/** Current indentation level */
-	unsigned indlvl;
-	/** Currently in secondary continuation? */
-	bool seccont;
-} parser_t;
+	int (*read)(void *, char *, size_t, size_t *, src_pos_t *);
+} lexer_input_ops_t;
 
 #endif

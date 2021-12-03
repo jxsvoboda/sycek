@@ -229,6 +229,7 @@ int ir_decln_print(ir_decln_t *decln, FILE *f)
 	int rv;
 
 	rc = EINVAL;
+	(void)rc;
 	switch (decln->dtype) {
 	case ird_var:
 		rc = ir_var_print((ir_var_t *) decln->ext, f);
