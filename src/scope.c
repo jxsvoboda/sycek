@@ -33,7 +33,7 @@
  *
  * @param parent Parent scope
  * @param rscope Place to store pointer to new scope
- * @return Zero on success, ENOMEM if out of memory
+ * @return EOK on success, ENOMEM if out of memory
  */
 int scope_create(scope_t *parent, scope_t **rscope)
 {
@@ -46,7 +46,7 @@ int scope_create(scope_t *parent, scope_t **rscope)
 	scope->parent = parent;
 	list_initialize(&scope->members);
 	*rscope = scope;
-	return 0;
+	return EOK;
 }
 
 /** Destroy identifier scope.
@@ -72,7 +72,7 @@ void scope_destroy(scope_t *scope)
  *
  * @param scope Scope
  * @param ident Identifier
- * @return Zero on success, ENOMEM if out of memory, EEXIST if the
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
 int scope_insert_gsym(scope_t *scope, const char *ident)
@@ -100,7 +100,7 @@ int scope_insert_gsym(scope_t *scope, const char *ident)
 	member->mtype = sm_gsym;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
-	return 0;
+	return EOK;
 }
 
 /** Insert function argument to identifier scope.
@@ -108,7 +108,7 @@ int scope_insert_gsym(scope_t *scope, const char *ident)
  * @param scope Scope
  * @param ident Identifier
  * @param idx Argument variable identifer (e.g. '%0')
- * @return Zero on success, ENOMEM if out of memory, EEXIST if the
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
 int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
@@ -137,14 +137,14 @@ int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
 	member->m.arg.vident = vident;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
-	return 0;
+	return EOK;
 }
 
 /** Insert local variable to identifier scope.
  *
  * @param scope Scope
  * @param ident Identifier
- * @return Zero on success, ENOMEM if out of memory, EEXIST if the
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
 int scope_insert_lvar(scope_t *scope, const char *ident)
@@ -172,7 +172,7 @@ int scope_insert_lvar(scope_t *scope, const char *ident)
 	member->mtype = sm_lvar;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
-	return 0;
+	return EOK;
 }
 
 /** Get first (local) scope member.

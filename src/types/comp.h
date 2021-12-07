@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -31,6 +31,7 @@
 #include <types/ast.h>
 #include <types/cgen.h>
 #include <types/ir.h>
+#include <types/irlexer.h>
 #include <types/lexer.h>
 #include <types/z80/z80ic.h>
 
@@ -43,6 +44,16 @@ typedef struct {
 	/** Lexer token */
 	lexer_tok_t tok;
 } comp_tok_t;
+
+/** Compiler module type */
+typedef enum {
+	/** C source file */
+	cmt_csrc,
+	/** C header file */
+	cmt_chdr,
+	/** IR file */
+	cmt_ir
+} comp_mtype_t;
 
 /** Compiler module */
 typedef struct comp_module {
@@ -62,16 +73,27 @@ typedef struct comp_module {
 
 /** Compiler */
 typedef struct comp {
-	/** Lexer */
+	/** C lexer or @c NULL */
 	lexer_t *lexer;
+	/** IR lexer or @c NULL */
+	ir_lexer_t *ir_lexer;
 	/** Module */
 	comp_module_t *mod;
+	/** Module type */
+	comp_mtype_t mtype;
 } comp_t;
 
 /** Compiler parser input */
 typedef struct {
 	int dummy;
 } comp_parser_input_t;
+
+/** Compiler IR parser input */
+typedef struct {
+	ir_lexer_t *ir_lexer;
+	ir_lexer_tok_t itok;
+	bool have_tok;
+} comp_ir_parser_input_t;
 
 /** Compiler flags */
 typedef enum {

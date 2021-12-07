@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@
 #include <types/comp.h>
 #include <types/lexer.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_t **);
+extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
 extern int comp_dump_ast(comp_t *, FILE *);
 extern int comp_dump_toks(comp_t *, FILE *);
 extern int comp_dump_ir(comp_t *, FILE *);

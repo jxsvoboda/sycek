@@ -218,8 +218,9 @@ the example C source file, type
 
     $ ./syc example/test.c
 
-which will produce `example/test.asm`. We can convert it to a tape file
-using tools from the z88dk project
+which will produce `example/test.asm`. (Note that the file **must** have
+a `.c` or `.C` extension). We can convert it to a tape file using tools from
+the z88dk project
 
     $ z80asm +zx --origin=32768 -b -m example/test.asm
     $ appmake +zx --org=32768 -b example/test.bin
@@ -250,6 +251,14 @@ program in various compilation stages to the standard output:
  * `--dump-toks` Dump tokenized source file
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
+
+Intermediate Representation
+---------------------------
+The intermediate representation is a simple, but full-blown low-level
+programming language. You can, for example, redirect the output of `--dump-ir`
+to an `.ir` file and then run `syc <file>.ir` and it will produce the
+exact same output as when run on the original C source file. You can also
+write an IR file by hand and then compile it.
 
 Developer Notes
 ---------------

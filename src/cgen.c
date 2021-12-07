@@ -154,7 +154,7 @@ int cgen_create(cgen_t **rcgen)
 		return ENOMEM;
 
 	rc = scope_create(NULL, &cgen->scope);
-	if (rc != 0) {
+	if (rc != EOK) {
 		free(cgen);
 		return ENOMEM;
 	}
@@ -180,7 +180,7 @@ static int cgen_proc_create(cgen_t *cgen, cgen_proc_t **rcgproc)
 		return ENOMEM;
 
 	rc = scope_create(cgen->scope, &cgproc->arg_scope);
-	if (rc != 0) {
+	if (rc != EOK) {
 		free(cgproc);
 		return ENOMEM;
 	}
@@ -698,7 +698,6 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	free(pident);
 
 	instr->itype = iri_call;
-	instr->width = cgproc->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &fun->oper;
 	instr->op2 = &args->oper;

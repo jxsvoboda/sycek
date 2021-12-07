@@ -43,7 +43,7 @@ static int test_scope_create_destroy(void)
 		return rc;
 
 	scope_destroy(scope);
-	return 0;
+	return EOK;
 }
 
 /** Test inserting a global symbol.
@@ -79,7 +79,7 @@ static int test_scope_insert_gsym(void)
 		goto error;
 
 	scope_destroy(scope);
-	return 0;
+	return EOK;
 error:
 	if (scope != NULL)
 		scope_destroy(scope);
@@ -120,7 +120,7 @@ static int test_scope_insert_arg(void)
 		goto error;
 
 	scope_destroy(scope);
-	return 0;
+	return EOK;
 error:
 	if (scope != NULL)
 		scope_destroy(scope);
@@ -159,7 +159,7 @@ static int test_scope_insert_lvar(void)
 		goto error;
 
 	scope_destroy(scope);
-	return 0;
+	return EOK;
 error:
 	if (scope != NULL)
 		scope_destroy(scope);
@@ -211,7 +211,7 @@ static int test_scope_first_next(void)
 		goto error;
 
 	scope_destroy(scope);
-	return 0;
+	return EOK;
 error:
 	if (scope != NULL)
 		scope_destroy(scope);
@@ -260,7 +260,7 @@ static int test_scope_lookup_local(void)
 
 	scope_destroy(child);
 	scope_destroy(parent);
-	return 0;
+	return EOK;
 error:
 	if (child != NULL)
 		scope_destroy(child);
@@ -324,7 +324,7 @@ static int test_scope_lookup(void)
 
 	scope_destroy(child);
 	scope_destroy(parent);
-	return 0;
+	return EOK;
 error:
 	if (child != NULL)
 		scope_destroy(child);

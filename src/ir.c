@@ -246,7 +246,7 @@ int ir_decln_print(ir_decln_t *decln, FILE *f)
 	if (rv < 0)
 		return EIO;
 
-	return 0;
+	return EOK;
 }
 
 /** Create IR variable.
@@ -1067,7 +1067,7 @@ int ir_instr_print(ir_instr_t *instr, FILE *f)
 			return rc;
 
 	} else {
-		rv = fputs("nul", f);
+		rv = fputs("nil", f);
 		if (rv < 0)
 			return EIO;
 	}

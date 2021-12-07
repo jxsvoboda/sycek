@@ -110,10 +110,31 @@ static int compile_file(const char *fname, comp_flags_t flags)
 {
 	int rc;
 	comp_t *comp = NULL;
+	comp_mtype_t mtype;
 	file_input_t finput;
 	FILE *f = NULL;
 	FILE *outf = NULL;
 	char *outfname = NULL;
+	char *ext;
+
+	ext = strrchr(fname, '.');
+	if (ext == NULL) {
+		fprintf(stderr, "File '%s' has no extension.\n", fname);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (strcmp(ext, ".c") == 0 || strcmp(ext, ".C") == 0) {
+		mtype = cmt_csrc;
+	} else if (strcmp(ext, ".h") == 0 || strcmp(ext, ".H") == 0) {
+		mtype = cmt_chdr;
+	} else if (strcmp(ext, ".ir") == 0 || strcmp(ext, ".IR") == 0) {
+		mtype = cmt_ir;
+	} else {
+		fprintf(stderr, "Unknown file extension '%s'.\n", ext);
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = ext_replace(fname, "asm", &outfname);
 	if (rc != EOK)
@@ -135,7 +156,7 @@ static int compile_file(const char *fname, comp_flags_t flags)
 
 	file_input_init(&finput, f, fname);
 
-	rc = comp_create(&lexer_file_input, &finput, &comp);
+	rc = comp_create(&lexer_file_input, &finput, mtype, &comp);
 	if (rc != EOK)
 		goto error;
 

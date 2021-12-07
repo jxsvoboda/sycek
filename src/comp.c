@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,8 @@
 #include <cgen.h>
 #include <comp.h>
 #include <ir.h>
+#include <irlexer.h>
+#include <irparser.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <parser.h>
@@ -51,6 +53,14 @@ static parser_input_ops_t comp_parser_input = {
 	.read_tok = comp_parser_read_tok,
 	.next_tok = comp_parser_next_tok,
 	.tok_data = comp_parser_tok_data
+};
+
+static void comp_ir_parser_read_tok(void *, ir_lexer_tok_t *);
+static void comp_ir_parser_next_tok(void *);
+
+static ir_parser_input_ops_t comp_ir_parser_input = {
+	.read_tok = comp_ir_parser_read_tok,
+	.next_tok = comp_ir_parser_next_tok,
 };
 
 /** Create compiler module.
@@ -169,10 +179,11 @@ static void comp_remove_token(comp_tok_t *tok)
  * @return EOK on success, ENOMEM if out of memory
  */
 int comp_create(lexer_input_ops_t *input_ops, void *input_arg,
-    comp_t **rcomp)
+    comp_mtype_t mtype, comp_t **rcomp)
 {
 	comp_t *comp = NULL;
 	lexer_t *lexer = NULL;
+	ir_lexer_t *ir_lexer = NULL;
 	int rc;
 
 	comp = calloc(1, sizeof(comp_t));
@@ -181,13 +192,25 @@ int comp_create(lexer_input_ops_t *input_ops, void *input_arg,
 		goto error;
 	}
 
-	rc = lexer_create(input_ops, input_arg, &lexer);
-	if (rc != EOK) {
-		assert(rc == ENOMEM);
-		goto error;
+	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
+		/* C language lexer */
+		rc = lexer_create(input_ops, input_arg, &lexer);
+		if (rc != EOK) {
+			assert(rc == ENOMEM);
+			goto error;
+		}
+	} else {
+		/* IR language lexer */
+		rc = ir_lexer_create(input_ops, input_arg, &ir_lexer);
+		if (rc != EOK) {
+			assert(rc == ENOMEM);
+			goto error;
+		}
 	}
 
 	comp->lexer = lexer;
+	comp->ir_lexer = ir_lexer;
+	comp->mtype = mtype;
 	*rcomp = comp;
 	return EOK;
 error:
@@ -205,6 +228,7 @@ error:
 void comp_destroy(comp_t *comp)
 {
 	comp_module_destroy(comp->mod);
+	ir_lexer_destroy(comp->ir_lexer);
 	lexer_destroy(comp->lexer);
 	free(comp);
 }
@@ -285,7 +309,7 @@ static comp_tok_t *comp_next_tok(comp_tok_t *tok)
 	return list_get_instance(link, comp_tok_t, ltoks);
 }
 
-/** Parse a module.
+/** Parse a C module.
  *
  * @param mod Compiler module
  * @return EOK on success or error code
@@ -306,20 +330,50 @@ static int comp_module_parse(comp_module_t *mod)
 	if (rc != EOK)
 		goto error;
 
-	if (0) {
-		putchar('\n');
-		rc = ast_tree_print(&amod->node, stdout);
-		if (rc != EOK)
-			goto error;
-		putchar('\n');
-	}
-
 	mod->ast = amod;
 	parser_destroy(parser);
 
 	return EOK;
 error:
 	parser_destroy(parser);
+	return rc;
+}
+
+/** Parse an IR module.
+ *
+ * @param comp Compiler
+ * @return EOK on success or error code
+ */
+static int comp_ir_module_parse(comp_t *comp)
+{
+	ir_module_t *irmod;
+	ir_parser_t *parser;
+	comp_ir_parser_input_t pinput;
+	int rc;
+
+	rc = comp_module_create(comp, &comp->mod);
+	if (rc != EOK) {
+		assert(rc == ENOMEM);
+		goto error;
+	}
+
+	pinput.ir_lexer = comp->ir_lexer;
+	pinput.have_tok = false;
+
+	rc = ir_parser_create(&comp_ir_parser_input, &pinput, &parser);
+	if (rc != EOK)
+		return rc;
+
+	rc = ir_parser_process_module(parser, &irmod);
+	if (rc != EOK)
+		goto error;
+
+	comp->mod->ir = irmod;
+	ir_parser_destroy(parser);
+
+	return EOK;
+error:
+	ir_parser_destroy(parser);
 	return rc;
 }
 
@@ -379,6 +433,9 @@ int comp_run(comp_t *comp, FILE *outf)
 	z80_isel_t *isel = NULL;
 	z80_ralloc_t *ralloc = NULL;
 
+	if (comp->mtype == cmt_ir)
+		goto skip_frontend;
+
 	if (comp->mod == NULL || comp->mod->ast == NULL) {
 		rc = comp_build_ast(comp);
 		if (rc != EOK)
@@ -405,6 +462,13 @@ int comp_run(comp_t *comp, FILE *outf)
 
 		cgen_destroy(cgen);
 		cgen = NULL;
+	}
+
+skip_frontend:
+	if (comp->mtype == cmt_ir) {
+		rc = comp_ir_module_parse(comp);
+		if (rc != EOK)
+			goto error;
 	}
 
 	if (comp->mod->vric == NULL) {
@@ -604,4 +668,42 @@ static void *comp_parser_tok_data(void *apinput, void *tok)
 
 	/* Set this as user data for the AST token */
 	return tok;
+}
+
+/** IR parser function to read currnet input token from compiler.
+ *
+ * @param apinput Compiler parser input (comp_ir_parser_input_t *)
+ * @param ltok Place to store token
+ */
+static void comp_ir_parser_read_tok(void *apinput, ir_lexer_tok_t *itok)
+{
+	comp_ir_parser_input_t *pinput = (comp_ir_parser_input_t *)apinput;
+	int rc;
+
+	if (pinput->have_tok == false) {
+		rc = ir_lexer_get_tok(pinput->ir_lexer, &pinput->itok);
+		if (rc != EOK)
+			itok->ttype = itt_invalid;
+
+		pinput->have_tok = true;
+	}
+
+	*itok = pinput->itok;
+}
+
+/** IR parser function to advance to the next input token from compiler.
+ *
+ * @param apinput Compiler parser input (comp_ir_parser_input_t *)
+ */
+static void comp_ir_parser_next_tok(void *apinput)
+{
+	comp_ir_parser_input_t *pinput = (comp_ir_parser_input_t *)apinput;
+	ir_lexer_tok_t itok;
+
+	if (pinput->have_tok == false) {
+		comp_ir_parser_read_tok(apinput, &itok);
+		ir_lexer_free_tok(&itok);
+	}
+
+	pinput->have_tok = false;
 }

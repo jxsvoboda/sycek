@@ -629,6 +629,11 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 			return ir_lexer_keyword(lexer, itt_int, 3, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
+	case 'n':
+		if (p[1] == 'i' && p[2] == 'l' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_nil, 3, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
 	case 'p':
 		if (p[1] == 'r' && p[2] == 'o' && p[3] == 'c' &&
 		    !is_idcnt(p[4])) {
@@ -665,6 +670,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 			return ir_lexer_keyword(lexer, itt_write, 5, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
+	case '{':
+		return ir_lexer_onechar(lexer, itt_lbrace, tok);
+	case '}':
+		return ir_lexer_onechar(lexer, itt_rbrace, tok);
 	default:
 		if (is_num(p[0]))
 			return ir_lexer_number(lexer, tok);
@@ -760,6 +769,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'imm'";
 	case itt_int:
 		return "'int'";
+	case itt_nil:
+		return "'nil'";
 	case itt_proc:
 		return "'proc'";
 	case itt_read:
@@ -979,4 +990,28 @@ bool ir_lexer_is_resword(ir_lexer_toktype_t itt)
 {
 	return itt >= itt_resword_first &&
 	    itt <= itt_resword_last;
+}
+
+/** Get value of a number token.
+ *
+ * @param itok IR lexer token
+ * @param rval Place to store value
+ * @return EOK on success, EINVAL if token format is invalid
+ */
+int ir_lexer_number_val(ir_lexer_tok_t *itok, int32_t *rval)
+{
+	const char *text = itok->text;
+	int32_t val;
+
+	val = 0;
+	while (*text != '\0') {
+		if (*text < '0' || *text > '9')
+			return EINVAL;
+
+		val = val * 10 + (*text - '0');
+		++text;
+	}
+
+	*rval = val;
+	return EOK;
 }

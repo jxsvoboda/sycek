@@ -21,32 +21,18 @@
  */
 
 /*
- * IR Lexer (lexical analyzer)
+ * IR parser
  */
 
-#ifndef IRLEXER_H
-#define IRLEXER_H
+#ifndef IRPARSER_H
+#define IRPARSER_H
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <types/irlexer.h>
-#include <types/linput.h>
+#include <types/ir.h>
+#include <types/irparser.h>
 
-extern int ir_lexer_create(lexer_input_ops_t *, void *, ir_lexer_t **);
-extern void ir_lexer_destroy(ir_lexer_t *);
-extern int ir_lexer_get_tok(ir_lexer_t *, ir_lexer_tok_t *);
-extern void ir_lexer_free_tok(ir_lexer_tok_t *);
-extern int ir_lexer_dprint_char(char, FILE *);
-extern int ir_lexer_dprint_tok(ir_lexer_tok_t *, FILE *);
-extern int ir_lexer_dprint_tok_chr(ir_lexer_tok_t *, size_t, FILE *);
-extern int ir_lexer_print_tok(ir_lexer_tok_t *, FILE *);
-extern bool ir_lexer_tok_valid_chars(ir_lexer_tok_t *, size_t, size_t *);
-extern const char *ir_lexer_str_ttype(ir_lexer_toktype_t);
-extern int ir_lexer_print_ttype(ir_lexer_toktype_t, FILE *);
-extern bool ir_lexer_is_comment(ir_lexer_toktype_t);
-extern bool ir_lexer_is_wspace(ir_lexer_toktype_t);
-extern bool ir_lexer_is_resword(ir_lexer_toktype_t);
-extern int ir_lexer_number_val(ir_lexer_tok_t *, int32_t *);
+extern int ir_parser_create(ir_parser_input_ops_t *, void *, ir_parser_t **);
+extern void ir_parser_destroy(ir_parser_t *);
+extern int ir_parser_process_module(ir_parser_t *, ir_module_t **);
+extern bool ir_parser_ttype_ignore(ir_lexer_toktype_t);
 
 #endif

@@ -58,6 +58,7 @@ typedef enum {
 	itt_end,
 	itt_imm,
 	itt_int,
+	itt_nil,
 	itt_proc,
 	itt_read,
 	itt_retv,
@@ -95,7 +96,7 @@ typedef struct {
 } ir_lexer_tok_t;
 
 /** IR Lexer */
-typedef struct {
+typedef struct ir_lexer {
 	/** Input buffer */
 	char buf[ir_lexer_buf_size];
 	/** Buffer position */
