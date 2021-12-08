@@ -358,7 +358,7 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 {
 	comp_tok_t *ident;
 	scope_member_t *member;
-	int rc;
+	int rc = EINVAL;
 
 	ident = (comp_tok_t *) eident->tident.data;
 

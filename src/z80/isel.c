@@ -1093,6 +1093,7 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		default:
 			fprintf(stderr, "Function '%s' has too many arguments"
 			    "(not implemented).\n", irproc->ident);
+			rc = ENOTSUP;
 			goto error;
 		}
 
