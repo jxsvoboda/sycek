@@ -36,6 +36,7 @@
 #include <scope.h>
 #include <stdlib.h>
 #include <string.h>
+#include <symbols.h>
 
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
@@ -1074,11 +1075,35 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	ast_dident_t *dident;
 	comp_tok_t *tok;
 	scope_member_t *member;
+	symbol_t *symbol;
 	int rc;
 	int rv;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
+
+	/* If the function is not declared yet, create a symbol */
+	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
+	if (symbol == NULL) {
+		rc = symbols_insert(cgen->symbols, st_fun, ident->tok.text);
+		if (rc != EOK)
+			goto error;
+
+		symbol = symbols_lookup(cgen->symbols, ident->tok.text);
+		assert(symbol != NULL);
+	} else {
+		if (symbol->stype != st_fun) {
+			/* Already declared as a different type of symbol */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": '%s' already declared as a "
+			    "different type of symbol.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
+	}
+
+	/* Mark the symbol as defined */
+	symbol->flags |= sf_defined;
 
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, ident->tok.text);
@@ -1199,9 +1224,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		arg = ast_dfun_next(arg);
 	}
 
-	rc = cgen_block(cgproc, gdecln->body, proc->lblock);
-	if (rc != EOK)
-		goto error;
+	if (gdecln->body != NULL) {
+		rc = cgen_block(cgproc, gdecln->body, proc->lblock);
+		if (rc != EOK)
+			goto error;
+	}
 
 	free(pident);
 	pident = NULL;
@@ -1223,6 +1250,52 @@ error:
 	if (arg_ident != NULL)
 		free(arg_ident);
 	return rc;
+}
+
+/** Generate code for function declaration.
+ *
+ * @param cgen Code generator
+ * @param gdecln Global declaration that is a function definition
+ * @param irmod IR module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
+{
+	ast_tok_t *aident;
+	comp_tok_t *ident;
+	symbol_t *symbol;
+	int rc;
+
+	(void) irmod;
+
+	aident = ast_gdecln_get_ident(gdecln);
+	ident = (comp_tok_t *) aident->data;
+
+	/*
+	 * All we do here is create a symbol. At the end of processing the
+	 * module we will go back and find all declared, but not defined,
+	 * functions and create extern declarations for them. We will insert
+	 * those at the beginning of the IR module.
+	 */
+
+	/* The function can already be declared or even defined */
+	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
+	if (symbol == NULL) {
+		rc = symbols_insert(cgen->symbols, st_fun, ident->tok.text);
+		if (rc != EOK)
+			return rc;
+	} else {
+		if (symbol->stype != st_fun) {
+			/* Already declared as a different type of symbol */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": '%s' already declared as a "
+			    "different type of symbol.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
+	}
+
+	return EOK;
 }
 
 /** Generate code for global variable definition.
@@ -1343,6 +1416,11 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 				rc = cgen_vardef(cgen, entry, irmod);
 				if (rc != EOK)
 					goto error;
+			} else {
+				/* Assuming it's a function declaration */
+				rc = cgen_fundecl(cgen, gdecln, irmod);
+				if (rc != EOK)
+					goto error;
 			}
 
 			entry = ast_idlist_next(entry);
@@ -1394,18 +1472,51 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
 	return rc;
 }
 
+/** Generate symbol declarations for a module.
+ *
+ * @param cgen Code generator
+ * @param symbols Symbol directory
+ * @param irmod IR module where to add the declarations
+ * @return EOK on success or an error code
+ */
+static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
+    ir_module_t *irmod)
+{
+//	int rc;
+	symbol_t *symbol;
+
+	(void) cgen;
+	(void) irmod;
+
+	symbol = symbols_first(symbols);
+	while (symbol != NULL) {
+		if ((symbol->flags & sf_defined) == 0) {
+			printf("'%s' is external\n", symbol->ident);
+		}
+		symbol = symbols_next(symbol);
+	}
+
+	return EOK;
+//error:
+//	return rc;
+}
+
 /** Generate code for module.
  *
  * @param cgen Code generator
  * @param astmod AST module
+ * @param symbols Symbol directory to fill in
  * @param rirmod Place to store pointer to new IR module
  * @return EOK on success or an error code
  */
-int cgen_module(cgen_t *cgen, ast_module_t *astmod, ir_module_t **rirmod)
+int cgen_module(cgen_t *cgen, ast_module_t *astmod, symbols_t *symbols,
+    ir_module_t **rirmod)
 {
 	ir_module_t *irmod;
 	int rc;
 	ast_node_t *decln;
+
+	cgen->symbols = symbols;
 
 	rc = ir_module_create(&irmod);
 	if (rc != EOK)
@@ -1419,6 +1530,10 @@ int cgen_module(cgen_t *cgen, ast_module_t *astmod, ir_module_t **rirmod)
 
 		decln = ast_module_next(decln);
 	}
+
+	rc = cgen_module_symdecls(cgen, symbols, irmod);
+	if (rc != EOK)
+		goto error;
 
 	*rirmod = irmod;
 	return EOK;

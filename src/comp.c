@@ -37,6 +37,7 @@
 #include <parser.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <symbols.h>
 #include <z80/isel.h>
 #include <z80/ralloc.h>
 #include <z80/z80ic.h>
@@ -74,10 +75,17 @@ static int comp_module_create(comp_t *comp,
     comp_module_t **rmodule)
 {
 	comp_module_t *module = NULL;
+	int rc;
 
 	module = calloc(1, sizeof(comp_module_t));
 	if (module == NULL)
 		return ENOMEM;
+
+	rc = symbols_create(&module->symbols);
+	if (rc != EOK) {
+		free(module);
+		return ENOMEM;
+	}
 
 	list_initialize(&module->toks);
 	module->comp = comp;
@@ -106,6 +114,7 @@ static void comp_module_destroy(comp_module_t *module)
 	if (module->ast != NULL)
 		ast_tree_destroy(&module->ast->node);
 
+	symbols_destroy(module->symbols);
 	ir_module_destroy(module->ir);
 	z80ic_module_destroy(module->vric);
 	z80ic_module_destroy(module->ic);
@@ -450,7 +459,8 @@ int comp_run(comp_t *comp, FILE *outf)
 		/* Different arithmetic types not implemented yet */
 		cgen->arith_width = 16;
 
-		rc = cgen_module(cgen, comp->mod->ast, &comp->mod->ir);
+		rc = cgen_module(cgen, comp->mod->ast, comp->mod->symbols,
+		    &comp->mod->ir);
 		if (rc != EOK)
 			goto error;
 

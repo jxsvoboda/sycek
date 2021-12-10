@@ -21,19 +21,19 @@
  */
 
 /*
- * Code generator
+ * Symbols
  */
 
-#ifndef CGEN_H
-#define CGEN_H
+#ifndef SYMBOLS_H
+#define SYMBOLS_H
 
-#include <types/ast.h>
-#include <types/cgen.h>
-#include <types/ir.h>
 #include <types/symbols.h>
 
-extern int cgen_create(cgen_t **);
-extern int cgen_module(cgen_t *, ast_module_t *, symbols_t *, ir_module_t **);
-extern void cgen_destroy(cgen_t *);
+extern int symbols_create(symbols_t **);
+extern void symbols_destroy(symbols_t *);
+extern int symbols_insert(symbols_t *, symbol_type_t, const char *);
+extern symbol_t *symbols_first(symbols_t *);
+extern symbol_t *symbols_next(symbol_t *);
+extern symbol_t *symbols_lookup(symbols_t *, const char *);
 
 #endif

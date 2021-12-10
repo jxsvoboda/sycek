@@ -37,6 +37,8 @@ typedef struct {
 	int warnings;
 	/** Module scope */
 	struct scope *scope;
+	/** Module symbols */
+	struct symbols *symbols;
 } cgen_t;
 
 /** Code generator for procedure */

@@ -28,6 +28,7 @@
 #include <cgen.h>
 #include <ir.h>
 #include <merrno.h>
+#include <symbols.h>
 #include <test/cgen.h>
 
 /** Test code generation for module.
@@ -39,6 +40,7 @@ static int test_cgen_module(void)
 	int rc;
 	cgen_t *cgen = NULL;
 	ast_module_t *amodule = NULL;
+	symbols_t *symbols = NULL;
 	ir_module_t *module = NULL;
 
 	rc = cgen_create(&cgen);
@@ -49,16 +51,23 @@ static int test_cgen_module(void)
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_module(cgen, amodule, &module);
+	rc = symbols_create(&symbols);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_module(cgen, amodule, symbols, &module);
 	if (rc != EOK)
 		goto error;
 
 	ast_tree_destroy(&amodule->node);
+	symbols_destroy(symbols);
 	ir_module_destroy(module);
 	cgen_destroy(cgen);
 
 	return EOK;
 error:
+	if (symbols != NULL)
+		symbols_destroy(symbols);
 	if (amodule != NULL)
 		ast_tree_destroy(&amodule->node);
 	ir_module_destroy(module);

@@ -61,6 +61,7 @@ sources_syc_common = \
     src/irparser.c \
     src/scope.c \
     src/syc.c \
+    src/symbols.c \
     src/test/cgen.c \
     src/test/comp.c \
     src/test/ir.c \

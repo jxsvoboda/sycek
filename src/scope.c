@@ -194,7 +194,7 @@ scope_member_t *scope_first(scope_t *scope)
 /** Get next (local) scope member.
  *
  * @param cur Current member
- * @return NExt member or @c NULL if @a cur was the last one
+ * @return Next member or @c NULL if @a cur was the last one
  */
 scope_member_t *scope_next(scope_member_t *cur)
 {

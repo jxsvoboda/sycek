@@ -21,19 +21,50 @@
  */
 
 /*
- * Code generator
+ * Symbols
  */
 
-#ifndef CGEN_H
-#define CGEN_H
+#ifndef TYPES_SYMBOLS_H
+#define TYPES_SYMBOLS_H
 
-#include <types/ast.h>
-#include <types/cgen.h>
-#include <types/ir.h>
-#include <types/symbols.h>
+#include <adt/list.h>
 
-extern int cgen_create(cgen_t **);
-extern int cgen_module(cgen_t *, ast_module_t *, symbols_t *, ir_module_t **);
-extern void cgen_destroy(cgen_t *);
+/** Symbols */
+typedef struct symbols {
+	/** Scope members */
+	list_t syms; /* of symbol_t */
+} symbols_t;
+
+/** Scope member type */
+typedef enum {
+	/** Variable */
+	st_var,
+	/** Function */
+	st_fun,
+	/** Typedef */
+	st_type
+} symbol_type_t;
+
+/** Symbol flags */
+typedef enum {
+	/** Symbol is defined (note: a symbol, if it exists, is always declared) */
+	sf_defined = 0x1,
+	/** Symbol is used */
+	st_used = 0x2
+} symbol_flags_t;
+
+/** Symbol */
+typedef struct {
+	/** Containing symbol index */
+	symbols_t *symbols;
+	/** Link to symbols_t.syms */
+	link_t lsyms;
+	/** Identifier */
+	char *ident;
+	/** Symbol type */
+	symbol_type_t stype;
+	/** Symbol flags */
+	symbol_flags_t flags;
+} symbol_t;
 
 #endif
