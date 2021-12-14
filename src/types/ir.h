@@ -202,6 +202,12 @@ typedef struct {
 	char *ident;
 } ir_proc_arg_t;
 
+/** IR procedure flags */
+typedef enum {
+	/** Extern procedure declaration */
+	irp_extern = 0x1
+} ir_proc_flags_t;
+
 /** IR procedure definition */
 typedef struct ir_proc {
 	/** Base object */
@@ -210,6 +216,8 @@ typedef struct ir_proc {
 	char *ident;
 	/** Arguments */
 	list_t args; /* of ir_proc_arg_t */
+	/** Flags */
+	ir_proc_flags_t flags;
 	/** Labeled block containing the implementation */
 	ir_lblock_t *lblock;
 } ir_proc_t;

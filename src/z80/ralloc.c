@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2021 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1085,6 +1085,31 @@ static int z80_ralloc_dentry(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 	return EINVAL;
 }
 
+/** Copy over extern declaration through the regster allocation stage
+ *
+ * @param ralloc Register allocator
+ * @param vrextern IR extern declartion
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_extern(z80_ralloc_t *ralloc, z80ic_extern_t *vrextern,
+    z80ic_module_t *icmod)
+{
+	z80ic_extern_t *icextern = NULL;
+	int rc;
+
+	(void) ralloc;
+
+	rc = z80ic_extern_create(vrextern->ident, &icextern);
+	if (rc != EOK)
+		goto error;
+
+	z80ic_module_append(icmod, &icextern->decln);
+	return EOK;
+error:
+	return rc;
+}
+
 /** Copy over variable declaration through the regster allocation stage
  *
  * @param ralloc Register allocator
@@ -1197,6 +1222,9 @@ static int z80_ralloc_decln(z80_ralloc_t *ralloc, z80ic_decln_t *decln,
 	int rc;
 
 	switch (decln->dtype) {
+	case z80icd_extern:
+		rc = z80_ralloc_extern(ralloc, (z80ic_extern_t *) decln->ext, icmod);
+		break;
 	case z80icd_var:
 		rc = z80_ralloc_var(ralloc, (z80ic_var_t *) decln->ext, icmod);
 		break;

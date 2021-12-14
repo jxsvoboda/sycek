@@ -1132,14 +1132,14 @@ error:
 	return rc;
 }
 
-/** Select instructions code for procedure.
+/** Select instructions code for procedure definition.
  *
  * @param isel Instruction selector
  * @param irproc IR procedure
  * @param icmod Z80 IC module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
+static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
     z80ic_module_t *icmod)
 {
 	z80_isel_proc_t *isproc = NULL;
@@ -1190,6 +1190,59 @@ error:
 	z80ic_proc_destroy(icproc);
 	z80ic_lblock_destroy(lblock);
 	z80_isel_proc_destroy(isproc);
+	return rc;
+}
+
+/** Select instructions code for external procedure declaration.
+ *
+ * @param isel Instruction selector
+ * @param irproc IR procedure
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc_extern(z80_isel_t *isel, ir_proc_t *irproc,
+    z80ic_module_t *icmod)
+{
+	z80ic_extern_t *icextern = NULL;
+	char *ident = NULL;
+	int rc;
+
+	(void) isel;
+
+	rc = z80_isel_mangle_global_ident(irproc->ident, &ident);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_extern_create(ident, &icextern);
+	if (rc != EOK)
+		goto error;
+
+	free(ident);
+	z80ic_module_append(icmod, &icextern->decln);
+	return EOK;
+error:
+	if (ident != NULL)
+		free(ident);
+	return rc;
+}
+
+/** Select instructions code for procedure.
+ *
+ * @param isel Instruction selector
+ * @param irproc IR procedure
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
+    z80ic_module_t *icmod)
+{
+	int rc;
+
+	if ((irproc->flags & irp_extern) != 0)
+		rc = z80_isel_proc_extern(isel, irproc, icmod);
+	else
+		rc = z80_isel_proc_def(isel, irproc, icmod);
+
 	return rc;
 }
 

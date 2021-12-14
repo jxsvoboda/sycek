@@ -552,7 +552,7 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create(itok.text, lblock, &proc);
+	rc = ir_proc_create(itok.text, 0, lblock, &proc);
 	if (rc != EOK)
 		goto error;
 
@@ -600,19 +600,30 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	if (rc != EOK)
 		goto error;
 
+	/* Extern */
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_extern) {
+		ir_parser_skip(parser);
+		proc->flags |= irp_extern;
+		ir_lblock_destroy(proc->lblock);
+		proc->lblock = NULL;
+	}
+
 	/* Begin, end */
 
-	rc = ir_parser_match(parser, itt_begin);
-	if (rc != EOK)
-		goto error;
+	if ((proc->flags & irp_extern) == 0) {
+		rc = ir_parser_match(parser, itt_begin);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_parser_process_lblock(parser, proc->lblock);
-	if (rc != EOK)
-		goto error;
+		rc = ir_parser_process_lblock(parser, proc->lblock);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_parser_match(parser, itt_end);
-	if (rc != EOK)
-		goto error;
+		rc = ir_parser_match(parser, itt_end);
+		if (rc != EOK)
+			goto error;
+	}
 
 	*rproc = proc;
 	return EOK;

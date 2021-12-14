@@ -38,6 +38,8 @@ static const char *str_var =
 static const char *str_proc = "proc @add(%0, %1) begin "
     "add.16 %2, %0, %1; retv.16 %2; end;\n";
 
+static const char *str_extern = "proc @foo() extern;\n";
+
 /** Run IR lexer tests on a code fragment.
  *
  * @param str Code fragment (IR)
@@ -110,6 +112,10 @@ int test_ir_lexer(void)
 		return rc;
 
 	rc = test_ir_lex_string(str_proc);
+	if (rc != EOK)
+		return rc;
+
+	rc = test_ir_lex_string(str_extern);
 	if (rc != EOK)
 		return rc;
 

@@ -54,6 +54,19 @@ int assign_var(void)
 	return a;
 }
 
+/* Declare external function */
+int putpixel(int x, int y);
+
+/* Call external function */
+int drawing(void)
+{
+	putpixel(1, 1);
+	putpixel(2, 2);
+	putpixel(3, 3);
+	putpixel(4, 4);
+	return 0;
+}
+
 int main(void)
 {
 	return 0;

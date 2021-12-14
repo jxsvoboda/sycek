@@ -230,6 +230,9 @@ static void z80ic_decln_destroy(z80ic_decln_t *decln)
 		return;
 
 	switch (decln->dtype) {
+	case z80icd_extern:
+		z80ic_extern_destroy((z80ic_extern_t *) decln->ext);
+		break;
 	case z80icd_var:
 		z80ic_var_destroy((z80ic_var_t *) decln->ext);
 		break;
@@ -249,6 +252,8 @@ static void z80ic_decln_destroy(z80ic_decln_t *decln)
 int z80ic_decln_print(z80ic_decln_t *decln, FILE *f)
 {
 	switch (decln->dtype) {
+	case z80icd_extern:
+		return z80ic_extern_print((z80ic_extern_t *) decln->ext, f);
 	case z80icd_var:
 		return z80ic_var_print((z80ic_var_t *) decln->ext, f);
 	case z80icd_proc:
@@ -258,6 +263,65 @@ int z80ic_decln_print(z80ic_decln_t *decln, FILE *f)
 	/* Should not be reached */
 	assert(false);
 	return EINVAL;
+}
+
+/** Create Z80 IC extern declaration.
+ *
+ * @param ident Identifier (will be copied)
+ * @param rextern Place to store pointer to new extern declaration
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_extern_create(const char *ident, z80ic_extern_t **rextern)
+{
+	z80ic_extern_t *dextern;
+
+	dextern = calloc(1, sizeof(z80ic_extern_t));
+	if (dextern == NULL)
+		return ENOMEM;
+
+	dextern->ident = strdup(ident);
+	if (dextern->ident == NULL) {
+		free(dextern);
+		return ENOMEM;
+	}
+
+	dextern->decln.dtype = z80icd_extern;
+	dextern->decln.ext = (void *) dextern;
+	*rextern = dextern;
+	return EOK;
+}
+
+/** Print Z80 IC extern declaration.
+ *
+ * @param dextern Z80 IC extern declaration
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_extern_print(z80ic_extern_t *dextern, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "\nEXTERN %s\n", dextern->ident);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC extern declaration.
+ *
+ * @param dextern Z80 IC extern declaration or @c NULL
+ */
+void z80ic_extern_destroy(z80ic_extern_t *dextern)
+{
+	if (dextern == NULL)
+		return;
+
+	if (dextern->ident != NULL)
+		free(dextern->ident);
+
+	free(dextern);
 }
 
 /** Create Z80 IC variable.
@@ -292,7 +356,7 @@ int z80ic_var_create(const char *ident, z80ic_dblock_t *dblock, z80ic_var_t **rv
 
 /** Print Z80 IC variable.
  *
- * @param proc Z80 IC procedure
+ * @param var Z80 IC variable
  * @param f Output file
  * @return EOK on success or an error code
  */

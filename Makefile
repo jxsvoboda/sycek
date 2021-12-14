@@ -140,7 +140,7 @@ test_syc_vg_outs = \
 test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
     test/syc/all.diff
-example_outs = example/test.asm example/test.o example/test.bin \
+example_outs = example/lib.o example/test.asm example/test.o example/test.bin \
     example/test.map example/test.tap example/test.ir example/test.vric
 
 all: $(binary_ccheck) $(binary_syc)
@@ -284,8 +284,8 @@ example/test.ir: example/test.c $(syc)
 	$(syc) --dump-ir $< >$@
 example/test.vric: example/test.c $(syc)
 	$(syc) --dump-vric $< >$@
-example/test.bin: example/test.asm
-	z80asm +zx --origin=32768 -b -m $<
+example/test.bin: example/test.asm example/lib.asm
+	z80asm +zx --origin=32768 -b -m $^
 example/test.tap: example/test.bin
 	appmake +zx --org=32768 -b $<
 examples: example/test.tap example/test.ir example/test.vric

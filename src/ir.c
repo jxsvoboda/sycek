@@ -614,12 +614,14 @@ ir_dblock_entry_t *ir_dblock_prev(ir_dblock_entry_t *cur)
 /** Create IR procedure.
  *
  * @param ident Identifier (will be copied)
- * @param lblock data block
+ * @parma flags Flags
+ * @param lblock Labeled block (or @c NULL if not a definition)
  * @param rproc Place to store pointer to new procedure
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_proc_create(const char *ident, ir_lblock_t *lblock, ir_proc_t **rproc)
+int ir_proc_create(const char *ident, ir_proc_flags_t flags,
+    ir_lblock_t *lblock, ir_proc_t **rproc)
 {
 	ir_proc_t *proc;
 
@@ -633,7 +635,9 @@ int ir_proc_create(const char *ident, ir_lblock_t *lblock, ir_proc_t **rproc)
 		return ENOMEM;
 	}
 
-	assert(lblock != NULL);
+	proc->flags = flags;
+
+	assert(lblock != NULL || (flags & irp_extern) != 0);
 	proc->lblock = lblock;
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
@@ -679,21 +683,29 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 		}
 	}
 
-	rv = fputs(")\n", f);
+	rv = fputs(")", f);
 	if (rv < 0)
 		return EIO;
 
-	rv = fprintf(f, "begin\n");
-	if (rv < 0)
-		return EIO;
+	if ((proc->flags & irp_extern) != 0) {
+		rv = fputs(" extern", f);
+		if (rv < 0)
+			return EIO;
+	}
 
-	rc = ir_lblock_print(proc->lblock, f);
-	if (rc != EOK)
-		return EIO;
+	if (proc->lblock != NULL) {
+		rv = fprintf(f, "\nbegin\n");
+		if (rv < 0)
+			return EIO;
 
-	rv = fprintf(f, "end");
-	if (rv < 0)
-		return EIO;
+		rc = ir_lblock_print(proc->lblock, f);
+		if (rc != EOK)
+			return EIO;
+
+		rv = fprintf(f, "end");
+		if (rv < 0)
+			return EIO;
+	}
 
 	return EOK;
 }

@@ -1122,7 +1122,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create(pident, lblock, &proc);
+	rc = ir_proc_create(pident, 0, lblock, &proc);
 	if (rc != EOK)
 		goto error;
 
@@ -1284,6 +1284,11 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		rc = symbols_insert(cgen->symbols, st_fun, ident->tok.text);
 		if (rc != EOK)
 			return rc;
+
+		/* Insert identifier into module scope */
+		rc = scope_insert_gsym(cgen->scope, ident->tok.text);
+		if (rc == ENOMEM)
+			return rc;
 	} else {
 		if (symbol->stype != st_fun) {
 			/* Already declared as a different type of symbol */
@@ -1294,6 +1299,7 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			return EINVAL;
 		}
 	}
+
 
 	return EOK;
 }
@@ -1482,23 +1488,38 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
 static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
     ir_module_t *irmod)
 {
-//	int rc;
+	int rc;
+	ir_proc_t *proc;
 	symbol_t *symbol;
+	char *pident = NULL;
 
 	(void) cgen;
-	(void) irmod;
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
 		if ((symbol->flags & sf_defined) == 0) {
-			printf("'%s' is external\n", symbol->ident);
+			rc = cgen_gprefix(symbol->ident, &pident);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_proc_create(pident, irp_extern, NULL, &proc);
+			if (rc != EOK)
+				goto error;
+
+			free(pident);
+			pident = NULL;
+
+			ir_module_append(irmod, &proc->decln);
 		}
+
 		symbol = symbols_next(symbol);
 	}
 
 	return EOK;
-//error:
-//	return rc;
+error:
+	if (pident != NULL)
+		free(pident);
+	return rc;
 }
 
 /** Generate code for module.
