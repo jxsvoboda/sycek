@@ -157,6 +157,7 @@ extern ast_idlist_entry_t *ast_idlist_last(ast_idlist_t *);
 extern ast_idlist_entry_t *ast_idlist_prev(ast_idlist_entry_t *);
 extern bool ast_decl_is_abstract(ast_node_t *);
 extern ast_tok_t *ast_decl_get_ident(ast_node_t *);
+extern bool ast_decl_is_ptrdecln(ast_node_t *);
 extern bool ast_decl_is_fundecln(ast_node_t *);
 extern bool ast_decl_is_vardecln(ast_node_t *);
 extern ast_tok_t *ast_gdecln_get_ident(ast_gdecln_t *);

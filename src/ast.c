@@ -4610,10 +4610,39 @@ ast_tok_t *ast_decl_get_ident(ast_node_t *node)
  * @param decl Declarator
  * @return @c true iff declarator declares a function
  */
+bool ast_decl_is_ptrdecln(ast_node_t *decl)
+{
+	ast_dparen_t *dparen;
+
+	switch (decl->ntype) {
+	case ant_dnoident:
+	case ant_dident:
+		return false;
+	case ant_dparen:
+		dparen = (ast_dparen_t *) decl->ext;
+		return ast_decl_is_ptrdecln(dparen->bdecl);
+	case ant_dptr:
+		return true;
+	case ant_dfun:
+		return false;
+	case ant_darray:
+		return false;
+	default:
+		assert(false);
+		return false;
+	}
+}
+
+/** Determine if declarator declares a function.
+ *
+ * @param decl Declarator
+ * @return @c true iff declarator declares a function
+ */
 bool ast_decl_is_fundecln(ast_node_t *decl)
 {
 	ast_dparen_t *dparen;
 	ast_dptr_t *dptr;
+	ast_dfun_t *dfun;
 
 	switch (decl->ntype) {
 	case ant_dnoident:
@@ -4626,7 +4655,9 @@ bool ast_decl_is_fundecln(ast_node_t *decl)
 		dptr = (ast_dptr_t *) decl->ext;
 		return ast_decl_is_fundecln(dptr->bdecl);
 	case ant_dfun:
-		return true;
+		/* If it's not a pointer to a function, it's a function */
+		dfun = (ast_dfun_t *) decl->ext;
+		return !ast_decl_is_ptrdecln(dfun->bdecl);
 	case ant_darray:
 		return false; // XXX May need to treat function returning array
 	default:
