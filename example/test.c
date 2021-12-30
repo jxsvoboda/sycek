@@ -39,6 +39,12 @@ int funcall_arg(void)
 	return add(1, 2);
 }
 
+int funcall_varg(void)
+{
+	a = 1;
+	return add(a, a);
+}
+
 int read_var(void)
 {
 	/* Read the contents of initialized global variable */

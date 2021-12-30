@@ -680,7 +680,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	 */
 	earg = ast_ecall_first(ecall);
 	while (earg != NULL) {
-		rc = cgen_expr(cgproc, earg->arg, lblock, &ares);
+		rc = cgen_expr_rvalue(cgproc, earg->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
 
@@ -1299,7 +1299,6 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			return EINVAL;
 		}
 	}
-
 
 	return EOK;
 }
