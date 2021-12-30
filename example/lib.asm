@@ -9,16 +9,6 @@ GLOBAL _putpixel
 ;   BC = x
 ;   DE = y
 ._putpixel
-	; A := x/8
-	ld A, C
-	srl A
-	srl A
-	srl A
-
-	; HL := 0x4000 + x/8
-	ld H, 0x40
-	ld L, A
-
 	; DE := y * 32 == y << 5
 	sla E
 	rl D
@@ -31,43 +21,55 @@ GLOBAL _putpixel
 	sla E
 	rl D
 
-	; live registers: BC, DE, HL
-	; swap bits 5-7 and 8-10 of DE
-	push BC
+	; A := x/8
+	ld A, C
+	srl A
+	srl A
+	srl A
 
-	ld A, E
+	; HL := 0x4000 + x/8
+	ld H, 0x40
+	ld L, A
+
+	; HL := 0x4000 + x / 8 + y * 32
+	add HL, DE
+
+	; live registers: BC, HL
+	; swap bits 5-7 and 8-10 of HL using DE for temporary storage
+
+	; D(0:2) := L(7:5)
+	ld A, L
 	rlc A
 	rlc A
 	rlc A
 	and 0x07
-	ld B, A
+	ld D, A
 
-	ld A, D
+	; D := H(7:3) L(7:5)
+	ld A, H
 	and 0xf8
-	or B
-	ld B, A
+	or D
+	ld D, A
 
-	ld A, D
+	; E(7:5) := H(2:0)
+	ld A, H
 	rrc A
 	rrc A
 	rrc A
 	and 0xe0
-	ld C, A
+	ld E, A
 
-	ld A, E
+	; E := H(2:0) L(4:0)
+	ld A, L
 	and 0x1f
-	or C
-	ld C, A
+	or E
+	ld E, A
 
-	ld D, B
-	ld E, C
-	pop BC
+	ld H, D
+	ld L, E
 
 	; BC = x
-	; DE = swapped(y * 32)
-
-	; final address of pixel = 0x4000 + x/8 + swapped(y * 32)
-	add HL, DE
+	; HL = pixel address
 
 	;
 	; Now computing bit pattern 0x80 >> (x & 0x7)
