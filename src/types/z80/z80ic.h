@@ -484,8 +484,7 @@ typedef enum {
 	/** Load virtual register pair from virtual register pair.
 	 *
 	 * This supplants a pair of 8-bit loads operating on the two
-	 * halves of the virtual register pair (because to use ld_vr_vr
-	 * we'd have to be able to access the halves of the pair individually.
+	 * halves of the virtual register pair.
 	 */
 	z80i_ld_vrr_vrr,
 
@@ -521,70 +520,54 @@ typedef enum {
 	/** Exchange (SP) with virt. register pair */
 	z80i_ex_isp_vrr,
 
-	/** Add virtual register to virtual register */
-	z80i_add_vr_vr,
-	/** Add 8-bit immediate to virtual register */
-	z80i_add_vr_n,
-	/** Add indirect memory location to virtual register */
-	z80i_add_vr_ivrr,
-	/** Add displ. indirect memory to virtual register */
-	z80i_add_vr_ivrrd,
-	/** Add virtual register to virtual register with carry */
-	z80i_adc_vr_vr,
-	/** Add 8-bit immediate to virtual register with carry */
-	z80i_adc_vr_n,
-	/** Add ind. memory location to virtual register with carry */
-	z80i_adc_vr_ivrr,
-	/** Add displ. ind. mem. location to virtual register with carry */
-	z80i_adc_vr_ivrrd,
-	/** Subtract virtual register from virtual register */
-	z80i_sub_vr_vr,
-	/** Subtract 8-bit immediate from virtual register */
-	z80i_sub_vr_n,
-	/** Subtract indirect memory location from virtual register */
-	z80i_sub_vr_ivrr,
-	/** Subtract displ. indirect memory location from virtual register */
-	z80i_sub_vr_ivrrd,
-	/** Subtract virtual register from virtual register with carry */
-	z80i_sbc_vr_vr,
-	/** Subtract 8-bit immediate from virtual register with carry */
-	z80i_sbc_vr_n,
-	/** Subtract ind. memory location from virtual register with carry */
-	z80i_sbc_vr_ivrr,
-	/** Subtract displ. ind. mem. location from virtual reg. with carry */
-	z80i_sbc_vr_ivrrd,
-	/** Bitwise AND virtual register with virtual register */
-	z80i_and_vr_vr,
-	/** Bitwise AND 8-bit immediate with virtual register */
-	z80i_and_vr_n,
-	/** Bitwise AND indirect memory location with virtual register */
-	z80i_and_vr_ivrr,
-	/** Bitwise AND displ. ind. memory location with virtual register */
-	z80i_and_vr_ivrrd,
-	/** Bitwise OR virtual register with virtual register */
-	z80i_or_vr_vr,
-	/** Bitwise OR 8-bit immediate with virtual register */
-	z80i_or_vr_n,
-	/** Bitwise OR indirect memory location with virtual register */
-	z80i_or_vr_ivrr,
-	/** Bitwise OR displ. ind. memory location with virtual register */
-	z80i_or_vr_ivrrd,
-	/** Bitwise XOR virtual register with virtual register */
-	z80i_xor_vr_vr,
-	/** Bitwise XOR 8-bit immediate with virtual register */
-	z80i_xor_vr_n,
-	/** Bitwise XOR indirect memory location with virtual register */
-	z80i_xor_vr_ivrr,
-	/** Bitwise XOR displ. ind. memory location with virtual register */
-	z80i_xor_vr_ivrrd,
-	/** Compare virtual register with virtual register */
-	z80i_cp_vr_vr,
-	/** Compare 8-bit immediate with virtual register */
-	z80i_cp_vr_n,
-	/** Compare indirect memory location with virtual register */
-	z80i_cp_vr_ivrr,
-	/** Compare displaced indirect memory location with virtual register */
-	z80i_cp_vr_ivrrd,
+	/** Add virtual register to A */
+	z80i_add_a_vr,
+	/** Add indirect memory location to A */
+	z80i_add_a_ivrr,
+	/** Add displaced indirect memory location to A */
+	z80i_add_a_ivrrd,
+	/** Add virtual register to A with carry */
+	z80i_adc_a_vr,
+	/** Add indirect memory location to A with carry */
+	z80i_adc_a_ivrr,
+	/** Add displaced indirect memory location to A with carry */
+	z80i_adc_a_ivrrd,
+	/** Subtract virtual register */
+	z80i_sub_vr,
+	/** Subtract indirect memory location */
+	z80i_sub_ivrr,
+	/** Subtract displaced indirect memory location */
+	z80i_sub_ivrrd,
+	/** Subtract virtual register from A with carry */
+	z80i_sbc_a_vr,
+	/** Subtract indirect memory location from A with carry */
+	z80i_sbc_a_ivrr,
+	/** Subtract displaced indirect memory location from A with carry */
+	z80i_sbc_a_ivrrd,
+	/** Bitwise AND with virtual register */
+	z80i_and_vr,
+	/** Bitwise AND with indirect memory location */
+	z80i_and_ivrr,
+	/** Bitwise AND with displaced indirect memory location */
+	z80i_and_ivrrd,
+	/** Bitwise OR with virtual register */
+	z80i_or_vr,
+	/** Bitwise OR with indirect memory location */
+	z80i_or_ivrr,
+	/** Bitwise OR with displaced indirect memory location */
+	z80i_or_ivrrd,
+	/** Bitwise XOR with virtual register */
+	z80i_xor_vr,
+	/** Bitwise XOR with indirect memory location */
+	z80i_xor_ivrr,
+	/** Bitwise XOR with displaced indirect memory location */
+	z80i_xor_ivrrd,
+	/** Compare with virtual register */
+	z80i_cp_vr,
+	/** Compare with indirect memory location */
+	z80i_cp_ivrr,
+	/** Compare with displaced indirect memory location */
+	z80i_cp_ivrrd,
 	/** Increment virtual register */
 	z80i_inc_vr,
 	/** Increment indirect memory location */
