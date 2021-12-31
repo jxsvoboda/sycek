@@ -42,6 +42,7 @@ static const char *instr_name[] = {
 	[iri_call] = "call",
 	[iri_sub] = "sub",
 	[iri_imm] = "imm",
+	[iri_jmp] = "jmp",
 	[iri_read] = "read",
 	[iri_retv] = "retv",
 	[iri_varptr] = "varptr",

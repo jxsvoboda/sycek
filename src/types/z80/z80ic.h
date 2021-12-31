@@ -1013,6 +1013,14 @@ typedef struct {
 	z80ic_oper_ss_t *dest;
 } z80ic_inc_ss_t;
 
+/** Z80 IC jump direct instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jp_nn_t;
+
 /** Z80 IC call direct instruction */
 typedef struct {
 	/** Base object */

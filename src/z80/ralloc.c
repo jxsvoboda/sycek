@@ -504,6 +504,44 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 jump instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrjp Jump instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_jp_nn(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_jp_nn_t *vrjp, z80ic_lblock_t *lblock)
+{
+	z80ic_jp_nn_t *jp = NULL;
+	z80ic_oper_imm16_t *imm;
+	int rc;
+
+	(void) raproc;
+
+	rc = z80ic_jp_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_copy(vrjp->imm16, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jp->imm16 = imm;
+
+	rc = z80ic_lblock_append(lblock, label, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+	return EOK;
+error:
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	return rc;
+}
+
 /** Allocate registers for Z80 call instruction.
  *
  * @param raproc Register allocator for procedure
@@ -519,7 +557,6 @@ static int z80_ralloc_call_nn(z80_ralloc_proc_t *raproc, const char *label,
 	int rc;
 
 	(void) raproc;
-	(void) vrcall;
 
 	rc = z80ic_call_nn_create(&call);
 	if (rc != EOK)
@@ -966,6 +1003,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_inc_ss:
 		return z80_ralloc_inc_ss(raproc, label,
 		    (z80ic_inc_ss_t *) vrinstr->ext, lblock);
+	case z80i_jp_nn:
+		return z80_ralloc_jp_nn(raproc, label,
+		    (z80ic_jp_nn_t *) vrinstr->ext, lblock);
 	case z80i_call_nn:
 		return z80_ralloc_call_nn(raproc, label,
 		    (z80ic_call_nn_t *) vrinstr->ext, lblock);

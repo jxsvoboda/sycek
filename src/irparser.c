@@ -389,6 +389,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_imm:
 		instr->itype = iri_imm;
 		break;
+	case itt_jmp:
+		instr->itype = iri_jmp;
+		break;
 	case itt_read:
 		instr->itype = iri_read;
 		break;

@@ -991,19 +991,25 @@ error:
 static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
     ir_lblock_t *lblock)
 {
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *arg = NULL;
 	cgen_eres_t cres;
 	unsigned lblno;
-	char *label;
+	char *wlabel = NULL;
+	char *ewlabel = NULL;
 	int rc;
 
 	lblno = cgen_new_label_num(cgproc);
 
-	rc = cgen_create_label(cgproc, "while", lblno, &label);
+	rc = cgen_create_label(cgproc, "while", lblno, &wlabel);
 	if (rc != EOK)
 		goto error;
 
-	ir_lblock_append(lblock, label, NULL);
-	free(label);
+	rc = cgen_create_label(cgproc, "end_while", lblno, &ewlabel);
+	if (rc != EOK)
+		goto error;
+
+	ir_lblock_append(lblock, wlabel, NULL);
 
 	rc = cgen_expr_rvalue(cgproc, awhile->cond, lblock, &cres);
 	if (rc != EOK)
@@ -1013,15 +1019,32 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_label(cgproc, "end_while", lblno, &label);
+	rc = ir_instr_create(&instr);
 	if (rc != EOK)
 		goto error;
 
-	ir_lblock_append(lblock, label, NULL);
-	free(label);
+	rc = ir_oper_var_create(wlabel, &arg);
+	if (rc != EOK)
+		goto error;
 
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &arg->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	ir_lblock_append(lblock, ewlabel, NULL);
+
+	free(wlabel);
+	free(ewlabel);
 	return EOK;
 error:
+	if (wlabel != NULL)
+		free(wlabel);
+	if (ewlabel != NULL)
+		free(ewlabel);
 	return rc;
 }
 

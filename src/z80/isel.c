@@ -56,6 +56,31 @@ static int z80_isel_mangle_global_ident(const char *irident, char **rident)
 	return EOK;
 }
 
+/** Mangle label identifier.
+ *
+ * @param proc IR procedure identifier
+ * @param irident IR label identifier
+ * @param rident Place to store pointer to IC label identifier
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_isel_mangle_label_ident(const char *proc,
+    const char *irident, char **rident)
+{
+	int rv;
+	char *ident;
+
+	/* The indentifier must have global scope */
+	assert(proc[0] == '@');
+	assert(irident[0] == '%');
+
+	rv = asprintf(&ident, "l_%s_%s", &proc[1], &irident[1]);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rident = ident;
+	return EOK;
+}
+
 /** Get virtual register number from variable name.
  *
  * @param rz80_isel Place to store pointer to new instruction selector
@@ -381,7 +406,7 @@ error:
 /** Select Z80 IC instructions code for IR sub instruction.
  *
  * @param isproc Instruction selector for procedure
- * @param irinstr IR add instruction
+ * @param irinstr IR sub instruction
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
@@ -466,7 +491,7 @@ error:
 /** Select Z80 IC instructions code for IR load immediate instruction.
  *
  * @param isproc Instruction selector for procedure
- * @param irinstr IR add instruction
+ * @param irinstr IR immediate instruction
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
@@ -516,6 +541,66 @@ error:
 	z80ic_instr_destroy(&ldimm->instr);
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_imm16_destroy(imm);
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR jump instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR jump instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_jmp(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_jp_nn_t *jp = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	ir_oper_var_t *op1;
+	char *ident = NULL;
+	int rc;
+
+	(void) isproc;
+
+	assert(irinstr->itype == iri_jmp);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	op1 = (ir_oper_var_t *) irinstr->op1->ext;
+
+	rc = z80_isel_mangle_label_ident(isproc->ident, op1->varname, &ident);
+	if (rc != EOK)
+		goto error;
+
+	/* Jump instruction */
+
+	rc = z80ic_jp_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(ident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jp->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+
+	free(ident);
+	return EOK;
+error:
+	if (ident != NULL)
+		free(ident);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	z80ic_oper_imm16_destroy(imm);
+
 	return rc;
 }
 
@@ -925,6 +1010,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_sub(isproc, label, irinstr, lblock);
 	case iri_imm:
 		return z80_isel_imm(isproc, label, irinstr, lblock);
+	case iri_jmp:
+		return z80_isel_jmp(isproc, label, irinstr, lblock);
 	case iri_read:
 		return z80_isel_read(isproc, label, irinstr, lblock);
 	case iri_retv:

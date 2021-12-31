@@ -59,6 +59,7 @@ typedef enum {
 	itt_extern,
 	itt_imm,
 	itt_int,
+	itt_jmp,
 	itt_nil,
 	itt_proc,
 	itt_read,

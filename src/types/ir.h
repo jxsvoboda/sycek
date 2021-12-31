@@ -40,6 +40,8 @@ typedef enum {
 	iri_sub,
 	/** Introduce immediate value */
 	iri_imm,
+	/** Jump */
+	iri_jmp,
 	/** Read from memory */
 	iri_read,
 	/** Return value */
