@@ -64,12 +64,24 @@ int assign_var(void)
 int putpixel(int x, int y);
 
 /* Call external function */
-int drawing(void)
+int callext(void)
 {
 	putpixel(1, 1);
 	putpixel(2, 2);
 	putpixel(3, 3);
 	putpixel(4, 4);
+	return 0;
+}
+
+/* While loop */
+int while_loop(void)
+{
+	a = 10;
+	while (a) {
+		putpixel(a, a);
+		a = a - 1;
+	}
+
 	return 0;
 }
 

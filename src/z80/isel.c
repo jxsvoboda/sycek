@@ -101,20 +101,31 @@ int z80_isel_create(z80_isel_t **rz80_isel)
 	return EOK;
 }
 
-/** Create instruction selector.
+/** Create procedure instruction selector.
  *
- * @param rz80_isel Place to store pointer to new instruction selector
+ * @param isel Instruction selector
+ * @param ident Procedure identifier
+ * @param risproc Place to store pointer to new procedure instruction selector
  * @return EOK on success, ENOMEM if out of memory
  */
-static int z80_isel_proc_create(z80_isel_t *isel, z80_isel_proc_t **risproc)
+static int z80_isel_proc_create(z80_isel_t *isel, const char *ident,
+    z80_isel_proc_t **risproc)
 {
 	z80_isel_proc_t *isproc;
+	char *dident;
 
 	isproc = calloc(1, sizeof(z80_isel_proc_t));
 	if (isproc == NULL)
 		return ENOMEM;
 
+	dident = strdup(ident);
+	if (dident == NULL) {
+		free(isproc);
+		return ENOMEM;
+	}
+
 	isproc->isel = isel;
+	isproc->ident = dident;
 	isproc->used_vrs = 0;
 	*risproc = isproc;
 	return EOK;
@@ -129,6 +140,7 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
 	if (isproc == NULL)
 		return;
 
+	free(isproc->ident);
 	free(isproc);
 }
 
@@ -927,6 +939,43 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	return EINVAL;
 }
 
+/** Select Z80 IC for IR label.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_label(z80_isel_proc_t *isproc, const char *label,
+    z80ic_lblock_t *lblock)
+{
+	int rc;
+	int rv;
+	char *iclabel = NULL;
+
+	(void) isproc;
+
+	assert(isproc->ident[0] == '@');
+	assert(label[0] == '%');
+
+	rv = asprintf(&iclabel, "l_%s_%s", &isproc->ident[1], &label[1]);
+	if (rv < 0) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	rc = z80ic_lblock_append(lblock, iclabel, NULL);
+	if (rc != EOK)
+		goto error;
+
+	free(iclabel);
+	return EOK;
+error:
+	if (iclabel != NULL)
+		free(iclabel);
+	return rc;
+}
+
 /** Select Z80 IC instructions for IR integer data entry.
  *
  * @param isel Instruction selector
@@ -1149,7 +1198,7 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	char *ident = NULL;
 	int rc;
 
-	rc = z80_isel_proc_create(isel, &isproc);
+	rc = z80_isel_proc_create(isel, irproc->ident, &isproc);
 	if (rc != EOK)
 		goto error;
 
@@ -1171,9 +1220,18 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 
 	entry = ir_lblock_first(irproc->lblock);
 	while (entry != NULL) {
-		rc = z80_isel_instr(isproc, entry->label, entry->instr, lblock);
-		if (rc != EOK)
-			goto error;
+		if (entry->instr != NULL) {
+			/* Instruction */
+			assert(entry->label == NULL);
+			rc = z80_isel_instr(isproc, NULL, entry->instr, lblock);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* Label */
+			rc = z80_isel_label(isproc, entry->label, lblock);
+			if (rc != EOK)
+				goto error;
+		}
 
 		entry = ir_lblock_next(entry);
 	}

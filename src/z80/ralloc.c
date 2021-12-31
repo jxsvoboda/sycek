@@ -954,8 +954,9 @@ error:
 /** Allocate registers for Z80 instruction.
  *
  * @param raproc Register allocator for procedure
+ * @param label Label
  * @param vrinstr Instruction with virtual registers
- * @param ricinstr Place to store pointer to new Z80 IC instruction
+ * @param lblock Labeled block where to append
  * @return EOK on success or an error code
  */
 static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
@@ -1002,6 +1003,29 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 
 	assert(false);
 	return EINVAL;
+}
+
+/** Allocate registers for Z80 label.
+ *
+ * @param raproc Register allocator for procedure
+ * @param label Label
+ * @param lblock Labeled block where to append
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_label(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_lblock_t *lblock)
+{
+	int rc;
+
+	(void) raproc;
+
+	rc = z80ic_lblock_append(lblock, label, NULL);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
 }
 
 /** Copy over Z80 IC DEFB data entry through register allocation stage.
@@ -1191,9 +1215,19 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	/* Convert each instruction */
 	entry = z80ic_lblock_first(vrproc->lblock);
 	while (entry != NULL) {
-		rc = z80_ralloc_instr(raproc, entry->label, entry->instr, lblock);
-		if (rc != EOK)
-			goto error;
+		if (entry->instr != NULL) {
+			/* Instruction */
+			assert(entry->label == NULL);
+
+			rc = z80_ralloc_instr(raproc, NULL, entry->instr, lblock);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* Label */
+			rc = z80_ralloc_label(raproc, entry->label, lblock);
+			if (rc != EOK)
+				goto error;
+		}
 
 		entry = z80ic_lblock_next(entry);
 	}

@@ -47,6 +47,8 @@ typedef struct {
 	cgen_t *cgen;
 	/** Next local variable number to allocate */
 	unsigned next_var;
+	/** Next label number to allocate */
+	unsigned next_label;
 	/** Argument scope for this procedure */
 	struct scope *arg_scope;
 } cgen_proc_t;

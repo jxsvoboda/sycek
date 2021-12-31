@@ -496,16 +496,32 @@ error:
 static int ir_parser_process_lblock(ir_parser_t *parser, ir_lblock_t *lblock)
 {
 	ir_lexer_toktype_t itt;
+	ir_lexer_tok_t itok;
 	ir_instr_t *instr;
 	int rc;
 
 	itt = ir_parser_next_ttype(parser);
 	while (itt != itt_end) {
-		rc = ir_parser_process_instr(parser, &instr);
-		if (rc != EOK)
-			goto error;
+		if (itt == itt_ident) {
+			/* Label */
+			ir_parser_read_next_tok(parser, &itok);
+			assert(itok.ttype == itt_ident);
 
-		ir_lblock_append(lblock, NULL, instr);
+			ir_lblock_append(lblock, itok.text, NULL);
+			ir_parser_skip(parser);
+
+			rc = ir_parser_match(parser, itt_colon);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* Instruction */
+			rc = ir_parser_process_instr(parser, &instr);
+			if (rc != EOK)
+				goto error;
+
+			ir_lblock_append(lblock, NULL, instr);
+		}
+
 		itt = ir_parser_next_ttype(parser);
 	}
 

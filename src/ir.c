@@ -936,9 +936,11 @@ int ir_lblock_print(ir_lblock_t *lblock, FILE *f)
 				return EIO;
 		}
 
-		rc = ir_instr_print(entry->instr, f);
-		if (rc != EOK)
-			return rc;
+		if (entry->instr != NULL) {
+			rc = ir_instr_print(entry->instr, f);
+			if (rc != EOK)
+				return rc;
+		}
 
 		entry = ir_lblock_next(entry);
 	}

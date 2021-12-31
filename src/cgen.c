@@ -44,6 +44,7 @@ static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
+static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 
 /** Prefix identifier with '@' global variable prefix.
  *
@@ -140,6 +141,40 @@ static int cgen_create_new_lvar_oper(cgen_proc_t *cgproc,
 	return cgen_create_lvar_num_oper(var, roper);
 }
 
+/** Create new local label.
+ *
+ * @param cgproc Code generator for procedure
+ * @return New label number
+ */
+static unsigned cgen_new_label_num(cgen_proc_t *cgproc)
+{
+	return cgproc->next_label++;
+}
+
+/** Create new local label.
+ *
+ * @param cgproc Code generator for procedure
+ * @param pattern Label pattern
+ * @param lblno Label number
+ * @param rlabel Place to store pointer to new label
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgen_create_label(cgen_proc_t *cgproc, const char *pattern,
+    unsigned lblno, char **rlabel)
+{
+	char *label;
+	int rv;
+
+	(void) cgproc;
+
+	rv = asprintf(&label, "%%%s%u", pattern, lblno);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rlabel = label;
+	return EOK;
+}
+
 /** Create code generator.
  *
  * @param rcgen Place to store pointer to new code generator
@@ -168,6 +203,7 @@ int cgen_create(cgen_t **rcgen)
 
 /** Create code generator.
  *
+ * @param cgen Code generator
  * @param rcgen Place to store pointer to new code generator
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -182,14 +218,18 @@ static int cgen_proc_create(cgen_t *cgen, cgen_proc_t **rcgproc)
 
 	rc = scope_create(cgen->scope, &cgproc->arg_scope);
 	if (rc != EOK) {
-		free(cgproc);
-		return ENOMEM;
+		rc = ENOMEM;
+		goto error;
 	}
 
 	cgproc->cgen = cgen;
 	cgproc->next_var = 0;
+	cgproc->next_label = 0;
 	*rcgproc = cgproc;
 	return EOK;
+error:
+	free(cgproc);
+	return rc;
 }
 
 /** Destroy code generator for procedure.
@@ -941,6 +981,50 @@ error:
 	return rc;
 }
 
+/** Generate code for while statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param awhile AST while statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
+    ir_lblock_t *lblock)
+{
+	cgen_eres_t cres;
+	unsigned lblno;
+	char *label;
+	int rc;
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "while", lblno, &label);
+	if (rc != EOK)
+		goto error;
+
+	ir_lblock_append(lblock, label, NULL);
+	free(label);
+
+	rc = cgen_expr_rvalue(cgproc, awhile->cond, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_block(cgproc, awhile->body, lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_while", lblno, &label);
+	if (rc != EOK)
+		goto error;
+
+	ir_lblock_append(lblock, label, NULL);
+	free(label);
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate code for expression statement.
  *
  * @param cgproc Code generator for procedure
@@ -998,11 +1082,20 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		break;
 	case ant_if:
 	case ant_while:
+		rc = cgen_while(cgproc, (ast_while_t *) stmt->ext, lblock);
+		break;
 	case ant_do:
 	case ant_for:
 	case ant_switch:
 	case ant_clabel:
 	case ant_glabel:
+		atok = ast_tree_first_tok(stmt);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This statement type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_stexpr:
 		rc = cgen_stexpr(cgproc, (ast_stexpr_t *) stmt->ext, lblock);
 		break;

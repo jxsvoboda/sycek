@@ -828,9 +828,11 @@ int z80ic_lblock_print(z80ic_lblock_t *lblock, FILE *f)
 				return EIO;
 		}
 
-		rc = z80ic_instr_print(entry->instr, f);
-		if (rc != EOK)
-			return rc;
+		if (entry->instr != NULL) {
+			rc = z80ic_instr_print(entry->instr, f);
+			if (rc != EOK)
+				return rc;
+		}
 
 		entry = z80ic_lblock_next(entry);
 	}

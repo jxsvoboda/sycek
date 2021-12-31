@@ -36,6 +36,8 @@ typedef struct {
 typedef struct {
 	/** Containing instruction selector */
 	z80_isel_t *isel;
+	/** Procedure identifier */
+	char *ident;
 	/** Maximum number of used virtual registers */
 	size_t used_vrs;
 } z80_isel_proc_t;
