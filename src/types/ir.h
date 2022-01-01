@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -42,6 +42,10 @@ typedef enum {
 	iri_imm,
 	/** Jump */
 	iri_jmp,
+	/** Jump if not zero */
+	iri_jnz,
+	/** Jump if zero */
+	iri_jz,
 	/** Read from memory */
 	iri_read,
 	/** Return value */

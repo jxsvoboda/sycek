@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -391,6 +391,12 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 		break;
 	case itt_jmp:
 		instr->itype = iri_jmp;
+		break;
+	case itt_jnz:
+		instr->itype = iri_jnz;
+		break;
+	case itt_jz:
+		instr->itype = iri_jz;
 		break;
 	case itt_read:
 		instr->itype = iri_read;

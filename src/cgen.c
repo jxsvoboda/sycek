@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -992,7 +992,8 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
     ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
-	ir_oper_var_t *arg = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
 	cgen_eres_t cres;
 	unsigned lblno;
 	char *wlabel = NULL;
@@ -1015,25 +1016,56 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_block(cgproc, awhile->body, lblock);
-	if (rc != EOK)
-		goto error;
+	/* jz %<cres>, %end_while */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(wlabel, &arg);
+	rc = ir_oper_var_create(cres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ewlabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	rc = cgen_block(cgproc, awhile->body, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* jp %while */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(wlabel, &larg);
 	if (rc != EOK)
 		goto error;
 
 	instr->itype = iri_jmp;
 	instr->width = 0;
 	instr->dest = NULL;
-	instr->op1 = &arg->oper;
+	instr->op1 = &larg->oper;
 	instr->op2 = NULL;
 
+	larg = NULL;
+
 	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
 
 	ir_lblock_append(lblock, ewlabel, NULL);
 
@@ -1041,6 +1073,10 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	free(ewlabel);
 	return EOK;
 error:
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (instr != NULL)
+		ir_instr_destroy(instr);
 	if (wlabel != NULL)
 		free(wlabel);
 	if (ewlabel != NULL)

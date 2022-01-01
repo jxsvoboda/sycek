@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -604,6 +604,240 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR jump if not zero instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR jump if not zero instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_jnz(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r_vr_t *ld = NULL;
+	z80ic_or_vr_t *or = NULL;
+	z80ic_jp_cc_nn_t *jp = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	z80ic_oper_vr_t *src = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	unsigned vr1;
+	ir_oper_var_t *op2;
+	char *ident = NULL;
+	int rc;
+
+	(void) isproc;
+
+	assert(irinstr->itype == iri_jnz);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	op2 = (ir_oper_var_t *) irinstr->op2->ext;
+
+	rc = z80_isel_mangle_label_ident(isproc->ident, op2->varname, &ident);
+	if (rc != EOK)
+		goto error;
+
+	/* ld A, vr.H */
+
+	rc = z80ic_ld_r_vr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(vr1, z80ic_vrp_r16h, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* or vr.L */
+
+	rc = z80ic_or_vr_create(&or);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(vr1, z80ic_vrp_r16l, &src);
+	if (rc != EOK)
+		goto error;
+
+	or->src = src;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* jp NZ, label */
+
+	rc = z80ic_jp_cc_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(ident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jp->cc = z80ic_cc_nz;
+	jp->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+
+	free(ident);
+	return EOK;
+error:
+	if (ident != NULL)
+		free(ident);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	z80ic_oper_reg_destroy(dest);
+	z80ic_oper_vr_destroy(src);
+	z80ic_oper_imm16_destroy(imm);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR jump if zero instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR jump if zero instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_jz(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r_vr_t *ld = NULL;
+	z80ic_or_vr_t *or = NULL;
+	z80ic_jp_cc_nn_t *jp = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	z80ic_oper_vr_t *src = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	unsigned vr1;
+	ir_oper_var_t *op2;
+	char *ident = NULL;
+	int rc;
+
+	(void) isproc;
+
+	assert(irinstr->itype == iri_jz);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	op2 = (ir_oper_var_t *) irinstr->op2->ext;
+
+	rc = z80_isel_mangle_label_ident(isproc->ident, op2->varname, &ident);
+	if (rc != EOK)
+		goto error;
+
+	/* ld A, vr.H */
+
+	rc = z80ic_ld_r_vr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(vr1, z80ic_vrp_r16h, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* or vr.L */
+
+	rc = z80ic_or_vr_create(&or);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(vr1, z80ic_vrp_r16l, &src);
+	if (rc != EOK)
+		goto error;
+
+	or->src = src;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* jp Z, label */
+
+	rc = z80ic_jp_cc_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(ident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jp->cc = z80ic_cc_z;
+	jp->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+
+	free(ident);
+	return EOK;
+error:
+	if (ident != NULL)
+		free(ident);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	z80ic_oper_reg_destroy(dest);
+	z80ic_oper_vr_destroy(src);
+	z80ic_oper_imm16_destroy(imm);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR read instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -1012,6 +1246,10 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_imm(isproc, label, irinstr, lblock);
 	case iri_jmp:
 		return z80_isel_jmp(isproc, label, irinstr, lblock);
+	case iri_jnz:
+		return z80_isel_jnz(isproc, label, irinstr, lblock);
+	case iri_jz:
+		return z80_isel_jz(isproc, label, irinstr, lblock);
 	case iri_read:
 		return z80_isel_read(isproc, label, irinstr, lblock);
 	case iri_retv:

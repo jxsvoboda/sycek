@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -60,6 +60,8 @@ typedef enum {
 	itt_imm,
 	itt_int,
 	itt_jmp,
+	itt_jnz,
+	itt_jz,
 	itt_nil,
 	itt_proc,
 	itt_read,

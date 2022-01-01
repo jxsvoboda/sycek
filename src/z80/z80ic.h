@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -79,19 +79,23 @@ extern int z80ic_ld_sp_ix_create(z80ic_ld_sp_ix_t **);
 extern int z80ic_push_ix_create(z80ic_push_ix_t **);
 extern int z80ic_pop_ix_create(z80ic_pop_ix_t **);
 extern int z80ic_and_r_create(z80ic_and_r_t **);
+extern int z80ic_or_iixd_create(z80ic_or_iixd_t **);
 extern int z80ic_add_hl_ss_create(z80ic_add_hl_ss_t **);
 extern int z80ic_sbc_hl_ss_create(z80ic_sbc_hl_ss_t **);
 extern int z80ic_add_ix_pp_create(z80ic_add_ix_pp_t **);
 extern int z80ic_inc_ss_create(z80ic_inc_ss_t **);
 extern int z80ic_jp_nn_create(z80ic_jp_nn_t **);
+extern int z80ic_jp_cc_nn_create(z80ic_jp_cc_nn_t **);
 extern int z80ic_call_nn_create(z80ic_call_nn_t **);
 extern int z80ic_ret_create(z80ic_ret_t **);
 extern int z80ic_ld_vr_ihl_create(z80ic_ld_vr_ihl_t **);
 extern int z80ic_ld_ihl_vr_create(z80ic_ld_ihl_vr_t **);
 extern int z80ic_ld_vrr_vrr_create(z80ic_ld_vrr_vrr_t **);
+extern int z80ic_ld_r_vr_create(z80ic_ld_r_vr_t **);
 extern int z80ic_ld_r16_vrr_create(z80ic_ld_r16_vrr_t **);
 extern int z80ic_ld_vrr_r16_create(z80ic_ld_vrr_r16_t **);
 extern int z80ic_ld_vrr_nn_create(z80ic_ld_vrr_nn_t **);
+extern int z80ic_or_vr_create(z80ic_or_vr_t **);
 extern int z80ic_add_vrr_vrr_create(z80ic_add_vrr_vrr_t **);
 extern int z80ic_sub_vrr_vrr_create(z80ic_sub_vrr_vrr_t **);
 extern int z80ic_instr_print(z80ic_instr_t *, FILE *);

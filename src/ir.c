@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -43,6 +43,8 @@ static const char *instr_name[] = {
 	[iri_sub] = "sub",
 	[iri_imm] = "imm",
 	[iri_jmp] = "jmp",
+	[iri_jnz] = "jnz",
+	[iri_jz] = "jz",
 	[iri_read] = "read",
 	[iri_retv] = "retv",
 	[iri_varptr] = "varptr",

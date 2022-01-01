@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -488,6 +488,13 @@ typedef enum {
 	 */
 	z80i_ld_vrr_vrr,
 
+	/** Loads 8-bit register from virtual register.
+	 *
+	 * This allows us to place a value in a particular 8-bit register,
+	 * e.g. the acummulator.
+	 */
+	z80i_ld_r_vr,
+
 	/** Load 16-bit register from virtual register pair.
 	 *
 	 * This allows us to place a value in a particular 16-bit register,
@@ -729,6 +736,29 @@ typedef enum {
 	z80ic_ss_sp
 } z80ic_ss_t;
 
+/** Z80 IC condition.
+ *
+ * Used in conditional jumps.
+ */
+typedef enum {
+	/** Non-Zero */
+	z80ic_cc_nz,
+	/** Zero */
+	z80ic_cc_z,
+	/** No Carry */
+	z80ic_cc_nc,
+	/** Carry */
+	z80ic_cc_c,
+	/** Parity Odd */
+	z80ic_cc_po,
+	/** Parity Even */
+	z80ic_cc_pe,
+	/** Sign Positive */
+	z80ic_cc_p,
+	/** Sign Negative */
+	z80ic_cc_m
+} z80ic_cc_t;
+
 /** Z80 IC 16-bit register.
  *
  * This specifies any register pair / 16-bit register. This is not used
@@ -956,13 +986,21 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
 
-/** Z80 IC bitwise and with register */
+/** Z80 IC bitwise AND with register */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 	/** Source register */
 	z80ic_oper_reg_t *src;
 } z80ic_and_r_t;
+
+/** Z80 IC bitwise OR with (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_or_iixd_t;
 
 /** Z80 IC add 16-bit register to HL */
 typedef struct {
@@ -1004,6 +1042,16 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_jp_nn_t;
 
+/** Z80 IC conditional jump direct instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Condition */
+	z80ic_cc_t cc;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jp_cc_nn_t;
+
 /** Z80 IC call direct instruction */
 typedef struct {
 	/** Base object */
@@ -1044,6 +1092,16 @@ typedef struct {
 	z80ic_oper_vrr_t *src;
 } z80ic_ld_vrr_vrr_t;
 
+/** Z80 IC load 8-bit register from virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_ld_r_vr_t;
+
 /** Z80 IC load 16-bit register from virtual register pair */
 typedef struct {
 	/** Base object */
@@ -1073,6 +1131,14 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_nn_t;
+
+/** Z80 IC bitwise OR with virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_or_vr_t;
 
 /** Z80 IC add virtual register pair to virtual register pair */
 typedef struct {

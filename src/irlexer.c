@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -637,6 +637,12 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'm' && p[2] == 'p' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_jmp, 3, tok);
 		}
+		if (p[1] == 'n' && p[2] == 'z' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_jnz, 3, tok);
+		}
+		if (p[1] == 'z' && !is_idcnt(p[2])) {
+			return ir_lexer_keyword(lexer, itt_jz, 2, tok);
+		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'n':
 		if (p[1] == 'i' && p[2] == 'l' && !is_idcnt(p[3])) {
@@ -782,6 +788,10 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'int'";
 	case itt_jmp:
 		return "'jmp'";
+	case itt_jnz:
+		return "'jnz'";
+	case itt_jz:
+		return "'jz'";
 	case itt_nil:
 		return "'nil'";
 	case itt_proc:

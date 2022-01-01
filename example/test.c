@@ -76,7 +76,7 @@ int callext(void)
 /* While loop */
 int while_loop(void)
 {
-	a = 10;
+	a = 190;
 	while (a) {
 		putpixel(a, a);
 		a = a - 1;
