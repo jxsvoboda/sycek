@@ -85,6 +85,18 @@ int while_loop(void)
 	return 0;
 }
 
+/* Do loop */
+int do_loop(void)
+{
+	a = 190;
+	do {
+		putpixel(a, a);
+		a = a - 1;
+	} while (a);
+
+	return 0;
+}
+
 int main(void)
 {
 	return 0;

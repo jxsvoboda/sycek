@@ -1012,6 +1012,8 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	ir_lblock_append(lblock, wlabel, NULL);
 
+	/* Condition */
+
 	rc = cgen_expr_rvalue(cgproc, awhile->cond, lblock, &cres);
 	if (rc != EOK)
 		goto error;
@@ -1041,6 +1043,8 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
+
+	/* Body */
 
 	rc = cgen_block(cgproc, awhile->body, lblock);
 	if (rc != EOK)
@@ -1081,6 +1085,91 @@ error:
 		free(wlabel);
 	if (ewlabel != NULL)
 		free(ewlabel);
+	return rc;
+}
+
+/** Generate code for do loop statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param awhile AST do loop statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
+	cgen_eres_t cres;
+	unsigned lblno;
+	char *dlabel = NULL;
+	char *edlabel = NULL;
+	int rc;
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "do", lblno, &dlabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_do", lblno, &edlabel);
+	if (rc != EOK)
+		goto error;
+
+	ir_lblock_append(lblock, dlabel, NULL);
+
+	/* Body */
+
+	rc = cgen_block(cgproc, ado->body, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Condition */
+
+	rc = cgen_expr_rvalue(cgproc, ado->cond, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	/* jnz %<cres>, %do */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(dlabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jnz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	ir_lblock_append(lblock, edlabel, NULL);
+
+	free(dlabel);
+	free(edlabel);
+	return EOK;
+error:
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (instr != NULL)
+		ir_instr_destroy(instr);
+	if (dlabel != NULL)
+		free(dlabel);
+	if (edlabel != NULL)
+		free(edlabel);
 	return rc;
 }
 
@@ -1140,10 +1229,19 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_return(cgproc, (ast_return_t *) stmt->ext, lblock);
 		break;
 	case ant_if:
+		atok = ast_tree_first_tok(stmt);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This statement type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_while:
 		rc = cgen_while(cgproc, (ast_while_t *) stmt->ext, lblock);
 		break;
 	case ant_do:
+		rc = cgen_do(cgproc, (ast_do_t *) stmt->ext, lblock);
+		break;
 	case ant_for:
 	case ant_switch:
 	case ant_clabel:
