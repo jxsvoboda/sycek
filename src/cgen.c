@@ -1173,6 +1173,132 @@ error:
 	return rc;
 }
 
+/** Generate code for 'for' loop statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param afor AST for loop statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
+	cgen_eres_t ires;
+	cgen_eres_t cres;
+	cgen_eres_t nres;
+	unsigned lblno;
+	char *flabel = NULL;
+	char *eflabel = NULL;
+	int rc;
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "for", lblno, &flabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_for", lblno, &eflabel);
+	if (rc != EOK)
+		goto error;
+
+	/* Loop initialization */
+
+	if (afor->linit != NULL) {
+		rc = cgen_expr_rvalue(cgproc, afor->linit, lblock, &ires);
+		if (rc != EOK)
+			goto error;
+	}
+
+	ir_lblock_append(lblock, flabel, NULL);
+
+	/* Condition */
+
+	if (afor->lcond != NULL) {
+		rc = cgen_expr_rvalue(cgproc, afor->lcond, lblock, &cres);
+		if (rc != EOK)
+			goto error;
+
+		/* jz %<cres>, %end_for */
+
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(cres.varname, &carg);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(eflabel, &larg);
+		if (rc != EOK)
+			goto error;
+
+		instr->itype = iri_jz;
+		instr->width = 0;
+		instr->dest = NULL;
+		instr->op1 = &carg->oper;
+		instr->op2 = &larg->oper;
+
+		carg = NULL;
+		larg = NULL;
+
+		ir_lblock_append(lblock, NULL, instr);
+		instr = NULL;
+	}
+
+	/* Body */
+
+	rc = cgen_block(cgproc, afor->body, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Loop iteration */
+
+	if (afor->lnext != NULL) {
+		rc = cgen_expr_rvalue(cgproc, afor->lnext, lblock, &nres);
+		if (rc != EOK)
+			goto error;
+	}
+
+	/* jp %for */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(flabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	ir_lblock_append(lblock, eflabel, NULL);
+
+	free(flabel);
+	free(eflabel);
+	return EOK;
+error:
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (instr != NULL)
+		ir_instr_destroy(instr);
+	if (flabel != NULL)
+		free(flabel);
+	if (eflabel != NULL)
+		free(eflabel);
+	return rc;
+}
+
 /** Generate code for expression statement.
  *
  * @param cgproc Code generator for procedure
@@ -1243,6 +1369,8 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_do(cgproc, (ast_do_t *) stmt->ext, lblock);
 		break;
 	case ant_for:
+		rc = cgen_for(cgproc, (ast_for_t *) stmt->ext, lblock);
+		break;
 	case ant_switch:
 	case ant_clabel:
 	case ant_glabel:

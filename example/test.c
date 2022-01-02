@@ -97,6 +97,16 @@ int do_loop(void)
 	return 0;
 }
 
+/* For loop */
+int for_loop(void)
+{
+	for (a = 190; a; a = a - 1) {
+		putpixel(a, a);
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	return 0;
