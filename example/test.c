@@ -114,6 +114,54 @@ int for_ever_loop(void)
 	}
 }
 
+/* If statement without else branch */
+int if_stmt_1(void)
+{
+	if (a)
+		b = 0;
+
+	return 0;
+}
+
+/* If statement with else branch */
+int if_stmt_2(void)
+{
+	if (a)
+		b = 0;
+	else
+		b = 1;
+
+	return 0;
+}
+
+/* If statement with else-if and else branch */
+int if_stmt_3(void)
+{
+	if (a)
+		c = 0;
+	else if (b)
+		c = 1;
+	else
+		c = 2;
+
+	return 0;
+}
+
+/* If statement with two else-if branches and else branch */
+int if_stmt_4(void)
+{
+	if (a)
+		c = 0;
+	else if (b)
+		c = 1;
+	else if (b + 1)
+		c = 2;
+	else
+		c = 3;
+
+	return 0;
+}
+
 int main(void)
 {
 	return 0;

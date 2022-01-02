@@ -981,6 +981,202 @@ error:
 	return rc;
 }
 
+/** Generate code for if statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aif AST if statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
+	ast_elseif_t *elsif;
+	cgen_eres_t cres;
+	unsigned lblno;
+	char *fiflabel = NULL;
+	char *eiflabel = NULL;
+	int rc;
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "false_if", lblno, &fiflabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_if", lblno, &eiflabel);
+	if (rc != EOK)
+		goto error;
+
+	/* Condition */
+
+	rc = cgen_expr_rvalue(cgproc, aif->cond, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	/* jz %<cres>, %false_if */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(fiflabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* True branch */
+
+	rc = cgen_block(cgproc, aif->tbranch, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* jp %end_if */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(eiflabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	ir_lblock_append(lblock, fiflabel, NULL);
+	free(fiflabel);
+	fiflabel = NULL;
+
+	/* Else-if branches */
+
+	elsif = ast_if_first(aif);
+	while (elsif != NULL) {
+		/*
+		 * Create false else-if label. Allocate a number every time
+		 * since there might be multiple else-if branches.
+		 */
+		lblno = cgen_new_label_num(cgproc);
+
+		rc = cgen_create_label(cgproc, "false_elseif", lblno, &fiflabel);
+		if (rc != EOK)
+			goto error;
+
+		/* Else-if condition */
+		rc = cgen_expr_rvalue(cgproc, elsif->cond, lblock, &cres);
+		if (rc != EOK)
+			goto error;
+
+		/* jz %<cres>, %false_elseif */
+
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(cres.varname, &carg);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(fiflabel, &larg);
+		if (rc != EOK)
+			goto error;
+
+		instr->itype = iri_jz;
+		instr->width = 0;
+		instr->dest = NULL;
+		instr->op1 = &carg->oper;
+		instr->op2 = &larg->oper;
+
+		carg = NULL;
+		larg = NULL;
+
+		ir_lblock_append(lblock, NULL, instr);
+		instr = NULL;
+
+		/* Else-if branch */
+		rc = cgen_block(cgproc, elsif->ebranch, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* jp %end_if */
+
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(eiflabel, &larg);
+		if (rc != EOK)
+			goto error;
+
+		instr->itype = iri_jmp;
+		instr->width = 0;
+		instr->dest = NULL;
+		instr->op1 = &larg->oper;
+		instr->op2 = NULL;
+
+		larg = NULL;
+
+		ir_lblock_append(lblock, NULL, instr);
+		instr = NULL;
+
+		/* False else-if label */
+		ir_lblock_append(lblock, fiflabel, NULL);
+		free(fiflabel);
+		fiflabel = NULL;
+
+		elsif = ast_if_next(elsif);
+	}
+
+	/* False branch */
+
+	if (aif->fbranch != NULL) {
+		rc = cgen_block(cgproc, aif->fbranch, lblock);
+		if (rc != EOK)
+			goto error;
+	}
+
+	ir_lblock_append(lblock, eiflabel, NULL);
+
+	free(eiflabel);
+	return EOK;
+error:
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (instr != NULL)
+		ir_instr_destroy(instr);
+	if (fiflabel != NULL)
+		free(fiflabel);
+	if (eiflabel != NULL)
+		free(eiflabel);
+	return rc;
+}
+
 /** Generate code for while statement.
  *
  * @param cgproc Code generator for procedure
@@ -1355,12 +1551,7 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_return(cgproc, (ast_return_t *) stmt->ext, lblock);
 		break;
 	case ant_if:
-		atok = ast_tree_first_tok(stmt);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This statement type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+		rc = cgen_if(cgproc, (ast_if_t *) stmt->ext, lblock);
 		break;
 	case ant_while:
 		rc = cgen_while(cgproc, (ast_while_t *) stmt->ext, lblock);
