@@ -107,6 +107,13 @@ int for_loop(void)
 	return 0;
 }
 
+/* Endless for loop */
+int for_ever_loop(void)
+{
+	for (;;) {
+	}
+}
+
 int main(void)
 {
 	return 0;

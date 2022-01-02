@@ -16,3 +16,9 @@ int for_loop(void)
 
 	return 0;
 }
+
+int for_ever_loop(void)
+{
+	for (;;) {
+	}
+}
