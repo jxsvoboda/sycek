@@ -356,7 +356,7 @@ error:
 static int comp_ir_module_parse(comp_t *comp)
 {
 	ir_module_t *irmod;
-	ir_parser_t *parser;
+	ir_parser_t *parser = NULL;
 	comp_ir_parser_input_t pinput;
 	int rc;
 
