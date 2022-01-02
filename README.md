@@ -39,7 +39,7 @@ Syc
 work is in progress on compiling C for Sinclair ZX Spectrum
 (Zilog Z80 processor).
 
-NOTE: This is in early stages of development and does not do much!
+NOTE: This is a work in progress. Only a small subset of C is implemented.
 
 Downloading
 -----------
@@ -205,8 +205,8 @@ parsable by ccheck.
 Using Syc
 ---------
 Syc is a C cross-compiler under construction, targetting the Sinclair
-ZX Spectrum platform / Zilog Z80 processor. The scaffolding for most
-compilation stages is in place, but functionality is minimal.
+ZX Spectrum platform / Zilog Z80 processor. Only a small subset of C
+is currently implemented.
 
 syc only starts after preprocessing stage (i.e. there must not be any
 preprocessor directives in the C source file) and outputs an .asm
