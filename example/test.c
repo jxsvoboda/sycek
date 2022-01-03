@@ -168,6 +168,12 @@ int land(int x, int y)
 	return x && y;
 }
 
+/* Logical OR */
+int lor(int x, int y)
+{
+	return x || y;
+}
+
 int main(void)
 {
 	return 0;
