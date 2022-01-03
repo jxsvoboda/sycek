@@ -162,6 +162,12 @@ int if_stmt_4(void)
 	return 0;
 }
 
+/* Logical AND */
+int land(int x, int y)
+{
+	return x && y;
+}
+
 int main(void)
 {
 	return 0;

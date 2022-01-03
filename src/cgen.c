@@ -561,6 +561,218 @@ error:
 	return rc;
 }
 
+/** Generate code for logical AND expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (logical AND)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *dest2 = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	ir_oper_imm_t *imm = NULL;
+	unsigned lblno;
+	char *flabel = NULL;
+	char *elabel = NULL;
+	const char *dvarname;
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	int rc;
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "false_and", lblno, &flabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_and", lblno, &elabel);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate left argument */
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* jz %<lres>, %false_and */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(flabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* Evaluate right argument */
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	/* jz %<rres>, %false_and */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(flabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* Return 1 */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(1, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+
+	dvarname = dest->varname;
+	dest = NULL;
+	imm = NULL;
+
+	/* jp %end_and */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(elabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* %false_and label */
+	ir_lblock_append(lblock, flabel, NULL);
+
+	/* Return 0 */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * XXX Reusing the destination VR in this way does not conform
+	 * to SSA. The only way to conform to SSA would be either to
+	 * fuse the results of the two branches by using a Phi function or
+	 * by writing/reading the result through a local variable
+	 * (which is not constrained by SSA).
+	 */
+	rc = ir_oper_var_create(dvarname, &dest2);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(0, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest2->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	eres->varname = dest2->varname;
+	eres->valtype = cgen_rvalue;
+
+	dest2 = NULL;
+	imm = NULL;
+
+	/* %end_and label */
+	ir_lblock_append(lblock, elabel, NULL);
+
+	free(flabel);
+	free(elabel);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (flabel != NULL)
+		free(flabel);
+	if (elabel != NULL)
+		free(elabel);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (dest2 != NULL)
+		ir_oper_destroy(&dest2->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
 /** Generate code for assignment expression.
  *
  * @param cgproc Code generator for procedure
@@ -636,6 +848,8 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		return cgen_add(cgproc, ebinop, lblock, eres);
 	case abo_minus:
 		return cgen_subtract(cgproc, ebinop, lblock, eres);
+	case abo_land:
+		return cgen_land(cgproc, ebinop, lblock, eres);
 	case abo_assign:
 		return cgen_assign(cgproc, ebinop, lblock, eres);
 	default:
@@ -1048,27 +1262,6 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 	rc = cgen_block(cgproc, aif->tbranch, lblock);
 	if (rc != EOK)
 		goto error;
-
-	/* jp %end_if */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(eiflabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jmp;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &larg->oper;
-	instr->op2 = NULL;
-
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	ir_lblock_append(lblock, fiflabel, NULL);
 	free(fiflabel);
