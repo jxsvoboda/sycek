@@ -1268,6 +1268,13 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		break;
 	case ant_echar:
 	case ant_estring:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_eident:
 		rc = cgen_eident(cgproc, (ast_eident_t *) expr->ext, lblock,
 		    eres);
@@ -1307,11 +1314,6 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 	case ant_emember:
 	case ant_eindmember:
 	case ant_eusign:
-	case ant_elnot:
-		rc = cgen_elnot(cgproc, (ast_elnot_t *) expr->ext, lblock,
-		    eres);
-		break;
-	case ant_ebnot:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
@@ -1319,6 +1321,11 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
+	case ant_elnot:
+		rc = cgen_elnot(cgproc, (ast_elnot_t *) expr->ext, lblock,
+		    eres);
+		break;
+	case ant_ebnot:
 	case ant_epreadj:
 	case ant_epostadj:
 		atok = ast_tree_first_tok(expr);
