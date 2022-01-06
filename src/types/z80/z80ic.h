@@ -495,6 +495,13 @@ typedef enum {
 	 */
 	z80i_ld_r_vr,
 
+	/** Loads virtual register from 8-bit register.
+	 *
+	 * This allows us to read a value from a particular 8-bit register,
+	 * e.g. the acummulator.
+	 */
+	z80i_ld_vr_r,
+
 	/** Load 16-bit register from virtual register pair.
 	 *
 	 * This allows us to place a value in a particular 16-bit register,
@@ -950,6 +957,16 @@ typedef struct {
 	z80ic_oper_reg_t *src;
 } z80ic_ld_iixd_r_t;
 
+/** Z80 IC load (IX+d) from 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_ld_iixd_n_t;
+
 /** Z80 IC load 16-bit dd register from 16-bit immediate */
 typedef struct {
 	/** Base object */
@@ -985,6 +1002,14 @@ typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
+
+/** Z80 IC subtract 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_sub_n_t;
 
 /** Z80 IC bitwise AND with register */
 typedef struct {
@@ -1034,6 +1059,12 @@ typedef struct {
 	z80ic_oper_ss_t *dest;
 } z80ic_inc_ss_t;
 
+/** Z80 IC rotate left accumulator instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rla_t;
+
 /** Z80 IC jump direct instruction */
 typedef struct {
 	/** Base object */
@@ -1065,6 +1096,16 @@ typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_ret_t;
+
+/** Z80 IC load virtual register from 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register */
+	z80ic_oper_vr_t *dest;
+	/** Immediate */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_ld_vr_n_t;
 
 /** Z80 IC load virtual register from (HL) */
 typedef struct {
@@ -1101,6 +1142,16 @@ typedef struct {
 	/** Source virtual register */
 	z80ic_oper_vr_t *src;
 } z80ic_ld_r_vr_t;
+
+/** Z80 IC load virtual register from 8-bit register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register */
+	z80ic_oper_vr_t *dest;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_ld_vr_r_t;
 
 /** Z80 IC load 16-bit register from virtual register pair */
 typedef struct {

@@ -62,6 +62,7 @@ typedef enum {
 	itt_jmp,
 	itt_jnz,
 	itt_jz,
+	itt_lnot,
 	itt_nil,
 	itt_proc,
 	itt_read,

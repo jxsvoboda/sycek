@@ -46,6 +46,8 @@ typedef enum {
 	iri_jnz,
 	/** Jump if zero */
 	iri_jz,
+	/** Logical not */
+	iri_lnot,
 	/** Read from memory */
 	iri_read,
 	/** Return value */

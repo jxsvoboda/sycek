@@ -1188,6 +1188,63 @@ error:
 	return rc;
 }
 
+/** Generate code for logical not expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param elnot AST logical not expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *barg = NULL;
+	cgen_eres_t bres;
+	int rc;
+
+	/* Evaluate base expression */
+	rc = cgen_expr_rvalue(cgproc, elnot->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* lnot %<dest>, %<bres> */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &barg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_lnot;
+	instr->width = 0;
+	instr->dest = &dest->oper;
+	instr->op1 = &barg->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (barg != NULL)
+		ir_oper_destroy(&barg->oper);
+	return rc;
+}
+
 /** Generate code for expression.
  *
  * @param cgproc Code generator for procedure
@@ -1251,7 +1308,17 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 	case ant_eindmember:
 	case ant_eusign:
 	case ant_elnot:
+		rc = cgen_elnot(cgproc, (ast_elnot_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_ebnot:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_epreadj:
 	case ant_epostadj:
 		atok = ast_tree_first_tok(expr);

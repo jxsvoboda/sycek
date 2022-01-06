@@ -174,6 +174,11 @@ int lor(int x, int y)
 	return x || y;
 }
 
+int lnot(int x)
+{
+	return !x;
+}
+
 int main(void)
 {
 	return 0;
