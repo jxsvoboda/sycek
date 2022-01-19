@@ -1019,6 +1019,14 @@ typedef struct {
 	z80ic_oper_reg_t *src;
 } z80ic_and_r_t;
 
+/** Z80 IC bitwise AND with (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_and_iixd_t;
+
 /** Z80 IC bitwise OR with (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1026,6 +1034,14 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_or_iixd_t;
+
+/** Z80 IC bitwise XOR with (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_xor_iixd_t;
 
 /** Z80 IC add 16-bit register to HL */
 typedef struct {
@@ -1183,6 +1199,14 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_nn_t;
 
+/** Z80 IC bitwise AND with virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_and_vr_t;
+
 /** Z80 IC bitwise OR with virtual register */
 typedef struct {
 	/** Base object */
@@ -1190,6 +1214,14 @@ typedef struct {
 	/** Source virtual register */
 	z80ic_oper_vr_t *src;
 } z80ic_or_vr_t;
+
+/** Z80 IC bitwise XOR with virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_xor_vr_t;
 
 /** Z80 IC add virtual register pair to virtual register pair */
 typedef struct {

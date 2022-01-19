@@ -1604,6 +1604,50 @@ static void z80ic_and_r_destroy(z80ic_and_r_t *instr)
 	z80ic_oper_reg_destroy(instr->src);
 }
 
+/** Create Z80 IC bitwise AND with (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_and_iixd_create(z80ic_and_iixd_t **rinstr)
+{
+	z80ic_and_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_and_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_and_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC bitwise AND with (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_and_iixd_print(z80ic_and_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "and (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise AND with (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_and_iixd_destroy(z80ic_and_iixd_t *instr)
+{
+	(void) instr;
+}
+
 /** Create Z80 IC bitwise OR with (IX+d) instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1644,6 +1688,50 @@ static int z80ic_or_iixd_print(z80ic_or_iixd_t *instr, FILE *f)
  * @param instr Instruction
  */
 static void z80ic_or_iixd_destroy(z80ic_or_iixd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC bitwise XOR with (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_xor_iixd_create(z80ic_xor_iixd_t **rinstr)
+{
+	z80ic_xor_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_xor_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_xor_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC bitwise XOR with (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_xor_iixd_print(z80ic_xor_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "xor (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise XOR with (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_xor_iixd_destroy(z80ic_xor_iixd_t *instr)
 {
 	(void) instr;
 }
@@ -2604,6 +2692,55 @@ static void z80ic_ld_vrr_nn_destroy(z80ic_ld_vrr_nn_t *instr)
 	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
+/** Create Z80 IC bitwise AND with virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_and_vr_create(z80ic_and_vr_t **rinstr)
+{
+	z80ic_and_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_and_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_and_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC bitwise AND with virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_and_vr_print(z80ic_and_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("and ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise AND with virtual register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_and_vr_destroy(z80ic_and_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
 /** Create Z80 IC bitwise OR with virtual register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -2649,6 +2786,55 @@ static int z80ic_or_vr_print(z80ic_or_vr_t *instr, FILE *f)
  * @param instr Instruction
  */
 static void z80ic_or_vr_destroy(z80ic_or_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
+/** Create Z80 IC bitwise XOR with virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_xor_vr_create(z80ic_xor_vr_t **rinstr)
+{
+	z80ic_xor_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_xor_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_xor_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC bitwise XOR with virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_xor_vr_print(z80ic_xor_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("xor ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise XOR with virtual register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_xor_vr_destroy(z80ic_xor_vr_t *instr)
 {
 	z80ic_oper_vr_destroy(instr->src);
 }
@@ -2829,8 +3015,14 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_and_r:
 		rc = z80ic_and_r_print((z80ic_and_r_t *) instr->ext, f);
 		break;
+	case z80i_and_iixd:
+		rc = z80ic_and_iixd_print((z80ic_and_iixd_t *) instr->ext, f);
+		break;
 	case z80i_or_iixd:
 		rc = z80ic_or_iixd_print((z80ic_or_iixd_t *) instr->ext, f);
+		break;
+	case z80i_xor_iixd:
+		rc = z80ic_xor_iixd_print((z80ic_xor_iixd_t *) instr->ext, f);
 		break;
 	case z80i_add_hl_ss:
 		rc = z80ic_add_hl_ss_print((z80ic_add_hl_ss_t *) instr->ext, f);
@@ -2894,8 +3086,14 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_ld_vrr_nn:
 		rc = z80ic_ld_vrr_nn_print((z80ic_ld_vrr_nn_t *) instr->ext, f);
 		break;
+	case z80i_and_vr:
+		rc = z80ic_and_vr_print((z80ic_and_vr_t *) instr->ext, f);
+		break;
 	case z80i_or_vr:
 		rc = z80ic_or_vr_print((z80ic_or_vr_t *) instr->ext, f);
+		break;
+	case z80i_xor_vr:
+		rc = z80ic_xor_vr_print((z80ic_xor_vr_t *) instr->ext, f);
 		break;
 	case z80i_add_vrr_vrr:
 		rc = z80ic_add_vrr_vrr_print((z80ic_add_vrr_vrr_t *) instr->ext,
@@ -2970,8 +3168,14 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_and_r:
 		z80ic_and_r_destroy((z80ic_and_r_t *) instr->ext);
 		break;
+	case z80i_and_iixd:
+		z80ic_and_iixd_destroy((z80ic_and_iixd_t *) instr->ext);
+		break;
 	case z80i_or_iixd:
 		z80ic_or_iixd_destroy((z80ic_or_iixd_t *) instr->ext);
+		break;
+	case z80i_xor_iixd:
+		z80ic_xor_iixd_destroy((z80ic_xor_iixd_t *) instr->ext);
 		break;
 	case z80i_sbc_hl_ss:
 		z80ic_sbc_hl_ss_destroy((z80ic_sbc_hl_ss_t *) instr->ext);
@@ -3024,8 +3228,14 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_ld_vrr_nn:
 		z80ic_ld_vrr_nn_destroy((z80ic_ld_vrr_nn_t *) instr->ext);
 		break;
+	case z80i_and_vr:
+		z80ic_and_vr_destroy((z80ic_and_vr_t *) instr->ext);
+		break;
 	case z80i_or_vr:
 		z80ic_or_vr_destroy((z80ic_or_vr_t *) instr->ext);
+		break;
+	case z80i_xor_vr:
+		z80ic_xor_vr_destroy((z80ic_xor_vr_t *) instr->ext);
 		break;
 	case z80i_add_vrr_vrr:
 		z80ic_add_vrr_vrr_destroy((z80ic_add_vrr_vrr_t *) instr->ext);

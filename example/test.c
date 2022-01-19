@@ -174,9 +174,28 @@ int lor(int x, int y)
 	return x || y;
 }
 
+/* Logical NOT */
 int lnot(int x)
 {
 	return !x;
+}
+
+/* Bitwise AND */
+int band(int x, int y)
+{
+	return x & y;
+}
+
+/* Bitwise XOR */
+int bxor(int x, int y)
+{
+	return x ^ y;
+}
+
+/* Bitwise OR */
+int bor(int x, int y)
+{
+	return x | y;
 }
 
 int main(void)

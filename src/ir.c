@@ -39,6 +39,7 @@ static void ir_decln_destroy(ir_decln_t *);
 /** Instruction names */
 static const char *instr_name[] = {
 	[iri_add] = "add",
+	[iri_and] = "and",
 	[iri_call] = "call",
 	[iri_sub] = "sub",
 	[iri_imm] = "imm",
@@ -46,22 +47,27 @@ static const char *instr_name[] = {
 	[iri_jnz] = "jnz",
 	[iri_jz] = "jz",
 	[iri_lnot] = "lnot",
+	[iri_or] = "or",
 	[iri_read] = "read",
 	[iri_retv] = "retv",
 	[iri_varptr] = "varptr",
-	[iri_write] = "write"
+	[iri_write] = "write",
+	[iri_xor] = "xor"
 };
 
 /** @c true iff instruction has bit width specifier */
 static bool instr_has_width[] = {
 	[iri_add] = true,
+	[iri_and] = true,
 	[iri_sub] = true,
 	[iri_imm] = true,
 	[iri_lnot] = true,
+	[iri_or] = true,
 	[iri_read] = true,
 	[iri_retv] = true,
 	[iri_varptr] = true,
-	[iri_write] = true
+	[iri_write] = true,
+	[iri_xor] = true
 };
 
 /** Create IR module.

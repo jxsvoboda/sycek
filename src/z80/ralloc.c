@@ -1107,6 +1107,44 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 bitwise AND with virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrand AND instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_and_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_and_vr_t *vrand, z80ic_lblock_t *lblock)
+{
+	z80ic_and_iixd_t *and = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* and (IX+d) */
+
+	rc = z80ic_and_iixd_create(&and);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrand->src->part);
+	and->disp = z80_ralloc_disp(-2 * (1 + (long) vrand->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &and->instr);
+	if (rc != EOK)
+		goto error;
+
+	and = NULL;
+	return EOK;
+error:
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 bitwise OR with virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -1141,6 +1179,44 @@ static int z80_ralloc_or_vr(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (or != NULL)
 		z80ic_instr_destroy(&or->instr);
+
+	return rc;
+}
+
+/** Allocate registers for Z80 bitwise XOR with virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrxor OR instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_xor_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_xor_vr_t *vrxor, z80ic_lblock_t *lblock)
+{
+	z80ic_xor_iixd_t *xor = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* xor (IX+d) */
+
+	rc = z80ic_xor_iixd_create(&xor);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrxor->src->part);
+	xor->disp = z80_ralloc_disp(-2 * (1 + (long) vrxor->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
+	xor = NULL;
+	return EOK;
+error:
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
 
 	return rc;
 }
@@ -1357,9 +1433,15 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_vrr_nn:
 		return z80_ralloc_ld_vrr_nn(raproc, label,
 		    (z80ic_ld_vrr_nn_t *) vrinstr->ext, lblock);
+	case z80i_and_vr:
+		return z80_ralloc_and_vr(raproc, label,
+		    (z80ic_and_vr_t *) vrinstr->ext, lblock);
 	case z80i_or_vr:
 		return z80_ralloc_or_vr(raproc, label,
 		    (z80ic_or_vr_t *) vrinstr->ext, lblock);
+	case z80i_xor_vr:
+		return z80_ralloc_xor_vr(raproc, label,
+		    (z80ic_xor_vr_t *) vrinstr->ext, lblock);
 	case z80i_add_vrr_vrr:
 		return z80_ralloc_add_vrr_vrr(raproc, label,
 		    (z80ic_add_vrr_vrr_t *) vrinstr->ext, lblock);

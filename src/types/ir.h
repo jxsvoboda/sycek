@@ -34,6 +34,8 @@
 typedef enum {
 	/** Addition */
 	iri_add,
+	/** Binary AND */
+	iri_and,
 	/** Call */
 	iri_call,
 	/** Subtraction */
@@ -48,6 +50,8 @@ typedef enum {
 	iri_jz,
 	/** Logical not */
 	iri_lnot,
+	/** Binary OR */
+	iri_or,
 	/** Read from memory */
 	iri_read,
 	/** Return value */
@@ -56,6 +60,8 @@ typedef enum {
 	iri_varptr,
 	/** Write to memory */
 	iri_write,
+	/** Binary XOR */
+	iri_xor
 } ir_instr_type_t;
 
 /** IR operand type */
