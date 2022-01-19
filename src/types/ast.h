@@ -257,9 +257,9 @@ typedef enum {
 	abo_shr_assign,
 	/** '&=' assignment by bitwise and */
 	abo_band_assign,
-	/** '|=' assignment by bitwise or */
-	abo_bxor_assign,
 	/** '^=' assignment by bitwise xor */
+	abo_bxor_assign,
+	/** '|=' assignment by bitwise or */
 	abo_bor_assign,
 	/** Comma */
 	abo_comma

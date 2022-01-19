@@ -1060,19 +1060,52 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		return cgen_add(cgproc, ebinop, lblock, eres);
 	case abo_minus:
 		return cgen_subtract(cgproc, ebinop, lblock, eres);
+	case abo_times:
+	case abo_divide:
+	case abo_modulo:
+	case abo_shl:
+	case abo_shr:
+	case abo_lt:
+	case abo_lteq:
+	case abo_gt:
+	case abo_gteq:
+	case abo_eq:
+	case abo_neq:
+	case abo_band:
+	case abo_bxor:
+	case abo_bor:
+		tok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Unimplemented binary operator.\n");
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
 	case abo_land:
 		return cgen_land(cgproc, ebinop, lblock, eres);
 	case abo_lor:
 		return cgen_lor(cgproc, ebinop, lblock, eres);
 	case abo_assign:
 		return cgen_assign(cgproc, ebinop, lblock, eres);
-	default:
+	case abo_plus_assign:
+	case abo_minus_assign:
+	case abo_times_assign:
+	case abo_divide_assign:
+	case abo_modulo_assign:
+	case abo_shl_assign:
+	case abo_shr_assign:
+	case abo_band_assign:
+	case abo_bxor_assign:
+	case abo_bor_assign:
+	case abo_comma:
 		tok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Unimplemented binary operator.\n");
 		cgproc->cgen->error = true; // TODO
 		return EINVAL;
 	}
+
+	/* Should not be reached */
+	assert(false);
+	return EINVAL;
 }
 
 /** Generate code for call expression.
