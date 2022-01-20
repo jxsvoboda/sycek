@@ -383,6 +383,12 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_add:
 		instr->itype = iri_add;
 		break;
+	case itt_and:
+		instr->itype = iri_and;
+		break;
+	case itt_bnot:
+		instr->itype = iri_bnot;
+		break;
 	case itt_call:
 		instr->itype = iri_call;
 		break;
@@ -398,6 +404,12 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_jz:
 		instr->itype = iri_jz;
 		break;
+	case itt_lnot:
+		instr->itype = iri_lnot;
+		break;
+	case itt_or:
+		instr->itype = iri_or;
+		break;
 	case itt_read:
 		instr->itype = iri_read;
 		break;
@@ -412,6 +424,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 		break;
 	case itt_write:
 		instr->itype = iri_write;
+		break;
+	case itt_xor:
+		instr->itype = iri_xor;
 		break;
 	default:
 		fprintf(stderr, "Error: ");

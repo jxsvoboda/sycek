@@ -7,6 +7,8 @@
 /example/test.bin
 /example/test.map
 /example/test.ir
+/example/test.ir.asm
+/example/test.ir.ir
 /example/test.tap
 /example/test.vric
 /test/ccheck/*/*-vg.txt

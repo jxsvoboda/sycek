@@ -603,11 +603,18 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'd' && p[2] == 'd' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_add, 3, tok);
 		}
+		if (p[1] == 'n' && p[2] == 'd' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_and, 3, tok);
+		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'b':
 		if (p[1] == 'e' && p[2] == 'g' && p[3] == 'i' &&
 		    p[4] == 'n' && !is_idcnt(p[5])) {
 			return ir_lexer_keyword(lexer, itt_begin, 5, tok);
+		}
+		if (p[1] == 'n' && p[2] == 'o' && p[3] == 't' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_bnot, 4, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'c':
@@ -655,6 +662,11 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 			return ir_lexer_keyword(lexer, itt_nil, 3, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
+	case 'o':
+		if (p[1] == 'r' && !is_idcnt(p[2])) {
+			return ir_lexer_keyword(lexer, itt_or, 2, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
 	case 'p':
 		if (p[1] == 'r' && p[2] == 'o' && p[3] == 'c' &&
 		    !is_idcnt(p[4])) {
@@ -689,6 +701,11 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'r' && p[2] == 'i' && p[3] == 't' &&
 		    p[4] == 'e' && !is_idcnt(p[5])) {
 			return ir_lexer_keyword(lexer, itt_write, 5, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
+	case 'x':
+		if (p[1] == 'o' && p[2] == 'r' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_xor, 3, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case '{':
@@ -780,8 +797,12 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'.'";
 	case itt_add:
 		return "'add'";
+	case itt_and:
+		return "'and'";
 	case itt_begin:
 		return "'begin'";
+	case itt_bnot:
+		return "'bnot'";
 	case itt_call:
 		return "'call'";
 	case itt_end:
@@ -802,6 +823,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'lnot'";
 	case itt_nil:
 		return "'nil'";
+	case itt_or:
+		return "'or'";
 	case itt_proc:
 		return "'proc'";
 	case itt_read:
@@ -816,6 +839,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'varptr'";
 	case itt_write:
 		return "'write'";
+	case itt_xor:
+		return "'xor'";
 	case itt_ident:
 		return "id";
 	case itt_number:

@@ -53,7 +53,9 @@ typedef enum {
 	itt_period,
 
 	itt_add,
+	itt_and,
 	itt_begin,
+	itt_bnot,
 	itt_call,
 	itt_end,
 	itt_extern,
@@ -64,6 +66,7 @@ typedef enum {
 	itt_jz,
 	itt_lnot,
 	itt_nil,
+	itt_or,
 	itt_proc,
 	itt_read,
 	itt_retv,
@@ -71,6 +74,7 @@ typedef enum {
 	itt_var,
 	itt_varptr,
 	itt_write,
+	itt_xor,
 
 	itt_ident,
 	itt_number,
