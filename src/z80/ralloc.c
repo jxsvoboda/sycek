@@ -563,6 +563,38 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 complement instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrcpl Complement instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_cpl(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_cpl_t *vrcpl, z80ic_lblock_t *lblock)
+{
+	z80ic_cpl_t *cpl = NULL;
+	int rc;
+
+	(void) raproc;
+	(void) vrcpl;
+
+	rc = z80ic_cpl_create(&cpl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, label, &cpl->instr);
+	if (rc != EOK)
+		goto error;
+
+	cpl = NULL;
+	return EOK;
+error:
+	if (cpl != NULL)
+		z80ic_instr_destroy(&cpl->instr);
+	return rc;
+}
+
 /** Allocate registers for Z80 increment register pair instruction.
  *
  * @param raproc Register allocator for procedure
@@ -605,7 +637,7 @@ error:
 /** Allocate registers for Z80 rotate left accumulator instruction.
  *
  * @param raproc Register allocator for procedure
- * @param vrret Return instruction with VRs
+ * @param vrret Rotate left accumulator instruction with VRs
  * @param lblock Labeled block where to append the new instructions
  * @return EOK on success or an error code
  */
@@ -1388,6 +1420,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_sub_n:
 		return z80_ralloc_sub_n(raproc, label,
 		    (z80ic_sub_n_t *) vrinstr->ext, lblock);
+	case z80i_cpl:
+		return z80_ralloc_cpl(raproc, label,
+		    (z80ic_cpl_t *) vrinstr->ext, lblock);
 	case z80i_inc_ss:
 		return z80_ralloc_inc_ss(raproc, label,
 		    (z80ic_inc_ss_t *) vrinstr->ext, lblock);

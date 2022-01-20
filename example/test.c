@@ -198,6 +198,12 @@ int bor(int x, int y)
 	return x | y;
 }
 
+/** Bitwise NOT */
+int bnot(int x)
+{
+	return ~x;
+}
+
 int main(void)
 {
 	return 0;

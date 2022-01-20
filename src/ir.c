@@ -40,6 +40,7 @@ static void ir_decln_destroy(ir_decln_t *);
 static const char *instr_name[] = {
 	[iri_add] = "add",
 	[iri_and] = "and",
+	[iri_bnot] = "bnot",
 	[iri_call] = "call",
 	[iri_sub] = "sub",
 	[iri_imm] = "imm",
@@ -59,6 +60,7 @@ static const char *instr_name[] = {
 static bool instr_has_width[] = {
 	[iri_add] = true,
 	[iri_and] = true,
+	[iri_bnot] = true,
 	[iri_sub] = true,
 	[iri_imm] = true,
 	[iri_lnot] = true,

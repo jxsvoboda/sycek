@@ -1043,6 +1043,12 @@ typedef struct {
 	int8_t disp;
 } z80ic_xor_iixd_t;
 
+/** Z80 IC complement */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_cpl_t;
+
 /** Z80 IC add 16-bit register to HL */
 typedef struct {
 	/** Base object */

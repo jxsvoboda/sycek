@@ -36,6 +36,8 @@ typedef enum {
 	iri_add,
 	/** Binary AND */
 	iri_and,
+	/** Binary NOT */
+	iri_bnot,
 	/** Call */
 	iri_call,
 	/** Subtraction */

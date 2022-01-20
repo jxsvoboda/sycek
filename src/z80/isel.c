@@ -367,6 +367,111 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR bnot instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR or instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_bnot(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_ld_r_vr_t *ldrvr = NULL;
+	z80ic_cpl_t *cpl = NULL;
+	z80ic_ld_vr_r_t *ldvrr = NULL;
+	z80ic_vr_part_t part;
+	unsigned destvr;
+	unsigned vr1;
+	int rc;
+
+	assert(irinstr->itype == iri_bnot);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	/* Do the same thing for lower and upper halves */
+	for (part = z80ic_vrp_r16l; part <= z80ic_vrp_r16h; part++) {
+
+		/* ld A, vr1.X */
+
+		rc = z80ic_ld_r_vr_create(&ldrvr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(vr1, part, &vr);
+		if (rc != EOK)
+			goto error;
+
+		ldrvr->dest = reg;
+		ldrvr->src = vr;
+		reg = NULL;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldrvr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldrvr = NULL;
+
+		/* cpl */
+
+		rc = z80ic_cpl_create(&cpl);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_lblock_append(lblock, NULL, &cpl->instr);
+		if (rc != EOK)
+			goto error;
+
+		cpl = NULL;
+
+		/* ld dest.X, A */
+
+		rc = z80ic_ld_vr_r_create(&ldvrr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(destvr, part, &vr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr->dest = vr;
+		ldvrr->src = reg;
+		vr = NULL;
+		reg = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldvrr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr = NULL;
+	}
+
+	return EOK;
+error:
+	z80ic_instr_destroy(&ldrvr->instr);
+	z80ic_instr_destroy(&cpl->instr);
+	z80ic_instr_destroy(&ldvrr->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_reg_destroy(reg);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR call instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -1785,6 +1890,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_add(isproc, label, irinstr, lblock);
 	case iri_and:
 		return z80_isel_and(isproc, label, irinstr, lblock);
+	case iri_bnot:
+		return z80_isel_bnot(isproc, label, irinstr, lblock);
 	case iri_call:
 		return z80_isel_call(isproc, label, irinstr, lblock);
 	case iri_sub:

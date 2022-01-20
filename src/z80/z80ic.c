@@ -1736,6 +1736,52 @@ static void z80ic_xor_iixd_destroy(z80ic_xor_iixd_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC complement instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_cpl_create(z80ic_cpl_t **rinstr)
+{
+	z80ic_cpl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_cpl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_cpl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC complement instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_cpl_print(z80ic_cpl_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("cpl", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC complement instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_cpl_destroy(z80ic_cpl_t *instr)
+{
+	(void) instr;
+}
+
 /** Create Z80 IC add 16-bit ss register to HL instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -3024,6 +3070,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_xor_iixd:
 		rc = z80ic_xor_iixd_print((z80ic_xor_iixd_t *) instr->ext, f);
 		break;
+	case z80i_cpl:
+		rc = z80ic_cpl_print((z80ic_cpl_t *) instr->ext, f);
+		break;
 	case z80i_add_hl_ss:
 		rc = z80ic_add_hl_ss_print((z80ic_add_hl_ss_t *) instr->ext, f);
 		break;
@@ -3176,6 +3225,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_xor_iixd:
 		z80ic_xor_iixd_destroy((z80ic_xor_iixd_t *) instr->ext);
+		break;
+	case z80i_cpl:
+		z80ic_cpl_destroy((z80ic_cpl_t *) instr->ext);
 		break;
 	case z80i_sbc_hl_ss:
 		z80ic_sbc_hl_ss_destroy((z80ic_sbc_hl_ss_t *) instr->ext);
