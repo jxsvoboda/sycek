@@ -109,6 +109,90 @@ static unsigned z80_isel_get_vregno(z80_isel_proc_t *isproc, ir_oper_t *oper)
 	return (unsigned) rn;
 }
 
+/** Scan IR operand for used VRs.
+ *
+ * @a isproc will be updated to reflect the used VRs
+ *
+ * @param isproc Instruction selector for procedure to update
+ * @param oper IR operand to scan
+ */
+static void z80_isel_scan_oper_used_vrs(z80_isel_proc_t *isproc,
+    ir_oper_t *oper)
+{
+	ir_oper_var_t *opvar;
+	ir_oper_list_t *oplist;
+	ir_oper_t *entry;
+
+	switch (oper->optype) {
+	case iro_imm:
+		oplist = (ir_oper_list_t *) oper->ext;
+		entry = ir_oper_list_first(oplist);
+		while (entry != NULL) {
+			z80_isel_scan_oper_used_vrs(isproc, entry);
+			entry = ir_oper_list_next(entry);
+		}
+		break;
+	case iro_list:
+	case iro_var:
+		opvar = (ir_oper_var_t *) oper->ext;
+		if (opvar->varname[0] == '%' && opvar->varname[1] >= '0' &&
+		    opvar->varname[1] <= '9')
+			(void) z80_isel_get_vregno(isproc, oper);
+		break;
+	}
+}
+
+/** Scan IR instruction for used VRs.
+ *
+ * @a isproc will be updated to reflect the used VRs
+ *
+ * @param isproc Instruction selector for procedure to update
+ * @param instr IR instruction to scan
+ */
+static void z80_isel_scan_instr_used_vrs(z80_isel_proc_t *isproc,
+    ir_instr_t *instr)
+{
+	if (instr->dest != NULL)
+		z80_isel_scan_oper_used_vrs(isproc, instr->dest);
+	if (instr->op1 != NULL)
+		z80_isel_scan_oper_used_vrs(isproc, instr->op1);
+	if (instr->op2 != NULL)
+		z80_isel_scan_oper_used_vrs(isproc, instr->op1);
+}
+
+/** Scan IR procedure for used VRs.
+ *
+ * @a isproc will be updated to reflect the used VRs
+ *
+ * @param isproc Instruction selector for procedure to update
+ * @param irproc IR procedure to scan
+ */
+static void z80_isel_scan_proc_used_vrs(z80_isel_proc_t *isproc,
+    ir_proc_t *irproc)
+{
+	ir_lblock_entry_t *entry;
+
+	entry = ir_lblock_first(irproc->lblock);
+	while (entry != NULL) {
+		if (entry->instr != NULL)
+			z80_isel_scan_instr_used_vrs(isproc, entry->instr);
+
+		entry = ir_lblock_next(entry);
+	}
+}
+
+/** Allocate new virtual register number.
+ *
+ * @param isproc Instruction selector for procedure
+ * @return New virtual register number
+ */
+#if 0
+static unsigned z80_isel_get_new_vregno(z80_isel_proc_t *isproc)
+{
+	return isproc->used_vrs++;
+}
+#endif
+
 /** Create instruction selector.
  *
  * @param rz80_isel Place to store pointer to new instruction selector
@@ -2186,6 +2270,12 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	rc = z80_isel_proc_create(isel, irproc->ident, &isproc);
 	if (rc != EOK)
 		goto error;
+
+	/*
+	 * Make sure we know which VR numbers are used so that
+	 * we can allocate more.
+	 */
+	z80_isel_scan_proc_used_vrs(isproc, irproc);
 
 	rc = z80ic_lblock_create(&lblock);
 	if (rc != EOK)
