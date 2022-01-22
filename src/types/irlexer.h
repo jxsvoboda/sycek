@@ -70,6 +70,7 @@ typedef enum {
 	itt_proc,
 	itt_read,
 	itt_retv,
+	itt_shl,
 	itt_shr,
 	itt_sub,
 	itt_var,

@@ -748,6 +748,237 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR shl instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR shl instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_shl(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vrr_t *dvrr = NULL;
+	z80ic_oper_vrr_t *svrr = NULL;
+	z80ic_ld_vrr_vrr_t *ldvrr = NULL;
+	z80ic_oper_vr_t *dvr = NULL;
+	z80ic_oper_vr_t *svr = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_ld_vr_vr_t *ldvr = NULL;
+	z80ic_dec_vr_t *dec = NULL;
+	z80ic_jp_cc_nn_t *jpcc = NULL;
+	z80ic_jp_nn_t *jp = NULL;
+	z80ic_sla_vr_t *sla = NULL;
+	z80ic_rl_vr_t *rl = NULL;
+	unsigned destvr;
+	unsigned vr1, vr2;
+	unsigned cntvr;
+	unsigned lblno;
+	char *rep_lbl = NULL;
+	char *end_lbl = NULL;
+	int rc;
+
+	assert(irinstr->itype == iri_shl);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+
+	cntvr = z80_isel_get_new_vregno(isproc);
+	lblno = z80_isel_new_label_num(isproc);
+
+	rc = z80_isel_create_label(isproc, "shl_rep", lblno, &rep_lbl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "shl_end", lblno, &end_lbl);
+	if (rc != EOK)
+		goto error;
+
+	/* ld dest, vr1 */
+
+	rc = z80ic_ld_vrr_vrr_create(&ldvrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &dvrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr1, &svrr);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr->dest = dvrr;
+	ldvrr->src = svrr;
+	dvrr = NULL;
+	svrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ldvrr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr = NULL;
+
+	/* ld cnt, vr2.L */
+
+	rc = z80ic_ld_vr_vr_create(&ldvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(cntvr, z80ic_vrp_r8, &dvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(vr2, z80ic_vrp_r16l, &svr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr->dest = dvr;
+	ldvr->src = svr;
+	dvr = NULL;
+	svr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr = NULL;
+
+	/* label shl_rep */
+
+	rc = z80ic_lblock_append(lblock, rep_lbl, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/* dec cnt */
+
+	rc = z80ic_dec_vr_create(&dec);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(cntvr, z80ic_vrp_r8, &dvr);
+	if (rc != EOK)
+		goto error;
+
+	dec->vr = dvr;
+	dvr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
+	dec = NULL;
+
+	/* jp M, shl_end */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(end_lbl, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_m;
+	jpcc->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	/* sla dest.L */
+
+	rc = z80ic_sla_vr_create(&sla);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16l, &dvr);
+	if (rc != EOK)
+		goto error;
+
+	sla->vr = dvr;
+	dvr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sla->instr);
+	if (rc != EOK)
+		goto error;
+
+	sla = NULL;
+
+	/* rl dest.H */
+
+	rc = z80ic_rl_vr_create(&rl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16h, &dvr);
+	if (rc != EOK)
+		goto error;
+
+	rl->vr = dvr;
+	dvr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &rl->instr);
+	if (rc != EOK)
+		goto error;
+
+	rl = NULL;
+
+	/* jp shl_rep */
+
+	rc = z80ic_jp_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(rep_lbl, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jp->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+
+	/* label shl_end */
+
+	rc = z80ic_lblock_append(lblock, end_lbl, NULL);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_instr_destroy(&ldvrr->instr);
+	z80ic_instr_destroy(&ldvr->instr);
+	z80ic_instr_destroy(&dec->instr);
+	z80ic_instr_destroy(&jpcc->instr);
+	z80ic_instr_destroy(&jp->instr);
+	z80ic_instr_destroy(&sla->instr);
+	z80ic_instr_destroy(&rl->instr);
+	z80ic_oper_vrr_destroy(dvrr);
+	z80ic_oper_vrr_destroy(svrr);
+	z80ic_oper_vr_destroy(dvr);
+	z80ic_oper_vr_destroy(svr);
+	z80ic_oper_imm16_destroy(imm);
+
+	if (rep_lbl != NULL)
+		free(rep_lbl);
+	if (end_lbl != NULL)
+		free(end_lbl);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR shr instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -2252,6 +2483,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_bnot(isproc, label, irinstr, lblock);
 	case iri_call:
 		return z80_isel_call(isproc, label, irinstr, lblock);
+	case iri_shl:
+		return z80_isel_shl(isproc, label, irinstr, lblock);
 	case iri_shr:
 		return z80_isel_shr(isproc, label, irinstr, lblock);
 	case iri_sub:

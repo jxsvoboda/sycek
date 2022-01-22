@@ -204,6 +204,12 @@ int bnot(void)
 	return ~a;
 }
 
+/** Shift left */
+int shl(void)
+{
+	return a << b;
+}
+
 /** Shift right */
 int shr(void)
 {

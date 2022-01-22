@@ -1469,6 +1469,44 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 rotate left virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vr_rr Rotate left instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_rl_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_rl_vr_t *vr_rl, z80ic_lblock_t *lblock)
+{
+	z80ic_rl_iixd_t *rl = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* rl (IX+d) */
+
+	rc = z80ic_rl_iixd_create(&rl);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vr_rl->vr->part);
+	rl->disp = z80_ralloc_disp(-2 * (1 + (long) vr_rl->vr->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &rl->instr);
+	if (rc != EOK)
+		goto error;
+
+	rl = NULL;
+	return EOK;
+error:
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 rotate right virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -1503,6 +1541,45 @@ static int z80_ralloc_rr_vr(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (rr != NULL)
 		z80ic_instr_destroy(&rr->instr);
+
+	return rc;
+}
+
+/** Allocate registers for Z80 shift left arithmetic virtual register
+ * instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrsla Shift left arithmetic instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_sla_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_sla_vr_t *vrsla, z80ic_lblock_t *lblock)
+{
+	z80ic_sla_iixd_t *sla = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* sla (IX+d) */
+
+	rc = z80ic_sla_iixd_create(&sla);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrsla->vr->part);
+	sla->disp = z80_ralloc_disp(-2 * (1 + (long) vrsla->vr->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &sla->instr);
+	if (rc != EOK)
+		goto error;
+
+	sla = NULL;
+	return EOK;
+error:
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
 
 	return rc;
 }
@@ -1633,9 +1710,15 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_sub_vrr_vrr:
 		return z80_ralloc_sub_vrr_vrr(raproc, label,
 		    (z80ic_sub_vrr_vrr_t *) vrinstr->ext, lblock);
+	case z80i_rl_vr:
+		return z80_ralloc_rl_vr(raproc, label,
+		    (z80ic_rl_vr_t *) vrinstr->ext, lblock);
 	case z80i_rr_vr:
 		return z80_ralloc_rr_vr(raproc, label,
 		    (z80ic_rr_vr_t *) vrinstr->ext, lblock);
+	case z80i_sla_vr:
+		return z80_ralloc_sla_vr(raproc, label,
+		    (z80ic_sla_vr_t *) vrinstr->ext, lblock);
 	case z80i_sra_vr:
 		return z80_ralloc_sra_vr(raproc, label,
 		    (z80ic_sra_vr_t *) vrinstr->ext, lblock);
