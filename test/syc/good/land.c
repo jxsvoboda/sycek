@@ -2,7 +2,9 @@
  * Logical AND
  */
 
-int land(int a, int b)
+int a, b;
+
+int land(void)
 {
 	return a && b;
 }

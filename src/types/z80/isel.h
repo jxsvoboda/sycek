@@ -40,6 +40,8 @@ typedef struct {
 	char *ident;
 	/** Maximum number of used virtual registers */
 	size_t used_vrs;
+	/** Next label number to allocate */
+	unsigned next_label;
 } z80_isel_proc_t;
 
 #endif

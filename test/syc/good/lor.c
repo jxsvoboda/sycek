@@ -2,7 +2,9 @@
  * Logical OR
  */
 
-int lor(int a, int b)
+int a, b;
+
+int lor(void)
 {
 	return a || b;
 }

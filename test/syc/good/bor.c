@@ -2,7 +2,9 @@
  * Bitwise OR
  */
 
-int bor(int a, int b)
+int a, b;
+
+int bor(void)
 {
 	return a | b;
 }

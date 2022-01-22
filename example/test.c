@@ -163,45 +163,51 @@ int if_stmt_4(void)
 }
 
 /* Logical AND */
-int land(int x, int y)
+int land(void)
 {
-	return x && y;
+	return a && b;
 }
 
 /* Logical OR */
-int lor(int x, int y)
+int lor(void)
 {
-	return x || y;
+	return a || b;
 }
 
 /* Logical NOT */
-int lnot(int x)
+int lnot(void)
 {
-	return !x;
+	return !a;
 }
 
 /* Bitwise AND */
-int band(int x, int y)
+int band(void)
 {
-	return x & y;
+	return a & b;
 }
 
 /* Bitwise XOR */
-int bxor(int x, int y)
+int bxor(void)
 {
-	return x ^ y;
+	return a ^ b;
 }
 
 /* Bitwise OR */
-int bor(int x, int y)
+int bor(void)
 {
-	return x | y;
+	return a | b;
 }
 
 /** Bitwise NOT */
-int bnot(int x)
+int bnot(void)
 {
-	return ~x;
+	return ~a;
+}
+
+/** Shift right */
+int shr(void)
+{
+	return a >> b;
 }
 
 int main(void)

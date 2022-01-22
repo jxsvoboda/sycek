@@ -2,7 +2,9 @@
  * Bitwise XOR
  */
 
-int bxor(int a, int b)
+int a, b;
+
+int bxor(void)
 {
 	return a ^ b;
 }

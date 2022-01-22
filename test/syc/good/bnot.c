@@ -2,7 +2,9 @@
  * Bitwise NOT
  */
 
-int bnot(int a)
+int a;
+
+int bnot(void)
 {
 	return ~a;
 }

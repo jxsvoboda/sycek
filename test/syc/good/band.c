@@ -2,7 +2,9 @@
  * Bitwise AND
  */
 
-int band(int a, int b)
+int a, b;
+
+int band(void)
 {
 	return a & b;
 }

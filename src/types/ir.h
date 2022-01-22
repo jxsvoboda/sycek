@@ -40,6 +40,8 @@ typedef enum {
 	iri_bnot,
 	/** Call */
 	iri_call,
+	/** Shift right */
+	iri_shr,
 	/** Subtraction */
 	iri_sub,
 	/** Introduce immediate value */

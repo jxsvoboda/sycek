@@ -2,7 +2,9 @@
  * Logical NOT
  */
 
-int lnot(int a)
+int a;
+
+int lnot(void)
 {
 	return !a;
 }
