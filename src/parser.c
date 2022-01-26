@@ -3777,6 +3777,7 @@ static int parser_process_tsbasic(parser_t *parser, ast_node_t **rtype)
 
 	ltt = parser_next_ttype(parser);
 	assert(parser_ttype_tsbasic(ltt));
+	(void) ltt;
 
 	parser_skip(parser, &dbasic);
 
@@ -5220,6 +5221,7 @@ static int parser_process_fspec(parser_t *parser, ast_fspec_t **rfspec)
 
 	ltt = parser_next_ttype(parser);
 	assert(ltt == ltt_inline);
+	(void) ltt;
 
 	parser_skip(parser, &dfspec);
 

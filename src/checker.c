@@ -4952,6 +4952,7 @@ static int checker_check_global_decln(checker_scope_t *scope, ast_node_t *decl)
 		break;
 	default:
 		assert(false);
+		rc = EINVAL;
 		break;
 	}
 
