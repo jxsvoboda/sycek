@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,8 @@
 #ifndef TYPES_Z80_RALLOC_H
 #define TYPES_Z80_RALLOC_H
 
+#include <types/z80/z80ic.h>
+
 /** Z80 register allocator */
 typedef struct {
 	int dummy;
@@ -36,6 +38,10 @@ typedef struct {
 typedef struct {
 	/** Containing register allocator */
 	z80_ralloc_t *ralloc;
+	/** Procedure with VRs */
+	z80ic_proc_t *vrproc;
+	/** Next label number to allocate */
+	unsigned next_label;
 } z80_ralloc_proc_t;
 
 #endif

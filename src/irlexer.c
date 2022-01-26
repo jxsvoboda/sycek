@@ -657,6 +657,11 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 			return ir_lexer_keyword(lexer, itt_lnot, 4, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
+	case 'm':
+		if (p[1] == 'u' && p[2] == 'l' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_mul, 3, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
 	case 'n':
 		if (p[1] == 'i' && p[2] == 'l' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_nil, 3, tok);
@@ -827,6 +832,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'jz'";
 	case itt_lnot:
 		return "'lnot'";
+	case itt_mul:
+		return "'mul'";
 	case itt_nil:
 		return "'nil'";
 	case itt_or:

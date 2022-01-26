@@ -31,6 +31,7 @@
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <z80/isel.h>
 #include <z80/ralloc.h>
 #include <z80/z80ic.h>
 
@@ -51,12 +52,14 @@ int z80_ralloc_create(z80_ralloc_t **rz80_ralloc)
 	return EOK;
 }
 
-/** Create register allocator.
+/** Create register allocator for procedure.
  *
+ * @param ralloc Register allocator
+ * @param vrproc Procedure with VRs
  * @param rz80_ralloc Place to store pointer to new register allocator
  * @return EOK on success, ENOMEM if out of memory
  */
-static int z80_ralloc_proc_create(z80_ralloc_t *ralloc,
+static int z80_ralloc_proc_create(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
     z80_ralloc_proc_t **rraproc)
 {
 	z80_ralloc_proc_t *raproc;
@@ -66,6 +69,7 @@ static int z80_ralloc_proc_create(z80_ralloc_t *ralloc,
 		return ENOMEM;
 
 	raproc->ralloc = ralloc;
+	raproc->vrproc = vrproc;
 	*rraproc = raproc;
 	return EOK;
 }
@@ -176,6 +180,7 @@ static int z80_ralloc_sfalloc(size_t nbytes, z80ic_lblock_t *lblock)
 		goto error;
 
 	ldix->imm16 = imm;
+	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
 	if (rc != EOK)
@@ -224,6 +229,7 @@ static int z80_ralloc_sfalloc(size_t nbytes, z80ic_lblock_t *lblock)
 		goto error;
 
 	ldix->imm16 = imm;
+	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
 	if (rc != EOK)
@@ -519,6 +525,76 @@ error:
 	return rc;
 }
 
+/** Create new local label.
+ *
+ * Allocate a new number for local label(s).
+ *
+ * @param raproc Register allocator for procedure
+ * @return New label number
+ */
+static unsigned z80_ralloc_new_label_num(z80_ralloc_proc_t *raproc)
+{
+	return raproc->next_label++;
+}
+
+/** Mangle label identifier.
+ *
+ * @param proc VRIC procedure identifier
+ * @param irident IR label identifier
+ * @param rident Place to store pointer to IC label identifier
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_mangle_label_ident(const char *proc,
+    const char *irident, char **rident)
+{
+	int rv;
+	char *ident;
+
+	assert(proc[0] == '_');
+	assert(irident[0] == '%');
+
+	rv = asprintf(&ident, "l_%s_%s", &proc[1], &irident[1]);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rident = ident;
+	return EOK;
+}
+
+/** Create new local label.
+ *
+ * Create a new label (not corresponding to a label in IR or VRIC). The label
+ * should use the IR label naming pattern.
+ *
+ * @param raproc Register allocator for procedure
+ * @param pattern Label pattern (IR label format)
+ * @param lblno Label number
+ * @param rlabel Place to store pointer to new label
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_create_label(z80_ralloc_proc_t *raproc,
+    const char *pattern, unsigned lblno, char **rlabel)
+{
+	char *irlabel;
+	char *label;
+	int rv;
+	int rc;
+
+	rv = asprintf(&irlabel, "%%%s%u", pattern, lblno);
+	if (rv < 0)
+		return ENOMEM;
+
+	rc = z80_ralloc_mangle_label_ident(raproc->vrproc->ident, irlabel, &label);
+	if (rc != EOK) {
+		free(irlabel);
+		return rc;
+	}
+
+	free(irlabel);
+	*rlabel = label;
+	return EOK;
+}
+
 /** Allocate registers for Z80 subtract 8-bit immediate instruction.
  *
  * @param raproc Register allocator for procedure
@@ -691,6 +767,7 @@ static int z80_ralloc_jp_nn(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	jp->imm16 = imm;
+	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &jp->instr);
 	if (rc != EOK)
@@ -768,6 +845,7 @@ static int z80_ralloc_call_nn(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	call->imm16 = imm;
+	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &call->instr);
 	if (rc != EOK)
@@ -842,6 +920,7 @@ static int z80_ralloc_ld_vr_vr(z80_ralloc_proc_t *raproc, const char *label,
 	    vrld->dest->vregno, vrld->dest->part, lblock);
 	if (rc != EOK)
 		goto error;
+
 	return EOK;
 error:
 	return rc;
@@ -1147,6 +1226,7 @@ static int z80_ralloc_ld_vrr_nn(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	ldnn->imm16 = imm;
+	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &ldnn->instr);
 	if (rc != EOK)
@@ -1358,6 +1438,7 @@ static int z80_ralloc_add_vrr_vrr(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	add->src = ss;
+	ss = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &add->instr);
 	if (rc != EOK)
@@ -1444,6 +1525,7 @@ static int z80_ralloc_sub_vrr_vrr(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	sbc->src = ss;
+	ss = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &sbc->instr);
 	if (rc != EOK)
@@ -1466,6 +1548,99 @@ error:
 		z80ic_instr_destroy(&sbc->instr);
 	z80ic_oper_ss_destroy(ss);
 	z80ic_oper_reg_destroy(reg);
+	return rc;
+}
+
+/** Allocate registers for Z80 increment virtual register pair instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrinc Increment instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_inc_vrr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_inc_vrr_t *vrinc, z80ic_lblock_t *lblock)
+{
+	z80ic_inc_iixd_t *inc = NULL;
+	z80ic_jp_cc_nn_t *jp = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	unsigned vroff;
+	unsigned lblno;
+	char *nocarry_lbl = NULL;
+	int rc;
+
+	lblno = z80_ralloc_new_label_num(raproc);
+
+	rc = z80_ralloc_create_label(raproc, "inc16_nocarry", lblno,
+	    &nocarry_lbl);
+	if (rc != EOK)
+		goto error;
+
+	/* inc (IX+d) */
+
+	rc = z80ic_inc_iixd_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(z80ic_vrp_r16l);
+	inc->disp = z80_ralloc_disp(-2 * (1 + (long) vrinc->vrr->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+
+	/* jp NZ, inc16_nocarry */
+
+	rc = z80ic_jp_cc_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(nocarry_lbl, &imm);
+	if (rc != EOK)
+		goto error;
+
+	jp->cc = z80ic_cc_nz;
+	jp->imm16 = imm;
+
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+
+	/* inc (IX+d) */
+
+	rc = z80ic_inc_iixd_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(z80ic_vrp_r16h);
+	inc->disp = z80_ralloc_disp(-2 * (1 + (long) vrinc->vrr->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	/* label inc16_nocarry */
+
+	rc = z80ic_lblock_append(lblock, nocarry_lbl, NULL);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+	free(nocarry_lbl);
+	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	if (nocarry_lbl != NULL)
+		free(nocarry_lbl);
 	return rc;
 }
 
@@ -1623,6 +1798,45 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 test bit of virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrbit Test bit instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_bit_b_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_bit_b_vr_t *vrbit, z80ic_lblock_t *lblock)
+{
+	z80ic_bit_b_iixd_t *bit = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* bit b, (IX+d) */
+
+	rc = z80ic_bit_b_iixd_create(&bit);
+	if (rc != EOK)
+		goto error;
+
+	bit->bit = vrbit->bit;
+	vroff = z80_ralloc_vroff(vrbit->src->part);
+	bit->disp = z80_ralloc_disp(-2 * (1 + (long) vrbit->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &bit->instr);
+	if (rc != EOK)
+		goto error;
+
+	bit = NULL;
+	return EOK;
+error:
+	if (bit != NULL)
+		z80ic_instr_destroy(&bit->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 instruction.
  *
  * @param raproc Register allocator for procedure
@@ -1710,6 +1924,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_sub_vrr_vrr:
 		return z80_ralloc_sub_vrr_vrr(raproc, label,
 		    (z80ic_sub_vrr_vrr_t *) vrinstr->ext, lblock);
+	case z80i_inc_vrr:
+		return z80_ralloc_inc_vrr(raproc, label,
+		    (z80ic_inc_vrr_t *) vrinstr->ext, lblock);
 	case z80i_rl_vr:
 		return z80_ralloc_rl_vr(raproc, label,
 		    (z80ic_rl_vr_t *) vrinstr->ext, lblock);
@@ -1722,6 +1939,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_sra_vr:
 		return z80_ralloc_sra_vr(raproc, label,
 		    (z80ic_sra_vr_t *) vrinstr->ext, lblock);
+	case z80i_bit_b_vr:
+		return z80_ralloc_bit_b_vr(raproc, label,
+		    (z80ic_bit_b_vr_t *) vrinstr->ext, lblock);
 	default:
 		assert(false);
 		return EINVAL;
@@ -1921,7 +2141,7 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	/* XXX Assumes all virtual registers are 16-bit */
 	sfsize = vrproc->used_vrs * 2;
 
-	rc = z80_ralloc_proc_create(ralloc, &raproc);
+	rc = z80_ralloc_proc_create(ralloc, vrproc, &raproc);
 	if (rc != EOK)
 		goto error;
 

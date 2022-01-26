@@ -65,6 +65,7 @@ typedef enum {
 	itt_jnz,
 	itt_jz,
 	itt_lnot,
+	itt_mul,
 	itt_nil,
 	itt_or,
 	itt_proc,

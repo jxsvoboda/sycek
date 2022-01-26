@@ -1736,6 +1736,50 @@ static void z80ic_xor_iixd_destroy(z80ic_xor_iixd_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC increment (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_inc_iixd_create(z80ic_inc_iixd_t **rinstr)
+{
+	z80ic_inc_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_inc_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_inc_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC increment (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_inc_iixd_print(z80ic_inc_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "inc (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC increment (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_inc_iixd_destroy(z80ic_inc_iixd_t *instr)
+{
+	(void) instr;
+}
+
 /** Create Z80 IC decrement (IX+d) instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -2243,6 +2287,50 @@ static int z80ic_sra_iixd_print(z80ic_sra_iixd_t *instr, FILE *f)
  * @param instr Instruction
  */
 static void z80ic_sra_iixd_destroy(z80ic_sra_iixd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC test bit of (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_bit_b_iixd_create(z80ic_bit_b_iixd_t **rinstr)
+{
+	z80ic_bit_b_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_bit_b_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_bit_b_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC test bit of (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_bit_b_iixd_print(z80ic_bit_b_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "bit %u, (IX%+" PRId8 ")", instr->bit, instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC shift right arithmetic (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_bit_b_iixd_destroy(z80ic_bit_b_iixd_t *instr)
 {
 	(void) instr;
 }
@@ -3334,6 +3422,55 @@ static void z80ic_sub_vrr_vrr_destroy(z80ic_sub_vrr_vrr_t *instr)
 	z80ic_oper_vrr_destroy(instr->src);
 }
 
+/** Create Z80 IC increment virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_inc_vrr_create(z80ic_inc_vrr_t **rinstr)
+{
+	z80ic_inc_vrr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_inc_vrr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_inc_vrr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC increment virtual register pair instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_inc_vrr_print(z80ic_inc_vrr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("inc ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->vrr, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC increment virtual register pair instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_inc_vrr_destroy(z80ic_inc_vrr_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->vrr);
+}
+
 /** Create Z80 IC rotate left virtual register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -3363,7 +3500,7 @@ static int z80ic_rl_vr_print(z80ic_rl_vr_t *instr, FILE *f)
 	int rc;
 	int rv;
 
-	rv = fputs("rr ", f);
+	rv = fputs("rl ", f);
 	if (rv < 0)
 		return EIO;
 
@@ -3530,6 +3667,55 @@ static void z80ic_sra_vr_destroy(z80ic_sra_vr_t *instr)
 	z80ic_oper_vr_destroy(instr->vr);
 }
 
+/** Create Z80 test bit of virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_bit_b_vr_create(z80ic_bit_b_vr_t **rinstr)
+{
+	z80ic_bit_b_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_bit_b_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_bit_b_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC test bit of virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_bit_b_vr_print(z80ic_bit_b_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "bit %u, ", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise XOR with virtual register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_bit_b_vr_destroy(z80ic_bit_b_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
 /** Print Z80 IC instruction.
  *
  * @param instr Instruction
@@ -3593,6 +3779,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_xor_iixd:
 		rc = z80ic_xor_iixd_print((z80ic_xor_iixd_t *) instr->ext, f);
 		break;
+	case z80i_inc_iixd:
+		rc = z80ic_inc_iixd_print((z80ic_inc_iixd_t *) instr->ext, f);
+		break;
 	case z80i_dec_iixd:
 		rc = z80ic_dec_iixd_print((z80ic_dec_iixd_t *) instr->ext, f);
 		break;
@@ -3625,6 +3814,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_sra_iixd:
 		rc = z80ic_sra_iixd_print((z80ic_sra_iixd_t *) instr->ext, f);
+		break;
+	case z80i_bit_b_iixd:
+		rc = z80ic_bit_b_iixd_print((z80ic_bit_b_iixd_t *) instr->ext, f);
 		break;
 	case z80i_jp_nn:
 		rc = z80ic_jp_nn_print((z80ic_jp_nn_t *) instr->ext, f);
@@ -3697,6 +3889,10 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		rc = z80ic_sub_vrr_vrr_print((z80ic_sub_vrr_vrr_t *) instr->ext,
 		    f);
 		break;
+	case z80i_inc_vrr:
+		rc = z80ic_inc_vrr_print((z80ic_inc_vrr_t *) instr->ext,
+		    f);
+		break;
 	case z80i_rl_vr:
 		rc = z80ic_rl_vr_print((z80ic_rl_vr_t *) instr->ext, f);
 		break;
@@ -3708,6 +3904,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_sra_vr:
 		rc = z80ic_sra_vr_print((z80ic_sra_vr_t *) instr->ext, f);
+		break;
+	case z80i_bit_b_vr:
+		rc = z80ic_bit_b_vr_print((z80ic_bit_b_vr_t *) instr->ext, f);
 		break;
 	default:
 		assert(false);
@@ -3783,6 +3982,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_xor_iixd:
 		z80ic_xor_iixd_destroy((z80ic_xor_iixd_t *) instr->ext);
 		break;
+	case z80i_inc_iixd:
+		z80ic_inc_iixd_destroy((z80ic_inc_iixd_t *) instr->ext);
+		break;
 	case z80i_dec_iixd:
 		z80ic_dec_iixd_destroy((z80ic_dec_iixd_t *) instr->ext);
 		break;
@@ -3812,6 +4014,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_sra_iixd:
 		z80ic_sra_iixd_destroy((z80ic_sra_iixd_t *) instr->ext);
+		break;
+	case z80i_bit_b_iixd:
+		z80ic_bit_b_iixd_destroy((z80ic_bit_b_iixd_t *) instr->ext);
 		break;
 	case z80i_jp_nn:
 		z80ic_jp_nn_destroy((z80ic_jp_nn_t *) instr->ext);
@@ -3873,6 +4078,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_sub_vrr_vrr:
 		z80ic_sub_vrr_vrr_destroy((z80ic_sub_vrr_vrr_t *) instr->ext);
 		break;
+	case z80i_inc_vrr:
+		z80ic_inc_vrr_destroy((z80ic_inc_vrr_t *) instr->ext);
+		break;
 	case z80i_rl_vr:
 		z80ic_rl_vr_destroy((z80ic_rl_vr_t *) instr->ext);
 		break;
@@ -3884,6 +4092,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_sra_vr:
 		z80ic_sra_vr_destroy((z80ic_sra_vr_t *) instr->ext);
+		break;
+	case z80i_bit_b_vr:
+		z80ic_bit_b_vr_destroy((z80ic_bit_b_vr_t *) instr->ext);
 		break;
 	default:
 		assert(false);

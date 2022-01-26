@@ -659,7 +659,7 @@ typedef enum {
 	/** Test indirect memory location bit */
 	z80i_bit_b_ivrr,
 	/** Test displaced indirect memory location bit */
-	z80i_bit_v_ivvrd,
+	z80i_bit_b_ivvrd,
 	/** Set virtual register bit */
 	z80i_set_b_vr,
 	/** Set indirect memory location bit */
@@ -1043,6 +1043,14 @@ typedef struct {
 	int8_t disp;
 } z80ic_xor_iixd_t;
 
+/** Z80 IC increment (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_inc_iixd_t;
+
 /** Z80 IC decrement (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1126,6 +1134,16 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_sra_iixd_t;
+
+/** Z80 IC test bit of (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Displacement */
+	int8_t disp;
+} z80ic_bit_b_iixd_t;
 
 /** Z80 IC jump direct instruction */
 typedef struct {
@@ -1307,6 +1325,14 @@ typedef struct {
 	z80ic_oper_vrr_t *src;
 } z80ic_sub_vrr_vrr_t;
 
+/** Z80 IC increment virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Virtual register pair */
+	z80ic_oper_vrr_t *vrr;
+} z80ic_inc_vrr_t;
+
 /** Z80 IC rotate left virtual register */
 typedef struct {
 	/** Base object */
@@ -1338,6 +1364,16 @@ typedef struct {
 	/** Virtual register */
 	z80ic_oper_vr_t *vr;
 } z80ic_sra_vr_t;
+
+/** Z80 IC shift right arithmetic virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_bit_b_vr_t;
 
 /** Z80 IC labeled block entry */
 typedef struct {

@@ -216,6 +216,12 @@ int shr(void)
 	return a >> b;
 }
 
+/* Multiplication */
+int mul(void)
+{
+	return a * b;
+}
+
 int main(void)
 {
 	return 0;
