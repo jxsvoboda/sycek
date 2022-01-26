@@ -120,6 +120,76 @@ static unsigned z80_ralloc_vroff(z80ic_vr_part_t part)
 	}
 }
 
+/** Create new local label.
+ *
+ * Allocate a new number for local label(s).
+ *
+ * @param raproc Register allocator for procedure
+ * @return New label number
+ */
+static unsigned z80_ralloc_new_label_num(z80_ralloc_proc_t *raproc)
+{
+	return raproc->next_label++;
+}
+
+/** Mangle label identifier.
+ *
+ * @param proc VRIC procedure identifier
+ * @param irident IR label identifier
+ * @param rident Place to store pointer to IC label identifier
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_mangle_label_ident(const char *proc,
+    const char *irident, char **rident)
+{
+	int rv;
+	char *ident;
+
+	assert(proc[0] == '_');
+	assert(irident[0] == '%');
+
+	rv = asprintf(&ident, "l_%s_%s", &proc[1], &irident[1]);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rident = ident;
+	return EOK;
+}
+
+/** Create new local label.
+ *
+ * Create a new label (not corresponding to a label in IR or VRIC). The label
+ * should use the IR label naming pattern.
+ *
+ * @param raproc Register allocator for procedure
+ * @param pattern Label pattern (IR label format)
+ * @param lblno Label number
+ * @param rlabel Place to store pointer to new label
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_ralloc_create_label(z80_ralloc_proc_t *raproc,
+    const char *pattern, unsigned lblno, char **rlabel)
+{
+	char *irlabel;
+	char *label;
+	int rv;
+	int rc;
+
+	rv = asprintf(&irlabel, "%%%s%u", pattern, lblno);
+	if (rv < 0)
+		return ENOMEM;
+
+	rc = z80_ralloc_mangle_label_ident(raproc->vrproc->ident, irlabel, &label);
+	if (rc != EOK) {
+		free(irlabel);
+		return rc;
+	}
+
+	free(irlabel);
+	*rlabel = label;
+	return EOK;
+}
+
 /** Add instructions to allocate a stack frame.
  *
  * @param nbytes Stack frame size in bytes
@@ -199,6 +269,7 @@ static int z80_ralloc_sfalloc(size_t nbytes, z80ic_lblock_t *lblock)
 		goto error;
 
 	addix->src = pp;
+	pp = NULL;
 
 	rc = z80ic_lblock_append(lblock, NULL, &addix->instr);
 	if (rc != EOK)
@@ -248,6 +319,7 @@ static int z80_ralloc_sfalloc(size_t nbytes, z80ic_lblock_t *lblock)
 		goto error;
 
 	addix->src = pp;
+	pp = NULL;
 
 	rc = z80ic_lblock_append(lblock, NULL, &addix->instr);
 	if (rc != EOK)
@@ -265,6 +337,9 @@ error:
 		z80ic_instr_destroy(&addix->instr);
 	if (ldspix != NULL)
 		z80ic_instr_destroy(&ldspix->instr);
+
+	z80ic_oper_pp_destroy(pp);
+	z80ic_oper_imm16_destroy(imm);
 
 	return rc;
 }
@@ -305,6 +380,8 @@ static int z80_ralloc_sffree(z80ic_lblock_t *lblock)
 	pop = NULL;
 	return EOK;
 error:
+	if (ldspix != NULL)
+		z80ic_instr_destroy(&ldspix->instr);
 	if (pop != NULL)
 		z80ic_instr_destroy(&pop->instr);
 
@@ -517,84 +594,12 @@ static int z80_ralloc_ld_r_n(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
-	if (reg != NULL)
-		z80ic_oper_reg_destroy(reg);
-	if (imm != NULL)
-		z80ic_oper_imm8_destroy(imm);
+
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_imm8_destroy(imm);
 
 	return rc;
 }
-
-/** Create new local label.
- *
- * Allocate a new number for local label(s).
- *
- * @param raproc Register allocator for procedure
- * @return New label number
- */
-static unsigned z80_ralloc_new_label_num(z80_ralloc_proc_t *raproc)
-{
-	return raproc->next_label++;
-}
-
-/** Mangle label identifier.
- *
- * @param proc VRIC procedure identifier
- * @param irident IR label identifier
- * @param rident Place to store pointer to IC label identifier
- * @return EOK on success, ENOMEM if out of memory
- */
-static int z80_ralloc_mangle_label_ident(const char *proc,
-    const char *irident, char **rident)
-{
-	int rv;
-	char *ident;
-
-	assert(proc[0] == '_');
-	assert(irident[0] == '%');
-
-	rv = asprintf(&ident, "l_%s_%s", &proc[1], &irident[1]);
-	if (rv < 0)
-		return ENOMEM;
-
-	*rident = ident;
-	return EOK;
-}
-
-/** Create new local label.
- *
- * Create a new label (not corresponding to a label in IR or VRIC). The label
- * should use the IR label naming pattern.
- *
- * @param raproc Register allocator for procedure
- * @param pattern Label pattern (IR label format)
- * @param lblno Label number
- * @param rlabel Place to store pointer to new label
- * @return EOK on success, ENOMEM if out of memory
- */
-static int z80_ralloc_create_label(z80_ralloc_proc_t *raproc,
-    const char *pattern, unsigned lblno, char **rlabel)
-{
-	char *irlabel;
-	char *label;
-	int rv;
-	int rc;
-
-	rv = asprintf(&irlabel, "%%%s%u", pattern, lblno);
-	if (rv < 0)
-		return ENOMEM;
-
-	rc = z80_ralloc_mangle_label_ident(raproc->vrproc->ident, irlabel, &label);
-	if (rc != EOK) {
-		free(irlabel);
-		return rc;
-	}
-
-	free(irlabel);
-	*rlabel = label;
-	return EOK;
-}
-
 /** Allocate registers for Z80 subtract 8-bit immediate instruction.
  *
  * @param raproc Register allocator for procedure
@@ -633,9 +638,7 @@ static int z80_ralloc_sub_n(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (sub != NULL)
 		z80ic_instr_destroy(&sub->instr);
-	if (imm != NULL)
-		z80ic_oper_imm8_destroy(imm);
-
+	z80ic_oper_imm8_destroy(imm);
 	return rc;
 }
 
@@ -697,6 +700,7 @@ static int z80_ralloc_inc_ss(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	inc->dest = ss;
+	ss = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &inc->instr);
 	if (rc != EOK)
@@ -707,6 +711,7 @@ static int z80_ralloc_inc_ss(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (inc != NULL)
 		z80ic_instr_destroy(&inc->instr);
+	z80ic_oper_ss_destroy(ss);
 	return rc;
 }
 
@@ -778,6 +783,8 @@ static int z80_ralloc_jp_nn(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (jp != NULL)
 		z80ic_instr_destroy(&jp->instr);
+
+	z80ic_oper_imm16_destroy(imm);
 	return rc;
 }
 
@@ -807,6 +814,7 @@ static int z80_ralloc_jp_cc_nn(z80_ralloc_proc_t *raproc, const char *label,
 
 	jp->cc = vrjp->cc;
 	jp->imm16 = imm;
+	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &jp->instr);
 	if (rc != EOK)
@@ -817,6 +825,7 @@ static int z80_ralloc_jp_cc_nn(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (jp != NULL)
 		z80ic_instr_destroy(&jp->instr);
+	z80ic_oper_imm16_destroy(imm);
 	return rc;
 }
 
@@ -856,6 +865,7 @@ static int z80_ralloc_call_nn(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (call != NULL)
 		z80ic_instr_destroy(&call->instr);
+	z80ic_oper_imm16_destroy(imm);
 	return rc;
 }
 
@@ -971,8 +981,7 @@ static int z80_ralloc_ld_vr_n(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
-	if (imm != NULL)
-		z80ic_oper_imm8_destroy(imm);
+	z80ic_oper_imm8_destroy(imm);
 
 	return rc;
 }
@@ -1018,6 +1027,7 @@ static int z80_ralloc_ld_vr_ihl(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_reg_destroy(reg);
 	return rc;
 }
 
@@ -1064,6 +1074,7 @@ static int z80_ralloc_ld_ihl_vr(z80_ralloc_proc_t *raproc, const char *label,
 error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_reg_destroy(reg);
 	return rc;
 }
 
@@ -1220,6 +1231,7 @@ static int z80_ralloc_ld_vrr_nn(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	ldnn->dest = dd;
+	dd = NULL;
 
 	rc = z80ic_oper_imm16_copy(vrld->imm16, &imm);
 	if (rc != EOK)
@@ -1603,7 +1615,6 @@ static int z80_ralloc_inc_vrr(z80_ralloc_proc_t *raproc, const char *label,
 
 	jp->cc = z80ic_cc_nz;
 	jp->imm16 = imm;
-
 	imm = NULL;
 
 	rc = z80ic_lblock_append(lblock, label, &jp->instr);
@@ -1639,6 +1650,9 @@ error:
 		z80ic_instr_destroy(&inc->instr);
 	if (jp != NULL)
 		z80ic_instr_destroy(&jp->instr);
+
+	z80ic_oper_imm16_destroy(imm);
+
 	if (nocarry_lbl != NULL)
 		free(nocarry_lbl);
 	return rc;

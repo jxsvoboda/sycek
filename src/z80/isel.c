@@ -873,9 +873,12 @@ error:
 		z80ic_instr_destroy(&ld->instr);
 	if (call != NULL)
 		z80ic_instr_destroy(&call->instr);
+	if (ldarg != NULL)
+		z80ic_instr_destroy(&ldarg->instr);
 	z80ic_oper_vrr_destroy(lddest);
 	z80ic_oper_r16_destroy(ldsrc);
 	z80ic_oper_imm16_destroy(imm);
+	z80ic_oper_vrr_destroy(ldasrc);
 
 	return rc;
 }
@@ -1507,6 +1510,7 @@ error:
 
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_imm16_destroy(imm);
+
 	return rc;
 }
 
@@ -2001,6 +2005,8 @@ error:
 		z80ic_instr_destroy(&or->instr);
 	if (sub != NULL)
 		z80ic_instr_destroy(&sub->instr);
+	if (rla != NULL)
+		z80ic_instr_destroy(&rla->instr);
 	z80ic_oper_reg_destroy(reg);
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_imm8_destroy(imm);
@@ -2137,6 +2143,8 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
+	ldnn = NULL;
+
 	/* ld u, vr2 */
 
 	rc = z80ic_ld_vrr_vrr_create(&ldvrr);
@@ -2184,6 +2192,8 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 	rc = z80ic_lblock_append(lblock, NULL, &ldn->instr);
 	if (rc != EOK)
 		goto error;
+
+	ldn = NULL;
 
 	/*
 	 * Determine sign of result
@@ -2858,7 +2868,7 @@ static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	lddata = NULL;
+	inc = NULL;
 
 	/* ld vrrB.H, (HL) */
 
@@ -3129,7 +3139,7 @@ static int z80_isel_write(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	lddata = NULL;
+	inc = NULL;
 
 	/* ld (HL), vrrB.H */
 

@@ -4488,6 +4488,7 @@ void z80ic_oper_r16_destroy(z80ic_oper_r16_t *reg)
 {
 	free(reg);
 }
+
 /** Create Z80 IC virtual register operand.
  *
  * @param vregno Virtual register number
