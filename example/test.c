@@ -2,7 +2,7 @@
  * Example file for compilation with Syc.
  */
 
-int a, b = 1, c = 2;
+int a = 2, b = 1, c = 0;
 
 int ret_const(void)
 {
@@ -26,7 +26,7 @@ int add(int x, int y)
 
 int subtract(void)
 {
-	return 5 - 1 - 1;
+	return a - b;
 }
 
 int funcall(void)
@@ -41,8 +41,7 @@ int funcall_arg(void)
 
 int funcall_varg(void)
 {
-	a = 1;
-	return add(a, a);
+	return add(a, b);
 }
 
 int read_var(void)

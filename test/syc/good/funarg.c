@@ -12,10 +12,9 @@ int funcall_arg(void)
 	return add(1, 2, 3);
 }
 
-int a;
+int a = 1, b = 2, c = 3;
 
 int funcall_varg(void)
 {
-	a = 1;
-	return add(a, a, a);
+	return add(a, b, c);
 }

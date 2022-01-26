@@ -2,7 +2,9 @@
  * Subtraction
  */
 
+int a = 3, b = 2;
+
 int sub_const(void)
 {
-	return 3 - 2 - 1;
+	return a - b;
 }
