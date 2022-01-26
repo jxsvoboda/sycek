@@ -2134,7 +2134,6 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	z80ic_lblock_entry_t *entry;
 	z80ic_proc_t *icproc = NULL;
 	z80ic_lblock_t *lblock = NULL;
-	z80ic_instr_t *instr = NULL;
 	size_t sfsize;
 	int rc;
 
@@ -2184,7 +2183,6 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 error:
 	z80ic_proc_destroy(icproc);
 	z80ic_lblock_destroy(lblock);
-	z80ic_instr_destroy(instr);
 	z80_ralloc_proc_destroy(raproc);
 	return rc;
 }

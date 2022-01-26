@@ -405,10 +405,14 @@ static int z80_isel_neg_vrr(z80_isel_proc_t *isproc, unsigned vregno,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldrvr->instr);
-	z80ic_instr_destroy(&ldvrr->instr);
-	z80ic_instr_destroy(&cpl->instr);
-	z80ic_instr_destroy(&inc->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (cpl != NULL)
+		z80ic_instr_destroy(&cpl->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_reg_destroy(reg);
@@ -493,8 +497,10 @@ static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ld->instr);
-	z80ic_instr_destroy(&add->instr);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
 	z80ic_oper_vrr_destroy(dest);
 	z80ic_oper_vrr_destroy(src);
 
@@ -605,9 +611,12 @@ static int z80_isel_and(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldrvr->instr);
-	z80ic_instr_destroy(&and->instr);
-	z80ic_instr_destroy(&ldvrr->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_reg_destroy(reg);
 
@@ -710,9 +719,12 @@ static int z80_isel_bnot(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldrvr->instr);
-	z80ic_instr_destroy(&cpl->instr);
-	z80ic_instr_destroy(&ldvrr->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (cpl != NULL)
+		z80ic_instr_destroy(&cpl->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_reg_destroy(reg);
 
@@ -1080,13 +1092,21 @@ static int z80_isel_shl(z80_isel_proc_t *isproc, const char *label,
 	free(end_lbl);
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldvrr->instr);
-	z80ic_instr_destroy(&ldvr->instr);
-	z80ic_instr_destroy(&dec->instr);
-	z80ic_instr_destroy(&jpcc->instr);
-	z80ic_instr_destroy(&jp->instr);
-	z80ic_instr_destroy(&sla->instr);
-	z80ic_instr_destroy(&rl->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (ldvr != NULL)
+		z80ic_instr_destroy(&ldvr->instr);
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+
 	z80ic_oper_vrr_destroy(dvrr);
 	z80ic_oper_vrr_destroy(svrr);
 	z80ic_oper_vr_destroy(dvr);
@@ -1313,13 +1333,21 @@ static int z80_isel_shr(z80_isel_proc_t *isproc, const char *label,
 	free(end_lbl);
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldvrr->instr);
-	z80ic_instr_destroy(&ldvr->instr);
-	z80ic_instr_destroy(&dec->instr);
-	z80ic_instr_destroy(&jpcc->instr);
-	z80ic_instr_destroy(&jp->instr);
-	z80ic_instr_destroy(&sra->instr);
-	z80ic_instr_destroy(&rr->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (ldvr != NULL)
+		z80ic_instr_destroy(&ldvr->instr);
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	if (sra != NULL)
+		z80ic_instr_destroy(&sra->instr);
+	if (rr != NULL)
+		z80ic_instr_destroy(&rr->instr);
+
 	z80ic_oper_vrr_destroy(dvrr);
 	z80ic_oper_vrr_destroy(svrr);
 	z80ic_oper_vr_destroy(dvr);
@@ -1411,8 +1439,11 @@ static int z80_isel_sub(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ld->instr);
-	z80ic_instr_destroy(&sub->instr);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+
 	z80ic_oper_vrr_destroy(dest);
 	z80ic_oper_vrr_destroy(src);
 
@@ -1471,7 +1502,9 @@ static int z80_isel_imm(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldimm->instr);
+	if (ldimm != NULL)
+		z80ic_instr_destroy(&ldimm->instr);
+
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_imm16_destroy(imm);
 	return rc;
@@ -2567,20 +2600,35 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 	free(nonneg_lbl);
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldrvr->instr);
-	z80ic_instr_destroy(&ldvr_r->instr);
-	z80ic_instr_destroy(&ldvrr->instr);
-	z80ic_instr_destroy(&ldnn->instr);
-	z80ic_instr_destroy(&ldn->instr);
-	z80ic_instr_destroy(&add->instr);
-	z80ic_instr_destroy(&sra->instr);
-	z80ic_instr_destroy(&sla->instr);
-	z80ic_instr_destroy(&rr->instr);
-	z80ic_instr_destroy(&rl->instr);
-	z80ic_instr_destroy(&dec->instr);
-	z80ic_instr_destroy(&xor->instr);
-	z80ic_instr_destroy(&bit->instr);
-	z80ic_instr_destroy(&jpcc->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (ldvr_r != NULL)
+		z80ic_instr_destroy(&ldvr_r->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (ldnn != NULL)
+		z80ic_instr_destroy(&ldnn->instr);
+	if (ldn != NULL)
+		z80ic_instr_destroy(&ldn->instr);
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	if (sra != NULL)
+		z80ic_instr_destroy(&sra->instr);
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
+	if (rr != NULL)
+		z80ic_instr_destroy(&rr->instr);
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	if (bit != NULL)
+		z80ic_instr_destroy(&bit->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+
 	z80ic_oper_reg_destroy(reg);
 	z80ic_oper_vrr_destroy(dvrr);
 	z80ic_oper_vrr_destroy(svrr);
@@ -2706,9 +2754,13 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldrvr->instr);
-	z80ic_instr_destroy(&or->instr);
-	z80ic_instr_destroy(&ldvrr->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_reg_destroy(reg);
 
@@ -2829,9 +2881,13 @@ static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldaddr->instr);
-	z80ic_instr_destroy(&lddata->instr);
-	z80ic_instr_destroy(&inc->instr);
+	if (ldaddr != NULL)
+		z80ic_instr_destroy(&ldaddr->instr);
+	if (lddata != NULL)
+		z80ic_instr_destroy(&lddata->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+
 	z80ic_oper_r16_destroy(adest);
 	z80ic_oper_vrr_destroy(asrc);
 	z80ic_oper_ss_destroy(ainc);
@@ -2903,8 +2959,11 @@ static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
 	ret = NULL;
 	return EOK;
 error:
-	z80ic_instr_destroy(&ld->instr);
-	z80ic_instr_destroy(&ret->instr);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+
 	z80ic_oper_r16_destroy(dest);
 	z80ic_oper_vrr_destroy(src);
 
@@ -2970,7 +3029,9 @@ static int z80_isel_varptr(z80_isel_proc_t *isproc, const char *label,
 error:
 	if (varident != NULL)
 		free(varident);
-	z80ic_instr_destroy(&ld->instr);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+
 	z80ic_oper_vrr_destroy(dest);
 	z80ic_oper_imm16_destroy(imm);
 
@@ -3091,9 +3152,13 @@ static int z80_isel_write(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldaddr->instr);
-	z80ic_instr_destroy(&lddata->instr);
-	z80ic_instr_destroy(&inc->instr);
+	if (ldaddr != NULL)
+		z80ic_instr_destroy(&ldaddr->instr);
+	if (lddata != NULL)
+		z80ic_instr_destroy(&lddata->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+
 	z80ic_oper_r16_destroy(adest);
 	z80ic_oper_vrr_destroy(asrc);
 	z80ic_oper_ss_destroy(ainc);
@@ -3206,9 +3271,13 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 
 	return EOK;
 error:
-	z80ic_instr_destroy(&ldrvr->instr);
-	z80ic_instr_destroy(&xor->instr);
-	z80ic_instr_destroy(&ldvrr->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_reg_destroy(reg);
 
