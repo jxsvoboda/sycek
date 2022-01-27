@@ -157,7 +157,7 @@ static void z80_isel_scan_instr_used_vrs(z80_isel_proc_t *isproc,
 	if (instr->op1 != NULL)
 		z80_isel_scan_oper_used_vrs(isproc, instr->op1);
 	if (instr->op2 != NULL)
-		z80_isel_scan_oper_used_vrs(isproc, instr->op1);
+		z80_isel_scan_oper_used_vrs(isproc, instr->op2);
 }
 
 /** Scan IR procedure for used VRs.

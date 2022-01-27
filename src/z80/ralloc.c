@@ -202,8 +202,8 @@ static int z80_ralloc_sfalloc(size_t nbytes, z80ic_lblock_t *lblock)
 	z80ic_ld_ix_nn_t *ldix = NULL;
 	z80ic_add_ix_pp_t *addix = NULL;
 	z80ic_ld_sp_ix_t *ldspix = NULL;
-	z80ic_oper_pp_t *pp;
-	z80ic_oper_imm16_t *imm;
+	z80ic_oper_pp_t *pp = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
 	int rc;
 
 	(void) nbytes;
@@ -685,7 +685,7 @@ static int z80_ralloc_inc_ss(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_inc_ss_t *vrinc, z80ic_lblock_t *lblock)
 {
 	z80ic_inc_ss_t *inc = NULL;
-	z80ic_oper_ss_t *ss;
+	z80ic_oper_ss_t *ss = NULL;
 	int rc;
 
 	(void) raproc;
@@ -758,7 +758,7 @@ static int z80_ralloc_jp_nn(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_jp_nn_t *vrjp, z80ic_lblock_t *lblock)
 {
 	z80ic_jp_nn_t *jp = NULL;
-	z80ic_oper_imm16_t *imm;
+	z80ic_oper_imm16_t *imm = NULL;
 	int rc;
 
 	(void) raproc;
@@ -799,7 +799,7 @@ static int z80_ralloc_jp_cc_nn(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_jp_cc_nn_t *vrjp, z80ic_lblock_t *lblock)
 {
 	z80ic_jp_cc_nn_t *jp = NULL;
-	z80ic_oper_imm16_t *imm;
+	z80ic_oper_imm16_t *imm = NULL;
 	int rc;
 
 	(void) raproc;
@@ -840,7 +840,7 @@ static int z80_ralloc_call_nn(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_call_nn_t *vrcall, z80ic_lblock_t *lblock)
 {
 	z80ic_call_nn_t *call = NULL;
-	z80ic_oper_imm16_t *imm;
+	z80ic_oper_imm16_t *imm = NULL;
 	int rc;
 
 	(void) raproc;
