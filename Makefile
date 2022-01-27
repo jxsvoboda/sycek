@@ -22,7 +22,7 @@
 
 CC     = gcc
 CFLAGS_common = -std=c99 -D_GNU_SOURCE -Og -ggdb -Wall -Wextra -Wmissing-prototypes \
-         -Werror -I src
+         -Werror -Wpedantic -I src
 CFLAGS = $(CFLAGS_common) -I src/hcompat
 LIBS   =
 

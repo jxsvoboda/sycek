@@ -1367,11 +1367,14 @@ void ir_oper_destroy(ir_oper_t *oper)
 
 	switch (oper->optype) {
 	case iro_imm:
-		return ir_oper_imm_destroy((ir_oper_imm_t *) oper->ext);
+		ir_oper_imm_destroy((ir_oper_imm_t *) oper->ext);
+		break;
 	case iro_list:
-		return ir_oper_list_destroy((ir_oper_list_t *) oper->ext);
+		ir_oper_list_destroy((ir_oper_list_t *) oper->ext);
+		break;
 	case iro_var:
-		return ir_oper_var_destroy((ir_oper_var_t *) oper->ext);
+		ir_oper_var_destroy((ir_oper_var_t *) oper->ext);
+		break;
 	}
 }
 

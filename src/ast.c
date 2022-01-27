@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -9073,27 +9073,38 @@ void ast_tree_destroy(ast_node_t *node)
 		ast_return_destroy((ast_return_t *)node->ext);
 		break;
 	case ant_if:
-		return ast_if_destroy((ast_if_t *)node->ext);
+		ast_if_destroy((ast_if_t *)node->ext);
+		break;
 	case ant_while:
-		return ast_while_destroy((ast_while_t *)node->ext);
+		ast_while_destroy((ast_while_t *)node->ext);
+		break;
 	case ant_do:
-		return ast_do_destroy((ast_do_t *)node->ext);
+		ast_do_destroy((ast_do_t *)node->ext);
+		break;
 	case ant_for:
-		return ast_for_destroy((ast_for_t *)node->ext);
+		ast_for_destroy((ast_for_t *)node->ext);
+		break;
 	case ant_switch:
-		return ast_switch_destroy((ast_switch_t *)node->ext);
+		ast_switch_destroy((ast_switch_t *)node->ext);
+		break;
 	case ant_clabel:
-		return ast_clabel_destroy((ast_clabel_t *)node->ext);
+		ast_clabel_destroy((ast_clabel_t *)node->ext);
+		break;
 	case ant_glabel:
-		return ast_glabel_destroy((ast_glabel_t *)node->ext);
+		ast_glabel_destroy((ast_glabel_t *)node->ext);
+		break;
 	case ant_stexpr:
-		return ast_stexpr_destroy((ast_stexpr_t *)node->ext);
+		ast_stexpr_destroy((ast_stexpr_t *)node->ext);
+		break;
 	case ant_stdecln:
-		return ast_stdecln_destroy((ast_stdecln_t *)node->ext);
+		ast_stdecln_destroy((ast_stdecln_t *)node->ext);
+		break;
 	case ant_stnull:
-		return ast_stnull_destroy((ast_stnull_t *)node->ext);
+		ast_stnull_destroy((ast_stnull_t *)node->ext);
+		break;
 	case ant_lmacro:
-		return ast_lmacro_destroy((ast_lmacro_t *)node->ext);
+		ast_lmacro_destroy((ast_lmacro_t *)node->ext);
+		break;
 	}
 }
 
