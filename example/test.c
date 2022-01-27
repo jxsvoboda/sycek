@@ -227,6 +227,36 @@ int lt(void)
 	return a < b;
 }
 
+/* Less than or equal */
+int lteq(void)
+{
+	return a <= b;
+}
+
+/* Greater than */
+int gt(void)
+{
+	return a > b;
+}
+
+/* Greater than or equal */
+int gteq(void)
+{
+	return a >= b;
+}
+
+/* Equal */
+int eq(void)
+{
+	return a == b;
+}
+
+/* Not equal */
+int neq(void)
+{
+	return a != b;
+}
+
 int main(void)
 {
 	return 0;

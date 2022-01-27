@@ -627,9 +627,21 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'n' && p[2] == 'd' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_end, 3, tok);
 		}
+		if (p[1] == 'q' && !is_idcnt(p[2])) {
+			return ir_lexer_keyword(lexer, itt_eq, 2, tok);
+		}
 		if (p[1] == 'x' && p[2] == 't' && p[3] == 'e' &&
 		    p[4] == 'r' && p[5] == 'n' && !is_idcnt(p[6])) {
 			return ir_lexer_keyword(lexer, itt_extern, 6, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
+	case 'g':
+		if (p[1] == 't' && !is_idcnt(p[2])) {
+			return ir_lexer_keyword(lexer, itt_gt, 2, tok);
+		}
+		if (p[1] == 't' && p[2] == 'e' && p[3] == 'q' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_gteq, 4, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'i':
@@ -659,6 +671,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 't' && !is_idcnt(p[2])) {
 			return ir_lexer_keyword(lexer, itt_lt, 2, tok);
 		}
+		if (p[1] == 't' && p[2] == 'e' && p[3] == 'q' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_lteq, 4, tok);
+		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'm':
 		if (p[1] == 'u' && p[2] == 'l' && !is_idcnt(p[3])) {
@@ -666,6 +682,9 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'n':
+		if (p[1] == 'e' && p[2] == 'q' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_neq, 3, tok);
+		}
 		if (p[1] == 'i' && p[2] == 'l' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_nil, 3, tok);
 		}
@@ -821,8 +840,14 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'call'";
 	case itt_end:
 		return "'end'";
+	case itt_eq:
+		return "'eq'";
 	case itt_extern:
 		return "'extern'";
+	case itt_gt:
+		return "'gt'";
+	case itt_gteq:
+		return "'gteq'";
 	case itt_imm:
 		return "'imm'";
 	case itt_int:
@@ -836,9 +861,13 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 	case itt_lnot:
 		return "'lnot'";
 	case itt_lt:
-		return "'lnot'";
+		return "'lt'";
+	case itt_lteq:
+		return "'lteq'";
 	case itt_mul:
 		return "'mul'";
+	case itt_neq:
+		return "'neq'";
 	case itt_nil:
 		return "'nil'";
 	case itt_or:

@@ -58,6 +58,16 @@ typedef enum {
 	iri_lnot,
 	/** Less than */
 	iri_lt,
+	/** Less than or equal */
+	iri_lteq,
+	/** Greater than */
+	iri_gt,
+	/** Greater than or equal */
+	iri_gteq,
+	/** Equal */
+	iri_eq,
+	/** Not equal */
+	iri_neq,
 	/** Multiplication */
 	iri_mul,
 	/** Binary OR */
