@@ -1260,6 +1260,83 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 subtract virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrsub Subtract instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_sub_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_sub_vr_t *vrsub, z80ic_lblock_t *lblock)
+{
+	z80ic_sub_iixd_t *sub = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* sub (IX+d) */
+
+	rc = z80ic_sub_iixd_create(&sub);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrsub->src->part);
+	sub->disp = z80_ralloc_disp(-2 * (1 + (long) vrsub->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
+	sub = NULL;
+	return EOK;
+error:
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+
+	return rc;
+}
+
+/** Allocate registers for Z80 subtract virtual register from A with carry
+ * instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrsbc Subtract with carry instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_sbc_a_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_sbc_a_vr_t *vrsbc, z80ic_lblock_t *lblock)
+{
+	z80ic_sbc_a_iixd_t *sbc = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* sbc A, (IX+d) */
+
+	rc = z80ic_sbc_a_iixd_create(&sbc);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrsbc->src->part);
+	sbc->disp = z80_ralloc_disp(-2 * (1 + (long) vrsbc->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
+	sbc = NULL;
+	return EOK;
+error:
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 bitwise AND with virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -1920,6 +1997,12 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_vrr_nn:
 		return z80_ralloc_ld_vrr_nn(raproc, label,
 		    (z80ic_ld_vrr_nn_t *) vrinstr->ext, lblock);
+	case z80i_sub_vr:
+		return z80_ralloc_sub_vr(raproc, label,
+		    (z80ic_sub_vr_t *) vrinstr->ext, lblock);
+	case z80i_sbc_a_vr:
+		return z80_ralloc_sbc_a_vr(raproc, label,
+		    (z80ic_sbc_a_vr_t *) vrinstr->ext, lblock);
 	case z80i_and_vr:
 		return z80_ralloc_and_vr(raproc, label,
 		    (z80ic_and_vr_t *) vrinstr->ext, lblock);

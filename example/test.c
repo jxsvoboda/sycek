@@ -221,6 +221,12 @@ int mul(void)
 	return a * b;
 }
 
+/* Less than */
+int lt(void)
+{
+	return a < b;
+}
+
 int main(void)
 {
 	return 0;

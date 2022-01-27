@@ -1011,6 +1011,22 @@ typedef struct {
 	z80ic_oper_imm8_t *imm8;
 } z80ic_sub_n_t;
 
+/** Z80 IC subtract (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_sub_iixd_t;
+
+/** Z80 IC subtract (IX+d) from A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_sbc_a_iixd_t;
+
 /** Z80 IC bitwise AND with register */
 typedef struct {
 	/** Base object */
@@ -1272,6 +1288,22 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_nn_t;
+
+/** Z80 IC subtract virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_sub_vr_t;
+
+/** Z80 IC subtract virtual register from A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_sbc_a_vr_t;
 
 /** Z80 IC bitwise AND with virtual register */
 typedef struct {

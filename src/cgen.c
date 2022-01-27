@@ -753,6 +753,70 @@ error:
 	return rc;
 }
 
+/** Generate code for less than expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (less than)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	int rc;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres.varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres.varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_lt;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
 /** Generate code for binary AND expression.
  *
  * @param cgproc Code generator for procedure
@@ -1458,6 +1522,7 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	case abo_shr:
 		return cgen_shr(cgproc, ebinop, lblock, eres);
 	case abo_lt:
+		return cgen_lt(cgproc, ebinop, lblock, eres);
 	case abo_lteq:
 	case abo_gt:
 	case abo_gteq:

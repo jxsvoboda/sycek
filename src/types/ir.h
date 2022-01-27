@@ -56,6 +56,8 @@ typedef enum {
 	iri_jz,
 	/** Logical not */
 	iri_lnot,
+	/** Less than */
+	iri_lt,
 	/** Multiplication */
 	iri_mul,
 	/** Binary OR */
