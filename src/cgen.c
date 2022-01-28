@@ -1810,6 +1810,1054 @@ error:
 	return rc;
 }
 
+/** Generate code for add assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (add assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* add %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_add;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for subtract assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (subtract assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* sub %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_sub;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for multiply assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (mutiply assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* mul %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_mul;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for shift left assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (shift left assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* shl %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_shl;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for shift right assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (shift right assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* shr %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_shr;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for bitwise AND assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (bitwise AND assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* and %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_and;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for bitwise XOR assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (bitwise XOR assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* xor %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_xor;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
+/** Generate code for bitwise OR assign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ebinop AST binary operator expression (bitwise OR assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *addr = NULL;
+	ir_oper_var_t *aval = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	char *avalvn;
+	char *resvn;
+	int rc;
+
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %aval, %lres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &aval->oper;
+	instr->op1 = &addr->oper;
+	instr->op2 = NULL;
+	avalvn = aval->varname;
+	aval = NULL;
+	addr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* or %res, %aval, %bval */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(avalvn, &aval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &bval);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_or;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &aval->oper;
+	instr->op2 = &bval->oper;
+	resvn = res->varname;
+	res = NULL;
+	aval = NULL;
+	bval = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %laddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &addr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &addr->oper;
+	instr->op2 = &res->oper;
+	addr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (addr != NULL)
+		ir_oper_destroy(&addr->oper);
+	if (aval != NULL)
+		ir_oper_destroy(&aval->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
 /** Generate code for binary operator expression.
  *
  * @param cgproc Code generator for procedure
@@ -1866,20 +2914,28 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	case abo_assign:
 		return cgen_assign(cgproc, ebinop, lblock, eres);
 	case abo_plus_assign:
+		return cgen_plus_assign(cgproc, ebinop, lblock, eres);
 	case abo_minus_assign:
+		return cgen_minus_assign(cgproc, ebinop, lblock, eres);
 	case abo_times_assign:
+		return cgen_times_assign(cgproc, ebinop, lblock, eres);
 	case abo_divide_assign:
 	case abo_modulo_assign:
-	case abo_shl_assign:
-	case abo_shr_assign:
-	case abo_band_assign:
-	case abo_bxor_assign:
-	case abo_bor_assign:
 		tok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Unimplemented binary operator.\n");
 		cgproc->cgen->error = true; // TODO
 		return EINVAL;
+	case abo_shl_assign:
+		return cgen_shl_assign(cgproc, ebinop, lblock, eres);
+	case abo_shr_assign:
+		return cgen_shr_assign(cgproc, ebinop, lblock, eres);
+	case abo_band_assign:
+		return cgen_band_assign(cgproc, ebinop, lblock, eres);
+	case abo_bxor_assign:
+		return cgen_bxor_assign(cgproc, ebinop, lblock, eres);
+	case abo_bor_assign:
+		return cgen_bor_assign(cgproc, ebinop, lblock, eres);
 	}
 
 	/* Should not be reached */

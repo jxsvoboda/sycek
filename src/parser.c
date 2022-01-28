@@ -229,6 +229,42 @@ static bool parser_ttype_assignop(lexer_toktype_t ttype)
 	    ttype == ltt_bxor_assign;
 }
 
+/** Return ast binary operation type for an assignment operator token.
+ *
+ * @param ttype Token type
+ * @return AST binary operator type
+ */
+static ast_binop_t parser_abo_assignop(lexer_toktype_t ttype)
+{
+	switch (ttype) {
+	case ltt_assign:
+		return abo_assign;
+	case ltt_plus_assign:
+		return abo_plus_assign;
+	case ltt_minus_assign:
+		return abo_minus_assign;
+	case ltt_times_assign:
+		return abo_times_assign;
+	case ltt_divide_assign:
+		return abo_divide_assign;
+	case ltt_modulo_assign:
+		return abo_modulo_assign;
+	case ltt_shl_assign:
+		return abo_shl_assign;
+	case ltt_shr_assign:
+		return abo_shr_assign;
+	case ltt_band_assign:
+		return abo_band_assign;
+	case ltt_bor_assign:
+		return abo_bor_assign;
+	case ltt_bxor_assign:
+		return abo_bxor_assign;
+	default:
+		assert(false);
+		return 0;
+	}
+}
+
 /** Return valid input token skipping tokens that should be ignored.
  *
  * At the same time we read the token contents into the provided buffer @a rtok
@@ -1838,7 +1874,7 @@ static int parser_process_eassign(parser_t *parser, ast_node_t **rexpr)
 		goto error;
 
 	ebinop->larg = ea;
-	ebinop->optype = abo_assign; /* XXX */
+	ebinop->optype = parser_abo_assignop(ltt);
 	ebinop->top.data = dassign;
 	ebinop->rarg = eb;
 
