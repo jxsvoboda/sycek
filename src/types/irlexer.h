@@ -70,6 +70,7 @@ typedef enum {
 	itt_lnot,
 	itt_lt,
 	itt_lteq,
+	itt_lvar,
 	itt_mul,
 	itt_neq,
 	itt_nil,

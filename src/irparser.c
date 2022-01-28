@@ -594,6 +594,7 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	ir_lexer_tok_t itok;
 	ir_proc_t *proc = NULL;
 	ir_proc_arg_t *arg;
+	ir_lvar_t *lvar;
 	ir_lblock_t *lblock = NULL;
 	bool first;
 	int rc;
@@ -668,12 +669,36 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 		goto error;
 
 	/* Extern */
+
 	itt = ir_parser_next_ttype(parser);
 	if (itt == itt_extern) {
 		ir_parser_skip(parser);
 		proc->flags |= irp_extern;
 		ir_lblock_destroy(proc->lblock);
 		proc->lblock = NULL;
+	}
+
+	/* Lvar */
+
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_lvar) {
+		ir_parser_skip(parser);
+		itt = ir_parser_next_ttype(parser);
+		while (itt == itt_ident) {
+			ir_parser_read_next_tok(parser, &itok);
+			rc = ir_lvar_create(itok.text, &lvar);
+			if (rc != EOK)
+				goto error;
+
+			ir_proc_append_lvar(proc, lvar);
+
+			ir_parser_skip(parser);
+			rc = ir_parser_match(parser, itt_scolon);
+			if (rc != EOK)
+				goto error;
+
+			itt = ir_parser_next_ttype(parser);
+		}
 	}
 
 	/* Begin, end */

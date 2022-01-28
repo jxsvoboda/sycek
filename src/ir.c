@@ -673,6 +673,7 @@ int ir_proc_create(const char *ident, ir_proc_flags_t flags,
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
 	list_initialize(&proc->args);
+	list_initialize(&proc->lvars);
 	*rproc = proc;
 	return EOK;
 }
@@ -686,6 +687,7 @@ int ir_proc_create(const char *ident, ir_proc_flags_t flags,
 int ir_proc_print(ir_proc_t *proc, FILE *f)
 {
 	ir_proc_arg_t *arg;
+	ir_lvar_t *lvar;
 	int rv;
 	int rc;
 
@@ -722,10 +724,38 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 		rv = fputs(" extern", f);
 		if (rv < 0)
 			return EIO;
+	} else {
+		rv = fputs("\n", f);
+		if (rv < 0)
+			return EIO;
+	}
+
+	/* Print local variables */
+	lvar = ir_proc_first_lvar(proc);
+	if (lvar != NULL) {
+		rv = fputs("lvar\n", f);
+		if (rv < 0)
+			return EIO;
+
+		while (lvar != NULL) {
+			rv = fputs("\t", f);
+			if (rv < 0)
+				return EIO;
+
+			rc = ir_lvar_print(lvar, f);
+			if (rc != EOK)
+				return rc;
+
+			rv = fputs(";\n", f);
+			if (rv < 0)
+				return EIO;
+
+			lvar = ir_proc_next_lvar(lvar);
+		}
 	}
 
 	if (proc->lblock != NULL) {
-		rv = fprintf(f, "\nbegin\n");
+		rv = fprintf(f, "begin\n");
 		if (rv < 0)
 			return EIO;
 
@@ -753,6 +783,18 @@ void ir_proc_append_arg(ir_proc_t *proc, ir_proc_arg_t *arg)
 	list_append(&arg->largs, &proc->args);
 }
 
+/** Append local variable to IR procedure.
+ *
+ * @param proc IR procedure
+ * @param lvar Local variable
+ */
+void ir_proc_append_lvar(ir_proc_t *proc, ir_lvar_t *lvar)
+{
+	assert(lvar->proc == NULL);
+	lvar->proc = proc;
+	list_append(&lvar->llvars, &proc->lvars);
+}
+
 /** Destroy IR procedure.
  *
  * @param proc IR procedure or @c NULL
@@ -760,6 +802,7 @@ void ir_proc_append_arg(ir_proc_t *proc, ir_proc_arg_t *arg)
 void ir_proc_destroy(ir_proc_t *proc)
 {
 	ir_proc_arg_t *arg;
+	ir_lvar_t *lvar;
 
 	if (proc == NULL)
 		return;
@@ -772,6 +815,13 @@ void ir_proc_destroy(ir_proc_t *proc)
 		list_remove(&arg->largs);
 		ir_proc_arg_destroy(arg);
 		arg = ir_proc_first_arg(proc);
+	}
+
+	lvar = ir_proc_first_lvar(proc);
+	while (lvar != NULL) {
+		list_remove(&lvar->llvars);
+		ir_lvar_destroy(lvar);
+		lvar = ir_proc_first_lvar(proc);
 	}
 
 	ir_lblock_destroy(proc->lblock);
@@ -887,6 +937,122 @@ int ir_proc_arg_print(ir_proc_arg_t *arg, FILE *f)
 	int rv;
 
 	rv = fputs(arg->ident, f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Get first local variable of IR procedure.
+ *
+ * @param proc IR procedure
+ * @return First local variable or @c NULL if there is none
+ */
+ir_lvar_t *ir_proc_first_lvar(ir_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_first(&proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lvar_t, llvars);
+}
+
+/** Get next local variable of IR procedure.
+ *
+ * @param cur Current local variable
+ * @return Next local variable or @c NULL if @a cur is the last local variable
+ */
+ir_lvar_t *ir_proc_next_lvar(ir_lvar_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->llvars, &cur->proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lvar_t, llvars);
+}
+
+/** Get last local variable of IR procedure.
+ *
+ * @param proc IR procedure
+ * @return Last local variable or @c NULL if there is none
+ */
+ir_lvar_t *ir_proc_last_lvar(ir_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_last(&proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lvar_t, llvars);
+}
+
+/** Get previous local variable of IR procedure.
+ *
+ * @param cur Current local variable
+ * @return Previous local variable or @c NULL if @a cur is the first local
+ *         variable
+ */
+ir_lvar_t *ir_proc_prev_lvar(ir_lvar_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->llvars, &cur->proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_lvar_t, llvars);
+}
+
+/** Create IR procedure local variable.
+ *
+ * @param ident Argument identifier
+ * @param rlvar Place to store pointer to new local variable
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_lvar_create(const char *ident, ir_lvar_t **rlvar)
+{
+	ir_lvar_t *lvar;
+
+	lvar = calloc(1, sizeof(ir_lvar_t));
+	if (lvar == NULL)
+		return ENOMEM;
+
+	lvar->ident = strdup(ident);
+	if (lvar->ident == NULL) {
+		free(lvar);
+		return ENOMEM;
+	}
+
+	*rlvar = lvar;
+	return EOK;
+}
+
+/** Destroy IR procedure local variable.
+ *
+ * @param lvar Local variable
+ */
+void ir_lvar_destroy(ir_lvar_t *lvar)
+{
+	free(lvar->ident);
+	free(lvar);
+}
+
+/** Print IR procedure local variable.
+ *
+ * @param lvar Local variable
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_lvar_print(ir_lvar_t *lvar, FILE *f)
+{
+	int rv;
+
+	rv = fputs(lvar->ident, f);
 	if (rv < 0)
 		return EIO;
 
