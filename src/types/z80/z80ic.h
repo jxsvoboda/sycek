@@ -1489,12 +1489,31 @@ typedef struct {
 	z80ic_dblock_t *dblock;
 } z80ic_var_t;
 
-/** Z80 IC procedure definition */
+/** Z80 IC local variable
+ *
+ * This ties a local variable name to a numeric offset in the local variable
+ * area of the stack frame. This allows the IC to refer to local variables
+ * by name.
+ */
 typedef struct {
+	/** Containing procedure definition */
+	struct z80ic_proc *proc;
+	/** Link to @c proc->lvars */
+	link_t llvars;
+	/** Identifier */
+	char *ident;
+	/** Offset */
+	uint16_t off;
+} z80ic_lvar_t;
+
+/** Z80 IC procedure definition */
+typedef struct z80ic_proc {
 	/** Base object */
 	z80ic_decln_t decln;
 	/** Indentifier */
 	char *ident;
+	/** Local variables (of z80ic_lvar_t) */
+	list_t lvars;
 	/** Labeled block containing the implementation */
 	z80ic_lblock_t *lblock;
 	/** Number of used virtual registers */

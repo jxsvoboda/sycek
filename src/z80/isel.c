@@ -69,13 +69,49 @@ static int z80_isel_mangle_label_ident(const char *proc,
 	int rv;
 	char *ident;
 
-	/* The indentifier must have global scope */
+	/* The procdure identifier must have global scope */
 	assert(proc[0] == '@');
+	/* The label identifier must have local scope */
 	assert(irident[0] == '%');
 
 	rv = asprintf(&ident, "l_%s_%s", &proc[1], &irident[1]);
 	if (rv < 0)
 		return ENOMEM;
+
+	*rident = ident;
+	return EOK;
+}
+
+/** Mangle local variable identifier.
+ *
+ * @param proc IR procedure identifier
+ * @param irident IR local variable identifier
+ * @param rident Place to store pointer to IC local variable identifier
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int z80_isel_mangle_lvar_ident(const char *proc,
+    const char *irident, char **rident)
+{
+	int rv;
+	char *ident;
+	char *cp;
+
+	/* The procedure identifier must have global scope */
+	assert(proc[0] == '@');
+	/* The variable identifier must have local scope */
+	assert(irident[0] == '%');
+
+	rv = asprintf(&ident, "v_%s_%s", &proc[1], &irident[1]);
+	if (rv < 0)
+		return ENOMEM;
+
+	/* Replace middling '@' signs with '.', which is allowed in Z80 asm */
+	cp = ident;
+	while (*cp != '\0') {
+		if (*cp == '@')
+			*cp = '.';
+		++cp;
+	}
 
 	*rident = ident;
 	return EOK;
@@ -5377,6 +5413,52 @@ error:
 	return rc;
 }
 
+/** Generate Z80 IC procedure arguments from IR procedure arguments.
+ *
+ * @param isel Instruction selector
+ * @param irproc IR procedure
+ * @param icproc Z80 IC procedure where to append the new arguments
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
+    z80ic_proc_t *icproc)
+{
+	ir_lvar_t *lvar;
+	z80ic_lvar_t *icvar;
+	char *icident = NULL;
+	uint16_t off;
+	int rc;
+
+	(void) isel;
+
+	lvar = ir_proc_first_lvar(irproc);
+	off = 0;
+	while (lvar != NULL) {
+		rc = z80_isel_mangle_lvar_ident(irproc->ident, lvar->ident,
+		    &icident);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_lvar_create(icident, off, &icvar);
+		if (rc != EOK)
+			goto error;
+
+		free(icident);
+		icident = NULL;
+
+		z80ic_proc_append_lvar(icproc, icvar);
+
+		off += 2;
+		lvar = ir_proc_next_lvar(lvar);
+	}
+
+	return EOK;
+error:
+	if (icident != NULL)
+		free(icident);
+	return rc;
+}
+
 /** Select instructions code for procedure definition.
  *
  * @param isel Instruction selector
@@ -5417,6 +5499,10 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 		goto error;
 
 	rc = z80_isel_proc_args(isel, irproc, lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_proc_lvars(isel, irproc, icproc);
 	if (rc != EOK)
 		goto error;
 

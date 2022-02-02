@@ -717,6 +717,7 @@ int z80ic_proc_create(const char *ident, z80ic_lblock_t *lblock, z80ic_proc_t **
 	}
 
 	assert(lblock != NULL);
+	list_initialize(&proc->lvars);
 	proc->lblock = lblock;
 	proc->decln.dtype = z80icd_proc;
 	proc->decln.ext = (void *) proc;
@@ -732,10 +733,35 @@ int z80ic_proc_create(const char *ident, z80ic_lblock_t *lblock, z80ic_proc_t **
  */
 int z80ic_proc_print(z80ic_proc_t *proc, FILE *f)
 {
+	z80ic_lvar_t *lvar;
 	int rv;
 	int rc;
 
 	rv = fprintf(f, "\n; proc %s\n.%s\n", proc->ident, proc->ident);
+	if (rv < 0)
+		return EIO;
+
+	/* Print local variables */
+	lvar = z80ic_proc_first_lvar(proc);
+	if (lvar != NULL) {
+		rv = fputs("; lvar\n", f);
+		if (rv < 0)
+			return EIO;
+
+		while (lvar != NULL) {
+			rc = z80ic_lvar_print(lvar, f);
+			if (rc != EOK)
+				return rc;
+
+			rv = fputs("\n", f);
+			if (rv < 0)
+				return EIO;
+
+			lvar = z80ic_proc_next_lvar(lvar);
+		}
+	}
+
+	rv = fputs("; begin\n", f);
 	if (rv < 0)
 		return EIO;
 
@@ -750,20 +776,159 @@ int z80ic_proc_print(z80ic_proc_t *proc, FILE *f)
 	return EOK;
 }
 
+/** Append local variable to Z80 IC procedure.
+ *
+ * @param proc Z80 IC procedure
+ * @param lvar Local variable
+ */
+void z80ic_proc_append_lvar(z80ic_proc_t *proc, z80ic_lvar_t *lvar)
+{
+	assert(lvar->proc == NULL);
+	lvar->proc = proc;
+	list_append(&lvar->llvars, &proc->lvars);
+}
+
 /** Destroy Z80 IC procedure.
  *
  * @param proc Z80 IC procedure or @c NULL
  */
 void z80ic_proc_destroy(z80ic_proc_t *proc)
 {
+	z80ic_lvar_t *lvar;
+
 	if (proc == NULL)
 		return;
 
 	if (proc->ident != NULL)
 		free(proc->ident);
 
+	lvar = z80ic_proc_first_lvar(proc);
+	while (lvar != NULL) {
+		list_remove(&lvar->llvars);
+		z80ic_lvar_destroy(lvar);
+		lvar = z80ic_proc_first_lvar(proc);
+	}
+
 	z80ic_lblock_destroy(proc->lblock);
 	free(proc);
+}
+
+/** Get first local variable of Z80 IC procedure.
+ *
+ * @param proc Z80 IC procedure
+ * @return First local variable or @c NULL if there is none
+ */
+z80ic_lvar_t *z80ic_proc_first_lvar(z80ic_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_first(&proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_lvar_t, llvars);
+}
+
+/** Get next local variable of Z80 IC procedure.
+ *
+ * @param cur Current local variable
+ * @return Next local variable or @c NULL if @a cur is the last local variable
+ */
+z80ic_lvar_t *z80ic_proc_next_lvar(z80ic_lvar_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->llvars, &cur->proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_lvar_t, llvars);
+}
+
+/** Get last local variable of Z80 IC procedure.
+ *
+ * @param proc Z80 IC procedure
+ * @return Last local variable or @c NULL if there is none
+ */
+z80ic_lvar_t *z80ic_proc_last_lvar(z80ic_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_last(&proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_lvar_t, llvars);
+}
+
+/** Get previous local variable of Z80 IC procedure.
+ *
+ * @param cur Current local variable
+ * @return Previous local variable or @c NULL if @a cur is the first local
+ *         variable
+ */
+z80ic_lvar_t *z80ic_proc_prev_lvar(z80ic_lvar_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->llvars, &cur->proc->lvars);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, z80ic_lvar_t, llvars);
+}
+
+/** Create Z80 IC procedure local variable.
+ *
+ * @param ident Local variable identifier
+ * @param off Local variable offset within variable storage area
+ * @param rlvar Place to store pointer to new local variable
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_lvar_create(const char *ident, uint16_t off, z80ic_lvar_t **rlvar)
+{
+	z80ic_lvar_t *lvar;
+
+	lvar = calloc(1, sizeof(z80ic_lvar_t));
+	if (lvar == NULL)
+		return ENOMEM;
+
+	lvar->ident = strdup(ident);
+	if (lvar->ident == NULL) {
+		free(lvar);
+		return ENOMEM;
+	}
+
+	lvar->off = off;
+	*rlvar = lvar;
+	return EOK;
+}
+
+/** Destroy Z80 IC procedure local variable.
+ *
+ * @param lvar Local variable
+ */
+void z80ic_lvar_destroy(z80ic_lvar_t *lvar)
+{
+	free(lvar->ident);
+	free(lvar);
+}
+
+/** Print Z80 IC procedure local variable.
+ *
+ * @param lvar Local variable
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_lvar_print(z80ic_lvar_t *lvar, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, ".%s equ 0x%x", lvar->ident, lvar->off);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
 }
 
 /** Create Z80 IC labeled block.

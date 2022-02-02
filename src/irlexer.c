@@ -154,7 +154,7 @@ static bool is_digit(char c, int base)
  */
 static bool is_idcnt(char c)
 {
-	return is_alnum(c) || (c == '_');
+	return is_alnum(c) || c == '_' || c == '@';
 }
 
 /** Determine if character is printable.
