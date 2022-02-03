@@ -2217,6 +2217,37 @@ error:
 	return rc;
 }
 
+/** Copy over local variables for Z80 procedure.
+ *
+ * @param ralloc Register allocator
+ * @param proc Z80 procedure with virtual registers
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80ic_ralloc_lvars(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
+    z80ic_proc_t *icproc)
+{
+	z80ic_lvar_t *vrvar;
+	z80ic_lvar_t *icvar = NULL;
+	int rc;
+
+	(void) ralloc;
+
+	vrvar = z80ic_proc_first_lvar(vrproc);
+	while (vrvar != NULL) {
+		rc = z80ic_lvar_create(vrvar->ident, vrvar->off, &icvar);
+		if (rc != EOK)
+			goto error;
+
+		z80ic_proc_append_lvar(icproc, icvar);
+		vrvar = z80ic_proc_next_lvar(vrvar);
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Allocate registers for Z80 procedure.
  *
  * @param ralloc Register allocator
@@ -2246,6 +2277,11 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 		goto error;
 
 	rc = z80ic_proc_create(vrproc->ident, lblock, &icproc);
+	if (rc != EOK)
+		goto error;
+
+	/* Copy over local variables */
+	rc = z80ic_ralloc_lvars(ralloc, vrproc, icproc);
 	if (rc != EOK)
 		goto error;
 
