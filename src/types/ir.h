@@ -60,6 +60,8 @@ typedef enum {
 	iri_lt,
 	/** Less than or equal */
 	iri_lteq,
+	/** Get ponter to local variable */
+	iri_lvarptr,
 	/** Greater than */
 	iri_gt,
 	/** Greater than or equal */

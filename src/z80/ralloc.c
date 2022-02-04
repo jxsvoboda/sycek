@@ -1260,6 +1260,83 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 load virtual register pair from SP with
+ * 16-bit displacement instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrld Load instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_ld_vrr_spnn(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_ld_vrr_spnn_t *vrld, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_dd_nn_t *ldnn = NULL;
+	z80ic_add_hl_ss_t *add = NULL;
+	z80ic_oper_dd_t *dd = NULL;
+	z80ic_oper_ss_t *ss = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	int rc;
+
+	/* ld HL, nn */
+
+	rc = z80ic_ld_dd_nn_create(&ldnn);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_dd_create(z80ic_dd_hl, &dd);
+	if (rc != EOK)
+		goto error;
+
+	ldnn->dest = dd;
+	dd = NULL;
+
+	rc = z80ic_oper_imm16_copy(vrld->imm16, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldnn->imm16 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ldnn->instr);
+	if (rc != EOK)
+		goto error;
+
+	/* add HL, SP */
+
+	rc = z80ic_add_hl_ss_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(z80ic_ss_sp, &ss);
+	if (rc != EOK)
+		goto error;
+
+	add->src = ss;
+	ss = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
+	add = NULL;
+
+	/* Spill HL */
+	rc = z80_ralloc_spill_r16(raproc, NULL, z80ic_r16_hl,
+	    vrld->dest->vregno, lblock);
+	if (rc != EOK)
+		goto error;
+
+	ldnn = NULL;
+	return EOK;
+error:
+	if (ldnn != NULL)
+		z80ic_instr_destroy(&ldnn->instr);
+	z80ic_oper_dd_destroy(dd);
+	z80ic_oper_imm16_destroy(imm);
+	return rc;
+}
+
 /** Allocate registers for Z80 subtract virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -1997,6 +2074,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_vrr_nn:
 		return z80_ralloc_ld_vrr_nn(raproc, label,
 		    (z80ic_ld_vrr_nn_t *) vrinstr->ext, lblock);
+	case z80i_ld_vrr_spnn:
+		return z80_ralloc_ld_vrr_spnn(raproc, label,
+		    (z80ic_ld_vrr_spnn_t *) vrinstr->ext, lblock);
 	case z80i_sub_vr:
 		return z80_ralloc_sub_vr(raproc, label,
 		    (z80ic_sub_vr_t *) vrinstr->ext, lblock);
@@ -2262,11 +2342,21 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	z80ic_lblock_entry_t *entry;
 	z80ic_proc_t *icproc = NULL;
 	z80ic_lblock_t *lblock = NULL;
+	z80ic_lvar_t *lvar;
 	size_t sfsize;
+	size_t varsize;
 	int rc;
 
+	/* Last variable should be @end denoting total size of local variables */
+	lvar = z80ic_proc_last_lvar(vrproc);
+	if (lvar != NULL) {
+		varsize = lvar->off;
+	} else {
+		varsize = 0;
+	}
+
 	/* XXX Assumes all virtual registers are 16-bit */
-	sfsize = vrproc->used_vrs * 2;
+	sfsize = varsize + vrproc->used_vrs * 2;
 
 	rc = z80_ralloc_proc_create(ralloc, vrproc, &raproc);
 	if (rc != EOK)

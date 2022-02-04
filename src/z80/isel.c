@@ -3517,6 +3517,75 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR local variable pointer instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR lvarptr instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_lvarptr(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_ld_vrr_spnn_t *ld = NULL;
+	unsigned destvr;
+	ir_oper_var_t *op1;
+	char *varident = NULL;
+	int rc;
+
+	assert(irinstr->itype == iri_lvarptr);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	op1 = (ir_oper_var_t *) irinstr->op1->ext;
+
+	rc = z80_isel_mangle_lvar_ident(isproc->ident, op1->varname, &varident);
+	if (rc != EOK)
+		goto error;
+
+	/* ld vrr, SP+$varident@SP */
+
+	rc = z80ic_ld_vrr_spnn_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(varident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = vrr;
+	ld->imm16 = imm;
+	vrr = NULL;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	free(varident);
+	return EOK;
+error:
+	if (varident != NULL)
+		free(varident);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_imm16_destroy(imm);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR mul instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -4793,7 +4862,7 @@ error:
 /** Select Z80 IC instructions code for IR variable pointer instruction.
  *
  * @param isproc Instruction selector for procedure
- * @param irinstr IR add instruction
+ * @param irinstr IR varptr instruction
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
@@ -5143,6 +5212,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_lt(isproc, label, irinstr, lblock);
 	case iri_lteq:
 		return z80_isel_lteq(isproc, label, irinstr, lblock);
+	case iri_lvarptr:
+		return z80_isel_lvarptr(isproc, label, irinstr, lblock);
 	case iri_mul:
 		return z80_isel_mul(isproc, label, irinstr, lblock);
 	case iri_neq:

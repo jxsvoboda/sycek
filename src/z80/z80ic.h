@@ -122,6 +122,7 @@ extern int z80ic_ld_vr_r_create(z80ic_ld_vr_r_t **);
 extern int z80ic_ld_r16_vrr_create(z80ic_ld_r16_vrr_t **);
 extern int z80ic_ld_vrr_r16_create(z80ic_ld_vrr_r16_t **);
 extern int z80ic_ld_vrr_nn_create(z80ic_ld_vrr_nn_t **);
+extern int z80ic_ld_vrr_spnn_create(z80ic_ld_vrr_spnn_t **);
 extern int z80ic_sub_vr_create(z80ic_sub_vr_t **);
 extern int z80ic_sbc_a_vr_create(z80ic_sbc_a_vr_t **);
 extern int z80ic_and_vr_create(z80ic_and_vr_t **);

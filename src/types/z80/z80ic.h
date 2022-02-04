@@ -520,6 +520,8 @@ typedef enum {
 	z80i_ld_vrr_nn,
 	/** Load virt. register pair from fixed memory address */
 	z80i_ld_vrr_inn,
+	/** Load virt. register pair from SP + 16-bit immediate */
+	z80i_ld_vrr_spnn,
 	/** Load fixed memory address from virt. register pair */
 	z80i_ld_inn_vrr,
 	/** Load SP from virt. register pair */
@@ -610,6 +612,9 @@ typedef enum {
 	z80i_inc_vrr,
 	/** Decrement virtual register pair */
 	z80i_dec_vrr,
+
+	/* Add SP to virtual register pair */
+	z80i_add_vrr_sp,
 
 	/** Rotate left circular virtual register */
 	z80i_rlc_vr,
@@ -1288,6 +1293,16 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_nn_t;
+
+/** Z80 IC load SP+imm16 to virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register pair */
+	z80ic_oper_vrr_t *dest;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_vrr_spnn_t;
 
 /** Z80 IC subtract virtual register */
 typedef struct {
