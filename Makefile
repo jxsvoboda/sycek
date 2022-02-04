@@ -142,7 +142,8 @@ test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     test/syc/all.diff
 example_outs = example/lib.o example/test.asm example/test.o example/test.bin \
     example/test.map example/test.tap example/test.ir example/test.vric \
-    example/test.ir.ir example/test.ir.asm
+    example/test.ir.ir example/test.ir.asm example/mul16.asm example/mul16.bin \
+    example/mul16.map example/mul16.tap
 
 all: $(binary_ccheck) $(binary_syc)
 
@@ -293,7 +294,21 @@ example/test.bin: example/test.asm example/lib.asm
 	z80asm +zx --origin=32768 -b -m $^
 example/test.tap: example/test.bin
 	appmake +zx --org=32768 -b $<
-examples: example/test.tap example/test.ir example/test.vric example/test.ir.asm
+
+example/mul16.asm: example/mul16.c $(syc)
+	$(syc) $<
+example/mul16.ir: example/mul16.c $(syc)
+	$(syc) --dump-ir $< >$@
+example/mul16.vric: example/mul16.c $(syc)
+	$(syc) --dump-vric $< >$@
+example/mul16.bin: example/mul16.asm
+	z80asm +zx --origin=32768 -b -m $^
+example/mul16.tap: example/mul16.bin
+	appmake +zx --org=32768 -b $<
+
+
+examples: example/test.tap example/test.ir example/test.vric \
+    example/test.ir.asm example/mul16.tap
 
 #
 # Note that if any of the diffs is not empty, that diff command will

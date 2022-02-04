@@ -305,6 +305,18 @@ int bor_assign(void)
 	a |= b;
 }
 
+/* Local variables */
+int lvars(void)
+{
+	int i, j;
+
+	i = 1;
+	j = 2;
+	i += j;
+
+	return j;
+}
+
 int main(void)
 {
 	return 0;

@@ -1,0 +1,1 @@
+<test/syc/ugly/lvarshgv.c:9:9-11:'int'>: Warning: Declaration of 'a' shadows a wider-scope declaration.

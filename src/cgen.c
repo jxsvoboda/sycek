@@ -204,10 +204,12 @@ int cgen_create(cgen_t **rcgen)
 /** Create code generator.
  *
  * @param cgen Code generator
+ * @param irproc IR procedure
  * @param rcgen Place to store pointer to new code generator
  * @return EOK on success, ENOMEM if out of memory
  */
-static int cgen_proc_create(cgen_t *cgen, cgen_proc_t **rcgproc)
+static int cgen_proc_create(cgen_t *cgen, ir_proc_t *irproc,
+    cgen_proc_t **rcgproc)
 {
 	cgen_proc_t *cgproc;
 	int rc;
@@ -222,7 +224,21 @@ static int cgen_proc_create(cgen_t *cgen, cgen_proc_t **rcgproc)
 		goto error;
 	}
 
+	/* Function's top-level scope is inside the argument scope */
+	rc = scope_create(cgproc->arg_scope, &cgproc->proc_scope);
+	if (rc != EOK) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	/*
+	 * The member cur_scope tracks the current scope as we descend into
+	 * and ascend out of nested blocks.
+	 */
+	cgproc->cur_scope = cgproc->proc_scope;
+
 	cgproc->cgen = cgen;
+	cgproc->irproc = irproc;
 	cgproc->next_var = 0;
 	cgproc->next_label = 0;
 	*rcgproc = cgproc;
@@ -241,6 +257,7 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 	if (cgproc == NULL)
 		return;
 
+	scope_destroy(cgproc->proc_scope);
 	scope_destroy(cgproc->arg_scope);
 	free(cgproc);
 }
@@ -386,6 +403,65 @@ static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,
 	return EOK;
 }
 
+/** Generate code for identifier expression referencing local variable.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eident AST identifier expression
+ * @param vident Identifier of IR variable holding the local variable
+ * @param idx Argument index
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_eident_lvar(cgen_proc_t *cgproc, ast_eident_t *eident,
+    const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *var = NULL;
+	comp_tok_t *ident;
+	int rc;
+
+	ident = (comp_tok_t *) eident->tident.data;
+	(void) ident;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(vident, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_lvarptr;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_lvalue;
+
+	dest = NULL;
+	var = NULL;
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
+	return rc;
+}
+
 /** Generate code for identifier expression.
  *
  * @param cgproc Code generator for procedure
@@ -404,7 +480,7 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	ident = (comp_tok_t *) eident->tident.data;
 
 	/* Check if the identifier is declared */
-	member = scope_lookup(cgproc->arg_scope, ident->tok.text);
+	member = scope_lookup(cgproc->cur_scope, ident->tok.text);
 	if (member == NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Undeclared identifier '%s'.\n",
@@ -422,11 +498,8 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		    lblock, eres);
 		break;
 	case sm_lvar:
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Referencing local variable '%s' "
-		    "is not implemented.\n", ident->tok.text);
-		cgproc->cgen->error = true; // TODO
-		rc = ENOTSUP;
+		rc = cgen_eident_lvar(cgproc, eident, member->m.lvar.vident,
+		    lblock, eres);
 		break;
 	}
 
@@ -3925,6 +3998,136 @@ error:
 	return rc;
 }
 
+/** Generate code for declaration statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stexpr AST declaration statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
+    ir_lblock_t *lblock)
+{
+	ast_node_t *dspec;
+	ast_tok_t *atok;
+	ast_idlist_entry_t *identry;
+	comp_tok_t *tok;
+	ast_tok_t *aident;
+	comp_tok_t *ident;
+	char *vident = NULL;
+	ir_lvar_t *lvar;
+	scope_member_t *member;
+	int rv;
+	int rc;
+
+	(void) lblock;
+
+	dspec = ast_dspecs_first(stdecln->dspecs);
+
+	atok = ast_tree_first_tok(dspec);
+	tok = (comp_tok_t *) atok->data;
+
+	if (ast_dspecs_next(dspec) != NULL) {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Multiple declaration specifiers (unimplemented).\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (dspec->ntype != ant_tsbasic) {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Type specifier is not basic (unimplemented).\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	// XXX AST could give us the exact basic specifier and we should verify
+
+	identry = ast_idlist_first(stdecln->idlist);
+	while (identry != NULL) {
+		if (identry->regassign != NULL) {
+			tok = (comp_tok_t *) identry->regassign->tasm.data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Variable register assignment (unimplemented).\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		if (identry->aslist != NULL) {
+			atok = ast_tree_first_tok(&identry->aslist->node);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		if (identry->have_init) {
+			tok = (comp_tok_t *) identry->tassign.data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Initializer (unimplemented).\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		aident = ast_decl_get_ident(identry->decl);
+		ident = (comp_tok_t *) aident->data;
+
+		/* Check for shadowing a wider-scope identifier */
+		member = scope_lookup(cgproc->cur_scope->parent,
+		    ident->tok.text);
+		if (member != NULL) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Declaration of '%s' "
+			    "shadows a wider-scope declaration.\n",
+			    ident->tok.text);
+			++cgproc->cgen->warnings;
+		}
+
+		rv = asprintf(&vident, "%%%s", ident->tok.text);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		/* Insert identifier into current scope */
+		rc = scope_insert_lvar(cgproc->cur_scope, ident->tok.text,
+		    vident);
+		if (rc != EOK) {
+			if (rc == EEXIST) {
+				lexer_dprint_tok(&tok->tok, stderr);
+				fprintf(stderr, ": Duplicate identifier '%s'.\n",
+				    ident->tok.text);
+				cgproc->cgen->error = true; // XXX
+				rc = EINVAL;
+				goto error;
+			}
+		}
+
+		rc = ir_lvar_create(vident, &lvar);
+		if (rc != EOK)
+			goto error;
+
+		free(vident);
+		vident = NULL;
+
+		ir_proc_append_lvar(cgproc->irproc, lvar);
+
+		identry = ast_idlist_next(identry);
+	}
+
+	return EOK;
+error:
+	if (vident != NULL)
+		free(vident);
+	return rc;
+}
+
 /** Generate code for statement.
  *
  * @param cgproc Code generator for procedure
@@ -3980,6 +4183,8 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_stexpr(cgproc, (ast_stexpr_t *) stmt->ext, lblock);
 		break;
 	case ant_stdecln:
+		rc = cgen_stdecln(cgproc, (ast_stdecln_t *) stmt->ext, lblock);
+		break;
 	case ant_stnull:
 	case ant_lmacro:
 	case ant_block:
@@ -4091,11 +4296,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_proc_create(cgen, &cgproc);
+	rc = ir_proc_create(pident, 0, lblock, &proc);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create(pident, 0, lblock, &proc);
+	rc = cgen_proc_create(cgen, proc, &cgproc);
 	if (rc != EOK)
 		goto error;
 

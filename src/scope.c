@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -60,6 +60,16 @@ void scope_destroy(scope_t *scope)
 	member = scope_first(scope);
 	while (member != NULL) {
 		list_remove(&member->lmembers);
+		switch (member->mtype) {
+		case sm_gsym:
+			break;
+		case sm_arg:
+			free(member->m.arg.vident);
+			break;
+		case sm_lvar:
+			free(member->m.lvar.vident);
+			break;
+		}
 		free(member->ident);
 		free(member);
 		member = scope_first(scope);
@@ -107,7 +117,7 @@ int scope_insert_gsym(scope_t *scope, const char *ident)
  *
  * @param scope Scope
  * @param ident Identifier
- * @param idx Argument variable identifer (e.g. '%0')
+ * @param vident Argument variable identifer (e.g. '%0')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
@@ -115,6 +125,7 @@ int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
 {
 	scope_member_t *member;
 	char *dident;
+	char *dvident;
 
 	member = scope_lookup_local(scope, ident);
 	if (member != NULL) {
@@ -132,9 +143,16 @@ int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
 		return ENOMEM;
 	}
 
+	dvident = strdup(vident);
+	if (dvident == NULL) {
+		free(dident);
+		free(member);
+		return ENOMEM;
+	}
+
 	member->ident = dident;
 	member->mtype = sm_arg;
-	member->m.arg.vident = vident;
+	member->m.arg.vident = dvident;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
 	return EOK;
@@ -144,13 +162,15 @@ int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
  *
  * @param scope Scope
  * @param ident Identifier
+ * @param vident IR variable identifer (e.g. '%foo')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_lvar(scope_t *scope, const char *ident)
+int scope_insert_lvar(scope_t *scope, const char *ident, const char *vident)
 {
 	scope_member_t *member;
 	char *dident;
+	char *dvident;
 
 	member = scope_lookup_local(scope, ident);
 	if (member != NULL) {
@@ -168,8 +188,16 @@ int scope_insert_lvar(scope_t *scope, const char *ident)
 		return ENOMEM;
 	}
 
+	dvident = strdup(vident);
+	if (dvident == NULL) {
+		free(dident);
+		free(member);
+		return ENOMEM;
+	}
+
 	member->ident = dident;
 	member->mtype = sm_lvar;
+	member->m.lvar.vident = dvident;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
 	return EOK;

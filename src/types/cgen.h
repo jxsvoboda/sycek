@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -45,12 +45,18 @@ typedef struct {
 typedef struct {
 	/** Containing code generator */
 	cgen_t *cgen;
+	/** IR procedure being constructed */
+	struct ir_proc *irproc;
 	/** Next local variable number to allocate */
 	unsigned next_var;
 	/** Next label number to allocate */
 	unsigned next_label;
 	/** Argument scope for this procedure */
 	struct scope *arg_scope;
+	/** Procedure scope */
+	struct scope *proc_scope;
+	/** Current (innermost) scope */
+	struct scope *cur_scope;
 } cgen_proc_t;
 
 /** Value type.

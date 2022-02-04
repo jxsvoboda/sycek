@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -141,11 +141,11 @@ static int test_scope_insert_lvar(void)
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "a");
+	rc = scope_insert_lvar(scope, "a", "%a");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "a");
+	rc = scope_insert_lvar(scope, "a", "%a");
 	if (rc != EEXIST)
 		goto error;
 
@@ -184,11 +184,11 @@ static int test_scope_first_next(void)
 	if (member != NULL)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "a");
+	rc = scope_insert_lvar(scope, "a", "%a");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "b");
+	rc = scope_insert_lvar(scope, "b", "%b");
 	if (rc != EOK)
 		goto error;
 
@@ -245,7 +245,7 @@ static int test_scope_lookup_local(void)
 	if (member != NULL)
 		goto error;
 
-	rc = scope_insert_lvar(child, "a");
+	rc = scope_insert_lvar(child, "a", "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -288,7 +288,7 @@ static int test_scope_lookup(void)
 	if (member != NULL)
 		goto error;
 
-	rc = scope_insert_lvar(parent, "a");
+	rc = scope_insert_lvar(parent, "a", "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -309,7 +309,7 @@ static int test_scope_lookup(void)
 	if (member->scope != parent)
 		goto error;
 
-	rc = scope_insert_lvar(child, "a");
+	rc = scope_insert_lvar(child, "a", "%a");
 	if (rc != EOK)
 		goto error;
 

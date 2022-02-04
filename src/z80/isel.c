@@ -101,15 +101,16 @@ static int z80_isel_mangle_lvar_ident(const char *proc,
 	/* The variable identifier must have local scope */
 	assert(irident[0] == '%');
 
-	rv = asprintf(&ident, "v_%s_%s", &proc[1], &irident[1]);
+	rv = asprintf(&ident, "%c_%s_%s", irident[1] == '@' ?
+	    'e' : 'v', &proc[1], &irident[1]);
 	if (rv < 0)
 		return ENOMEM;
 
-	/* Replace middling '@' signs with '.', which is allowed in Z80 asm */
+	/* Replace middling '@' signs with '_', which is allowed in Z80 asm */
 	cp = ident;
 	while (*cp != '\0') {
 		if (*cp == '@')
-			*cp = '.';
+			*cp = '_';
 		++cp;
 	}
 
@@ -161,6 +162,8 @@ static void z80_isel_scan_oper_used_vrs(z80_isel_proc_t *isproc,
 
 	switch (oper->optype) {
 	case iro_imm:
+		break;
+	case iro_list:
 		oplist = (ir_oper_list_t *) oper->ext;
 		entry = ir_oper_list_first(oplist);
 		while (entry != NULL) {
@@ -168,7 +171,6 @@ static void z80_isel_scan_oper_used_vrs(z80_isel_proc_t *isproc,
 			entry = ir_oper_list_next(entry);
 		}
 		break;
-	case iro_list:
 	case iro_var:
 		opvar = (ir_oper_var_t *) oper->ext;
 		if (opvar->varname[0] == '%' && opvar->varname[1] >= '0' &&
@@ -5521,6 +5523,24 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 
 		off += 2;
 		lvar = ir_proc_next_lvar(lvar);
+	}
+
+	/* If there are any local variables */
+	if (off > 0) {
+		/* Add a special %@end entry to denote total size of variables */
+		rc = z80_isel_mangle_lvar_ident(irproc->ident, "%@end",
+		    &icident);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_lvar_create(icident, off, &icvar);
+		if (rc != EOK)
+			goto error;
+
+		z80ic_proc_append_lvar(icproc, icvar);
+
+		free(icident);
+		icident = NULL;
 	}
 
 	return EOK;

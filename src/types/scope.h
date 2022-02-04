@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -50,8 +50,14 @@ typedef enum {
 /** Scope member - function argument */
 typedef struct {
 	/** Argument IR variable identifier (e.g. '%0', '%1', etc.) */
-	const char *vident;
+	char *vident;
 } scope_member_arg_t;
+
+/** Scope member - local variable */
+typedef struct {
+	/** IR variable identifier (e.g. '%foo') */
+	char *vident;
+} scope_member_lvar_t;
 
 /** Scope member */
 typedef struct {
@@ -65,6 +71,7 @@ typedef struct {
 	scope_member_type_t mtype;
 	union {
 		scope_member_arg_t arg;
+		scope_member_lvar_t lvar;
 	} m;
 } scope_member_t;
 

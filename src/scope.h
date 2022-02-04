@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@ extern int scope_create(scope_t *, scope_t **);
 extern void scope_destroy(scope_t *);
 extern int scope_insert_gsym(scope_t *, const char *);
 extern int scope_insert_arg(scope_t *, const char *, const char *);
-extern int scope_insert_lvar(scope_t *, const char *);
+extern int scope_insert_lvar(scope_t *, const char *, const char *);
 extern scope_member_t *scope_first(scope_t *);
 extern scope_member_t *scope_next(scope_member_t *);
 extern scope_member_t *scope_lookup_local(scope_t *, const char *);

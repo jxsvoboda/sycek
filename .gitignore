@@ -3,6 +3,10 @@
 /ccheck-hos
 /syc
 /syc-hos
+/example/mul16.asm
+/example/mul16.bin
+/example/mul16.map
+/example/mul16.tap
 /example/test.asm
 /example/test.bin
 /example/test.map

@@ -2347,7 +2347,7 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	size_t varsize;
 	int rc;
 
-	/* Last variable should be @end denoting total size of local variables */
+	/* Last variable should be __end denoting total size of local variables */
 	lvar = z80ic_proc_last_lvar(vrproc);
 	if (lvar != NULL) {
 		varsize = lvar->off;

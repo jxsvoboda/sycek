@@ -1,0 +1,1 @@
+<test/syc/bad/duplvar.c:7:9-11:'int'>: Duplicate identifier 'a'.
