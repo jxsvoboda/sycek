@@ -509,15 +509,15 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	if (rc != EOK)
 		goto error;
 
-	/* Operand 1 */
+	/* Operand 1 (optional) */
 
-	rc = ir_parser_match(parser, itt_comma);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_parser_process_oper(parser, &instr->op1);
-	if (rc != EOK)
-		goto error;
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_comma) {
+		ir_parser_skip(parser);
+		rc = ir_parser_process_oper(parser, &instr->op1);
+		if (rc != EOK)
+			goto error;
+	}
 
 	/* Operand 2 (optional) */
 
