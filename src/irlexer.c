@@ -697,6 +697,9 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'i' && p[2] == 'l' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_nil, 3, tok);
 		}
+		if (p[1] == 'o' && p[2] == 'p' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_nop, 3, tok);
+		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'o':
 		if (p[1] == 'r' && !is_idcnt(p[2])) {
@@ -883,6 +886,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'neq'";
 	case itt_nil:
 		return "'nil'";
+	case itt_nop:
+		return "'nop'";
 	case itt_or:
 		return "'or'";
 	case itt_proc:

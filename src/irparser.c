@@ -431,6 +431,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_neq:
 		instr->itype = iri_neq;
 		break;
+	case itt_nop:
+		instr->itype = iri_nop;
+		break;
 	case itt_or:
 		instr->itype = iri_or;
 		break;

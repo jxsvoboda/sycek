@@ -4541,6 +4541,42 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR nop instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR nop instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_nop(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_nop_t *nop = NULL;
+	int rc;
+
+	(void) isproc;
+
+	assert(irinstr->itype == iri_nop);
+
+	/* nop */
+
+	rc = z80ic_nop_create(&nop);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, label, &nop->instr);
+	if (rc != EOK)
+		goto error;
+
+	nop = NULL;
+	return EOK;
+error:
+	if (nop != NULL)
+		z80ic_instr_destroy(&nop->instr);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR or instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -5220,6 +5256,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_mul(isproc, label, irinstr, lblock);
 	case iri_neq:
 		return z80_isel_neq(isproc, label, irinstr, lblock);
+	case iri_nop:
+		return z80_isel_nop(isproc, label, irinstr, lblock);
 	case iri_or:
 		return z80_isel_or(isproc, label, irinstr, lblock);
 	case iri_read:

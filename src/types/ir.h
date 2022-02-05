@@ -40,12 +40,12 @@ typedef enum {
 	iri_bnot,
 	/** Call */
 	iri_call,
-	/** Shift left */
-	iri_shl,
-	/** Shift right */
-	iri_shr,
-	/** Subtraction */
-	iri_sub,
+	/** Equal */
+	iri_eq,
+	/** Greater than */
+	iri_gt,
+	/** Greater than or equal */
+	iri_gteq,
 	/** Introduce immediate value */
 	iri_imm,
 	/** Jump */
@@ -62,22 +62,24 @@ typedef enum {
 	iri_lteq,
 	/** Get ponter to local variable */
 	iri_lvarptr,
-	/** Greater than */
-	iri_gt,
-	/** Greater than or equal */
-	iri_gteq,
-	/** Equal */
-	iri_eq,
-	/** Not equal */
-	iri_neq,
 	/** Multiplication */
 	iri_mul,
+	/** Not equal */
+	iri_neq,
+	/** No operation */
+	iri_nop,
 	/** Binary OR */
 	iri_or,
 	/** Read from memory */
 	iri_read,
 	/** Return value */
 	iri_retv,
+	/** Shift left */
+	iri_shl,
+	/** Shift right */
+	iri_shr,
+	/** Subtraction */
+	iri_sub,
 	/** Get pointer to global variable */
 	iri_varptr,
 	/** Write to memory */

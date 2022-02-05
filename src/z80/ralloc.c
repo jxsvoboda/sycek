@@ -674,6 +674,38 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 no operation instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrnop No operation instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_nop(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_nop_t *vrnop, z80ic_lblock_t *lblock)
+{
+	z80ic_nop_t *nop = NULL;
+	int rc;
+
+	(void) raproc;
+	(void) vrnop;
+
+	rc = z80ic_nop_create(&nop);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, label, &nop->instr);
+	if (rc != EOK)
+		goto error;
+
+	nop = NULL;
+	return EOK;
+error:
+	if (nop != NULL)
+		z80ic_instr_destroy(&nop->instr);
+	return rc;
+}
+
 /** Allocate registers for Z80 increment register pair instruction.
  *
  * @param raproc Register allocator for procedure
@@ -2026,6 +2058,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_cpl:
 		return z80_ralloc_cpl(raproc, label,
 		    (z80ic_cpl_t *) vrinstr->ext, lblock);
+	case z80i_nop:
+		return z80_ralloc_nop(raproc, label,
+		    (z80ic_nop_t *) vrinstr->ext, lblock);
 	case z80i_inc_ss:
 		return z80_ralloc_inc_ss(raproc, label,
 		    (z80ic_inc_ss_t *) vrinstr->ext, lblock);

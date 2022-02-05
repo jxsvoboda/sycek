@@ -98,6 +98,7 @@ extern int z80ic_xor_iixd_create(z80ic_xor_iixd_t **);
 extern int z80ic_inc_iixd_create(z80ic_inc_iixd_t **);
 extern int z80ic_dec_iixd_create(z80ic_dec_iixd_t **);
 extern int z80ic_cpl_create(z80ic_cpl_t **);
+extern int z80ic_nop_create(z80ic_nop_t **);
 extern int z80ic_add_hl_ss_create(z80ic_add_hl_ss_t **);
 extern int z80ic_sbc_hl_ss_create(z80ic_sbc_hl_ss_t **);
 extern int z80ic_add_ix_pp_create(z80ic_add_ix_pp_t **);

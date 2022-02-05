@@ -2123,6 +2123,52 @@ static void z80ic_cpl_destroy(z80ic_cpl_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC no operation instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_nop_create(z80ic_nop_t **rinstr)
+{
+	z80ic_nop_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_nop_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_nop;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC no operation instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_nop_print(z80ic_nop_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("nop", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC no operation instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_nop_destroy(z80ic_nop_t *instr)
+{
+	(void) instr;
+}
+
 /** Create Z80 IC add 16-bit ss register to HL instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -4206,6 +4252,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_cpl:
 		rc = z80ic_cpl_print((z80ic_cpl_t *) instr->ext, f);
 		break;
+	case z80i_nop:
+		rc = z80ic_nop_print((z80ic_nop_t *) instr->ext, f);
+		break;
 	case z80i_add_hl_ss:
 		rc = z80ic_add_hl_ss_print((z80ic_add_hl_ss_t *) instr->ext, f);
 		break;
@@ -4423,6 +4472,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_cpl:
 		z80ic_cpl_destroy((z80ic_cpl_t *) instr->ext);
+		break;
+	case z80i_nop:
+		z80ic_nop_destroy((z80ic_nop_t *) instr->ext);
 		break;
 	case z80i_sbc_hl_ss:
 		z80ic_sbc_hl_ss_destroy((z80ic_sbc_hl_ss_t *) instr->ext);

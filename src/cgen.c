@@ -4001,7 +4001,7 @@ error:
 /** Generate code for declaration statement.
  *
  * @param cgproc Code generator for procedure
- * @param stexpr AST declaration statement
+ * @param stdecln AST declaration statement
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
@@ -4128,6 +4128,38 @@ error:
 	return rc;
 }
 
+/** Generate code for null statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stnull AST nullstatement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_stnull(cgen_proc_t *cgproc, ast_stnull_t *stnull,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	int rc;
+
+	(void) cgproc;
+	(void) stnull;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_nop;
+	instr->dest = NULL;
+	instr->op1 = NULL;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	return rc;
+}
+
 /** Generate code for statement.
  *
  * @param cgproc Code generator for procedure
@@ -4186,6 +4218,8 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_stdecln(cgproc, (ast_stdecln_t *) stmt->ext, lblock);
 		break;
 	case ant_stnull:
+		rc = cgen_stnull(cgproc, (ast_stnull_t *) stmt->ext, lblock);
+		break;
 	case ant_lmacro:
 	case ant_block:
 		atok = ast_tree_first_tok(stmt);

@@ -75,6 +75,7 @@ typedef enum {
 	itt_mul,
 	itt_neq,
 	itt_nil,
+	itt_nop,
 	itt_or,
 	itt_proc,
 	itt_read,
