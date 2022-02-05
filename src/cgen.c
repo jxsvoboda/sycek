@@ -45,6 +45,7 @@ static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
 static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
+static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 
 /** Prefix identifier with '@' global variable prefix.
  *
@@ -4305,13 +4306,15 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_stnull(cgproc, (ast_stnull_t *) stmt->ext, lblock);
 		break;
 	case ant_lmacro:
-	case ant_block:
 		atok = ast_tree_first_tok(stmt);
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This statement type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
+		break;
+	case ant_block:
+		rc = cgen_gn_block(cgproc, (ast_block_t *) stmt->ext, lblock);
 		break;
 	default:
 		assert(false);
@@ -4366,6 +4369,30 @@ error:
 	}
 
 	return rc;
+}
+
+/** Generate code for gratuitous nested block.
+ *
+ * @param cgproc Code generator for procedure
+ * @param block AST block
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_gn_block(cgen_proc_t *cgproc, ast_block_t *block,
+    ir_lblock_t *lblock)
+{
+	comp_tok_t *tok;
+
+	/* Gratuitous nested block always has braces */
+	assert(block->braces);
+
+	tok = (comp_tok_t *) block->topen.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Gratuitous nested block.\n");
+	++cgproc->cgen->warnings;
+
+	return cgen_block(cgproc, block, lblock);
 }
 
 /** Generate code for function definition.

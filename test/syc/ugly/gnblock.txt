@@ -1,0 +1,2 @@
+<test/syc/ugly/gnblock.c:9:9:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/gnblock.c:10:17-19:'int'>: Warning: Declaration of 'a' shadows a wider-scope declaration.
