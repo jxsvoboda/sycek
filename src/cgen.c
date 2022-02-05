@@ -151,6 +151,90 @@ static unsigned cgen_new_label_num(cgen_proc_t *cgproc)
 	return cgproc->next_label++;
 }
 
+/** Find local variable in procedure by name.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ident C variable identifier
+ * @return IR local variable or @c NULL if not found
+ */
+static ir_lvar_t *cgen_proc_find_lvar(cgen_proc_t *cgproc, const char *ident)
+{
+	ir_lvar_t *lvar;
+
+	lvar = ir_proc_first_lvar(cgproc->irproc);
+	while (lvar != NULL) {
+		if (strcmp(lvar->ident, ident) == 0)
+			return lvar;
+
+		lvar = ir_proc_next_lvar(lvar);
+	}
+
+	return NULL;
+}
+
+/** Create new local variable name.
+ *
+ * Since in C any number of variables of the same name can be declared
+ * in the same function (in adjacent / nested blocks), we need to append
+ * a number in case of conflict.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ident C variable identifier
+ * @param rname Place to store pointer to new variable name
+ * @return EOK on success or an error code
+ */
+static int cgen_create_loc_var_name(cgen_proc_t *cgproc, const char *ident,
+    char **rname)
+{
+	char *vident = NULL;
+	ir_lvar_t *lvar;
+	int version;
+	int rv;
+	int rc;
+
+	rv = asprintf(&vident, "%%%s", ident);
+	if (rv < 0) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	lvar = cgen_proc_find_lvar(cgproc, vident);
+	if (lvar == NULL) {
+		*rname = vident;
+		return EOK;
+	}
+
+	version = 1;
+	while (lvar != NULL) {
+		free(vident);
+		vident = NULL;
+
+		/*
+		 * Due to the limitations of Z80asm identifiers we
+		 * cannot render this as %name@version, because
+		 * we would not be able to mangle it ouside of
+		 * C variable namespace. Therefore %version@name
+		 * (C variables cannot start with a a number).
+		 *
+		 * Once we are free of the shackles of Z80asm,
+		 * we can flip this around.
+		 */
+		rv = asprintf(&vident, "%%%d@%s", version, ident);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		++version;
+		lvar = cgen_proc_find_lvar(cgproc, vident);
+	}
+
+	*rname = vident;
+	return EOK;
+error:
+	return rc;
+}
+
 /** Create new local label.
  *
  * @param cgproc Code generator for procedure
@@ -4017,7 +4101,6 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	char *vident = NULL;
 	ir_lvar_t *lvar;
 	scope_member_t *member;
-	int rv;
 	int rc;
 
 	(void) lblock;
@@ -4089,8 +4172,9 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			++cgproc->cgen->warnings;
 		}
 
-		rv = asprintf(&vident, "%%%s", ident->tok.text);
-		if (rv < 0) {
+		/* Generate an IR variable name */
+		rc = cgen_create_loc_var_name(cgproc, ident->tok.text, &vident);
+		if (rc != EOK) {
 			rc = ENOMEM;
 			goto error;
 		}
@@ -4249,7 +4333,17 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
     ir_lblock_t *lblock)
 {
 	ast_node_t *stmt;
+	scope_t *block_scope = NULL;
 	int rc;
+
+	rc = scope_create(cgproc->cur_scope, &block_scope);
+	if (rc != EOK) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	/* Enter block scope */
+	cgproc->cur_scope = block_scope;
 
 	stmt = ast_block_first(block);
 	while (stmt != NULL) {
@@ -4260,7 +4354,18 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 		stmt = ast_block_next(stmt);
 	}
 
+	/* Leave block scope */
+	cgproc->cur_scope = block_scope->parent;
+	scope_destroy(block_scope);
 	return EOK;
+error:
+	if (block_scope != NULL) {
+		/* Leave block scope */
+		cgproc->cur_scope = block_scope->parent;
+		scope_destroy(block_scope);
+	}
+
+	return rc;
 }
 
 /** Generate code for function definition.
