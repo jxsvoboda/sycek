@@ -305,6 +305,18 @@ int bor_assign(void)
 	a |= b;
 }
 
+/* Preincrement */
+int preinc(void)
+{
+	return ++a;
+}
+
+/* Predecrement */
+int predec(void)
+{
+	return --a;
+}
+
 /* Local variables */
 int lvars(void)
 {
