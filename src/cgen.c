@@ -3281,6 +3281,69 @@ error:
 	return rc;
 }
 
+/** Generate code for unary sign expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eusign AST unary sign expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *barg = NULL;
+	cgen_eres_t bres;
+	int rc;
+
+	/* Evaluate base expression */
+	rc = cgen_expr_rvalue(cgproc, eusign->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	if (eusign->usign == aus_minus) {
+		/* neg %<dest>, %<bres> */
+
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_create_new_lvar_oper(cgproc, &dest);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(bres.varname, &barg);
+		if (rc != EOK)
+			goto error;
+
+		instr->itype = iri_neg;
+		instr->width = 16;
+		instr->dest = &dest->oper;
+		instr->op1 = &barg->oper;
+		instr->op2 = NULL;
+
+		ir_lblock_append(lblock, NULL, instr);
+		instr = NULL;
+
+		eres->varname = dest->varname;
+		eres->valtype = cgen_rvalue;
+	} else {
+		eres->varname = bres.varname;
+		eres->valtype = cgen_rvalue;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (barg != NULL)
+		ir_oper_destroy(&barg->oper);
+	return rc;
+}
+
 /** Generate code for logical not expression.
  *
  * @param cgproc Code generator for procedure
@@ -3774,13 +3837,16 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 	case ant_ecliteral:
 	case ant_emember:
 	case ant_eindmember:
-	case ant_eusign:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
+		break;
+	case ant_eusign:
+		rc = cgen_eusign(cgproc, (ast_eusign_t *) expr->ext, lblock,
+		    eres);
 		break;
 	case ant_elnot:
 		rc = cgen_elnot(cgproc, (ast_elnot_t *) expr->ext, lblock,

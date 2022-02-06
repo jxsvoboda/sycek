@@ -64,6 +64,8 @@ typedef enum {
 	iri_lvarptr,
 	/** Multiplication */
 	iri_mul,
+	/** Negate */
+	iri_neg,
 	/** Not equal */
 	iri_neq,
 	/** No operation */

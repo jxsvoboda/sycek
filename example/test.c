@@ -341,6 +341,18 @@ int comma(void)
 	return 1, 2;
 }
 
+/* Unary plus */
+int uplus(void)
+{
+	return +a;
+}
+
+/* Unary minus */
+int uminus(void)
+{
+	return -a;
+}
+
 /* Local variables */
 int lvars(void)
 {

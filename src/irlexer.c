@@ -691,6 +691,9 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'n':
+		if (p[1] == 'e' && p[2] == 'g' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_neg, 3, tok);
+		}
 		if (p[1] == 'e' && p[2] == 'q' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_neq, 3, tok);
 		}
@@ -882,6 +885,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'lvarptr'";
 	case itt_mul:
 		return "'mul'";
+	case itt_neg:
+		return "'neg'";
 	case itt_neq:
 		return "'neq'";
 	case itt_nil:
