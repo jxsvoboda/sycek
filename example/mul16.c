@@ -23,7 +23,7 @@ int mul(int a, int b)
 	j = b;
 	s = 0;
 
-	for (cnt = 0; cnt < 16; cnt+=1) {
+	for (cnt = 0; cnt < 16; cnt++) {
 		if (i & 1)
 			s += j;
 		i >>= 1;

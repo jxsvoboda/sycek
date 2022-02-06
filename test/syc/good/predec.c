@@ -6,5 +6,5 @@ int a;
 
 int predec(void)
 {
-	++a;
+	--a;
 }

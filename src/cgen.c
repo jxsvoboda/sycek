@@ -3508,6 +3508,161 @@ error:
 	return rc;
 }
 
+/** Generate code for postadjustment expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param epostadj AST postadjustment expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *baddr = NULL;
+	ir_oper_var_t *bval = NULL;
+	ir_oper_imm_t *imm = NULL;
+	ir_oper_var_t *adj = NULL;
+	ir_oper_var_t *res = NULL;
+	cgen_eres_t bres;
+	char *bvalvn;
+	char *adjvn;
+	char *resvn;
+	int rc;
+
+	/* Evaluate base expression as lvalue */
+
+	rc = cgen_expr_lvalue(cgproc, epostadj->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* read %bval, %bres */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &bval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &baddr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &bval->oper;
+	instr->op1 = &baddr->oper;
+	instr->op2 = NULL;
+	bvalvn = bval->varname;
+	bval = NULL;
+	baddr = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* imm.16 %adj, 1 */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &adj);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(1, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &adj->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+	adjvn = adj->varname;
+	adj = NULL;
+	imm = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* add/sub %res, %bval, %adj */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &res);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bvalvn, &bval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(adjvn, &adj);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = epostadj->adj == aat_inc ? iri_add : iri_sub;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &res->oper;
+	instr->op1 = &bval->oper;
+	instr->op2 = &adj->oper;
+	resvn = res->varname;
+	res = NULL;
+	bval = NULL;
+	adj = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* write nil, %baddr, %res */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &baddr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(resvn, &res);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &baddr->oper;
+	instr->op2 = &res->oper;
+	baddr = NULL;
+	res = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	eres->varname = bvalvn;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (baddr != NULL)
+		ir_oper_destroy(&baddr->oper);
+	if (bval != NULL)
+		ir_oper_destroy(&bval->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	if (adj != NULL)
+		ir_oper_destroy(&adj->oper);
+	if (res != NULL)
+		ir_oper_destroy(&res->oper);
+	return rc;
+}
+
 /** Generate code for expression.
  *
  * @param cgproc Code generator for procedure
@@ -3597,12 +3752,8 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_epostadj:
-		atok = ast_tree_first_tok(expr);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+		rc = cgen_epostadj(cgproc, (ast_epostadj_t *) expr->ext, lblock,
+		    eres);
 		break;
 	default:
 		assert(false);

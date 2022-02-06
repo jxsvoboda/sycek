@@ -317,6 +317,18 @@ int predec(void)
 	return --a;
 }
 
+/* Postincrement */
+int postinc(void)
+{
+	return a++;
+}
+
+/* Postdecrement */
+int postdec(void)
+{
+	return a--;
+}
+
 /* Local variables */
 int lvars(void)
 {
