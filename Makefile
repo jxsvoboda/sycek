@@ -39,6 +39,7 @@ sources_common = \
     src/ast.c \
     src/file_input.c \
     src/str_input.c \
+    src/charcls.c \
     src/lexer.c \
     src/parser.c \
     src/src_pos.c

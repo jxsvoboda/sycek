@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <ast.h>
+#include <charcls.h>
 #include <comp.h>
 #include <cgen.h>
 #include <ir.h>
@@ -82,13 +83,38 @@ static int cgen_intlit_val(comp_tok_t *tlit, int32_t *rval)
 	int32_t val;
 
 	val = 0;
-	while (*text != '\0') {
-		if (*text < '0' || *text > '9')
-			return EINVAL;
 
-		val = val * 10 + (*text - '0');
+	if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+		text += 2;
+
+		/* Hexadecimal */
+		while (is_hexdigit(*text)) {
+			if (is_num(*text))
+				val = val * 16 + (*text - '0');
+			else if (*text >= 'a' && *text <= 'f')
+				val = val * 16 + 10 + (*text - 'a');
+			else
+				val = val * 16 + 10 + (*text - 'A');
+			++text;
+		}
+	} else if (text[0] == '0' && is_num(text[1])) {
 		++text;
+		/* Octal */
+		while (is_octdigit(*text)) {
+			val = val * 8 + (*text - '0');
+			++text;
+		}
+	} else {
+		/* Decimal */
+		while (is_num(*text)) {
+			val = val * 10 + (*text - '0');
+			++text;
+		}
 	}
+
+	// XXX Support suffixes
+	if (*text != '\0')
+		return EINVAL;
 
 	*rval = val;
 	return EOK;
@@ -367,8 +393,12 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 
 	lit = (comp_tok_t *) eint->tlit.data;
 	rc = cgen_intlit_val(lit, &val);
-	if (rc != EOK)
+	if (rc != EOK) {
+		lexer_dprint_tok(&lit->tok, stderr);
+		fprintf(stderr, ": Invalid integer literal.\n");
+		cgproc->cgen->error = true; // TODO
 		goto error;
+	}
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4695,8 +4725,12 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 
 		lit = (comp_tok_t *) eint->tlit.data;
 		rc = cgen_intlit_val(lit, &initval);
-		if (rc != EOK)
+		if (rc != EOK) {
+			lexer_dprint_tok(&lit->tok, stderr);
+			fprintf(stderr, ": Invalid integer literal.\n");
+			cgen->error = true; // TODO
 			goto error;
+		}
 	} else {
 		/* Initialize with zero (TODO: uninitialized?) */
 		initval = 0;

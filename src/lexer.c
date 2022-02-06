@@ -27,6 +27,7 @@
  */
 
 #include <assert.h>
+#include <charcls.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -67,141 +68,6 @@ void lexer_destroy(lexer_t *lexer)
 		return;
 
 	free(lexer);
-}
-
-/** Determine if character is a letter (C language)
- *
- * @param c Character
- *
- * @return @c true if c is a letter (C language), @c false otherwise
- */
-static bool is_alpha(char c)
-{
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-}
-
-/** Determine if character is a number (C language)
- *
- * @param c Character
- *
- * @return @c true if @a c is a number (C language), @c false otherwise
- */
-static bool is_num(char c)
-{
-	return (c >= '0' && c <= '9');
-}
-
-/** Determine if character is alphanumeric (C language)
- *
- * @param c Character
- *
- * @return @c true if @a c is alphanumeric (C language), @c false otherwise
- */
-static bool is_alnum(char c)
-{
-	return is_alpha(c) || is_num(c);
-}
-
-/** Determine if character is an octal digit
- *
- * @param c Character
- *
- * @return @c true if @a c is a octal digit, @c false otherwise
- */
-static bool is_octdigit(char c)
-{
-	return c >= '0' && c <= '7';
-}
-
-/** Determine if character is a hexadecimal digit
- *
- * @param c Character
- *
- * @return @c true if @a c is a hexadecimal digit, @c false otherwise
- */
-static bool is_hexdigit(char c)
-{
-	return is_num(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
-}
-
-/** Determine if character is a digit in the specified base
- *
- * @param c Character
- * @param b Base (8, 10 or 16)
- *
- * @return @c true if @a c is a hexadecimal digit, @c false otherwise
- */
-static bool is_digit(char c, int base)
-{
-	switch (base) {
-	case 8:
-		return is_octdigit(c);
-	case 10:
-		return is_num(c);
-	case 16:
-		return is_hexdigit(c);
-	default:
-		assert(false);
-		return false;
-	}
-}
-
-/** Determine if character can begin a C identifier
- *
- * @param c Character
- *
- * @return @c true if @a c can begin a C identifier, @c false otherwise
- */
-static bool is_idbegin(char c)
-{
-	return is_alpha(c) || (c == '_');
-}
-
-/** Determine if character can continue a C identifier
- *
- * @param c Character
- *
- * @return @c true if @a c can continue a C identifier, @c false otherwise
- */
-static bool is_idcnt(char c)
-{
-	return is_alnum(c) || (c == '_');
-}
-
-/** Determine if character is printable.
- *
- * A character that is part of a multibyte sequence is not printable.
- * @note This function assumes that the input is ASCII/UTF-8
- * @param c Character
- * @return @c true iff the character is printable
- */
-static bool is_print(char c)
-{
-	uint8_t b;
-
-	b = (uint8_t) c;
-	return (b >= 32) && (b < 127);
-}
-
-/** Determine if character is a forbidden control character.
- *
- * This can only determine basic ASCII control characters.
- * Only allowed control characters are Tab, Line Feed (a.k.a. newline).
- *
- * @return @c true iff the character is a forbidden control character
- */
-static bool is_bad_ctrl(char c)
-{
-	uint8_t b;
-
-	b = (uint8_t) c;
-
-	if (b < 32 && b != '\t' && b != '\n')
-		return true;
-	if (b == 127)
-		return true;
-
-	return false;
 }
 
 /** Get valid pointer to characters in input buffer.
