@@ -621,6 +621,20 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	return rc;
 }
 
+/** Generate code for parenthesized expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eparen AST parenthesized expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eparen(cgen_proc_t *cgproc, ast_eparen_t *eparen,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	return cgen_expr(cgproc, eparen->bexpr, lblock, eres);
+}
+
 /** Generate code for addition expression.
  *
  * @param cgproc Code generator for procedure
@@ -3698,6 +3712,9 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_eparen:
+		rc = cgen_eparen(cgproc, (ast_eparen_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_econcat:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;

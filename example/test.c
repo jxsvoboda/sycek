@@ -329,6 +329,12 @@ int postdec(void)
 	return a--;
 }
 
+/* Parenthesized expression */
+int paren(void)
+{
+	return (1);
+}
+
 /* Local variables */
 int lvars(void)
 {
