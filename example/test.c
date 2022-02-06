@@ -335,6 +335,12 @@ int paren(void)
 	return (1);
 }
 
+/* Comma expression */
+int comma(void)
+{
+	return 1, 2;
+}
+
 /* Local variables */
 int lvars(void)
 {

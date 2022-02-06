@@ -3145,6 +3145,29 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	return EINVAL;
 }
 
+/** Generate code for comma expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ecomma AST comma expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ecomma(cgen_proc_t *cgproc, ast_ecomma_t *ecomma,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	int rc;
+
+	/* Evaluate and forget left argument */
+	rc = cgen_expr(cgproc, ecomma->larg, lblock, &lres);
+	if (rc != EOK)
+		return rc;
+
+	/* Evaluate and return right argument */
+	return cgen_expr(cgproc, ecomma->rarg, lblock, eres);
+}
+
 /** Generate code for call expression.
  *
  * @param cgproc Code generator for procedure
@@ -3728,13 +3751,16 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_etcond:
-	case ant_ecomma:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
+		break;
+	case ant_ecomma:
+		rc = cgen_ecomma(cgproc, (ast_ecomma_t *) expr->ext, lblock,
+		    eres);
 		break;
 	case ant_ecall:
 		rc = cgen_ecall(cgproc, (ast_ecall_t *) expr->ext, lblock,
