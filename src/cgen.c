@@ -3281,6 +3281,31 @@ error:
 	return rc;
 }
 
+/** Generate code for dereference expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ederef AST dereference expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t bres;
+	int rc;
+
+	/* Evaluate expression as rvalue */
+	rc = cgen_expr_rvalue(cgproc, ederef->bexpr, lblock, &bres);
+	if (rc != EOK)
+		return rc;
+
+	/* Return address as lvalue */
+	eres->varname = bres.varname;
+	eres->valtype = cgen_lvalue;
+	return EOK;
+}
+
 /** Generate code for unary sign expression.
  *
  * @param cgproc Code generator for procedure
@@ -3830,7 +3855,17 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_eindex:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_ederef:
+		rc = cgen_ederef(cgproc, (ast_ederef_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_eaddr:
 	case ant_esizeof:
 	case ant_ecast:

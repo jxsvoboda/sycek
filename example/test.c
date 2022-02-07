@@ -395,6 +395,15 @@ int hexabcd = 0xabcd;
 /* 43981 in hex */
 int hexABCD = 0xABCD;
 
+int fillscr(void)
+{
+	int i;
+
+	for (i = 0; i < 0x1800; i+=2)
+		*(0x4000 + i) = 0xffff;
+	return 0;
+}
+
 int main(void)
 {
 	return 0;
