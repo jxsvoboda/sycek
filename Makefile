@@ -141,10 +141,22 @@ test_syc_vg_outs = \
 test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
     test/syc/all.diff
-example_outs = example/lib.o example/test.asm example/test.o example/test.bin \
-    example/test.map example/test.tap example/test.ir example/test.vric \
-    example/test.ir.ir example/test.ir.asm example/mul16.asm example/mul16.bin \
-    example/mul16.map example/mul16.tap
+
+example_srcs = \
+	example/mul16.c \
+	example/test.c
+example_asms = $(example_srcs:.c=.asm)
+example_bins = $(example_asms:.asm=.bin)
+example_os = $(example_asms:.asm=.o)
+example_maps = $(example_asms:.asm=.map)
+example_taps = $(example_asms:.asm=.tap)
+example_irs = $(example_srcs:.c=.ir)
+example_vrics = $(example_srcs:.c=.vric)
+example_irirs = $(example_srcs:.c=.ir.ir)
+example_irasms = $(example_irirs:.ir.ir=.ir.asm)
+example_outs = example/lib.o $(example_asms) $(example_os) $(example_bins) \
+    $(example_maps) $(example_taps) $(example_irs) $(example_vrics) \
+    $(example_irirs) $(example_irasms)
 
 all: $(binary_ccheck) $(binary_syc)
 
@@ -281,35 +293,23 @@ test/selfcheck.out: $(ccheck)
 #
 # Compiler example
 #
-example/test.asm: example/test.c $(syc)
+example/%.asm: example/%.c $(syc)
 	$(syc) $<
-example/test.ir: example/test.c $(syc)
+example/%.ir: example/%.c $(syc)
 	$(syc) --dump-ir $< >$@
-example/test.ir.ir: example/test.ir
+example/%.ir.ir: example/%.ir
 	cp $< $@
-example/test.ir.asm: example/test.ir.ir $(syc)
+example/%.ir.asm: example/%.ir.ir $(syc)
 	$(syc) $<
-example/test.vric: example/test.c $(syc)
+example/%.vric: example/%.c $(syc)
 	$(syc) --dump-vric $< >$@
-example/test.bin: example/test.asm example/lib.asm
+example/%.bin: example/%.asm example/lib.asm
 	z80asm +zx --origin=32768 -b -m $^
-example/test.tap: example/test.bin
+example/%.tap: example/%.bin
 	appmake +zx --org=32768 -b $<
 
-example/mul16.asm: example/mul16.c $(syc)
-	$(syc) $<
-example/mul16.ir: example/mul16.c $(syc)
-	$(syc) --dump-ir $< >$@
-example/mul16.vric: example/mul16.c $(syc)
-	$(syc) --dump-vric $< >$@
-example/mul16.bin: example/mul16.asm
-	z80asm +zx --origin=32768 -b -m $^
-example/mul16.tap: example/mul16.bin
-	appmake +zx --org=32768 -b $<
-
-
-examples: example/test.tap example/test.ir example/test.vric \
-    example/test.ir.asm example/mul16.tap
+examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
+    $(example_irasms)
 
 #
 # Note that if any of the diffs is not empty, that diff command will
