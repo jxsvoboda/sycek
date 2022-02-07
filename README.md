@@ -213,8 +213,8 @@ preprocessor directives in the C source file) and outputs an .asm
 file in the end. This is supposed to be consumed by a Z80 assembler,
 such as z80asm from z88dk project.
 
-Running `syc` without arguments will print a syntax help. To compile
-the example C source file, type
+Running `syc` without arguments will print a syntax help. You can compile
+and example C source file by typing
 
     $ ./syc example/test.c
 
@@ -222,22 +222,38 @@ which will produce `example/test.asm`. (Note that the file **must** have
 a `.c` or `.C` extension). We can convert it to a tape file using tools from
 the z88dk project
 
-    $ z80asm +zx --origin=32768 -b -m example/test.asm
+    $ z80asm +zx --origin=32768 -b -m example/test.asm example/lib.asm
     $ appmake +zx --org=32768 -b example/test.bin
 
-Or you can just type `make examples` to build it automatically.
-This produces the file `example/test.tap`. We can transfer that to a real
-Spectrum or open it in an emulator (such as [GZX][4]). To load the binary
-use the BASIC command
+(Note that example/test.c, specifically, refres to an assembly function
+from example/lib.asm)
+
+You can just type `make examples` to build all the examples automatically.
+This produces a number of `.tap` files. We can transfer a `.tap` file to a real
+Spectrum or open it in an emulator (such as [GZX][4]).
+
+For example, select the `fillscr.tap` tape file and load it using the
+BASIC command
+
+    LOAD ""
+
+This will load the binary and execute its main function, filling the screen
+with black pixels.
+
+The `example/test.c` file's main function does nothing interesting, instead
+it contains a number of functions that can be individually executed as
+User Service Routines. Let's take the add_const() function as an example.
+
+Select the tape file `example/test.tap` and load it using the basic command
 
     LOAD ""CODE
 
 this skips the BASIC loader and loads just the machine code block.
 Consult the file `example/test.map` to determine the address where
-the function `add` starts at and convert it from hex to decimal.
+the function `add_const` starts at and convert it from hex to decimal.
 Let's say it starts at address 0x802a = 32810. This function computes
 the value of the expression 1 + 2 + 3 and returns it in the BC register,
-so it can be used as a User Service Routine. We can test it with
+where BASIC expects value from the USR. We can test it with
 the basic command
 
     PRINT USR 32810

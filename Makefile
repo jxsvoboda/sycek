@@ -143,6 +143,7 @@ test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     test/syc/all.diff
 
 example_srcs = \
+	example/fillscr.c \
 	example/mul16.c \
 	example/test.c
 example_asms = $(example_srcs:.c=.asm)

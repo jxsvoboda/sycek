@@ -3,6 +3,7 @@
 /ccheck-hos
 /syc
 /syc-hos
+/example/fillscr.asm
 /example/mul16.asm
 /example/test.asm
 /example/*.bin
