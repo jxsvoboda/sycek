@@ -57,6 +57,8 @@ typedef struct {
 	struct scope *proc_scope;
 	/** Current (innermost) scope */
 	struct scope *cur_scope;
+	/** Current (innermost) switch */
+	struct cgen_switch *cur_switch;
 } cgen_proc_t;
 
 /** Value type.
@@ -86,5 +88,15 @@ typedef struct {
 	 */
 	cgen_valtype_t valtype;
 } cgen_eres_t;
+
+/** Code generator switch tracking record */
+typedef struct cgen_switch {
+	/** Outside switch statement */
+	struct cgen_switch *parent;
+	/** Name of variable containing case expression result */
+	const char *svarname;
+	/** Next case label */
+	char *nclabel;
+} cgen_switch_t;
 
 #endif

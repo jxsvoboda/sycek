@@ -79,6 +79,7 @@ extern int ir_lvar_print(ir_lvar_t *, FILE *);
 extern int ir_lblock_create(ir_lblock_t **);
 extern int ir_lblock_append(ir_lblock_t *, const char *, ir_instr_t *);
 extern int ir_lblock_print(ir_lblock_t *, FILE *);
+extern void ir_lblock_move_entries(ir_lblock_t *, ir_lblock_t *);
 extern void ir_lblock_destroy(ir_lblock_t *);
 extern ir_lblock_entry_t *ir_lblock_first(ir_lblock_t *);
 extern ir_lblock_entry_t *ir_lblock_next(ir_lblock_entry_t *);

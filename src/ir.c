@@ -1150,6 +1150,26 @@ int ir_lblock_print(ir_lblock_t *lblock, FILE *f)
 	return EOK;
 }
 
+/** Move/append IR labeled block entries to a different labeled block.
+ *
+ * @param slblock Source labeled block
+ * @param dlblock Destination labeled block
+ */
+void ir_lblock_move_entries(ir_lblock_t *slblock, ir_lblock_t *dlblock)
+{
+	ir_lblock_entry_t *entry;
+
+	entry = ir_lblock_first(slblock);
+	while (entry != NULL) {
+		list_remove(&entry->lentries);
+
+		entry->lblock = dlblock;
+		list_append(&entry->lentries, &dlblock->entries);
+
+		entry = ir_lblock_first(slblock);
+	}
+}
+
 /** Destroy IR labeled block.
  *
  * @param lblock Labeled block or @c NULL

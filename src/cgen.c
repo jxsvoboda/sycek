@@ -47,6 +47,8 @@ static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
+static int cgen_switch_create(cgen_switch_t *, cgen_switch_t **);
+static void cgen_switch_destroy(cgen_switch_t *);
 
 /** Prefix identifier with '@' global variable prefix.
  *
@@ -1658,7 +1660,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	dest = NULL;
 	imm = NULL;
 
-	/* jp %end_and */
+	/* jmp %end_and */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -1870,7 +1872,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	dest = NULL;
 	imm = NULL;
 
-	/* jp %end_or */
+	/* jmp %end_or */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4197,7 +4199,7 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 		if (rc != EOK)
 			goto error;
 
-		/* jp %end_if */
+		/* jmp %end_if */
 
 		rc = ir_instr_create(&instr);
 		if (rc != EOK)
@@ -4319,7 +4321,7 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	if (rc != EOK)
 		goto error;
 
-	/* jp %while */
+	/* jmp %while */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4530,7 +4532,7 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 			goto error;
 	}
 
-	/* jp %for */
+	/* jmp %for */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4565,6 +4567,233 @@ error:
 		free(flabel);
 	if (eflabel != NULL)
 		free(eflabel);
+	return rc;
+}
+
+/** Generate code for 'switch' statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aswitch AST switch statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
+    ir_lblock_t *lblock)
+{
+	cgen_eres_t eres;
+	unsigned lblno;
+	char *eslabel = NULL;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *larg = NULL;
+	cgen_switch_t *cgswitch = NULL;
+	int rc;
+
+	lblno = cgen_new_label_num(cgproc);
+
+	/* Create a new switch tracking record */
+
+	rc = cgen_switch_create(cgproc->cur_switch, &cgswitch);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_switch", lblno, &eslabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "case", lblno, &cgswitch->nclabel);
+	if (rc != EOK)
+		goto error;
+
+	/* Switch expression */
+
+	rc = cgen_expr_rvalue(cgproc, aswitch->sexpr, lblock, &eres);
+	if (rc != EOK)
+		goto error;
+
+	/* Skip over any code before the first case label */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cgswitch->nclabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* Set this as the innermost switch */
+	cgproc->cur_switch = cgswitch;
+
+	/* Switch expression result variable name */
+	cgswitch->svarname = eres.varname;
+
+	/* Body */
+
+	rc = cgen_block(cgproc, aswitch->body, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Final case label */
+
+	ir_lblock_append(lblock, cgswitch->nclabel, NULL);
+
+	/* label end_switch */
+
+	ir_lblock_append(lblock, eslabel, NULL);
+
+	cgproc->cur_switch = cgswitch->parent;
+	cgen_switch_destroy(cgswitch);
+
+	free(eslabel);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (eslabel != NULL)
+		free(eslabel);
+	if (cgswitch != NULL) {
+		cgproc->cur_switch = cgswitch->parent;
+		cgen_switch_destroy(cgswitch);
+	}
+	return rc;
+}
+
+/** Generate code for 'case' label.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aswitch AST switch statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
+    ir_lblock_t *lblock)
+{
+	cgen_eres_t cres;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	ir_oper_var_t *carg = NULL;
+	comp_tok_t *tok;
+	unsigned lblno;
+	char *dvarname;
+	int rc;
+
+	/* If there is no enclosing switch statement */
+	if (cgproc->cur_switch == NULL) {
+		tok = (comp_tok_t *) aclabel->tcase.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Case label without enclosing switch "
+		    "statement.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Insert previously generated label for this case statement */
+
+	ir_lblock_append(lblock, cgproc->cur_switch->nclabel, NULL);
+
+	free(cgproc->cur_switch->nclabel);
+	cgproc->cur_switch->nclabel = NULL;
+
+	/* Create label for next case */
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "case", lblno,
+	    &cgproc->cur_switch->nclabel);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate case expression */
+
+	// TODO Verify that the expression is constant
+
+	rc = cgen_expr_rvalue(cgproc, aclabel->cexpr, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	/* Compare values of switch and case */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cgproc->cur_switch->svarname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cres.varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_eq;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	dvarname = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* jnz %<dest>, %caseN+1 */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(dvarname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cgproc->cur_switch->nclabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jnz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
 	return rc;
 }
 
@@ -4798,7 +5027,11 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_for(cgproc, (ast_for_t *) stmt->ext, lblock);
 		break;
 	case ant_switch:
+		rc = cgen_switch(cgproc, (ast_switch_t *) stmt->ext, lblock);
+		break;
 	case ant_clabel:
+		rc = cgen_clabel(cgproc, (ast_clabel_t *) stmt->ext, lblock);
+		break;
 	case ant_glabel:
 		atok = ast_tree_first_tok(stmt);
 		tok = (comp_tok_t *) atok->data;
@@ -5432,4 +5665,37 @@ void cgen_destroy(cgen_t *cgen)
 
 	scope_destroy(cgen->scope);
 	free(cgen);
+}
+
+/** Create new code generator switch tracking record.
+ *
+ * @param parent Parent switch
+ * @param rscope Place to store pointer to new switch tracking record
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgen_switch_create(cgen_switch_t *parent, cgen_switch_t **rswitch)
+{
+	cgen_switch_t *cgswitch;
+
+	cgswitch = calloc(1, sizeof(cgen_switch_t));
+	if (cgswitch == NULL)
+		return ENOMEM;
+
+	cgswitch->parent = parent;
+	*rswitch = cgswitch;
+	return EOK;
+}
+
+/** Destroy code generator switch tracking record.
+ *
+ * @param cgswitch Code generator switch tracking record or @c NULL
+ */
+void cgen_switch_destroy(cgen_switch_t *cgswitch)
+{
+	if (cgswitch == NULL)
+		return;
+
+	if (cgswitch->nclabel != NULL)
+		free(cgswitch->nclabel);
+	free(cgswitch);
 }

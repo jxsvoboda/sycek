@@ -414,6 +414,19 @@ int addr(void)
 	return *b;
 }
 
+/* Switch statement */
+int stswitch(void)
+{
+	switch (a) {
+	case 0:
+		return 0;
+	case 1:
+		return 10;
+	case 2:
+		return 20;
+	}
+}
+
 int main(void)
 {
 	return 0;
