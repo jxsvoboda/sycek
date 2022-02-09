@@ -395,6 +395,7 @@ int hexabcd = 0xabcd;
 /* 43981 in hex */
 int hexABCD = 0xABCD;
 
+/* Fill screen with black pixels (test dereference) */
 int fillscr(void)
 {
 	int i;
@@ -402,6 +403,15 @@ int fillscr(void)
 	for (i = 0; i < 0x1800; i += 2)
 		*(0x4000 + i) = 0xffff;
 	return 0;
+}
+
+/* Test address operator (&) */
+int addr(void)
+{
+	int b;
+
+	b = &a;
+	return *b;
 }
 
 int main(void)

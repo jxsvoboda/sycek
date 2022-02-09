@@ -3306,6 +3306,31 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 	return EOK;
 }
 
+/** Generate code for address expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param addr AST address expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t bres;
+	int rc;
+
+	/* Evaluate expression as lvalue */
+	rc = cgen_expr_lvalue(cgproc, eaddr->bexpr, lblock, &bres);
+	if (rc != EOK)
+		return rc;
+
+	/* Return address as rvalue */
+	eres->varname = bres.varname;
+	eres->valtype = cgen_rvalue;
+	return EOK;
+}
+
 /** Generate code for unary sign expression.
  *
  * @param cgproc Code generator for procedure
@@ -3867,6 +3892,9 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_eaddr:
+		rc = cgen_eaddr(cgproc, (ast_eaddr_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_esizeof:
 	case ant_ecast:
 	case ant_ecliteral:
