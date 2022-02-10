@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -107,6 +107,7 @@ typedef enum {
 	ltt_char,
 	ltt_const,
 	ltt_continue,
+	ltt_default,
 	ltt_do,
 	ltt_double,
 	ltt_else,

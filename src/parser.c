@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -3359,6 +3359,58 @@ error:
 	return rc;
 }
 
+/** Parse default label.
+ *
+ * @param parser Parser
+ * @param rdlabel Place to store pointer to new default label
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_dlabel(parser_t *parser, ast_node_t **rdlabel)
+{
+	ast_dlabel_t *dlabel = NULL;
+	void *ddefault;
+	void *dcolon;
+	parser_t *iparser = NULL;
+	int rc;
+
+	/* Make sure the lower indent is not applied to previous comments */
+	parser_mark(parser);
+
+	rc = parser_create_invindent_sub(parser, &iparser);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(iparser, ltt_default, &ddefault);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(iparser, ltt_colon, &dcolon);
+	if (rc != EOK)
+		goto error;
+
+	parser_follow_up(iparser, parser);
+	parser_destroy(iparser);
+	iparser = NULL;
+
+	rc = ast_dlabel_create(&dlabel);
+	if (rc != EOK)
+		goto error;
+
+	dlabel->tdefault.data = ddefault;
+	dlabel->tcolon.data = dcolon;
+
+	*rdlabel = &dlabel->node;
+	return EOK;
+error:
+	if (iparser != NULL) {
+		parser_follow_up(iparser, parser);
+		parser_destroy(iparser);
+	}
+
+	return rc;
+}
+
 /** Parse goto label.
  *
  * @param parser Parser
@@ -3640,6 +3692,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_switch(parser, rstmt);
 	case ltt_case:
 		return parser_process_clabel(parser, rstmt);
+	case ltt_default:
+		return parser_process_dlabel(parser, rstmt);
 	case ltt_lbrace:
 		return parser_process_stblock(parser, rstmt);
 	case ltt_scolon:

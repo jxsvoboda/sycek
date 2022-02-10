@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1879,6 +1879,37 @@ static int checker_check_clabel(checker_scope_t *scope, ast_clabel_t *clabel)
 	return EOK;
 }
 
+/** Run checks on a default label.
+ *
+ * @param scope Checker scope
+ * @param dlabel AST default label
+ * @return EOK on success or error code
+ */
+static int checker_check_dlabel(checker_scope_t *scope, ast_dlabel_t *dlabel)
+{
+	checker_tok_t *tdefault;
+	checker_tok_t *tcolon;
+	int rc;
+
+	tdefault = (checker_tok_t *)dlabel->tdefault.data;
+	tcolon = (checker_tok_t *)dlabel->tcolon.data;
+
+	/* Default labels have one less level of indentation */
+	--scope->indlvl;
+	rc = checker_check_lbegin(scope, tdefault,
+	    "Default label must start on a new line.");
+	if (rc != EOK) {
+		++scope->indlvl;
+		return rc;
+	}
+
+	checker_check_nows_before(scope, tcolon,
+	    "Unexpected whitespace before ':'.");
+	++scope->indlvl;
+
+	return EOK;
+}
+
 /** Run checks on a goto label.
  *
  * @param scope Checker scope
@@ -2137,6 +2168,8 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt,
 		return checker_check_switch(scope, (ast_switch_t *)stmt->ext);
 	case ant_clabel:
 		return checker_check_clabel(scope, (ast_clabel_t *)stmt->ext);
+	case ant_dlabel:
+		return checker_check_dlabel(scope, (ast_dlabel_t *)stmt->ext);
 	case ant_glabel:
 		return checker_check_glabel(scope, (ast_glabel_t *)stmt->ext);
 	case ant_stexpr:

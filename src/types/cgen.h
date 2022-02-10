@@ -97,6 +97,8 @@ typedef struct cgen_switch {
 	const char *svarname;
 	/** Next case label */
 	char *nclabel;
+	/** Default label */
+	char *dlabel;
 } cgen_switch_t;
 
 #endif

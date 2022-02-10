@@ -18,6 +18,10 @@ int stswitch(void)
 		return 10;
 	case 2:
 		return 20;
+	default:
+		return 40;
+	case 3:
+		return 30;
 	}
 
 	return 0;

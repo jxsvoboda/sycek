@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1060,6 +1060,11 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		}
 		return lexer_ident(lexer, tok);
 	case 'd':
+		if (p[1] == 'e' && p[2] == 'f' && p[3] == 'a' &&
+		    p[4] == 'u' && p[5] == 'l' && p[6] == 't' &&
+		    !is_idcnt(p[7])) {
+			return lexer_keyword(lexer, ltt_default, 7, tok);
+		}
 		if (p[1] == 'o' && !is_idcnt(p[2])) {
 			return lexer_keyword(lexer, ltt_do, 2, tok);
 		}
@@ -1456,6 +1461,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'const'";
 	case ltt_continue:
 		return "'continue'";
+	case ltt_default:
+		return "'default'";
 	case ltt_do:
 		return "'do'";
 	case ltt_double:

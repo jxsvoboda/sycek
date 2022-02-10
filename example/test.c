@@ -408,10 +408,10 @@ int fillscr(void)
 /* Test address operator (&) */
 int addr(void)
 {
-	int b;
+	int ptr;
 
-	b = &a;
-	return *b;
+	ptr = &ptr;
+	return *ptr;
 }
 
 /* Switch statement */
@@ -424,6 +424,8 @@ int stswitch(void)
 		return 10;
 	case 2:
 		return 20;
+	default:
+		return 30;
 	}
 }
 

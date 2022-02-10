@@ -4643,9 +4643,53 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	if (rc != EOK)
 		goto error;
 
+	/* jmp %end_switch */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(eslabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
 	/* Final case label */
 
 	ir_lblock_append(lblock, cgswitch->nclabel, NULL);
+
+	if (cgswitch->dlabel != NULL) {
+		/* jmp %default */
+
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_oper_var_create(cgswitch->dlabel, &larg);
+		if (rc != EOK)
+			goto error;
+
+		instr->itype = iri_jmp;
+		instr->width = 0;
+		instr->dest = NULL;
+		instr->op1 = &larg->oper;
+		instr->op2 = NULL;
+
+		larg = NULL;
+
+		ir_lblock_append(lblock, NULL, instr);
+		instr = NULL;
+	}
 
 	/* label end_switch */
 
@@ -4672,7 +4716,7 @@ error:
 /** Generate code for 'case' label.
  *
  * @param cgproc Code generator for procedure
- * @param aswitch AST switch statement
+ * @param aclabel AST case label
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
@@ -4794,6 +4838,49 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	if (carg != NULL)
 		ir_oper_destroy(&carg->oper);
+	return rc;
+}
+
+/** Generate code for 'default' label.
+ *
+ * @param cgproc Code generator for procedure
+ * @param adlabel AST default label
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
+    ir_lblock_t *lblock)
+{
+	comp_tok_t *tok;
+	unsigned lblno;
+	int rc;
+
+	(void) lblock;
+
+	/* If there is no enclosing switch statement */
+	if (cgproc->cur_switch == NULL) {
+		tok = (comp_tok_t *) adlabel->tdefault.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Default label without enclosing switch "
+		    "statement.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Create and insert label for default case */
+
+	lblno = cgen_new_label_num(cgproc);
+
+	rc = cgen_create_label(cgproc, "default", lblno,
+	    &cgproc->cur_switch->dlabel);
+	if (rc != EOK)
+		goto error;
+
+	ir_lblock_append(lblock, cgproc->cur_switch->dlabel, NULL);
+
+	return EOK;
+error:
 	return rc;
 }
 
@@ -5031,6 +5118,9 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		break;
 	case ant_clabel:
 		rc = cgen_clabel(cgproc, (ast_clabel_t *) stmt->ext, lblock);
+		break;
+	case ant_dlabel:
+		rc = cgen_dlabel(cgproc, (ast_dlabel_t *) stmt->ext, lblock);
 		break;
 	case ant_glabel:
 		atok = ast_tree_first_tok(stmt);
@@ -5697,5 +5787,7 @@ void cgen_switch_destroy(cgen_switch_t *cgswitch)
 
 	if (cgswitch->nclabel != NULL)
 		free(cgswitch->nclabel);
+	if (cgswitch->dlabel != NULL)
+		free(cgswitch->dlabel);
 	free(cgswitch);
 }

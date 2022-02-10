@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -235,6 +235,7 @@ extern int ast_do_create(ast_do_t **);
 extern int ast_for_create(ast_for_t **);
 extern int ast_switch_create(ast_switch_t **);
 extern int ast_clabel_create(ast_clabel_t **);
+extern int ast_dlabel_create(ast_dlabel_t **);
 extern int ast_glabel_create(ast_glabel_t **);
 extern int ast_stexpr_create(ast_stexpr_t **);
 extern int ast_stdecln_create(ast_stdecln_t **);

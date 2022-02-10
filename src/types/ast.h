@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -151,6 +151,8 @@ typedef enum {
 	ant_switch,
 	/** Case label */
 	ant_clabel,
+	/** Default label */
+	ant_dlabel,
 	/** Goto label */
 	ant_glabel,
 	/** Expression statement */
@@ -1399,6 +1401,16 @@ typedef struct {
 	/** Colon token */
 	ast_tok_t tcolon;
 } ast_clabel_t;
+
+/** Default label */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** 'default' token */
+	ast_tok_t tdefault;
+	/** Colon token */
+	ast_tok_t tcolon;
+} ast_dlabel_t;
 
 /** Goto label */
 typedef struct {
