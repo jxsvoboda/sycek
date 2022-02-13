@@ -1,0 +1,1 @@
+<test/syc/bad/defnoswitch.c:7:1-7:'default'>: Default label without enclosing switch statement.
