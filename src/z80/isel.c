@@ -118,6 +118,25 @@ static int z80_isel_mangle_lvar_ident(const char *proc,
 	return EOK;
 }
 
+/** Determine if variable is a virtual register.
+ *
+ * @param varname Variable name
+ * @return @c true iff variable is a virtual register
+ */
+static bool z80_isel_is_vreg(const char *varname)
+{
+	char *endptr;
+
+	if (varname[0] != '%')
+		return false;
+
+	(void) strtoul(&varname[1], &endptr, 10);
+	if (*endptr != '\0')
+		return false;
+
+	return true;
+}
+
 /** Get virtual register number from variable name.
  *
  * @param rz80_isel Place to store pointer to new instruction selector
@@ -173,8 +192,7 @@ static void z80_isel_scan_oper_used_vrs(z80_isel_proc_t *isproc,
 		break;
 	case iro_var:
 		opvar = (ir_oper_var_t *) oper->ext;
-		if (opvar->varname[0] == '%' && opvar->varname[1] >= '0' &&
-		    opvar->varname[1] <= '9')
+		if (z80_isel_is_vreg(opvar->varname))
 			(void) z80_isel_get_vregno(isproc, oper);
 		break;
 	}

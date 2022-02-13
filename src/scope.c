@@ -70,7 +70,7 @@ void scope_destroy(scope_t *scope)
 			free(member->m.lvar.vident);
 			break;
 		}
-		free(member->ident);
+
 		free(member);
 		member = scope_first(scope);
 	}
@@ -81,16 +81,15 @@ void scope_destroy(scope_t *scope)
 /** Insert global symbol to identifier scope.
  *
  * @param scope Scope
- * @param ident Identifier
+ * @param tident Identifier token
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_gsym(scope_t *scope, const char *ident)
+int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident)
 {
 	scope_member_t *member;
-	char *dident;
 
-	member = scope_lookup_local(scope, ident);
+	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
 		/* Identifier already exists */
 		return EEXIST;
@@ -100,13 +99,7 @@ int scope_insert_gsym(scope_t *scope, const char *ident)
 	if (member == NULL)
 		return ENOMEM;
 
-	dident = strdup(ident);
-	if (dident == NULL) {
-		free(member);
-		return ENOMEM;
-	}
-
-	member->ident = dident;
+	member->tident = tident;
 	member->mtype = sm_gsym;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
@@ -116,18 +109,17 @@ int scope_insert_gsym(scope_t *scope, const char *ident)
 /** Insert function argument to identifier scope.
  *
  * @param scope Scope
- * @param ident Identifier
+ * @param tident Identifier token
  * @param vident Argument variable identifer (e.g. '%0')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
+int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, const char *vident)
 {
 	scope_member_t *member;
-	char *dident;
 	char *dvident;
 
-	member = scope_lookup_local(scope, ident);
+	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
 		/* Identifier already exists */
 		return EEXIST;
@@ -137,20 +129,13 @@ int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
 	if (member == NULL)
 		return ENOMEM;
 
-	dident = strdup(ident);
-	if (dident == NULL) {
-		free(member);
-		return ENOMEM;
-	}
-
 	dvident = strdup(vident);
 	if (dvident == NULL) {
-		free(dident);
 		free(member);
 		return ENOMEM;
 	}
 
-	member->ident = dident;
+	member->tident = tident;
 	member->mtype = sm_arg;
 	member->m.arg.vident = dvident;
 	member->scope = scope;
@@ -161,18 +146,17 @@ int scope_insert_arg(scope_t *scope, const char *ident, const char *vident)
 /** Insert local variable to identifier scope.
  *
  * @param scope Scope
- * @param ident Identifier
+ * @param tident Identifier token
  * @param vident IR variable identifer (e.g. '%foo')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_lvar(scope_t *scope, const char *ident, const char *vident)
+int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, const char *vident)
 {
 	scope_member_t *member;
-	char *dident;
 	char *dvident;
 
-	member = scope_lookup_local(scope, ident);
+	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
 		/* Identifier already exists */
 		return EEXIST;
@@ -182,20 +166,13 @@ int scope_insert_lvar(scope_t *scope, const char *ident, const char *vident)
 	if (member == NULL)
 		return ENOMEM;
 
-	dident = strdup(ident);
-	if (dident == NULL) {
-		free(member);
-		return ENOMEM;
-	}
-
 	dvident = strdup(vident);
 	if (dvident == NULL) {
-		free(dident);
 		free(member);
 		return ENOMEM;
 	}
 
-	member->ident = dident;
+	member->tident = tident;
 	member->mtype = sm_lvar;
 	member->m.lvar.vident = dvident;
 	member->scope = scope;
@@ -247,7 +224,7 @@ scope_member_t *scope_lookup_local(scope_t *scope, const char *ident)
 
 	member = scope_first(scope);
 	while (member != NULL) {
-		if (strcmp(member->ident, ident) == 0)
+		if (strcmp(member->tident->text, ident) == 0)
 			return member;
 
 		member = scope_next(member);

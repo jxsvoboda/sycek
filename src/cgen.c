@@ -367,7 +367,7 @@ error:
 
 /** Destroy code generator for procedure.
  *
- * @param cgen Code generator or @c NULL
+ * @param cgproc Code generator for procedure or @c NULL
  */
 static void cgen_proc_destroy(cgen_proc_t *cgproc)
 {
@@ -377,6 +377,27 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 	scope_destroy(cgproc->proc_scope);
 	scope_destroy(cgproc->arg_scope);
 	free(cgproc);
+}
+
+/** Check scope for defined, but unused, identifiers.
+ *
+ * @param cgproc Code generator for procedure
+ * @param scope Scope to check
+ */
+static void cgen_check_scope_unused(cgen_proc_t *cgproc, scope_t *scope)
+{
+	scope_member_t *member;
+
+	member = scope_first(scope);
+	while (member != NULL) {
+		if (!member->used) {
+			lexer_dprint_tok(member->tident, stderr);
+			fprintf(stderr, ": Warning: '%s' is defined, but not "
+			    "used.\n", member->tident->text);
+			++cgproc->cgen->warnings;
+		}
+		member = scope_next(member);
+	}
 }
 
 /** Generate code for integer literal expression.
@@ -623,6 +644,10 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		    lblock, eres);
 		break;
 	}
+
+	/* Mark identifier as used */
+	if (rc == EOK)
+		member->used = true;
 
 	return rc;
 }
@@ -3223,6 +3248,9 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		return EINVAL;
 	}
 
+	/* Mark identifier as used */
+	member->used = true;
+
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
 		goto error;
@@ -5236,8 +5264,7 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		}
 
 		/* Insert identifier into current scope */
-		rc = scope_insert_lvar(cgproc->cur_scope, ident->tok.text,
-		    vident);
+		rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok, vident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -5423,6 +5450,9 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 		stmt = ast_block_next(stmt);
 	}
 
+	/* Check for defined, but unused, identiiers */
+	cgen_check_scope_unused(cgproc, block_scope);
+
 	/* Leave block scope */
 	cgproc->cur_scope = block_scope->parent;
 	scope_destroy(block_scope);
@@ -5516,7 +5546,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	symbol->flags |= sf_defined;
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, ident->tok.text);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok);
 	if (rc == ENOMEM)
 		goto error;
 
@@ -5618,7 +5648,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		arg_ident = NULL;
 
 		/* Insert identifier into argument scope */
-		rc = scope_insert_arg(cgproc->arg_scope, tok->tok.text, iarg->ident);
+		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok, iarg->ident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -5645,6 +5675,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	ir_module_append(irmod, &proc->decln);
 	proc = NULL;
+
+	/* Check for defined, but unused, identifiers */
+	cgen_check_scope_unused(cgproc, cgproc->arg_scope);
+	cgen_check_scope_unused(cgproc, cgproc->proc_scope);
 
 	cgen_proc_destroy(cgproc);
 	cgproc = NULL;
@@ -5696,7 +5730,7 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			return rc;
 
 		/* Insert identifier into module scope */
-		rc = scope_insert_gsym(cgen->scope, ident->tok.text);
+		rc = scope_insert_gsym(cgen->scope, &ident->tok);
 		if (rc == ENOMEM)
 			return rc;
 	} else {
@@ -5742,7 +5776,7 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 	ident = (comp_tok_t *) aident->data;
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, ident->tok.text);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok);
 	if (rc == ENOMEM)
 		goto error;
 

@@ -55,16 +55,19 @@ static int test_scope_insert_gsym(void)
 	int rc;
 	scope_t *scope = NULL;
 	scope_member_t *member;
+	lexer_tok_t tok;
 
 	rc = scope_create(NULL, &scope);
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_gsym(scope, "a");
+	tok.text = "a";
+
+	rc = scope_insert_gsym(scope, &tok);
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_gsym(scope, "a");
+	rc = scope_insert_gsym(scope, &tok);
 	if (rc != EEXIST)
 		goto error;
 
@@ -72,7 +75,7 @@ static int test_scope_insert_gsym(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 
 	if (member->mtype != sm_gsym)
@@ -95,16 +98,19 @@ static int test_scope_insert_arg(void)
 	int rc;
 	scope_t *scope = NULL;
 	scope_member_t *member;
+	lexer_tok_t tok;
 
 	rc = scope_create(NULL, &scope);
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_arg(scope, "a", "%0");
+	tok.text = "a";
+
+	rc = scope_insert_arg(scope, &tok, "%0");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_arg(scope, "a", "%1");
+	rc = scope_insert_arg(scope, &tok, "%1");
 	if (rc != EEXIST)
 		goto error;
 
@@ -112,7 +118,7 @@ static int test_scope_insert_arg(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 	if (member->mtype != sm_arg)
 		goto error;
@@ -136,16 +142,19 @@ static int test_scope_insert_lvar(void)
 	int rc;
 	scope_t *scope = NULL;
 	scope_member_t *member;
+	lexer_tok_t tok;
 
 	rc = scope_create(NULL, &scope);
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "a", "%a");
+	tok.text = "a";
+
+	rc = scope_insert_lvar(scope, &tok, "%a");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "a", "%a");
+	rc = scope_insert_lvar(scope, &tok, "%a");
 	if (rc != EEXIST)
 		goto error;
 
@@ -153,7 +162,7 @@ static int test_scope_insert_lvar(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 	if (member->mtype != sm_lvar)
 		goto error;
@@ -175,6 +184,8 @@ static int test_scope_first_next(void)
 	int rc;
 	scope_t *scope = NULL;
 	scope_member_t *member;
+	lexer_tok_t toka;
+	lexer_tok_t tokb;
 
 	rc = scope_create(NULL, &scope);
 	if (rc != EOK)
@@ -184,11 +195,15 @@ static int test_scope_first_next(void)
 	if (member != NULL)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "a", "%a");
+	toka.text = "a";
+
+	rc = scope_insert_lvar(scope, &toka, "%a");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, "b", "%b");
+	tokb.text = "b";
+
+	rc = scope_insert_lvar(scope, &tokb, "%b");
 	if (rc != EOK)
 		goto error;
 
@@ -196,14 +211,14 @@ static int test_scope_first_next(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 
 	member = scope_next(member);
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "b") != 0)
+	if (strcmp(member->tident->text, "b") != 0)
 		goto error;
 
 	member = scope_next(member);
@@ -228,6 +243,7 @@ static int test_scope_lookup_local(void)
 	scope_t *parent = NULL;
 	scope_t *child = NULL;
 	scope_member_t *member;
+	lexer_tok_t tok;
 
 	rc = scope_create(NULL, &parent);
 	if (rc != EOK)
@@ -245,7 +261,9 @@ static int test_scope_lookup_local(void)
 	if (member != NULL)
 		goto error;
 
-	rc = scope_insert_lvar(child, "a", "%a");
+	tok.text = "a";
+
+	rc = scope_insert_lvar(child, &tok, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -253,7 +271,7 @@ static int test_scope_lookup_local(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 	if (member->scope != child)
 		goto error;
@@ -279,6 +297,7 @@ static int test_scope_lookup(void)
 	scope_t *parent = NULL;
 	scope_t *child = NULL;
 	scope_member_t *member;
+	lexer_tok_t tok;
 
 	rc = scope_create(NULL, &parent);
 	if (rc != EOK)
@@ -288,7 +307,9 @@ static int test_scope_lookup(void)
 	if (member != NULL)
 		goto error;
 
-	rc = scope_insert_lvar(parent, "a", "%a");
+	tok.text = "a";
+
+	rc = scope_insert_lvar(parent, &tok, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -304,12 +325,14 @@ static int test_scope_lookup(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 	if (member->scope != parent)
 		goto error;
 
-	rc = scope_insert_lvar(child, "a", "%a");
+	tok.text = "a";
+
+	rc = scope_insert_lvar(child, &tok, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -317,7 +340,7 @@ static int test_scope_lookup(void)
 	if (member == NULL)
 		goto error;
 
-	if (strcmp(member->ident, "a") != 0)
+	if (strcmp(member->tident->text, "a") != 0)
 		goto error;
 	if (member->scope != child)
 		goto error;

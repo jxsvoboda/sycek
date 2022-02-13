@@ -28,6 +28,7 @@
 #define TYPES_SCOPE_H
 
 #include <adt/list.h>
+#include <types/lexer.h>
 
 /** Scope */
 typedef struct scope {
@@ -65,8 +66,10 @@ typedef struct {
 	scope_t *scope;
 	/** Link to scope_t.members */
 	link_t lmembers;
-	/** Identifier */
-	char *ident;
+	/** Identifier token */
+	lexer_tok_t *tident;
+	/** @c true iff identifier is used */
+	bool used;
 	/** Member type */
 	scope_member_type_t mtype;
 	union {
