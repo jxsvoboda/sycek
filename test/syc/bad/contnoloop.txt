@@ -1,0 +1,1 @@
+<test/syc/bad/contnoloop.c:7:9-16:'continue'>: Continue without enclosing loop statement.

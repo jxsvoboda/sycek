@@ -57,8 +57,12 @@ typedef struct {
 	struct scope *proc_scope;
 	/** Current (innermost) scope */
 	struct scope *cur_scope;
+	/** Current (innermost) loop */
+	struct cgen_loop *cur_loop;
 	/** Current (innermost) switch */
 	struct cgen_switch *cur_switch;
+	/** Current (innermo) loop or switch */
+	struct cgen_loop_switch *cur_loop_switch;
 } cgen_proc_t;
 
 /** Value type.
@@ -89,7 +93,21 @@ typedef struct {
 	cgen_valtype_t valtype;
 } cgen_eres_t;
 
-/** Code generator switch tracking record */
+/** Code generator loop tracking record.
+ *
+ * We keep a stack of enclosing loop statements.
+ */
+typedef struct cgen_loop {
+	/** Outside loop statement */
+	struct cgen_loop *parent;
+	/** Continue label */
+	const char *clabel;
+} cgen_loop_t;
+
+/** Code generator switch tracking record.
+ *
+ * We keep a stack of enclosing switch statements.
+ */
 typedef struct cgen_switch {
 	/** Outside switch statement */
 	struct cgen_switch *parent;
@@ -100,5 +118,16 @@ typedef struct cgen_switch {
 	/** Default label */
 	char *dlabel;
 } cgen_switch_t;
+
+/** Code generator loop or switch tracking record.
+ *
+ * We keep a stack of enclosing loop or switch statements.
+ */
+typedef struct cgen_loop_switch {
+	/** Outside loop or switch statement */
+	struct cgen_loop_switch *parent;
+	/** Break label */
+	const char *blabel;
+} cgen_loop_switch_t;
 
 #endif

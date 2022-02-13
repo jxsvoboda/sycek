@@ -1,0 +1,1 @@
+<test/syc/bad/breaknols.c:7:9-13:'break'>: Break without enclosing switch or loop statement.

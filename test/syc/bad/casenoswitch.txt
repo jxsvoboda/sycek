@@ -1,0 +1,1 @@
+<test/syc/bad/casenoswitch.c:7:1-4:'case'>: Case label without enclosing switch statement.

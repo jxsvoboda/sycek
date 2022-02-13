@@ -47,8 +47,12 @@ static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
+static int cgen_loop_create(cgen_loop_t *, cgen_loop_t **);
+static void cgen_loop_destroy(cgen_loop_t *);
 static int cgen_switch_create(cgen_switch_t *, cgen_switch_t **);
 static void cgen_switch_destroy(cgen_switch_t *);
+static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
+static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 
 /** Prefix identifier with '@' global variable prefix.
  *
@@ -4035,6 +4039,102 @@ error:
 	return rc;
 }
 
+/** Generate code for break statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param abreak AST break statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_break(cgen_proc_t *cgproc, ast_break_t *abreak,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *label = NULL;
+	comp_tok_t *tok;
+	int rc;
+
+	if (cgproc->cur_loop_switch == NULL) {
+		tok = (comp_tok_t *) abreak->tbreak.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Break without enclosing switch "
+		    "or loop statement.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cgproc->cur_loop_switch->blabel, &label);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &label->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (label != NULL)
+		ir_oper_destroy(&label->oper);
+	return rc;
+}
+
+/** Generate code for continue statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param acontinue AST continue statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_continue(cgen_proc_t *cgproc, ast_continue_t *acontinue,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *label = NULL;
+	comp_tok_t *tok;
+	int rc;
+
+	if (cgproc->cur_loop == NULL) {
+		tok = (comp_tok_t *) acontinue->tcontinue.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Continue without enclosing loop "
+		    "statement.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cgproc->cur_loop->clabel, &label);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &label->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (label != NULL)
+		ir_oper_destroy(&label->oper);
+	return rc;
+}
+
 /** Generate code for return statement.
  *
  * @param cgproc Code generator for procedure
@@ -4262,6 +4362,8 @@ error:
 static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
     ir_lblock_t *lblock)
 {
+	cgen_loop_switch_t *lswitch = NULL;
+	cgen_loop_t *loop = NULL;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
@@ -4273,6 +4375,18 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	lblno = cgen_new_label_num(cgproc);
 
+	/* Create a new loop or switch tracking record */
+
+	rc = cgen_loop_switch_create(cgproc->cur_loop_switch, &lswitch);
+	if (rc != EOK)
+		goto error;
+
+	/* Create a new loop tracking record */
+
+	rc = cgen_loop_create(cgproc->cur_loop, &loop);
+	if (rc != EOK)
+		goto error;
+
 	rc = cgen_create_label(cgproc, "while", lblno, &wlabel);
 	if (rc != EOK)
 		goto error;
@@ -4280,6 +4394,15 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	rc = cgen_create_label(cgproc, "end_while", lblno, &ewlabel);
 	if (rc != EOK)
 		goto error;
+
+	lswitch->blabel = ewlabel;
+	loop->clabel = wlabel;
+
+	/* Set this as the innermost loop or switch */
+	cgproc->cur_loop_switch = lswitch;
+
+	/* Set this as the innermost loop */
+	cgproc->cur_loop = loop;
 
 	ir_lblock_append(lblock, wlabel, NULL);
 
@@ -4344,6 +4467,9 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	ir_lblock_append(lblock, ewlabel, NULL);
 
+	cgen_loop_switch_destroy(lswitch);
+	cgen_loop_destroy(loop);
+
 	free(wlabel);
 	free(ewlabel);
 	return EOK;
@@ -4352,6 +4478,10 @@ error:
 		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
+	if (lswitch != NULL)
+		cgen_loop_switch_destroy(lswitch);
+	if (loop != NULL)
+		cgen_loop_destroy(loop);
 	if (wlabel != NULL)
 		free(wlabel);
 	if (ewlabel != NULL)
@@ -4368,24 +4498,52 @@ error:
  */
 static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 {
+	cgen_loop_switch_t *lswitch = NULL;
+	cgen_loop_t *loop = NULL;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
 	cgen_eres_t cres;
 	unsigned lblno;
 	char *dlabel = NULL;
+	char *ndlabel = NULL;
 	char *edlabel = NULL;
 	int rc;
 
 	lblno = cgen_new_label_num(cgproc);
 
+	/* Create a new loop or switch tracking record */
+
+	rc = cgen_loop_switch_create(cgproc->cur_loop_switch, &lswitch);
+	if (rc != EOK)
+		goto error;
+
+	/* Create a new loop tracking record */
+
+	rc = cgen_loop_create(cgproc->cur_loop, &loop);
+	if (rc != EOK)
+		goto error;
+
 	rc = cgen_create_label(cgproc, "do", lblno, &dlabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "next_do", lblno, &ndlabel);
 	if (rc != EOK)
 		goto error;
 
 	rc = cgen_create_label(cgproc, "end_do", lblno, &edlabel);
 	if (rc != EOK)
 		goto error;
+
+	lswitch->blabel = edlabel;
+	loop->clabel = ndlabel;
+
+	/* Set this as the innermost loop or switch */
+	cgproc->cur_loop_switch = lswitch;
+
+	/* Set this as the innermost loop */
+	cgproc->cur_loop = loop;
 
 	ir_lblock_append(lblock, dlabel, NULL);
 
@@ -4394,6 +4552,10 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 	rc = cgen_block(cgproc, ado->body, lblock);
 	if (rc != EOK)
 		goto error;
+
+	/* label next_do */
+
+	ir_lblock_append(lblock, ndlabel, NULL);
 
 	/* Condition */
 
@@ -4429,7 +4591,11 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 
 	ir_lblock_append(lblock, edlabel, NULL);
 
+	cgen_loop_switch_destroy(lswitch);
+	cgen_loop_destroy(loop);
+
 	free(dlabel);
+	free(ndlabel);
 	free(edlabel);
 	return EOK;
 error:
@@ -4437,8 +4603,14 @@ error:
 		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
+	if (lswitch != NULL)
+		cgen_loop_switch_destroy(lswitch);
+	if (loop != NULL)
+		cgen_loop_destroy(loop);
 	if (dlabel != NULL)
 		free(dlabel);
+	if (ndlabel != NULL)
+		free(ndlabel);
 	if (edlabel != NULL)
 		free(edlabel);
 	return rc;
@@ -4453,6 +4625,8 @@ error:
  */
 static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 {
+	cgen_loop_switch_t *lswitch = NULL;
+	cgen_loop_t *loop = NULL;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
@@ -4462,17 +4636,43 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	unsigned lblno;
 	char *flabel = NULL;
 	char *eflabel = NULL;
+	char *nflabel = NULL;
 	int rc;
 
 	lblno = cgen_new_label_num(cgproc);
 
+	/* Create a new loop or switch tracking record */
+
+	rc = cgen_loop_switch_create(cgproc->cur_loop_switch, &lswitch);
+	if (rc != EOK)
+		goto error;
+
+	/* Create a new loop tracking record */
+
+	rc = cgen_loop_create(cgproc->cur_loop, &loop);
+	if (rc != EOK)
+		goto error;
+
 	rc = cgen_create_label(cgproc, "for", lblno, &flabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "next_for", lblno, &nflabel);
 	if (rc != EOK)
 		goto error;
 
 	rc = cgen_create_label(cgproc, "end_for", lblno, &eflabel);
 	if (rc != EOK)
 		goto error;
+
+	lswitch->blabel = eflabel;
+	loop->clabel = nflabel;
+
+	/* Set this as the innermost loop or switch */
+	cgproc->cur_loop_switch = lswitch;
+
+	/* Set this as the innermost loop */
+	cgproc->cur_loop = loop;
 
 	/* Loop initialization */
 
@@ -4526,6 +4726,8 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	/* Loop iteration */
 
+	ir_lblock_append(lblock, nflabel, NULL);
+
 	if (afor->lnext != NULL) {
 		rc = cgen_expr_rvalue(cgproc, afor->lnext, lblock, &nres);
 		if (rc != EOK)
@@ -4555,7 +4757,10 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	ir_lblock_append(lblock, eflabel, NULL);
 
+	cgen_loop_switch_destroy(lswitch);
+	cgen_loop_destroy(loop);
 	free(flabel);
+	free(nflabel);
 	free(eflabel);
 	return EOK;
 error:
@@ -4563,8 +4768,14 @@ error:
 		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
+	if (lswitch != NULL)
+		cgen_loop_switch_destroy(lswitch);
+	if (loop != NULL)
+		cgen_loop_destroy(loop);
 	if (flabel != NULL)
 		free(flabel);
+	if (nflabel != NULL)
+		free(nflabel);
 	if (eflabel != NULL)
 		free(eflabel);
 	return rc;
@@ -4586,6 +4797,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *larg = NULL;
 	cgen_switch_t *cgswitch = NULL;
+	cgen_loop_switch_t *lswitch = NULL;
 	int rc;
 
 	lblno = cgen_new_label_num(cgproc);
@@ -4596,9 +4808,17 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	if (rc != EOK)
 		goto error;
 
+	/* Create a new loop or switch tracking record */
+
+	rc = cgen_loop_switch_create(cgproc->cur_loop_switch, &lswitch);
+	if (rc != EOK)
+		goto error;
+
 	rc = cgen_create_label(cgproc, "end_switch", lblno, &eslabel);
 	if (rc != EOK)
 		goto error;
+
+	lswitch->blabel = eslabel;
 
 	rc = cgen_create_label(cgproc, "case", lblno, &cgswitch->nclabel);
 	if (rc != EOK)
@@ -4633,6 +4853,9 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	/* Set this as the innermost switch */
 	cgproc->cur_switch = cgswitch;
+
+	/* Set this as the innermost loop/switch */
+	cgproc->cur_loop_switch = lswitch;
 
 	/* Switch expression result variable name */
 	cgswitch->svarname = eres.varname;
@@ -4697,7 +4920,8 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	cgproc->cur_switch = cgswitch->parent;
 	cgen_switch_destroy(cgswitch);
-
+	cgproc->cur_loop_switch = lswitch->parent;
+	cgen_loop_switch_destroy(lswitch);
 	free(eslabel);
 	return EOK;
 error:
@@ -4709,6 +4933,10 @@ error:
 	if (cgswitch != NULL) {
 		cgproc->cur_switch = cgswitch->parent;
 		cgen_switch_destroy(cgswitch);
+	}
+	if (lswitch != NULL) {
+		cgproc->cur_loop_switch = lswitch->parent;
+		cgen_loop_switch_destroy(lswitch);
 	}
 	return rc;
 }
@@ -5089,7 +5317,11 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 	switch (stmt->ntype) {
 	case ant_asm:
 	case ant_break:
+		rc = cgen_break(cgproc, (ast_break_t *) stmt->ext, lblock);
+		break;
 	case ant_continue:
+		rc = cgen_continue(cgproc, (ast_continue_t *) stmt->ext, lblock);
+		break;
 	case ant_goto:
 		atok = ast_tree_first_tok(stmt);
 		tok = (comp_tok_t *) atok->data;
@@ -5757,10 +5989,41 @@ void cgen_destroy(cgen_t *cgen)
 	free(cgen);
 }
 
+/** Create new code generator loop tracking record.
+ *
+ * @param parent Parent loop
+ * @param rloop Place to store pointer to new loop tracking record
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgen_loop_create(cgen_loop_t *parent, cgen_loop_t **rloop)
+{
+	cgen_loop_t *loop;
+
+	loop = calloc(1, sizeof(cgen_loop_t));
+	if (loop == NULL)
+		return ENOMEM;
+
+	loop->parent = parent;
+	*rloop = loop;
+	return EOK;
+}
+
+/** Destroy code generator loop tracking record.
+ *
+ * @param loop Code generator loop tracking record or @c NULL
+ */
+void cgen_loop_destroy(cgen_loop_t *loop)
+{
+	if (loop == NULL)
+		return;
+
+	free(loop);
+}
+
 /** Create new code generator switch tracking record.
  *
  * @param parent Parent switch
- * @param rscope Place to store pointer to new switch tracking record
+ * @param rswitch Place to store pointer to new switch tracking record
  * @return EOK on success, ENOMEM if out of memory
  */
 int cgen_switch_create(cgen_switch_t *parent, cgen_switch_t **rswitch)
@@ -5790,4 +6053,36 @@ void cgen_switch_destroy(cgen_switch_t *cgswitch)
 	if (cgswitch->dlabel != NULL)
 		free(cgswitch->dlabel);
 	free(cgswitch);
+}
+
+/** Create new loop or switch tracking record.
+ *
+ * @param parent Parent loop or switch
+ * @param rlswitch Place to store pointer to new loop or switch tracking record
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgen_loop_switch_create(cgen_loop_switch_t *parent,
+    cgen_loop_switch_t **rlswitch)
+{
+	cgen_loop_switch_t *lswitch;
+
+	lswitch = calloc(1, sizeof(cgen_loop_switch_t));
+	if (lswitch == NULL)
+		return ENOMEM;
+
+	lswitch->parent = parent;
+	*rlswitch = lswitch;
+	return EOK;
+}
+
+/** Destroy code generator break label tracking record.
+ *
+ * @param lswitch Code generator loop or switch tracking record or @c NULL
+ */
+static void cgen_loop_switch_destroy(cgen_loop_switch_t *lswitch)
+{
+	if (lswitch == NULL)
+		return;
+
+	free(lswitch);
 }
