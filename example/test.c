@@ -370,10 +370,12 @@ int lvarpar(void)
 {
 	if (1) {
 		int i;
+		i = 1;
 	}
 
 	if (1) {
 		int i;
+		i = 1;
 	}
 }
 
@@ -427,6 +429,129 @@ int stswitch(void)
 	default:
 		return 30;
 	}
+}
+
+/* Break from switch statement */
+int brkswitch(void)
+{
+	int i;
+
+	switch (a) {
+	case 1:
+		i = 10;
+		/* fall through to the next case */
+	case 2:
+		i = 20;
+		break;
+	case 3:
+		i = 30;
+	}
+
+	return i;
+}
+
+/* Break from do loop */
+int brkdo(void)
+{
+	int i;
+
+	i = 0;
+
+	do {
+		if (a + i == b)
+			break;
+		++i;
+	} while (i < 10);
+
+	return i;
+}
+
+/* Break from for loop */
+int brkfor(void)
+{
+	int i;
+
+	for (i = 0; i < 10; i++) {
+		if (a + i == b)
+			break;
+	}
+
+	return i;
+}
+
+/* Break from while loop */
+int brkwhile(void)
+{
+	int i;
+
+	i = 0;
+
+	while (i < 10) {
+		if (a + i == b)
+			break;
+		++i;
+	}
+
+	return i;
+}
+
+/* Continue from do loop */
+int contdo(void)
+{
+	int i;
+	int j;
+
+	i = 0;
+	do {
+		++i;
+		if (i == a)
+			continue;
+		j = j + 1;
+	} while (i < 10);
+
+	return i;
+}
+
+/* Continue from for loop */
+int contfor(void)
+{
+	int i;
+	int j;
+
+	j = 1;
+	for (i = 0; i < 10; i++) {
+		if (i == a)
+			continue;
+		j = j + 1;
+	}
+
+	return i;
+}
+
+/* Continue from while loop */
+int contwhile(void)
+{
+	int i;
+	int j;
+
+	i = 0;
+	while (i < 10) {
+		++i;
+		if (i == a)
+			continue;
+		j = j + 1;
+	}
+
+	return i;
+}
+
+/* Go to label */
+int gotolbl(void)
+{
+	if (a)
+		goto skip;
+	b = 1;
+skip:
 }
 
 int main(void)

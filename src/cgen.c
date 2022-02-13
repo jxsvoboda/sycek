@@ -292,6 +292,35 @@ static int cgen_create_label(cgen_proc_t *cgproc, const char *pattern,
 	return EOK;
 }
 
+/** Create new goto label.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ident C goto label identifier
+ * @param rlabel Place to store pointer to new label
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgen_create_goto_label(cgen_proc_t *cgproc, const char *ident,
+    char **rlabel)
+{
+	char *label;
+	int rv;
+
+	(void) cgproc;
+
+	/*
+	 * XXX Once we are free of the shackles of z80asm, we can change
+	 * this to be just %ident (instead of %_ident), because
+	 * compiler-generated labels will have the form %name@number,
+	 * and C labels cannot contain a '@', so they will be distinct.
+	 */
+	rv = asprintf(&label, "%%_%s", ident);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rlabel = label;
+	return EOK;
+}
+
 /** Create code generator.
  *
  * @param rcgen Place to store pointer to new code generator
@@ -4163,6 +4192,56 @@ error:
 	return rc;
 }
 
+/** Generate code for goto statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param agoto AST goto statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_goto(cgen_proc_t *cgproc, ast_goto_t *agoto,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *label = NULL;
+	comp_tok_t *tok;
+	char *glabel = NULL;
+	int rc;
+
+	tok = (comp_tok_t *) agoto->ttarget.data;
+
+	rc = cgen_create_goto_label(cgproc, tok->tok.text, &glabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(glabel, &label);
+	if (rc != EOK)
+		goto error;
+
+	free(glabel);
+	glabel = NULL;
+
+	instr->itype = iri_jmp;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = NULL;
+	instr->op1 = &label->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (label != NULL)
+		ir_oper_destroy(&label->oper);
+	if (glabel != NULL)
+		free(glabel);
+	return rc;
+}
+
 /** Generate code for return statement.
  *
  * @param cgproc Code generator for procedure
@@ -5111,8 +5190,6 @@ static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
 	unsigned lblno;
 	int rc;
 
-	(void) lblock;
-
 	/* If there is no enclosing switch statement */
 	if (cgproc->cur_switch == NULL) {
 		tok = (comp_tok_t *) adlabel->tdefault.data;
@@ -5137,6 +5214,37 @@ static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
 
 	return EOK;
 error:
+	return rc;
+}
+
+/** Generate code for goto label.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aglabel AST goto label
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_glabel(cgen_proc_t *cgproc, ast_glabel_t *aglabel,
+    ir_lblock_t *lblock)
+{
+	comp_tok_t *tok;
+	char *glabel = NULL;
+	int rc;
+
+	tok = (comp_tok_t *) aglabel->tlabel.data;
+
+	rc = cgen_create_goto_label(cgproc, tok->tok.text,
+	    &glabel);
+	if (rc != EOK)
+		goto error;
+
+	ir_lblock_append(lblock, glabel, NULL);
+
+	free(glabel);
+	return EOK;
+error:
+	if (glabel != NULL)
+		free(glabel);
 	return rc;
 }
 
@@ -5343,6 +5451,13 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 
 	switch (stmt->ntype) {
 	case ant_asm:
+		atok = ast_tree_first_tok(stmt);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This statement type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_break:
 		rc = cgen_break(cgproc, (ast_break_t *) stmt->ext, lblock);
 		break;
@@ -5350,12 +5465,7 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_continue(cgproc, (ast_continue_t *) stmt->ext, lblock);
 		break;
 	case ant_goto:
-		atok = ast_tree_first_tok(stmt);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This statement type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+		rc = cgen_goto(cgproc, (ast_goto_t *) stmt->ext, lblock);
 		break;
 	case ant_return:
 		rc = cgen_return(cgproc, (ast_return_t *) stmt->ext, lblock);
@@ -5382,12 +5492,7 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_dlabel(cgproc, (ast_dlabel_t *) stmt->ext, lblock);
 		break;
 	case ant_glabel:
-		atok = ast_tree_first_tok(stmt);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This statement type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+		rc = cgen_glabel(cgproc, (ast_glabel_t *) stmt->ext, lblock);
 		break;
 	case ant_stexpr:
 		rc = cgen_stexpr(cgproc, (ast_stexpr_t *) stmt->ext, lblock);
