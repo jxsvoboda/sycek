@@ -32,6 +32,7 @@
 #include <comp.h>
 #include <cgen.h>
 #include <ir.h>
+#include <labels.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <scope.h>
@@ -39,6 +40,7 @@
 #include <string.h>
 #include <symbols.h>
 
+static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -377,6 +379,11 @@ static int cgen_proc_create(cgen_t *cgen, ir_proc_t *irproc,
 		goto error;
 	}
 
+	/* Track the procedure's labels */
+	rc = labels_create(&cgproc->labels);
+	if (rc != EOK)
+		goto error;
+
 	/*
 	 * The member cur_scope tracks the current scope as we descend into
 	 * and ascend out of nested blocks.
@@ -390,7 +397,7 @@ static int cgen_proc_create(cgen_t *cgen, ir_proc_t *irproc,
 	*rcgproc = cgproc;
 	return EOK;
 error:
-	free(cgproc);
+	cgen_proc_destroy(cgproc);
 	return rc;
 }
 
@@ -403,6 +410,7 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 	if (cgproc == NULL)
 		return;
 
+	labels_destroy(cgproc->labels);
 	scope_destroy(cgproc->proc_scope);
 	scope_destroy(cgproc->arg_scope);
 	free(cgproc);
@@ -427,6 +435,39 @@ static void cgen_check_scope_unused(cgen_proc_t *cgproc, scope_t *scope)
 		}
 		member = scope_next(member);
 	}
+}
+
+/** Check for used, but undefined and defined, but unused, labels.
+ *
+ * @param cgproc Code generator for procedure
+ * @param labels Labels to check
+ * @return EOK on success
+ */
+static int cgen_check_labels(cgen_proc_t *cgproc, labels_t *labels)
+{
+	label_t *label;
+
+	label = labels_first(labels);
+	while (label != NULL) {
+		if (!label->used) {
+			lexer_dprint_tok(label->tident, stderr);
+			fprintf(stderr, ": Warning: Label '%s' is defined, "
+			    "but not used.\n", label->tident->text);
+			++cgproc->cgen->warnings;
+		}
+
+		if (!label->defined) {
+			lexer_dprint_tok(label->tident, stderr);
+			fprintf(stderr, ": Undefined label '%s'.\n",
+			    label->tident->text);
+			cgproc->cgen->error = true; // TODO
+			return EINVAL;
+		}
+
+		label = labels_next(label);
+	}
+
+	return EOK;
 }
 
 /** Generate code for integer literal expression.
@@ -4214,6 +4255,10 @@ static int cgen_goto(cgen_proc_t *cgproc, ast_goto_t *agoto,
 	if (rc != EOK)
 		goto error;
 
+	rc = labels_use_label(cgproc->labels, &tok->tok);
+	if (rc != EOK)
+		goto error;
+
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
 		goto error;
@@ -5238,6 +5283,17 @@ static int cgen_glabel(cgen_proc_t *cgproc, ast_glabel_t *aglabel,
 	if (rc != EOK)
 		goto error;
 
+	rc = labels_define_label(cgproc->labels, &tok->tok);
+	if (rc == EEXIST) {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Duplicate label '%s'.\n", tok->tok.text);
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+	if (rc != EOK)
+		goto error;
+
 	ir_lblock_append(lblock, glabel, NULL);
 
 	free(glabel);
@@ -5784,6 +5840,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	/* Check for defined, but unused, identifiers */
 	cgen_check_scope_unused(cgproc, cgproc->arg_scope);
 	cgen_check_scope_unused(cgproc, cgproc->proc_scope);
+
+	/* Check for used, but not defined and defined, but not used labels */
+	rc = cgen_check_labels(cgproc, cgproc->labels);
+	if (rc != EOK)
+		goto error;
 
 	cgen_proc_destroy(cgproc);
 	cgproc = NULL;

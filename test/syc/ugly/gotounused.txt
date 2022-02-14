@@ -1,0 +1,1 @@
+<test/syc/ugly/gotounused.c:7:1-6:id:unused>: Warning: Label 'unused' is defined, but not used.

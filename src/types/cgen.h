@@ -63,6 +63,8 @@ typedef struct {
 	struct cgen_switch *cur_switch;
 	/** Current (innermo) loop or switch */
 	struct cgen_loop_switch *cur_loop_switch;
+	/** Goto labels */
+	struct labels *labels;
 } cgen_proc_t;
 
 /** Value type.

@@ -1,0 +1,1 @@
+<test/syc/bad/gotoundef.c:7:14-22:id:undefined>: Undefined label 'undefined'.

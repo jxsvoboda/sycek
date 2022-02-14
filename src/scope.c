@@ -51,11 +51,14 @@ int scope_create(scope_t *parent, scope_t **rscope)
 
 /** Destroy identifier scope.
  *
- * @param scope Scope
+ * @param scope Scope or @c NULL
  */
 void scope_destroy(scope_t *scope)
 {
 	scope_member_t *member;
+
+	if (scope == NULL)
+		return;
 
 	member = scope_first(scope);
 	while (member != NULL) {

@@ -60,6 +60,7 @@ sources_syc_common = \
     src/ir.c \
     src/irlexer.c \
     src/irparser.c \
+    src/labels.c \
     src/scope.c \
     src/syc.c \
     src/symbols.c \
