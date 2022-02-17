@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <test/cgen.h>
+#include <test/cgtype.h>
 #include <test/comp.h>
 #include <test/ir.h>
 #include <test/scope.h>
@@ -238,6 +239,11 @@ int main(int argc, char *argv[])
 
 		rc = test_comp();
 		printf("test_comp -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
+
+		rc = test_cgtype();
+		printf("test_cgtype -> %d\n", rc);
 		if (rc != EOK)
 			return 1;
 
