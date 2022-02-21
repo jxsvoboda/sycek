@@ -325,10 +325,36 @@ typedef struct {
 	ast_tok_t tqual;
 } ast_tqual_t;
 
+/** Basic type specifier type */
+typedef enum {
+	/** Void type specifier */
+	abts_void,
+	/** Char type specifer */
+	abts_char,
+	/** Short type specifier */
+	abts_short,
+	/** Int type specifier */
+	abts_int,
+	/** Long type specifier */
+	abts_long,
+	/** __int128 type specifier */
+	abts_int128,
+	/** Float type specifier */
+	abts_float,
+	/** Double type specifier */
+	abts_double,
+	/** Signed type specifier */
+	abts_signed,
+	/** Unsigned type specifier */
+	abts_unsigned
+} ast_btstype_t;
+
 /** Basic type specifier */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
+	/** Basic type specifier type */
+	ast_btstype_t btstype;
 	/** Basic type specifier token */
 	ast_tok_t tbasic;
 } ast_tsbasic_t;

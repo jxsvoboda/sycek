@@ -31,6 +31,7 @@
 #include <charcls.h>
 #include <comp.h>
 #include <cgen.h>
+#include <cgtype.h>
 #include <ir.h>
 #include <labels.h>
 #include <lexer.h>
@@ -467,6 +468,255 @@ static int cgen_check_labels(cgen_proc_t *cgproc, labels_t *labels)
 		label = labels_next(label);
 	}
 
+	return EOK;
+}
+
+/** Get the position at which declaration specifier should appear.
+ *
+ * @param dspec Declaration specifier
+ * @return Order (0 - 4) relative to other declaration specifiers
+ */
+static int cgen_dspec_get_order(ast_node_t *dspec)
+{
+	switch (dspec->ntype) {
+	case ant_sclass:
+		/* Storace class specifier */
+		return 0;
+	case ant_tqual:
+		/* Type qualifier */
+		return 1;
+	case ant_fspec:
+		/* Function specifier */
+		return 2;
+	case ant_aspec:
+		/* Attribute specifier */
+		return 3;
+	case ant_tsident:
+	case ant_tsatomic:
+	case ant_tsrecord:
+	case ant_tsenum:
+	case ant_tsbasic:
+		/* Type specifier */
+		return 4;
+	default:
+		assert(false);
+		return -1;
+	}
+}
+
+/** Get the position at which type qualifier should appear.
+ *
+ * @param dspec Type qualifier
+ * @return Order (0 - 4) relative to other type qualifiers
+ */
+static int cgen_tqual_get_order(ast_tqual_t *a)
+{
+	switch (a->qtype) {
+	case aqt_const:
+		return 0;
+	case aqt_restrict:
+		return 1;
+	case aqt_volatile:
+		return 2;
+	case aqt_atomic:
+		return 3;
+	}
+
+	assert(false);
+	return -1;
+}
+
+/** Warn if type qualifiers are not in the preferred order.
+ *
+ * @param cgproc Code generator
+ * @param a First type qualifier
+ * @param b Second type qualifier
+ */
+static void cgen_tqual_check_order(cgen_t *cgen, ast_tqual_t *a, ast_tqual_t *b)
+{
+	comp_tok_t *catok;
+	comp_tok_t *cbtok;
+	int oa, ob;
+
+	oa = cgen_tqual_get_order(a);
+	ob = cgen_tqual_get_order(b);
+	if (oa > ob) {
+		catok = (comp_tok_t *) a->tqual.data;
+		cbtok = (comp_tok_t *) b->tqual.data;
+		lexer_dprint_tok(&cbtok->tok, stderr);
+		fprintf(stderr, ": Warning: '%s' should come before '%s'.\n",
+		    cbtok->tok.text, catok->tok.text);
+		++cgen->warnings;
+	}
+}
+
+/** Get the position at which type specifier should appear.
+ *
+ * @param dspec Type specifier
+ * @return Order (0 - 4) relative to other type specifiers
+ */
+static int cgen_tspec_get_order(ast_node_t *tspec)
+{
+	ast_tsbasic_t *tsbasic;
+
+	switch (tspec->ntype) {
+	case ant_tsbasic:
+		tsbasic = (ast_tsbasic_t *) tspec->ext;
+
+		switch (tsbasic->btstype) {
+		case abts_signed:
+		case abts_unsigned:
+			return 0;
+		case abts_long:
+		case abts_short:
+			return 1;
+		case abts_void:
+		case abts_char:
+		case abts_int:
+		case abts_int128:
+		case abts_float:
+		case abts_double:
+			return 2;
+		}
+		break;
+
+	case ant_tsident:
+	case ant_tsatomic:
+	case ant_tsrecord:
+	case ant_tsenum:
+	default:
+		return 2;
+	}
+
+	assert(false);
+	return -1;
+}
+
+/** Warn if type specifiers are not in the preferred order.
+ *
+ * @param cgproc Code generator
+ * @param a First type specifier
+ * @param b Second type specifier
+ */
+static void cgen_tspec_check_order(cgen_t *cgen, ast_node_t *a, ast_node_t *b)
+{
+	ast_tok_t *atok;
+	ast_tok_t *btok;
+	comp_tok_t *catok;
+	comp_tok_t *cbtok;
+	int oa, ob;
+
+	oa = cgen_tspec_get_order(a);
+	ob = cgen_tspec_get_order(b);
+
+	if (oa > ob) {
+		atok = ast_tree_first_tok(a);
+		catok = (comp_tok_t *) atok->data;
+		btok = ast_tree_first_tok(b);
+		cbtok = (comp_tok_t *) btok->data;
+		lexer_dprint_tok(&cbtok->tok, stderr);
+		fprintf(stderr, ": Warning: '%s' should come before '%s'.\n",
+		    cbtok->tok.text, catok->tok.text);
+		++cgen->warnings;
+	}
+}
+
+/** Warn if declaration specifiers are not in the preferred order.
+ *
+ * For some obscure reason the C standard allows specifiers to come
+ * in any order. On the other hand, most of C programmers tend to
+ * always follow the same order. Thus the parser has made effort to parse
+ * any order of declaration specifiers and now we meticulously verify
+ * that they are in one, specific, order. If they are not, we produce
+ * warnings.
+ *
+ * @param cgproc Code generator
+ * @param a First declaration specifier
+ * @param b Second declaration specifier
+ */
+static void cgen_dspec_check_order(cgen_t *cgen, ast_node_t *a, ast_node_t *b)
+{
+	ast_tok_t *atok;
+	ast_tok_t *btok;
+	comp_tok_t *catok;
+	comp_tok_t *cbtok;
+	int oa, ob;
+
+	oa = cgen_dspec_get_order(a);
+	ob = cgen_dspec_get_order(b);
+
+	if (oa != ob) {
+		if (oa > ob) {
+			atok = ast_tree_first_tok(a);
+			catok = (comp_tok_t *) atok->data;
+			btok = ast_tree_first_tok(b);
+			cbtok = (comp_tok_t *) btok->data;
+			lexer_dprint_tok(&cbtok->tok, stderr);
+			fprintf(stderr, ": Warning: '%s' should come before '%s'.\n",
+			    cbtok->tok.text, catok->tok.text);
+			++cgen->warnings;
+		}
+
+		return;
+	}
+
+	/* Declaration specifiers are of the same class */
+
+	/* Two type qualifiers */
+	if (a->ntype == ant_tqual) {
+		assert(b->ntype == ant_tqual);
+		cgen_tqual_check_order(cgen, (ast_tqual_t *)a->ext,
+		    (ast_tqual_t *)b->ext);
+	}
+
+	if (oa == 4 && ob == 4) {
+		/* Two type specifiers */
+		cgen_tspec_check_order(cgen, a, b);
+	}
+}
+
+/** Generate code for declaration specifiers.
+ *
+ * Declaration specifiers declare the base type which is then further modified
+ * by the declarator(s).
+ *
+ * @param cgen Code generator
+ * @param dspecs Declaration specifiers
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
+{
+	ast_node_t *dspec;
+	ast_node_t *prev;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+
+	(void) cgen;
+	(void) rstype;
+
+	dspec = ast_dspecs_first(dspecs);
+	prev = NULL;
+	while (dspec != NULL) {
+		/* Coding style requires specifiers to be in a certain order. */
+		if (prev != NULL)
+			cgen_dspec_check_order(cgen, prev, dspec);
+
+		switch (dspec->ntype) {
+		case ant_tsbasic:
+			break;
+		default:
+			atok = ast_tree_first_tok(dspec);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Unimplemented declaration specifier.\n");
+			++cgen->warnings;
+			break;
+		}
+
+		prev = dspec;
+		dspec = ast_dspecs_next(dspec);
+	}
 	return EOK;
 }
 
@@ -5916,12 +6166,13 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 /** Generate code for global variable definition.
  *
  * @param cgen Code generator
+ * @param dspecs Declaration specifiers
  * @param entry Init-declarator list entry that declares a variable
  * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
-    ir_module_t *irmod)
+static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
+    ast_idlist_entry_t *entry, ir_module_t *irmod)
 {
 	ir_var_t *var = NULL;
 	ir_dblock_t *dblock = NULL;
@@ -5934,12 +6185,15 @@ static int cgen_vardef(cgen_t *cgen, ast_idlist_entry_t *entry,
 	comp_tok_t *tok;
 	char *pident = NULL;
 	int32_t initval;
+	cgtype_t *stype = NULL;
 	int rc;
-
-	(void) cgen;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
+
+	rc = cgen_dspecs(cgen, dspecs, &stype);
+	if (rc != EOK)
+		goto error;
 
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, &ident->tok);
@@ -6007,6 +6261,8 @@ error:
 	ir_dentry_destroy(dentry);
 	if (pident != NULL)
 		free(pident);
+	if (stype != NULL)
+		cgtype_destroy(stype);
 	return rc;
 }
 
@@ -6032,7 +6288,8 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		while (entry != NULL) {
 			if (ast_decl_is_vardecln(entry->decl)) {
 				/* Variable declaration */
-				rc = cgen_vardef(cgen, entry, irmod);
+				rc = cgen_vardef(cgen, gdecln->dspecs, entry,
+				    irmod);
 				if (rc != EOK)
 					goto error;
 			} else {

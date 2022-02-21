@@ -138,7 +138,7 @@ static int test_ast_tspec(void)
 	ast_tsbasic_t *atspec;
 	int rc;
 
-	rc = ast_tsbasic_create(&atspec);
+	rc = ast_tsbasic_create(abts_void, &atspec);
 	if (rc != EOK)
 		return rc;
 

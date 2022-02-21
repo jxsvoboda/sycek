@@ -3861,17 +3861,54 @@ static int parser_process_tqual(parser_t *parser, ast_tqual_t **rtqual)
 static int parser_process_tsbasic(parser_t *parser, ast_node_t **rtype)
 {
 	ast_tsbasic_t *pbasic;
+	ast_btstype_t btstype;
 	lexer_toktype_t ltt;
 	void *dbasic;
 	int rc;
 
 	ltt = parser_next_ttype(parser);
 	assert(parser_ttype_tsbasic(ltt));
-	(void) ltt;
+
+	switch (ltt) {
+	case ltt_void:
+		btstype = abts_void;
+		break;
+	case ltt_char:
+		btstype = abts_char;
+		break;
+	case ltt_short:
+		btstype = abts_short;
+		break;
+	case ltt_int:
+		btstype = abts_int;
+		break;
+	case ltt_long:
+		btstype = abts_long;
+		break;
+	case ltt_int128:
+		btstype = abts_int128;
+		break;
+	case ltt_float:
+		btstype = abts_float;
+		break;
+	case ltt_double:
+		btstype = abts_double;
+		break;
+	case ltt_signed:
+		btstype = abts_signed;
+		break;
+	case ltt_unsigned:
+		btstype = abts_unsigned;
+		break;
+	default:
+		assert(false);
+		btstype = -1;
+		break;
+	}
 
 	parser_skip(parser, &dbasic);
 
-	rc = ast_tsbasic_create(&pbasic);
+	rc = ast_tsbasic_create(btstype, &pbasic);
 	if (rc != EOK)
 		return rc;
 

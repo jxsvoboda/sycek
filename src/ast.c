@@ -1191,11 +1191,12 @@ static ast_tok_t *ast_tqual_last_tok(ast_tqual_t *tqual)
 
 /** Create AST basic type specifier.
  *
+ * @param btstype Basic type specifier type
  * @param rtsbasic Place to store pointer to new basic type specifier
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ast_tsbasic_create(ast_tsbasic_t **rtsbasic)
+int ast_tsbasic_create(ast_btstype_t btstype, ast_tsbasic_t **rtsbasic)
 {
 	ast_tsbasic_t *tsbasic;
 
@@ -1205,6 +1206,7 @@ int ast_tsbasic_create(ast_tsbasic_t **rtsbasic)
 
 	tsbasic->node.ext = tsbasic;
 	tsbasic->node.ntype = ant_tsbasic;
+	tsbasic->btstype = btstype;
 
 	*rtsbasic = tsbasic;
 	return EOK;

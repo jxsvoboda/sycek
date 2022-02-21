@@ -59,7 +59,7 @@ extern ast_node_t *ast_block_next(ast_node_t *);
 extern ast_node_t *ast_block_last(ast_block_t *);
 extern ast_node_t *ast_block_prev(ast_node_t *);
 extern int ast_tqual_create(ast_qtype_t, ast_tqual_t **);
-extern int ast_tsbasic_create(ast_tsbasic_t **);
+extern int ast_tsbasic_create(ast_btstype_t, ast_tsbasic_t **);
 extern int ast_tsident_create(ast_tsident_t **);
 extern int ast_tsatomic_create(ast_tsatomic_t **);
 extern int ast_tsrecord_create(ast_rtype_t, ast_tsrecord_t **);

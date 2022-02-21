@@ -5,7 +5,7 @@ Sycek aims to provide tools based around a modular C language frontend.
 The available tools are
 
   * `ccheck` a C code style checker
-  * `syc` a C compiler for ZX Spectrum (WIP), static checker (not yet)
+  * `syc` a C compiler for ZX Spectrum (WIP), static checker (WIP)
 
 Sycek is available under an MIT-style license.
 
@@ -36,10 +36,15 @@ Sycek is available under an MIT-style license.
 Syc
 ---
 `syc` is meant to work as a compiler or static checker. Currently
-work is in progress on compiling C for Sinclair ZX Spectrum
+it can compile a subset of C for the Sinclair ZX Spectrum
 (Zilog Z80 processor).
 
-NOTE: This is a work in progress. Only a small subset of C is implemented.
+NOTE: This is a work in progress. Only a subset of C is implemented.
+
+`syc` can also complement `ccheck` checking for certain programming
+issues that cannot be reliably detected withough actually preprocessing
+the source code. Instead `syc` can be used as a lint / checker / shadow
+compiler.
 
 Downloading
 -----------
@@ -267,6 +272,16 @@ program in various compilation stages to the standard output:
  * `--dump-toks` Dump tokenized source file
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
+
+Syc as a checker
+----------------
+Syc attempts to produce a good amount of generic diagnostic warnings
+(e.g. shadowing a wider-scope declaration), it also implements coding
+style related checks, complementing `ccheck`, where it is desirable
+to preprocess the source code.
+
+It can detect out of order declaration specifiers (such as `int long unsigned`,
+`int typedef`, `volatile restrict const`, `int typedef`).
 
 Intermediate Representation
 ---------------------------
