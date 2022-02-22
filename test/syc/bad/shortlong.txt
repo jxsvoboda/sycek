@@ -1,0 +1,2 @@
+<test/syc/bad/shortlong.c:5:1-5:'short'>: Warning: Unimplemented type specifier.
+<test/syc/bad/shortlong.c:5:7-10:'long'>: Both short and long specifier.

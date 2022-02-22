@@ -2,4 +2,4 @@
  * Multiple type specifiers
  */
 
-int struct foo x;
+int struct foo a;

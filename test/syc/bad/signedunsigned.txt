@@ -1,0 +1,2 @@
+<test/syc/bad/signedunsigned.c:5:1-6:'signed'>: Warning: Unimplemented type specifier.
+<test/syc/bad/signedunsigned.c:5:8-15:'unsigned'>: Both signed and unsigned specifier.
