@@ -44,7 +44,7 @@ typedef enum {
 } cgtype_elmtype_t;
 
 /** Code generator C type */
-typedef struct {
+typedef struct cgtype {
 	/** Entire / type-specific structure */
 	void *ext;
 	/** Node type */

@@ -24,6 +24,7 @@
  * Identifier scope
  */
 
+#include <cgtype.h>
 #include <merrno.h>
 #include <scope.h>
 #include <stdlib.h>
@@ -74,6 +75,7 @@ void scope_destroy(scope_t *scope)
 			break;
 		}
 
+		cgtype_destroy(member->cgtype);
 		free(member);
 		member = scope_first(scope);
 	}
@@ -85,10 +87,11 @@ void scope_destroy(scope_t *scope)
  *
  * @param scope Scope
  * @param tident Identifier token
+ * @param cgtype C type of the global symbol
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident)
+int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
 {
 	scope_member_t *member;
 
@@ -103,6 +106,7 @@ int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident)
 		return ENOMEM;
 
 	member->tident = tident;
+	member->cgtype = cgtype;
 	member->mtype = sm_gsym;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
@@ -113,11 +117,13 @@ int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident)
  *
  * @param scope Scope
  * @param tident Identifier token
+ * @param cgtype C type of the argument
  * @param vident Argument variable identifer (e.g. '%0')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, const char *vident)
+int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
+    const char *vident)
 {
 	scope_member_t *member;
 	char *dvident;
@@ -139,6 +145,7 @@ int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, const char *vident)
 	}
 
 	member->tident = tident;
+	member->cgtype = cgtype;
 	member->mtype = sm_arg;
 	member->m.arg.vident = dvident;
 	member->scope = scope;
@@ -150,11 +157,13 @@ int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, const char *vident)
  *
  * @param scope Scope
  * @param tident Identifier token
+ * @param cgtype C type of the variable
  * @param vident IR variable identifer (e.g. '%foo')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, const char *vident)
+int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
+    const char *vident)
 {
 	scope_member_t *member;
 	char *dvident;
@@ -176,6 +185,7 @@ int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, const char *vident)
 	}
 
 	member->tident = tident;
+	member->cgtype = cgtype;
 	member->mtype = sm_lvar;
 	member->m.lvar.vident = dvident;
 	member->scope = scope;

@@ -675,6 +675,147 @@ static void cgen_dspec_check_order(cgen_t *cgen, ast_node_t *a, ast_node_t *b)
 	}
 }
 
+/** Generate error: multiple type specifiers.
+ *
+ * @param cgen Code generator
+ * @param prev Previous type specifier
+ * @param cur Current type specifier
+ */
+static void cgen_error_multiple_tspecs(cgen_t *cgen, ast_node_t *prev,
+    ast_node_t *cur)
+{
+	ast_tok_t *atok1;
+	ast_tok_t *atok2;
+	comp_tok_t *tok1;
+	comp_tok_t *tok2;
+
+	atok1 = ast_tree_first_tok(prev);
+	atok2 = ast_tree_first_tok(cur);
+	tok1 = (comp_tok_t *) atok1->data;
+	tok2 = (comp_tok_t *) atok2->data;
+
+	lexer_dprint_tok(&tok2->tok, stderr);
+	fprintf(stderr, ": Multiple type specifiers ('%s', '%s').\n",
+	    tok1->tok.text, tok2->tok.text);
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: multiple short specifiers.
+ *
+ * @param cgen Code generator
+ * @param tsshort Current short specifier
+ */
+static void cgen_error_multiple_short(cgen_t *cgen, ast_tsbasic_t *tsshort)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tsshort->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": More than one short specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: more than two long specifiers.
+ *
+ * @param cgen Code generator
+ * @param tslong Current long specifier
+ */
+static void cgen_error_many_long(cgen_t *cgen, ast_tsbasic_t *tslong)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tslong->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": More than two long specifiers.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: both short and long specifier.
+ *
+ * @param cgen Code generator
+ * @param tspec Current short/long specifier
+ */
+static void cgen_error_short_long(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Both short and long specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: multiple signed specifiers.
+ *
+ * @param cgen Code generator
+ * @param tssigned Current signed specifier
+ */
+static void cgen_error_multiple_signed(cgen_t *cgen, ast_tsbasic_t *tssigned)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tssigned->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": More than one signed specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: multiple unsigned specifiers.
+ *
+ * @param cgen Code generator
+ * @param tsunsigned Current unsigned specifier
+ */
+static void cgen_error_multiple_unsigned(cgen_t *cgen,
+    ast_tsbasic_t *tsunsigned)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tsunsigned->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": More than one unsigned specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: both signed and unsigned specifier.
+ *
+ * @param cgen Code generator
+ * @param tspec Current signed/unsigned specifier
+ */
+static void cgen_error_signed_unsigned(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Both signed and unsigned specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
+static void cgen_warn_tspec_not_impl(cgen_t *cgen, ast_node_t *tspec)
+{
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+
+	atok = ast_tree_first_tok(tspec);
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Unimplemented type specifier.\n");
+	++cgen->warnings;
+}
+
 /** Generate code for declaration specifiers.
  *
  * Declaration specifiers declare the base type which is then further modified
@@ -690,10 +831,27 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 	ast_node_t *dspec;
 	ast_node_t *prev;
 	ast_tok_t *atok;
+	ast_node_t *tspec;
+	ast_tsbasic_t *tsbasic;
 	comp_tok_t *tok;
+	cgtype_elmtype_t elmtype;
+	cgtype_basic_t *btype;
+	cgtype_t *stype;
+	int short_cnt;
+	int long_cnt;
+	int signed_cnt;
+	int unsigned_cnt;
+	int rc;
 
 	(void) cgen;
 	(void) rstype;
+
+	/* There should be exactly one type specifier. Track it in tspec. */
+	tspec = NULL;
+	short_cnt = 0;
+	long_cnt = 0;
+	signed_cnt = 0;
+	unsigned_cnt = 0;
 
 	dspec = ast_dspecs_first(dspecs);
 	prev = NULL;
@@ -704,6 +862,78 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 
 		switch (dspec->ntype) {
 		case ant_tsbasic:
+			tsbasic = (ast_tsbasic_t *) dspec->ext;
+			switch (tsbasic->btstype) {
+			case abts_short:
+				if (short_cnt > 0) {
+					cgen_error_multiple_short(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (long_cnt > 0) {
+					cgen_error_short_long(cgen, tsbasic);
+					return EINVAL;
+				}
+				cgen_warn_tspec_not_impl(cgen, dspec);
+				++short_cnt;
+				break;
+			case abts_long:
+				if (long_cnt > 1) {
+					cgen_error_many_long(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (short_cnt > 0) {
+					cgen_error_short_long(cgen, tsbasic);
+					return EINVAL;
+				}
+				cgen_warn_tspec_not_impl(cgen, dspec);
+				++long_cnt;
+				break;
+			case abts_signed:
+				if (signed_cnt > 0) {
+					cgen_error_multiple_signed(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (unsigned_cnt > 0) {
+					cgen_error_signed_unsigned(cgen, tsbasic);
+					return EINVAL;
+				}
+				cgen_warn_tspec_not_impl(cgen, dspec);
+				++signed_cnt;
+				break;
+			case abts_unsigned:
+				if (unsigned_cnt > 0) {
+					cgen_error_multiple_unsigned(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (signed_cnt > 0) {
+					cgen_error_signed_unsigned(cgen, tsbasic);
+					return EINVAL;
+				}
+				cgen_warn_tspec_not_impl(cgen, dspec);
+				++unsigned_cnt;
+				break;
+			default:
+				if (tspec != NULL) {
+					/* More than one type specifier */
+					cgen_error_multiple_tspecs(cgen, tspec, dspec);
+					return EINVAL;
+				}
+
+				tspec = dspec;
+				break;
+			}
+			break;
+		case ant_tsident:
+		case ant_tsatomic:
+		case ant_tsrecord:
+		case ant_tsenum:
+			if (tspec != NULL) {
+				/* More than one type specifier */
+				cgen_error_multiple_tspecs(cgen, tspec, dspec);
+				return EINVAL;
+			}
+
+			tspec = dspec;
 			break;
 		default:
 			atok = ast_tree_first_tok(dspec);
@@ -717,7 +947,48 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 		prev = dspec;
 		dspec = ast_dspecs_next(dspec);
 	}
+
+	if (tspec != NULL) {
+		/* Process type specifier */
+		switch (tspec->ntype) {
+		case ant_tsbasic:
+			tsbasic = (ast_tsbasic_t *) tspec->ext;
+			switch (tsbasic->btstype) {
+			case abts_int:
+				elmtype = cgelm_int;
+				break;
+			default:
+				cgen_warn_tspec_not_impl(cgen, tspec);
+				elmtype = cgelm_int;
+				break;
+			}
+
+			rc = cgtype_basic_create(elmtype, &btype);
+			if (rc != EOK)
+				goto error;
+
+			stype = &btype->cgtype;
+			break;
+		default:
+			stype = NULL;
+			assert(false);
+			break;
+		}
+	} else {
+		/* Default to int */
+		rc = cgtype_basic_create(cgelm_int, &btype);
+		if (rc != EOK)
+			goto error;
+
+		stype = &btype->cgtype;
+	}
+
+	*rstype = stype;
 	return EOK;
+error:
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
 }
 
 /** Generate code for integer literal expression.
@@ -5678,7 +5949,8 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		}
 
 		/* Insert identifier into current scope */
-		rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok, vident);
+		rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok,
+		    NULL /* XXX */,  vident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -5957,7 +6229,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	symbol->flags |= sf_defined;
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, NULL /* XXX */);
 	if (rc == ENOMEM)
 		goto error;
 
@@ -6059,7 +6331,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		arg_ident = NULL;
 
 		/* Insert identifier into argument scope */
-		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok, iarg->ident);
+		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
+		    NULL /* XXX */, iarg->ident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -6146,7 +6419,8 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			return rc;
 
 		/* Insert identifier into module scope */
-		rc = scope_insert_gsym(cgen->scope, &ident->tok);
+		rc = scope_insert_gsym(cgen->scope, &ident->tok,
+		    NULL /* XXX */);
 		if (rc == ENOMEM)
 			return rc;
 	} else {
@@ -6191,14 +6465,18 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
 
+	/* Process declaration specifiers */
+
 	rc = cgen_dspecs(cgen, dspecs, &stype);
 	if (rc != EOK)
 		goto error;
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
 	if (rc == ENOMEM)
 		goto error;
+
+	stype = NULL;
 
 	if (entry->init != NULL) {
 		if (entry->init->ntype != ant_eint) {

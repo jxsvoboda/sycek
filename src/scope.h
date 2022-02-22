@@ -27,13 +27,16 @@
 #ifndef SCOPE_H
 #define SCOPE_H
 
+#include <types/cgtype.h>
 #include <types/scope.h>
 
 extern int scope_create(scope_t *, scope_t **);
 extern void scope_destroy(scope_t *);
-extern int scope_insert_gsym(scope_t *, lexer_tok_t *);
-extern int scope_insert_arg(scope_t *, lexer_tok_t *, const char *);
-extern int scope_insert_lvar(scope_t *, lexer_tok_t *, const char *);
+extern int scope_insert_gsym(scope_t *, lexer_tok_t *, cgtype_t *);
+extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
+    const char *);
+extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
+    const char *);
 extern scope_member_t *scope_first(scope_t *);
 extern scope_member_t *scope_next(scope_member_t *);
 extern scope_member_t *scope_lookup_local(scope_t *, const char *);

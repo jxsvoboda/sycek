@@ -63,11 +63,11 @@ static int test_scope_insert_gsym(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_gsym(scope, &tok);
+	rc = scope_insert_gsym(scope, &tok, NULL);
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_gsym(scope, &tok);
+	rc = scope_insert_gsym(scope, &tok, NULL);
 	if (rc != EEXIST)
 		goto error;
 
@@ -106,11 +106,11 @@ static int test_scope_insert_arg(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_arg(scope, &tok, "%0");
+	rc = scope_insert_arg(scope, &tok, NULL, "%0");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_arg(scope, &tok, "%1");
+	rc = scope_insert_arg(scope, &tok, NULL, "%1");
 	if (rc != EEXIST)
 		goto error;
 
@@ -150,11 +150,11 @@ static int test_scope_insert_lvar(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(scope, &tok, "%a");
+	rc = scope_insert_lvar(scope, &tok, NULL, "%a");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, &tok, "%a");
+	rc = scope_insert_lvar(scope, &tok, NULL, "%a");
 	if (rc != EEXIST)
 		goto error;
 
@@ -197,13 +197,13 @@ static int test_scope_first_next(void)
 
 	toka.text = "a";
 
-	rc = scope_insert_lvar(scope, &toka, "%a");
+	rc = scope_insert_lvar(scope, &toka, NULL, "%a");
 	if (rc != EOK)
 		goto error;
 
 	tokb.text = "b";
 
-	rc = scope_insert_lvar(scope, &tokb, "%b");
+	rc = scope_insert_lvar(scope, &tokb, NULL, "%b");
 	if (rc != EOK)
 		goto error;
 
@@ -263,7 +263,7 @@ static int test_scope_lookup_local(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(child, &tok, "%a");
+	rc = scope_insert_lvar(child, &tok, NULL, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -309,7 +309,7 @@ static int test_scope_lookup(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(parent, &tok, "%a");
+	rc = scope_insert_lvar(parent, &tok, NULL, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -332,7 +332,7 @@ static int test_scope_lookup(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(child, &tok, "%a");
+	rc = scope_insert_lvar(child, &tok, NULL, "%a");
 	if (rc != EOK)
 		goto error;
 

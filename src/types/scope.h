@@ -68,6 +68,8 @@ typedef struct {
 	link_t lmembers;
 	/** Identifier token */
 	lexer_tok_t *tident;
+	/** Code generator type */
+	struct cgtype *cgtype;
 	/** @c true iff identifier is used */
 	bool used;
 	/** Member type */
