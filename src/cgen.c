@@ -5870,6 +5870,7 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	char *vident = NULL;
 	ir_lvar_t *lvar;
 	scope_member_t *member;
+	cgtype_t *stype;
 	int rc;
 
 	(void) lblock;
@@ -5879,23 +5880,11 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	atok = ast_tree_first_tok(dspec);
 	tok = (comp_tok_t *) atok->data;
 
-	if (ast_dspecs_next(dspec) != NULL) {
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Multiple declaration specifiers (unimplemented).\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
+	/* Process declaration specifiers */
 
-	if (dspec->ntype != ant_tsbasic) {
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Type specifier is not basic (unimplemented).\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &stype);
+	if (rc != EOK)
 		goto error;
-	}
-
-	// XXX AST could give us the exact basic specifier and we should verify
 
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
@@ -5950,7 +5939,7 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 		/* Insert identifier into current scope */
 		rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok,
-		    NULL /* XXX */,  vident);
+		    stype, vident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -5974,8 +5963,10 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		identry = ast_idlist_next(identry);
 	}
 
+	cgtype_destroy(stype);
 	return EOK;
 error:
+	cgtype_destroy(stype);
 	if (vident != NULL)
 		free(vident);
 	return rc;
@@ -6199,6 +6190,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	comp_tok_t *tok;
 	scope_member_t *member;
 	symbol_t *symbol;
+	cgtype_t *stype = NULL;
 	int rc;
 	int rv;
 
@@ -6270,15 +6262,17 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	dfun = (ast_dfun_t *)idle->decl->ext;
 
+	/* Check for function without paremeters */
+
 	/* Arguments */
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		// XXX Process arg->dspecs
-
 		if (arg->decl->ntype == ant_dnoident) {
 			/* Should be void */
-			arg = ast_dfun_next(arg);
-			if (arg != NULL) {
+			if (ast_dfun_next(arg) != NULL || arg != ast_dfun_first(dfun)) {
+				atok = ast_tree_first_tok(&arg->dspecs->node);
+				tok = (comp_tok_t *) atok->data;
+				lexer_dprint_tok(&tok->tok, stderr);
 				fprintf(stderr, ": 'void' must be the only parameter.\n");
 				cgproc->cgen->error = true; // XXX
 				rc = EINVAL;
@@ -6287,6 +6281,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 			break;
 		}
+
+		/* Process declaration specifiers */
+		rc = cgen_dspecs(cgproc->cgen, arg->dspecs, &stype);
+		if (rc != EOK)
+			goto error;
 
 		if (arg->decl->ntype != ant_dident) {
 			atok = ast_tree_first_tok(arg->decl);
@@ -6332,7 +6331,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 		/* Insert identifier into argument scope */
 		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
-		    NULL /* XXX */, iarg->ident);
+		    stype, iarg->ident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -6343,6 +6342,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 				goto error;
 			}
 		}
+
+		cgtype_destroy(stype);
+		stype = NULL;
 
 		ir_proc_append_arg(proc, iarg);
 		arg = ast_dfun_next(arg);
@@ -6374,6 +6376,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	return EOK;
 error:
+	cgtype_destroy(stype);
 	ir_proc_destroy(proc);
 	cgen_proc_destroy(cgproc);
 	if (lblock != NULL)
@@ -6466,7 +6469,10 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	ident = (comp_tok_t *) aident->data;
 
 	/* Process declaration specifiers */
-
+	/*
+	 * XXX Don't do this again for each declarator! It will produce
+	 * duplicate warnings, if there are any
+	 */
 	rc = cgen_dspecs(cgen, dspecs, &stype);
 	if (rc != EOK)
 		goto error;
@@ -6475,8 +6481,6 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
 	if (rc == ENOMEM)
 		goto error;
-
-	stype = NULL;
 
 	if (entry->init != NULL) {
 		if (entry->init->ntype != ant_eint) {
@@ -6533,14 +6537,14 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	ir_module_append(irmod, &var->decln);
 	var = NULL;
 
+	cgtype_destroy(stype);
 	return EOK;
 error:
 	ir_var_destroy(var);
 	ir_dentry_destroy(dentry);
 	if (pident != NULL)
 		free(pident);
-	if (stype != NULL)
-		cgtype_destroy(stype);
+	cgtype_destroy(stype);
 	return rc;
 }
 

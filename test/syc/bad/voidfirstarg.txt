@@ -1,0 +1,1 @@
+<test/syc/bad/voidfirstarg.c:5:16-19:'void'>: 'void' must be the only parameter.

@@ -94,6 +94,8 @@ void scope_destroy(scope_t *scope)
 int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
 {
 	scope_member_t *member;
+	cgtype_t *dtype = NULL;
+	int rc;
 
 	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
@@ -105,8 +107,14 @@ int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
 	if (member == NULL)
 		return ENOMEM;
 
+	rc = cgtype_clone(cgtype, &dtype);
+	if (rc != EOK) {
+		free(member);
+		return ENOMEM;
+	}
+
 	member->tident = tident;
-	member->cgtype = cgtype;
+	member->cgtype = dtype;
 	member->mtype = sm_gsym;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
@@ -127,6 +135,8 @@ int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
 {
 	scope_member_t *member;
 	char *dvident;
+	cgtype_t *dtype = NULL;
+	int rc;
 
 	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
@@ -144,8 +154,15 @@ int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
 		return ENOMEM;
 	}
 
+	rc = cgtype_clone(cgtype, &dtype);
+	if (rc != EOK) {
+		free(dvident);
+		free(member);
+		return ENOMEM;
+	}
+
 	member->tident = tident;
-	member->cgtype = cgtype;
+	member->cgtype = dtype;
 	member->mtype = sm_arg;
 	member->m.arg.vident = dvident;
 	member->scope = scope;
@@ -167,6 +184,8 @@ int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
 {
 	scope_member_t *member;
 	char *dvident;
+	cgtype_t *dtype = NULL;
+	int rc;
 
 	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
@@ -184,8 +203,15 @@ int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
 		return ENOMEM;
 	}
 
+	rc = cgtype_clone(cgtype, &dtype);
+	if (rc != EOK) {
+		free(dvident);
+		free(member);
+		return ENOMEM;
+	}
+
 	member->tident = tident;
-	member->cgtype = cgtype;
+	member->cgtype = dtype;
 	member->mtype = sm_lvar;
 	member->m.lvar.vident = dvident;
 	member->scope = scope;

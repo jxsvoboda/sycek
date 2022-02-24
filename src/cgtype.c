@@ -197,6 +197,10 @@ static void cgtype_pointer_destroy(cgtype_pointer_t *pointer)
  */
 int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 {
+	if (orig == NULL) {
+		*rcopy = NULL;
+		return EOK; // XXX
+	}
 	switch (orig->ntype) {
 	case cgn_basic:
 		return cgtype_basic_clone((cgtype_basic_t *) orig->ext, rcopy);
