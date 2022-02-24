@@ -93,6 +93,8 @@ typedef struct {
 	 * for lvalue it contains the address of a memory location.
 	 */
 	cgen_valtype_t valtype;
+	/** C type */
+	struct cgtype *cgtype;
 } cgen_eres_t;
 
 /** Code generator loop tracking record.
