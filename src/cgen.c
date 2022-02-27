@@ -1038,6 +1038,7 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_imm_t *imm = NULL;
 	int32_t val;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	lit = (comp_tok_t *) eint->tlit.data;
@@ -1061,6 +1062,10 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	if (rc != EOK)
 		goto error;
 
+	rc = cgtype_basic_create(cgelm_int, &btype);
+	if (rc != EOK)
+		goto error;
+
 	instr->itype = iri_imm;
 	instr->width = cgproc->cgen->arith_width;
 	instr->dest = &dest->oper;
@@ -1068,9 +1073,10 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	instr->op2 = NULL;
 
 	ir_lblock_append(lblock, NULL, instr);
+
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
-	eres->cgtype = NULL;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1078,6 +1084,8 @@ error:
 		ir_oper_destroy(&dest->oper);
 	if (imm != NULL)
 		ir_oper_destroy(&imm->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -1243,6 +1251,7 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 {
 	comp_tok_t *ident;
 	scope_member_t *member;
+	cgtype_t *cgtype = NULL;
 	int rc = EINVAL;
 
 	ident = (comp_tok_t *) eident->tident.data;
@@ -1256,6 +1265,11 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		cgproc->cgen->error = true; // TODO
 		return EINVAL;
 	}
+
+	/* Resulting type is the same as type of the member */
+	rc = cgtype_clone(member->cgtype, &cgtype);
+	if (rc != EOK)
+		return rc;
 
 	switch (member->mtype) {
 	case sm_gsym:
@@ -1271,10 +1285,13 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		break;
 	}
 
-	/* Mark identifier as used */
-	if (rc == EOK)
-		member->used = true;
+	if (rc != EOK)
+		return rc;
 
+	/* Mark identifier as used */
+	member->used = true;
+
+	eres->cgtype = cgtype;
 	return rc;
 }
 
@@ -1307,6 +1324,7 @@ static int cgen_add(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -1317,6 +1335,10 @@ static int cgen_add(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -1349,7 +1371,7 @@ static int cgen_add(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
-	eres->cgtype = NULL;
+	eres->cgtype = cgtype;
 
 	return EOK;
 error:
@@ -1362,6 +1384,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -1380,6 +1403,7 @@ static int cgen_subtract(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -1390,6 +1414,10 @@ static int cgen_subtract(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -1422,6 +1450,7 @@ static int cgen_subtract(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1433,6 +1462,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -1451,6 +1481,7 @@ static int cgen_mul(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -1461,6 +1492,10 @@ static int cgen_mul(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -1493,6 +1528,7 @@ static int cgen_mul(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1504,6 +1540,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -1522,6 +1559,7 @@ static int cgen_shl(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -1534,6 +1572,10 @@ static int cgen_shl(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -1566,6 +1608,7 @@ static int cgen_shl(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1577,6 +1620,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -1595,6 +1639,7 @@ static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -1607,6 +1652,10 @@ static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -1639,6 +1688,7 @@ static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1650,6 +1700,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -2100,6 +2151,7 @@ static int cgen_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -2110,6 +2162,10 @@ static int cgen_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -2142,6 +2198,7 @@ static int cgen_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -2153,6 +2210,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -2171,6 +2229,7 @@ static int cgen_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -2181,6 +2240,10 @@ static int cgen_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -2213,6 +2276,7 @@ static int cgen_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -2224,6 +2288,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -2242,6 +2307,7 @@ static int cgen_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -2252,6 +2318,10 @@ static int cgen_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(lres.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -2284,6 +2354,7 @@ static int cgen_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -2295,6 +2366,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgtype_destroy(cgtype);
 	return rc;
 }
 
@@ -2320,6 +2392,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	char *flabel = NULL;
 	char *elabel = NULL;
 	const char *dvarname;
+	cgtype_basic_t *btype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -2334,6 +2407,10 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	rc = cgen_create_label(cgproc, "end_and", lblno, &elabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_int, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -2423,6 +2500,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_lblock_append(lblock, NULL, instr);
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 
 	dvarname = dest->varname;
 	dest = NULL;
@@ -2482,6 +2560,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_lblock_append(lblock, NULL, instr);
 	eres->varname = dest2->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 
 	dest2 = NULL;
 	imm = NULL;
@@ -2514,6 +2593,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -2539,6 +2620,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	char *tlabel = NULL;
 	char *elabel = NULL;
 	const char *dvarname;
+	cgtype_basic_t *btype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	int rc;
@@ -2553,6 +2635,10 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	rc = cgen_create_label(cgproc, "end_or", lblno, &elabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_int, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -2701,6 +2787,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_lblock_append(lblock, NULL, instr);
 	eres->varname = dest2->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 
 	dest2 = NULL;
 	imm = NULL;
@@ -2733,6 +2820,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -2752,6 +2841,7 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2785,11 +2875,16 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	ir_lblock_append(lblock, NULL, instr);
 
+	/* Salvage type from lres */
+	cgtype = lres.cgtype;
+	lres.cgtype = NULL;
+
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
 	eres->varname = rres.varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -2827,6 +2922,8 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
+
+	// TODO: Usual arithmetic conversions and return type
 
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
@@ -2967,6 +3064,8 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 
+	// TODO: Usual arithmetic conversions and return type
+
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
 		goto error;
@@ -3105,6 +3204,8 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
+
+	// TODO: Usual arithmetic conversions and return type
 
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
@@ -3245,6 +3346,8 @@ static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 
+	// TODO: Usual arithmetic conversions and return type
+
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
 		goto error;
@@ -3382,6 +3485,8 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
+
+	// TODO: Usual arithmetic conversions and return type
 
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
@@ -3522,6 +3627,8 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 
+	// TODO: Usual arithmetic conversions and return type
+
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
 		goto error;
@@ -3661,6 +3768,8 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 
+	// TODO: Usual arithmetic conversions and return type
+
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
 		goto error;
@@ -3799,6 +3908,8 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
+
+	// TODO: Usual arithmetic conversions and return type
 
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &ares);
 	if (rc != EOK)
@@ -4047,6 +4158,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ir_oper_var_t *fun = NULL;
 	ir_oper_list_t *args = NULL;
 	ir_oper_var_t *arg = NULL;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&ares);
@@ -4083,6 +4195,10 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	if (rc != EOK)
 		goto error;
 
+	rc = cgtype_basic_create(cgelm_int, &btype);
+	if (rc != EOK)
+		goto error;
+
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
 		goto error;
@@ -4112,6 +4228,11 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 			goto error;
 
 		ir_oper_list_append(args, &arg->oper);
+
+		/* Prepare result for reuse */
+		cgen_eres_fini(&ares);
+		cgen_eres_init(&ares);
+
 		earg = ast_ecall_next(earg);
 	}
 
@@ -4132,6 +4253,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4144,6 +4266,8 @@ error:
 	if (pident != NULL)
 		free(pident);
 	cgen_eres_fini(&ares);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -4255,9 +4379,15 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 
 		eres->varname = dest->varname;
 		eres->valtype = cgen_rvalue;
+		/* Salvage the type from bres */
+		eres->cgtype = bres.cgtype;
+		bres.cgtype = NULL;
 	} else {
 		eres->varname = bres.varname;
 		eres->valtype = cgen_rvalue;
+		/* Salvage the type from bres */
+		eres->cgtype = bres.cgtype;
+		bres.cgtype = NULL;
 	}
 
 	cgen_eres_fini(&bres);
@@ -4288,12 +4418,17 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *barg = NULL;
 	cgen_eres_t bres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&bres);
 
 	/* Evaluate base expression */
 	rc = cgen_expr_rvalue(cgproc, elnot->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_int, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -4324,6 +4459,7 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4332,6 +4468,8 @@ error:
 	if (barg != NULL)
 		ir_oper_destroy(&barg->oper);
 	cgen_eres_fini(&bres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -4350,6 +4488,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *barg = NULL;
 	cgen_eres_t bres;
+	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -4378,10 +4517,14 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 
 	ir_lblock_append(lblock, NULL, instr);
 
+	/* Salvage type from bres */
+	cgtype = bres.cgtype;
+	bres.cgtype = NULL;
 	cgen_eres_fini(&bres);
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4411,6 +4554,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	ir_oper_var_t *adj = NULL;
 	ir_oper_var_t *res = NULL;
 	cgen_eres_t bres;
+	cgtype_t *cgtype;
 	char *bvalvn;
 	char *adjvn;
 	char *resvn;
@@ -4532,10 +4676,14 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
+	/* Salvage type from bres */
+	cgtype = bres.cgtype;
+	bres.cgtype = NULL;
 	cgen_eres_fini(&bres);
 
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4571,6 +4719,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	ir_oper_var_t *adj = NULL;
 	ir_oper_var_t *res = NULL;
 	cgen_eres_t bres;
+	cgtype_t *cgtype;
 	char *bvalvn;
 	char *adjvn;
 	char *resvn;
@@ -4692,10 +4841,14 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
+	/* Salvage type from cgtype */
+	cgtype = bres.cgtype;
+	bres.cgtype = NULL;
 	cgen_eres_fini(&bres);
 
 	eres->varname = bvalvn;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4886,6 +5039,7 @@ static int cgen_expr_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
+	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&res);
@@ -4922,10 +5076,15 @@ static int cgen_expr_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
 
 	ir_lblock_append(lblock, NULL, instr);
 
+	/* Salvage the type from res */
+	cgtype = res.cgtype;
+	res.cgtype = NULL;
+
 	cgen_eres_fini(&res);
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 
 	return EOK;
 error:
@@ -5269,6 +5428,9 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 	elsif = ast_if_first(aif);
 	while (elsif != NULL) {
+		/* Prepare cres for reuse */
+		cgen_eres_fini(&cres);
+		cgen_eres_init(&cres);
 		/*
 		 * Create false else-if label. Allocate a number every time
 		 * since there might be multiple else-if branches.
