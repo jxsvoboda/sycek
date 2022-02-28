@@ -52,6 +52,8 @@ static int cgen_expr2_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *, cgen_eres_t *);
 static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
+static int cgen_type_convert(cgen_t *, ast_node_t *, cgen_eres_t *, cgtype_t *,
+    cgen_eres_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_loop_create(cgen_loop_t *, cgen_loop_t **);
@@ -1721,6 +1723,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -1730,6 +1733,10 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -1762,6 +1769,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1773,6 +1781,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -1793,6 +1803,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -1802,6 +1813,10 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -1834,6 +1849,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1845,6 +1861,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -1865,6 +1883,7 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -1874,6 +1893,10 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -1906,6 +1929,7 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1917,6 +1941,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -1937,6 +1963,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -1946,6 +1973,10 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -1978,6 +2009,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -1989,6 +2021,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -2009,6 +2043,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2018,6 +2053,10 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -2050,6 +2089,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -2061,6 +2101,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -2081,6 +2123,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2090,6 +2133,10 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -2122,6 +2169,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -2133,6 +2181,8 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -2410,7 +2460,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_basic_create(cgelm_int, &btype);
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -2638,7 +2688,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_basic_create(cgelm_int, &btype);
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -2841,17 +2891,27 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_eres_t cres;
 	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
+	cgen_eres_init(&cres);
 
+	/* Address of left hand expresson */
 	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
+	/* Value of right hand expresson */
 	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert expression result to the destination type */
+	rc = cgen_type_convert(cgproc->cgen, ebinop->rarg, &rres, lres.cgtype,
+	    &cres);
 	if (rc != EOK)
 		goto error;
 
@@ -2881,6 +2941,7 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&cres);
 
 	eres->varname = rres.varname;
 	eres->valtype = cgen_rvalue;
@@ -2894,6 +2955,7 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&cres);
 	return rc;
 }
 
@@ -4153,15 +4215,18 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	char *pident = NULL;
 	ast_ecall_arg_t *earg;
 	cgen_eres_t ares;
+	cgen_eres_t cres;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *fun = NULL;
 	ir_oper_list_t *args = NULL;
 	ir_oper_var_t *arg = NULL;
 	cgtype_basic_t *btype = NULL;
+	cgtype_basic_t *atype = NULL;
 	int rc;
 
 	cgen_eres_init(&ares);
+	cgen_eres_init(&cres);
 
 	if (ecall->fexpr->ntype != ant_eident) {
 		atok = ast_tree_first_tok(ecall->fexpr);
@@ -4223,7 +4288,25 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		if (rc != EOK)
 			goto error;
 
-		rc = ir_oper_var_create(ares.varname, &arg);
+		/// XXX Determine real type of argument
+		rc = cgtype_basic_create(cgelm_int, &atype);
+		if (rc != EOK)
+			goto error;
+
+		/*
+		 * If the function has a prototype and the argument is not
+		 * variadic, convert it to its declared type.
+		 * XXX Otherwise it should be simply promoted.
+		 */
+		rc = cgen_type_convert(cgproc->cgen, earg->arg, &ares,
+		    &atype->cgtype, &cres);
+		if (rc != EOK)
+			goto error;
+
+		cgtype_destroy(&atype->cgtype);
+		atype = NULL;
+
+		rc = ir_oper_var_create(cres.varname, &arg);
 		if (rc != EOK)
 			goto error;
 
@@ -4231,7 +4314,10 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 
 		/* Prepare result for reuse */
 		cgen_eres_fini(&ares);
+		cgen_eres_fini(&cres);
+
 		cgen_eres_init(&ares);
+		cgen_eres_init(&cres);
 
 		earg = ast_ecall_next(earg);
 	}
@@ -4250,6 +4336,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ir_lblock_append(lblock, NULL, instr);
 
 	cgen_eres_fini(&ares);
+	cgen_eres_fini(&cres);
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
@@ -4266,8 +4353,11 @@ error:
 	if (pident != NULL)
 		free(pident);
 	cgen_eres_fini(&ares);
+	cgen_eres_fini(&cres);
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
+	if (atype != NULL)
+		cgtype_destroy(&atype->cgtype);
 	return rc;
 }
 
@@ -4283,6 +4373,7 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
+	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -4292,11 +4383,15 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 	if (rc != EOK)
 		return rc;
 
+	// XXX This is not the correct type!
+	cgtype = bres.cgtype;
+	bres.cgtype = NULL;
 	cgen_eres_fini(&bres);
 
 	/* Return address as lvalue */
 	eres->varname = bres.varname;
 	eres->valtype = cgen_lvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 }
 
@@ -4312,6 +4407,7 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
+	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -4321,11 +4417,15 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
 	if (rc != EOK)
 		return rc;
 
+	// XXX This is not the correct type!
+	cgtype = bres.cgtype;
+	bres.cgtype = NULL;
 	cgen_eres_fini(&bres);
 
 	/* Return address as rvalue */
 	eres->varname = bres.varname;
 	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
 	return EOK;
 }
 
@@ -4428,7 +4528,7 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_basic_create(cgelm_int, &btype);
+	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
 		goto error;
 
@@ -5153,6 +5253,59 @@ error:
 	return rc;
 }
 
+/** Convert expression result to the specified type.
+ *
+ * @param cgen Code generator
+ * @param aexpr Expression - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param cres Place to store conversion result
+ *
+ * @return EOk or an error code
+ */
+static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_eres_t *cres)
+{
+	ast_tok_t *tok;
+	comp_tok_t *ctok;
+
+	tok = ast_tree_first_tok(aexpr);
+	ctok = (comp_tok_t *) tok->data;
+
+	if (dtype->ntype != cgn_basic ||
+	    ((cgtype_basic_t *)(dtype->ext))->elmtype != cgelm_int) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Converting to type ");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, " which is different from int "
+		    "(not implemented).\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	if (ares->cgtype->ntype == cgn_basic &&
+	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Truth value used as an integer.\n");
+		++cgen->warnings;
+	}
+
+	if (ares->cgtype->ntype != cgn_basic ||
+	    (((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_int &&
+	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_logic)) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Converting from type ");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, " which is different from int "
+		    "(not implemented).\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	*cres = *ares;
+	return EOK;
+}
+
 /** Generate code for break statement.
  *
  * @param cgproc Code generator for procedure
@@ -5316,11 +5469,25 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *arg = NULL;
 	cgen_eres_t ares;
+	cgen_eres_t cres;
+	cgtype_basic_t *btype = NULL;
 	int rc;
 
 	cgen_eres_init(&ares);
+	cgen_eres_init(&cres);
 
 	rc = cgen_expr_rvalue(cgproc, areturn->arg, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	// TODO Determine real return type of function
+	rc = cgtype_basic_create(cgelm_int, &btype);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert to the return type */
+	rc = cgen_type_convert(cgproc->cgen, areturn->arg, &ares,
+	    &btype->cgtype, &cres);
 	if (rc != EOK)
 		goto error;
 
@@ -5328,7 +5495,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(ares.varname, &arg);
+	rc = ir_oper_var_create(cres.varname, &arg);
 	if (rc != EOK)
 		goto error;
 
@@ -5341,12 +5508,17 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	ir_lblock_append(lblock, NULL, instr);
 
 	cgen_eres_fini(&ares);
+	cgen_eres_fini(&cres);
+	cgtype_destroy(&btype->cgtype);
 	return EOK;
 error:
 	ir_instr_destroy(instr);
 	if (arg != NULL)
 		ir_oper_destroy(&arg->oper);
 	cgen_eres_fini(&ares);
+	cgen_eres_fini(&cres);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 

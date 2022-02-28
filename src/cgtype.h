@@ -32,6 +32,7 @@
 
 extern int cgtype_basic_create(cgtype_elmtype_t, cgtype_basic_t **);
 extern int cgtype_pointer_create(cgtype_t *, cgtype_pointer_t **);
+extern int cgtype_logic_create(cgtype_basic_t **);
 extern int cgtype_clone(cgtype_t *, cgtype_t **);
 extern void cgtype_destroy(cgtype_t *);
 extern int cgtype_print(cgtype_t *, FILE *f);

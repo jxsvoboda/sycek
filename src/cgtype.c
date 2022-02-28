@@ -74,6 +74,9 @@ static int cgtype_basic_print(cgtype_basic_t *basic, FILE *f)
 	case cgelm_int:
 		rv = fputs("int", f);
 		break;
+	case cgelm_logic:
+		rv = fputs("logic", f);
+		break;
 	}
 
 	if (rv < 0)

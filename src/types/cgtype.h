@@ -38,9 +38,11 @@ typedef enum {
 /** Elementary types */
 typedef enum {
 	cgelm_void,
-	cgelm_int
+	cgelm_int,
 	/* TODO char, short, long, long long */
 	/* TODO float, double, long double */
+	/* TODO _Bool */
+	cgelm_logic
 } cgtype_elmtype_t;
 
 /** Code generator C type */

@@ -280,8 +280,13 @@ Syc attempts to produce a good amount of generic diagnostic warnings
 style related checks, complementing `ccheck`, where it is desirable
 to preprocess the source code.
 
-It can detect out of order declaration specifiers (such as `int long unsigned`,
-`int typedef`, `volatile restrict const`, `int typedef`).
+It can detect the following types of problems:
+
+ * out of order declaration specifiers (such as `int long unsigned`,
+   `int typedef`, `volatile restrict const`).
+ * using truth value as an integer
+ * using anything but `_Bool` or a thruth value where truth value is
+   expected (TODO)
 
 Intermediate Representation
 ---------------------------
