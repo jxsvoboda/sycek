@@ -266,43 +266,43 @@ int add_assign(void)
 /* Subtract assign */
 int sub_assign(void)
 {
-	a -= b;
+	return a -= b;
 }
 
 /* Mul assign */
 int mul_assign(void)
 {
-	a *= b;
+	return a *= b;
 }
 
 /* Shift left assign */
 int shl_assign(void)
 {
-	a <<= b;
+	return a <<= b;
 }
 
 /* Shift right assign */
 int shr_assign(void)
 {
-	a >>= b;
+	return a >>= b;
 }
 
 /* Bitwise AND assign */
 int band_assign(void)
 {
-	a &= b;
+	return a &= b;
 }
 
 /* Bitwise XOR assign */
 int bxor_assign(void)
 {
-	a ^= b;
+	return a ^= b;
 }
 
 /* Bitwise OR assign */
 int bor_assign(void)
 {
-	a |= b;
+	return a |= b;
 }
 
 /* Preincrement */
