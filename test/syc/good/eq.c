@@ -6,5 +6,5 @@ int a, b;
 
 int eq(void)
 {
-	return a == b;
+	return (int)(a == b);
 }

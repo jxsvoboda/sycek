@@ -6,5 +6,5 @@ int a, b;
 
 int lteq(void)
 {
-	return a <= b;
+	return (int)(a <= b);
 }

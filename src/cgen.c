@@ -4234,7 +4234,7 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 /** Generate code for address expression.
  *
  * @param cgproc Code generator for procedure
- * @param addr AST address expression
+ * @param eaddr AST address expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
@@ -4263,6 +4263,55 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	return EOK;
+}
+
+/** Generate code for cast expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ecast AST cast expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t bres;
+	cgtype_t *dtype = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	int rc;
+
+	cgen_eres_init(&bres);
+
+	/* Declaration specifiers */
+	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &dtype);
+	if (rc != EOK)
+		goto error;
+
+	if (ecast->decl->ntype != ant_dnoident) {
+		atok = ast_tree_first_tok(ecast->decl);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Unexpected or unimplemented declarator.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Evaluate expression */
+	rc = cgen_expr(cgproc, ecast->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = bres.varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = dtype;
+
+	cgen_eres_fini(&bres);
+	return EOK;
+error:
+	cgen_eres_fini(&bres);
+	cgtype_destroy(dtype);
+	return rc;
 }
 
 /** Generate code for unary sign expression.
@@ -4886,6 +4935,9 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		break;
 	case ant_esizeof:
 	case ant_ecast:
+		rc = cgen_ecast(cgproc, (ast_ecast_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_ecliteral:
 	case ant_emember:
 	case ant_eindmember:

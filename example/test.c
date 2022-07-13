@@ -164,19 +164,19 @@ int if_stmt_4(void)
 /* Logical AND */
 int land(void)
 {
-	return a && b;
+	return (int)(a && b);
 }
 
 /* Logical OR */
 int lor(void)
 {
-	return a || b;
+	return (int)(a || b);
 }
 
 /* Logical NOT */
 int lnot(void)
 {
-	return !a;
+	return (int)!a;
 }
 
 /* Bitwise AND */
@@ -224,37 +224,37 @@ int mul(void)
 /* Less than */
 int lt(void)
 {
-	return a < b;
+	return (int)(a < b);
 }
 
 /* Less than or equal */
 int lteq(void)
 {
-	return a <= b;
+	return (int)(a <= b);
 }
 
 /* Greater than */
 int gt(void)
 {
-	return a > b;
+	return (int)(a > b);
 }
 
 /* Greater than or equal */
 int gteq(void)
 {
-	return a >= b;
+	return (int)(a >= b);
 }
 
 /* Equal */
 int eq(void)
 {
-	return a == b;
+	return (int)(a == b);
 }
 
 /* Not equal */
 int neq(void)
 {
-	return a != b;
+	return (int)(a != b);
 }
 
 /* Add assign */
