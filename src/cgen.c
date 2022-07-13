@@ -361,6 +361,26 @@ static void cgen_eres_fini(cgen_eres_t *eres)
 	eres->cgtype = NULL;
 }
 
+/** Clone expression result.
+ *
+ * @param res Expression result to copy
+ * @param dres Destination expression result
+ */
+static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
+{
+	cgtype_t *cgtype;
+	int rc;
+
+	rc = cgtype_clone(res->cgtype, &cgtype);
+	if (rc != EOK)
+		return rc;
+
+	dres->varname = res->varname;
+	dres->valtype = res->valtype;
+	dres->cgtype = cgtype;
+	return EOK;
+}
+
 /** Create code generator.
  *
  * @param rcgen Place to store pointer to new code generator
@@ -5306,7 +5326,7 @@ static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": NULL type!\n");
 		*cres = *ares;
-		return EOK;
+		return cgen_eres_clone(ares, cres);
 	}
 
 	if (dtype->ntype != cgn_basic ||
@@ -5339,8 +5359,7 @@ static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
 		return EINVAL;
 	}
 
-	*cres = *ares;
-	return EOK;
+	return cgen_eres_clone(ares, cres);
 }
 
 /** Generate code for break statement.
