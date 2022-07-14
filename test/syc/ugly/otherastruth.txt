@@ -1,0 +1,5 @@
+<test/syc/ugly/otherastruth.c:10:13:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:12:18:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:16:16:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:21:18:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:24:16:id:a>: Warning: 'int' used as a truth value.

@@ -54,10 +54,12 @@ static int cgen_expr2lr_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
     ir_lblock_t *lblock, cgen_eres_t *, cgen_eres_t *, cgen_eres_t *);
 static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_eres_rvalue(cgen_proc_t *, cgen_eres_t *,
-    ir_lblock_t *, cgen_eres_t *);
+static int cgen_eres_rvalue(cgen_proc_t *, cgen_eres_t *, ir_lblock_t *,
+    cgen_eres_t *);
 static int cgen_type_convert(cgen_t *, ast_node_t *, cgen_eres_t *, cgtype_t *,
     cgen_eres_t *);
+static int cgen_truth_cjmp(cgen_proc_t *, ast_node_t *, bool, const char *,
+    ir_lblock_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_loop_create(cgen_loop_t *, cgen_loop_t **);
@@ -5362,6 +5364,87 @@ static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
 	return cgen_eres_clone(ares, cres);
 }
 
+/** Generate code for a truth test / conditional jump.
+ *
+ * Evaluate truth expression, then jump if it is true/non-zero (@a cval == true),
+ * or false/non-zero (@a cval == false), respectively.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aexpr Truth expression
+ * @param cval Condition value when jump is taken
+ * @param dlabel Jump destination label
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
+    bool cval, const char *dlabel, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	cgen_eres_t cres;
+	int rc;
+
+	cgen_eres_init(&cres);
+
+	/* Condition */
+
+	rc = cgen_expr_rvalue(cgproc, aexpr, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	/* Check the type */
+
+	if (cres.cgtype->ntype != cgn_basic ||
+	    ((cgtype_basic_t *)(cres.cgtype->ext))->elmtype != cgelm_logic) {
+		atok = ast_tree_first_tok(aexpr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: '");
+		cgtype_print(cres.cgtype, stderr);
+		fprintf(stderr, "' used as a truth value.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* j[n]z %<cres>, %dlabel */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(dlabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = cval ? iri_jnz : iri_jz;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &carg->oper;
+	instr->op2 = &larg->oper;
+
+	carg = NULL;
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	cgen_eres_fini(&cres);
+	return EOK;
+error:
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (instr != NULL)
+		ir_instr_destroy(instr);
+	cgen_eres_fini(&cres);
+	return rc;
+}
+
 /** Generate code for break statement.
  *
  * @param cgproc Code generator for procedure
@@ -5589,7 +5672,6 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
     ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
-	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
 	ast_elseif_t *elsif;
 	cgen_eres_t cres;
@@ -5610,37 +5692,11 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 	if (rc != EOK)
 		goto error;
 
-	/* Condition */
+	/* Jump to false_if if condition is false */
 
-	rc = cgen_expr_rvalue(cgproc, aif->cond, lblock, &cres);
+	rc = cgen_truth_cjmp(cgproc, aif->cond, false, fiflabel, lblock);
 	if (rc != EOK)
 		goto error;
-
-	/* jz %<cres>, %false_if */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(cres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(fiflabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* True branch */
 
@@ -5669,36 +5725,11 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 		if (rc != EOK)
 			goto error;
 
-		/* Else-if condition */
-		rc = cgen_expr_rvalue(cgproc, elsif->cond, lblock, &cres);
+		/* Jump to false_if if else-if condition is false */
+
+		rc = cgen_truth_cjmp(cgproc, elsif->cond, false, fiflabel, lblock);
 		if (rc != EOK)
 			goto error;
-
-		/* jz %<cres>, %false_elseif */
-
-		rc = ir_instr_create(&instr);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_oper_var_create(cres.varname, &carg);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_oper_var_create(fiflabel, &larg);
-		if (rc != EOK)
-			goto error;
-
-		instr->itype = iri_jz;
-		instr->width = 0;
-		instr->dest = NULL;
-		instr->op1 = &carg->oper;
-		instr->op2 = &larg->oper;
-
-		carg = NULL;
-		larg = NULL;
-
-		ir_lblock_append(lblock, NULL, instr);
-		instr = NULL;
 
 		/* Else-if branch */
 		rc = cgen_block(cgproc, elsif->ebranch, lblock);
@@ -5748,8 +5779,6 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 	cgen_eres_fini(&cres);
 	return EOK;
 error:
-	if (carg != NULL)
-		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
 	if (fiflabel != NULL)
@@ -5773,7 +5802,6 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	cgen_loop_switch_t *lswitch = NULL;
 	cgen_loop_t *loop = NULL;
 	ir_instr_t *instr = NULL;
-	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
 	cgen_eres_t cres;
 	unsigned lblno;
@@ -5816,37 +5844,11 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	ir_lblock_append(lblock, wlabel, NULL);
 
-	/* Condition */
+	/* Jump to %end_while if condition is false */
 
-	rc = cgen_expr_rvalue(cgproc, awhile->cond, lblock, &cres);
+	rc = cgen_truth_cjmp(cgproc, awhile->cond, false, ewlabel, lblock);
 	if (rc != EOK)
 		goto error;
-
-	/* jz %<cres>, %end_while */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(cres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ewlabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Body */
 
@@ -5885,8 +5887,6 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	free(ewlabel);
 	return EOK;
 error:
-	if (carg != NULL)
-		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
 	if (lswitch != NULL)
@@ -5912,9 +5912,6 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 {
 	cgen_loop_switch_t *lswitch = NULL;
 	cgen_loop_t *loop = NULL;
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *carg = NULL;
-	ir_oper_var_t *larg = NULL;
 	cgen_eres_t cres;
 	unsigned lblno;
 	char *dlabel = NULL;
@@ -5971,37 +5968,11 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 
 	ir_lblock_append(lblock, ndlabel, NULL);
 
-	/* Condition */
+	/* Jump to %do if condition is true */
 
-	rc = cgen_expr_rvalue(cgproc, ado->cond, lblock, &cres);
+	rc = cgen_truth_cjmp(cgproc, ado->cond, true, dlabel, lblock);
 	if (rc != EOK)
 		goto error;
-
-	/* jnz %<cres>, %do */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(cres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(dlabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jnz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	ir_lblock_append(lblock, edlabel, NULL);
 
@@ -6014,10 +5985,6 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 	cgen_eres_fini(&cres);
 	return EOK;
 error:
-	if (carg != NULL)
-		ir_oper_destroy(&carg->oper);
-	if (instr != NULL)
-		ir_instr_destroy(instr);
 	if (lswitch != NULL)
 		cgen_loop_switch_destroy(lswitch);
 	if (loop != NULL)
@@ -6044,7 +6011,6 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	cgen_loop_switch_t *lswitch = NULL;
 	cgen_loop_t *loop = NULL;
 	ir_instr_t *instr = NULL;
-	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
 	cgen_eres_t ires;
 	cgen_eres_t cres;
@@ -6107,35 +6073,11 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	/* Condition */
 
 	if (afor->lcond != NULL) {
-		rc = cgen_expr_rvalue(cgproc, afor->lcond, lblock, &cres);
+		/* Jump to %end_for if condition is false */
+
+		rc = cgen_truth_cjmp(cgproc, afor->lcond, false, eflabel, lblock);
 		if (rc != EOK)
 			goto error;
-
-		/* jz %<cres>, %end_for */
-
-		rc = ir_instr_create(&instr);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_oper_var_create(cres.varname, &carg);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_oper_var_create(eflabel, &larg);
-		if (rc != EOK)
-			goto error;
-
-		instr->itype = iri_jz;
-		instr->width = 0;
-		instr->dest = NULL;
-		instr->op1 = &carg->oper;
-		instr->op2 = &larg->oper;
-
-		carg = NULL;
-		larg = NULL;
-
-		ir_lblock_append(lblock, NULL, instr);
-		instr = NULL;
 	}
 
 	/* Body */
@@ -6187,8 +6129,6 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	cgen_eres_fini(&nres);
 	return EOK;
 error:
-	if (carg != NULL)
-		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
 	if (lswitch != NULL)

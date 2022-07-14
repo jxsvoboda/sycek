@@ -7,7 +7,7 @@ int foo(void)
 	int a;
 
 	a = 1;
-	if (1) {
+	if (1 != 0) {
 		int a;
 		a = 1;
 	}

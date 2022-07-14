@@ -282,11 +282,14 @@ to preprocess the source code.
 
 It can detect the following types of problems:
 
+ * declaration shadowing a wider-scope declaration
+ * gratuitous nested block
  * out of order declaration specifiers (such as `int long unsigned`,
    `int typedef`, `volatile restrict const`).
  * using truth value as an integer
- * using anything but `_Bool` or a thruth value where truth value is
-   expected (TODO)
+ * using anything but `_Bool` or a thruth value where a truth value is
+   expected
+ * unused goto label
 
 Intermediate Representation
 ---------------------------
