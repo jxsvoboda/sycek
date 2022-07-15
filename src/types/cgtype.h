@@ -38,8 +38,12 @@ typedef enum {
 /** Elementary types */
 typedef enum {
 	cgelm_void,
+	/* TODO distinguish between char and signed/unsigned char? */
+	cgelm_char,
+	cgelm_short,
 	cgelm_int,
-	/* TODO char, short, long, long long */
+	cgelm_long,
+	cgelm_longlong,
 	/* TODO float, double, long double */
 	/* TODO _Bool */
 	cgelm_logic

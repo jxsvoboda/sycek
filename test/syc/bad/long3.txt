@@ -1,3 +1,1 @@
-<test/syc/bad/long3.c:5:1-4:'long'>: Warning: Unimplemented type specifier.
-<test/syc/bad/long3.c:5:6-9:'long'>: Warning: Unimplemented type specifier.
 <test/syc/bad/long3.c:5:11-14:'long'>: More than two long specifiers.

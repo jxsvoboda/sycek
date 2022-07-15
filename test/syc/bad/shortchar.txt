@@ -1,0 +1,1 @@
+<test/syc/bad/shortchar.c:5:7-10:'char'>: Both short and char specifier.

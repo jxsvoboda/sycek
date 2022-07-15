@@ -71,8 +71,20 @@ static int cgtype_basic_print(cgtype_basic_t *basic, FILE *f)
 	case cgelm_void:
 		rv = fputs("void", f);
 		break;
+	case cgelm_char:
+		rv = fputs("char", f);
+		break;
+	case cgelm_short:
+		rv = fputs("short", f);
+		break;
 	case cgelm_int:
 		rv = fputs("int", f);
+		break;
+	case cgelm_long:
+		rv = fputs("long", f);
+		break;
+	case cgelm_longlong:
+		rv = fputs("long long", f);
 		break;
 	case cgelm_logic:
 		rv = fputs("logic", f);

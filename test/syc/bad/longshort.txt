@@ -1,2 +1,1 @@
-<test/syc/bad/longshort.c:5:1-4:'long'>: Warning: Unimplemented type specifier.
 <test/syc/bad/longshort.c:5:6-10:'short'>: Both short and long specifier.

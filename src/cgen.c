@@ -69,6 +69,33 @@ static void cgen_switch_destroy(cgen_switch_t *);
 static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 
+/** Return the bit width of an arithmetic type.
+ *
+ * Note that this might depend on the memory model.
+ *
+ * @param cgen Code generator
+ * @param tbasic Basic type
+ */
+static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
+{
+	(void) cgen;
+
+	switch (tbasic->elmtype) {
+	case cgelm_char:
+		return 8;
+	case cgelm_short:
+		return 16;
+	case cgelm_int:
+		return 16;
+	case cgelm_long:
+		return 32;
+	case cgelm_longlong:
+		return 64;
+	default:
+		return 0;
+	}
+}
+
 /** Prefix identifier with '@' global variable prefix.
  *
  * @param ident Identifier
@@ -811,6 +838,40 @@ static void cgen_error_short_long(cgen_t *cgen, ast_tsbasic_t *tspec)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: both short and char specifier.
+ *
+ * @param cgen Code generator
+ * @param tspec Char specifier
+ */
+static void cgen_error_short_char(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Both short and char specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: both long and char specifier.
+ *
+ * @param cgen Code generator
+ * @param tspec Char specifier
+ */
+static void cgen_error_long_char(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Both long and char specifier.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate error: multiple signed specifiers.
  *
  * @param cgen Code generator
@@ -932,7 +993,6 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 					cgen_error_short_long(cgen, tsbasic);
 					return EINVAL;
 				}
-				cgen_warn_tspec_not_impl(cgen, dspec);
 				++short_cnt;
 				break;
 			case abts_long:
@@ -944,7 +1004,6 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 					cgen_error_short_long(cgen, tsbasic);
 					return EINVAL;
 				}
-				cgen_warn_tspec_not_impl(cgen, dspec);
 				++long_cnt;
 				break;
 			case abts_signed:
@@ -1013,6 +1072,17 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 		case ant_tsbasic:
 			tsbasic = (ast_tsbasic_t *) tspec->ext;
 			switch (tsbasic->btstype) {
+			case abts_char:
+				elmtype = cgelm_char;
+				if (short_cnt > 0) {
+					cgen_error_short_char(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (long_cnt > 0) {
+					cgen_error_long_char(cgen, tsbasic);
+					return EINVAL;
+				}
+				break;
 			case abts_int:
 				elmtype = cgelm_int;
 				break;
@@ -1020,6 +1090,17 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 				cgen_warn_tspec_not_impl(cgen, tspec);
 				elmtype = cgelm_int;
 				break;
+			}
+
+			if (elmtype == cgelm_int) {
+				if (long_cnt > 1)
+					elmtype = cgelm_longlong;
+				else if (long_cnt > 0)
+					elmtype = cgelm_long;
+				else if (short_cnt > 0)
+					elmtype = cgelm_short;
+				else
+					elmtype = cgelm_int;
 			}
 
 			rc = cgtype_basic_create(elmtype, &btype);
@@ -1035,7 +1116,17 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 		}
 	} else {
 		/* Default to int */
-		rc = cgtype_basic_create(cgelm_int, &btype);
+
+		if (long_cnt > 1)
+			elmtype = cgelm_longlong;
+		else if (long_cnt > 0)
+			elmtype = cgelm_long;
+		else if (short_cnt > 0)
+			elmtype = cgelm_short;
+		else
+			elmtype = cgelm_int;
+
+		rc = cgtype_basic_create(elmtype, &btype);
 		if (rc != EOK)
 			goto error;
 
@@ -2919,6 +3010,7 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t rres;
 	cgen_eres_t cres;
 	cgtype_t *cgtype;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2941,6 +3033,23 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	/* Check the type */
+	if (cres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)cres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
 		goto error;
@@ -2954,7 +3063,7 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = NULL;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -5082,6 +5191,7 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
 	cgtype_t *cgtype;
+	unsigned bits;
 	int rc;
 
 	/* Check if we already have an rvalue */
@@ -5094,6 +5204,23 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 		eres->valtype = res->valtype;
 		eres->cgtype = cgtype;
 		return EOK;
+	}
+
+	/* Check the type */
+	if (res->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)res->cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
 	}
 
 	/* Need to read the value in */
@@ -5111,7 +5238,7 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 		goto error;
 
 	instr->itype = iri_read;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
@@ -5327,9 +5454,18 @@ static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
 	if (ares->cgtype == NULL) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": NULL type!\n");
-		*cres = *ares;
 		return cgen_eres_clone(ares, cres);
 	}
+
+	/* Source and destination types are the same basic type */
+	if (ares->cgtype->ntype == cgn_basic &&
+	    dtype->ntype == cgn_basic &&
+	    ((cgtype_basic_t *)ares->cgtype->ext)->elmtype ==
+	    ((cgtype_basic_t *)dtype->ext)->elmtype) {
+		/* Return unchanged */
+		return cgen_eres_clone(ares, cres);
+	}
+
 
 	if (dtype->ntype != cgn_basic ||
 	    ((cgtype_basic_t *)(dtype->ext))->elmtype != cgelm_int) {
@@ -7166,6 +7302,7 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	char *pident = NULL;
 	int32_t initval;
 	cgtype_t *stype = NULL;
+	unsigned bits;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
@@ -7204,6 +7341,7 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 			lexer_dprint_tok(&lit->tok, stderr);
 			fprintf(stderr, ": Invalid integer literal.\n");
 			cgen->error = true; // TODO
+			rc = EINVAL;
 			goto error;
 		}
 	} else {
@@ -7227,7 +7365,24 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	pident = NULL;
 	dblock = NULL;
 
-	rc = ir_dentry_create_int(cgen->arith_width, initval, &dentry);
+	if (stype->ntype != cgn_basic) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Unimplemented variable type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
+	if (bits == 0) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Unimplemented variable type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_dentry_create_int(bits, initval, &dentry);
 	if (rc != EOK)
 		goto error;
 

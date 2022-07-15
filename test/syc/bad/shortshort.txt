@@ -1,2 +1,1 @@
-<test/syc/bad/shortshort.c:5:1-5:'short'>: Warning: Unimplemented type specifier.
 <test/syc/bad/shortshort.c:5:7-11:'short'>: More than one short specifier.
