@@ -2297,6 +2297,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2308,6 +2309,23 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	    &lres, &rres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (lres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -2330,7 +2348,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_lt;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -2377,6 +2395,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2388,6 +2407,23 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	    &lres, &rres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (lres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -2410,7 +2446,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_lteq;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -2457,6 +2493,7 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2468,6 +2505,23 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	    &lres, &rres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (lres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -2490,7 +2544,7 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_gt;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -2537,6 +2591,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2548,6 +2603,23 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	    &lres, &rres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (lres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -2570,7 +2642,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_gteq;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -2617,6 +2689,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2628,6 +2701,23 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	    &lres, &rres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (lres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -2650,7 +2740,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_eq;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -2697,6 +2787,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2708,6 +2799,23 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	    &lres, &rres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (lres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -2730,7 +2838,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_neq;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -4752,6 +4860,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *barg = NULL;
 	cgen_eres_t bres;
+	unsigned bits;
 	cgtype_t *cgtype;
 	int rc;
 
@@ -4760,6 +4869,23 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	rc = cgen_expr_promoted_rvalue(cgproc, ebnot->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (bres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)bres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4774,7 +4900,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 		goto error;
 
 	instr->itype = iri_bnot;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &barg->oper;
 	instr->op2 = NULL;
@@ -4818,6 +4944,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	ir_oper_var_t *adj = NULL;
 	ir_oper_var_t *res = NULL;
 	cgen_eres_t bres;
+	unsigned bits;
 	cgtype_t *cgtype;
 	char *bvalvn;
 	char *adjvn;
@@ -4831,6 +4958,23 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	rc = cgen_expr_lvalue(cgproc, epreadj->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (bres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)bres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	/* read %bval, %bres */
 
@@ -4847,7 +4991,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 		goto error;
 
 	instr->itype = iri_read;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &bval->oper;
 	instr->op1 = &baddr->oper;
 	instr->op2 = NULL;
@@ -4858,7 +5002,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
-	/* imm.16 %adj, 1 */
+	/* imm %adj, 1 */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4873,7 +5017,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &adj->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -4903,7 +5047,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 		goto error;
 
 	instr->itype = epreadj->adj == aat_inc ? iri_add : iri_sub;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &res->oper;
 	instr->op1 = &bval->oper;
 	instr->op2 = &adj->oper;
@@ -4930,7 +5074,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 		goto error;
 
 	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = NULL;
 	instr->op1 = &baddr->oper;
 	instr->op2 = &res->oper;
@@ -4983,6 +5127,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	ir_oper_var_t *adj = NULL;
 	ir_oper_var_t *res = NULL;
 	cgen_eres_t bres;
+	unsigned bits;
 	cgtype_t *cgtype;
 	char *bvalvn;
 	char *adjvn;
@@ -4996,6 +5141,23 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	rc = cgen_expr_lvalue(cgproc, epostadj->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
+
+	/* Check the type */
+	if (bres.cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)bres.cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	/* read %bval, %bres */
 
@@ -5012,7 +5174,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 		goto error;
 
 	instr->itype = iri_read;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &bval->oper;
 	instr->op1 = &baddr->oper;
 	instr->op2 = NULL;
@@ -5038,7 +5200,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &adj->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -5068,7 +5230,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 		goto error;
 
 	instr->itype = epostadj->adj == aat_inc ? iri_add : iri_sub;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = &res->oper;
 	instr->op1 = &bval->oper;
 	instr->op2 = &adj->oper;
@@ -5095,7 +5257,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 		goto error;
 
 	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = bits;
 	instr->dest = NULL;
 	instr->op1 = &baddr->oper;
 	instr->op2 = &res->oper;

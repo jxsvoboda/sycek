@@ -700,7 +700,7 @@ static int z80_isel_bnot(z80_isel_proc_t *isproc, const char *label,
 	int rc;
 
 	assert(irinstr->itype == iri_bnot);
-	assert(irinstr->width == 16);
+//	assert(irinstr->width == 16);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2 == NULL);
 
@@ -2414,7 +2414,7 @@ static int z80_isel_imm(z80_isel_proc_t *isproc, const char *label,
 	int rc;
 
 	assert(irinstr->itype == iri_imm);
-	assert(irinstr->width == 16);
+//	assert(irinstr->width == 16);
 
 	assert(irinstr->op1->optype == iro_imm);
 	irimm = (ir_oper_imm_t *) irinstr->op1->ext;
@@ -2779,7 +2779,7 @@ static int z80_isel_lt(z80_isel_proc_t *isproc, const char *label,
 	int rc;
 
 	assert(irinstr->itype == iri_lt);
-	assert(irinstr->width == 16);
+//	assert(irinstr->width == 16);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_var);
 
