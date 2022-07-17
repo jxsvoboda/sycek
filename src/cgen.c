@@ -3325,6 +3325,70 @@ error:
 	return rc;
 }
 
+/** Generate code for storing a value (in an assignment expression).
+ *
+ * @param cgproc Code generator for procedure
+ * @param ares Address expression result
+ * @param vres Value expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
+    cgen_eres_t *vres, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	unsigned bits;
+	int rc;
+
+	/* Check the type */
+	if (vres->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)vres->cgtype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(vres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = bits;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
 /** Generate code for assignment expression.
  *
  * @param cgproc Code generator for procedure
@@ -3336,14 +3400,10 @@ error:
 static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *larg = NULL;
-	ir_oper_var_t *rarg = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgen_eres_t cres;
 	cgtype_t *cgtype;
-	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -3366,42 +3426,10 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (cres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)cres.cgtype->ext);
-	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	rc = ir_instr_create(&instr);
+	/* Store the converted value */
+	rc = cgen_store(cgproc, &lres, &cres, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &larg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(rres.varname, &rarg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = bits;
-	instr->dest = NULL;
-	instr->op1 = &larg->oper;
-	instr->op2 = &rarg->oper;
-
-	ir_lblock_append(lblock, NULL, instr);
 
 	/* Salvage type from lres */
 	cgtype = lres.cgtype;
@@ -3416,11 +3444,6 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (larg != NULL)
-		ir_oper_destroy(&larg->oper);
-	if (rarg != NULL)
-		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 	cgen_eres_fini(&cres);
@@ -3438,12 +3461,6 @@ error:
 static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -3468,30 +3485,10 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Salvage type from ores */
 	cgtype = ores.cgtype;
@@ -3509,17 +3506,6 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -3538,12 +3524,6 @@ error:
 static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -3568,34 +3548,14 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Salvage type from lres */
-	cgtype = lres.cgtype;
-	lres.cgtype = NULL;
+	/* Salvage type from ores */
+	cgtype = ores.cgtype;
+	ores.cgtype = NULL;
 
 	resvn = ores.varname;
 
@@ -3609,17 +3569,6 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -3638,12 +3587,6 @@ error:
 static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -3668,34 +3611,14 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Salvage type from lres */
-	cgtype = lres.cgtype;
-	lres.cgtype = NULL;
+	/* Salvage type from ores */
+	cgtype = ores.cgtype;
+	ores.cgtype = NULL;
 
 	resvn = ores.varname;
 
@@ -3709,17 +3632,6 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -3738,12 +3650,6 @@ error:
 static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -3768,34 +3674,14 @@ static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Salvage type from lres */
-	cgtype = lres.cgtype;
-	lres.cgtype = NULL;
+	/* Salvage type from ores */
+	cgtype = ores.cgtype;
+	ores.cgtype = NULL;
 
 	resvn = ores.varname;
 
@@ -3809,17 +3695,6 @@ static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -3837,12 +3712,6 @@ error:
 static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -3867,34 +3736,14 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Salvage type from lres */
-	cgtype = lres.cgtype;
-	lres.cgtype = NULL;
+	/* Salvage type from ores */
+	cgtype = ores.cgtype;
+	ores.cgtype = NULL;
 
 	resvn = ores.varname;
 
@@ -3908,17 +3757,6 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -3937,12 +3775,6 @@ error:
 static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -3962,35 +3794,15 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Binary AND two operands */
+	/* Bitwise AND the two operands */
 	rc = cgen_band(cgproc, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Salvage type from ores */
 	cgtype = ores.cgtype;
@@ -4008,17 +3820,6 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -4037,12 +3838,6 @@ error:
 static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -4062,35 +3857,15 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Binary XOR two operands */
+	/* Bitwise XOR the two operands */
 	rc = cgen_bxor(cgproc, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Salvage type from ores */
 	cgtype = ores.cgtype;
@@ -4108,17 +3883,6 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
@@ -4137,12 +3901,6 @@ error:
 static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *addr = NULL;
-	ir_oper_var_t *aval = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_var_t *res = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -4162,35 +3920,15 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Binary OR two operands */
-	rc = cgen_bor(cgproc, &ares, &bres, lblock, &ores);
+	/* Bitwise OR the two operands */
+	rc = cgen_bxor(cgproc, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
-	/* write nil, %laddr, %<ores> */
-
-	rc = ir_instr_create(&instr);
+	/* Store the resulting value */
+	rc = cgen_store(cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &addr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(ores.varname, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &addr->oper;
-	instr->op2 = &res->oper;
-	addr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Salvage type from ores */
 	cgtype = ores.cgtype;
@@ -4208,17 +3946,6 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->cgtype = cgtype;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (addr != NULL)
-		ir_oper_destroy(&addr->oper);
-	if (aval != NULL)
-		ir_oper_destroy(&aval->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
