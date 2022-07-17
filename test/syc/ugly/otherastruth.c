@@ -3,6 +3,7 @@
  */
 
 int a;
+int b;
 
 int foo(void)
 {
@@ -24,7 +25,14 @@ int foo(void)
 	for (; a; a++)
 		;
 
-	/* TODO: In logical not operator */
+	/* In logical not operator */
+	!a;
+
+	/* In logical or operator */
+	a || b;
+
+	/* In logical and operator */
+	a && b;
 
 	return 0;
 }

@@ -54,8 +54,6 @@ typedef enum {
 	iri_jnz,
 	/** Jump if zero */
 	iri_jz,
-	/** Logical not */
-	iri_lnot,
 	/** Less than */
 	iri_lt,
 	/** Less than or equal */

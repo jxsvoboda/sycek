@@ -6,5 +6,5 @@ int a;
 
 int lnot(void)
 {
-	return (int)!a;
+	return (int)!(1 < 2);
 }

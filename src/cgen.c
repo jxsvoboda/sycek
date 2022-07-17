@@ -84,8 +84,8 @@ static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 	case cgelm_char:
 		return 8;
 	case cgelm_short:
-		return 16;
 	case cgelm_int:
+	case cgelm_logic:
 		return 16;
 	case cgelm_long:
 		return 32;
@@ -2551,9 +2551,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *dest2 = NULL;
-	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
-	ir_oper_var_t *rarg = NULL;
 	ir_oper_imm_t *imm = NULL;
 	unsigned lblno;
 	char *flabel = NULL;
@@ -2581,68 +2579,17 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Evaluate left argument */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	/* Jump to %false_and if left argument is zero */
+
+	rc = cgen_truth_cjmp(cgproc, ebinop->larg, false, flabel, lblock);
 	if (rc != EOK)
 		goto error;
 
-	/* jz %<lres>, %false_and */
+	/* Jump to %false_and if right argument is zero */
 
-	rc = ir_instr_create(&instr);
+	rc = cgen_truth_cjmp(cgproc, ebinop->rarg, false, flabel, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(flabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Evaluate right argument */
-
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
-	if (rc != EOK)
-		goto error;
-
-	/* jz %<rres>, %false_and */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(rres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(flabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Return 1 */
 
@@ -2752,12 +2699,8 @@ error:
 		ir_oper_destroy(&dest2->oper);
 	if (imm != NULL)
 		ir_oper_destroy(&imm->oper);
-	if (carg != NULL)
-		ir_oper_destroy(&carg->oper);
 	if (larg != NULL)
 		ir_oper_destroy(&larg->oper);
-	if (rarg != NULL)
-		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 	if (btype != NULL)
@@ -2779,9 +2722,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *dest2 = NULL;
-	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
-	ir_oper_var_t *rarg = NULL;
 	ir_oper_imm_t *imm = NULL;
 	unsigned lblno;
 	char *tlabel = NULL;
@@ -2809,68 +2750,17 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Evaluate left argument */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	/* Jump to %true_or if left argument is not zero */
+
+	rc = cgen_truth_cjmp(cgproc, ebinop->larg, true, tlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
-	/* jnz %<lres>, %true_or */
+	/* Jump to %true_or if right argument is not zero */
 
-	rc = ir_instr_create(&instr);
+	rc = cgen_truth_cjmp(cgproc, ebinop->rarg, true, tlabel, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = ir_oper_var_create(lres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(tlabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jnz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Evaluate right argument */
-
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
-	if (rc != EOK)
-		goto error;
-
-	/* jnz %<rres>, %true_or */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(rres.varname, &carg);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(tlabel, &larg);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_jnz;
-	instr->width = 0;
-	instr->dest = NULL;
-	instr->op1 = &carg->oper;
-	instr->op2 = &larg->oper;
-
-	carg = NULL;
-	larg = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 
 	/* Return 0 */
 
@@ -2979,12 +2869,8 @@ error:
 		ir_oper_destroy(&dest2->oper);
 	if (imm != NULL)
 		ir_oper_destroy(&imm->oper);
-	if (carg != NULL)
-		ir_oper_destroy(&carg->oper);
 	if (larg != NULL)
 		ir_oper_destroy(&larg->oper);
-	if (rarg != NULL)
-		ir_oper_destroy(&rarg->oper);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 	if (btype != NULL)
@@ -4532,15 +4418,22 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *barg = NULL;
-	cgen_eres_t bres;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_imm_t *imm = NULL;
+	unsigned lblno;
+	char *flabel = NULL;
+	char *elabel = NULL;
+	const char *dvarname;
 	cgtype_basic_t *btype = NULL;
 	int rc;
 
-	cgen_eres_init(&bres);
+	lblno = cgen_new_label_num(cgproc);
 
-	/* Evaluate base expression */
-	rc = cgen_expr_rvalue(cgproc, elnot->bexpr, lblock, &bres);
+	rc = cgen_create_label(cgproc, "false_lnot", lblno, &flabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "end_lnot", lblno, &elabel);
 	if (rc != EOK)
 		goto error;
 
@@ -4548,7 +4441,13 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 	if (rc != EOK)
 		goto error;
 
-	/* lnot %<dest>, %<bres> */
+	/* Jump to false_lnot if base expression is not zero */
+
+	rc = cgen_truth_cjmp(cgproc, elnot->bexpr, true, flabel, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* imm.16 %<dest>, 1 */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4558,32 +4457,102 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(bres.varname, &barg);
+	rc = ir_oper_imm_create(1, &imm);
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_lnot;
-	instr->width = 0;
+	instr->itype = iri_imm;
+	instr->width = cgproc->cgen->arith_width;
 	instr->dest = &dest->oper;
-	instr->op1 = &barg->oper;
+	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
-	cgen_eres_fini(&bres);
+	dvarname = dest->varname;
+	dest = NULL;
+	imm = NULL;
 
-	eres->varname = dest->varname;
+	/* jmp %end_lnot */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(elabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	larg = NULL;
+
+	/* %false_lnot: */
+	ir_lblock_append(lblock, flabel, NULL);
+
+	/* imm.16 %<dest>, 0 */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * XXX Reusing the destination VR in this way does not conform
+	 * to SSA. The only way to conform to SSA would be either to
+	 * fuse the results of the two branches by using a Phi function or
+	 * by writing/reading the result through a local variable
+	 * (which is not constrained by SSA).
+	 */
+	rc = ir_oper_var_create(dvarname, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(0, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	dest = NULL;
+	imm = NULL;
+
+	/* %end_lnot: */
+	ir_lblock_append(lblock, elabel, NULL);
+
+	eres->varname = dvarname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	free(flabel);
+	free(elabel);
 	return EOK;
 error:
+	if (flabel != NULL)
+		free(flabel);
+	if (elabel != NULL)
+		free(elabel);
 	ir_instr_destroy(instr);
 	if (dest != NULL)
 		ir_oper_destroy(&dest->oper);
-	if (barg != NULL)
-		ir_oper_destroy(&barg->oper);
-	cgen_eres_fini(&bres);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
 	return rc;
@@ -5465,7 +5434,6 @@ static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
 		/* Return unchanged */
 		return cgen_eres_clone(ares, cres);
 	}
-
 
 	if (dtype->ntype != cgn_basic ||
 	    ((cgtype_basic_t *)(dtype->ext))->elmtype != cgelm_int) {
