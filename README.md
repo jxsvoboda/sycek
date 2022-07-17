@@ -210,8 +210,22 @@ parsable by ccheck.
 Using Syc
 ---------
 Syc is a C cross-compiler under construction, targetting the Sinclair
-ZX Spectrum platform / Zilog Z80 processor. Only a small subset of C
-is currently implemented.
+ZX Spectrum platform / Zilog Z80 processor. Only a subset of C is currently
+implemented.
+
+Specifically, these language features are supported:
+
+ * All statements (except inline assembly)
+ * Function declaration, definition, calling functions (up to 3 arguments)
+ * Most arithmetic operators
+
+These are NOT supported:
+
+ * Any other type than `int` (pointers, structures, arrays, enumerated types,
+   floating point)
+ * Functions with more than 3 arguments, variadic functions
+ * Division and modulus (`/`, `%`)
+ * Ternary operator
 
 syc only starts after preprocessing stage (i.e. there must not be any
 preprocessor directives in the C source file) and outputs an .asm
