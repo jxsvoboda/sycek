@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <z80/isel.h>
+#include <z80/varmap.h>
 #include <z80/z80ic.h>
 
 /** Mangle global identifier.
@@ -147,94 +148,107 @@ static bool z80_isel_is_vreg(const char *varname)
 static unsigned z80_isel_get_vregno(z80_isel_proc_t *isproc, ir_oper_t *oper)
 {
 	ir_oper_var_t *opvar;
-	char *endptr;
-	unsigned long rn;
+	z80_varmap_entry_t *entry;
+	int rc;
 
 	assert(oper->optype == iro_var);
 	opvar = (ir_oper_var_t *) oper->ext;
 
-	assert(opvar->varname[0] == '%');
-	rn = strtoul(&opvar->varname[1], &endptr, 10);
-	assert(*endptr == '\0');
+	rc = z80_varmap_find(isproc->varmap, opvar->varname, &entry);
+	assert(rc == EOK);
 
-	/* Remember maximum size of virtual register space used */
-	if (rn + 1 > isproc->used_vrs) {
-		isproc->used_vrs = rn + 1;
-	}
-
-	return (unsigned) rn;
+	return entry->vr0;
 }
 
-/** Scan IR operand for used VRs.
+/** Scan IR instruction for defined variables.
  *
- * @a isproc will be updated to reflect the used VRs
- *
- * @param isproc Instruction selector for procedure to update
- * @param oper IR operand to scan
- */
-static void z80_isel_scan_oper_used_vrs(z80_isel_proc_t *isproc,
-    ir_oper_t *oper)
-{
-	ir_oper_var_t *opvar;
-	ir_oper_list_t *oplist;
-	ir_oper_t *entry;
-
-	switch (oper->optype) {
-	case iro_imm:
-		break;
-	case iro_list:
-		oplist = (ir_oper_list_t *) oper->ext;
-		entry = ir_oper_list_first(oplist);
-		while (entry != NULL) {
-			z80_isel_scan_oper_used_vrs(isproc, entry);
-			entry = ir_oper_list_next(entry);
-		}
-		break;
-	case iro_var:
-		opvar = (ir_oper_var_t *) oper->ext;
-		if (z80_isel_is_vreg(opvar->varname))
-			(void) z80_isel_get_vregno(isproc, oper);
-		break;
-	}
-}
-
-/** Scan IR instruction for used VRs.
- *
- * @a isproc will be updated to reflect the used VRs
+ * @a isproc variable map will be updated to reflect the defined variables
  *
  * @param isproc Instruction selector for procedure to update
  * @param instr IR instruction to scan
+ * @return EOK on success, ENOMEM if out of memory
  */
-static void z80_isel_scan_instr_used_vrs(z80_isel_proc_t *isproc,
+static int z80_isel_scan_instr_def_vars(z80_isel_proc_t *isproc,
     ir_instr_t *instr)
 {
-	if (instr->dest != NULL)
-		z80_isel_scan_oper_used_vrs(isproc, instr->dest);
-	if (instr->op1 != NULL)
-		z80_isel_scan_oper_used_vrs(isproc, instr->op1);
-	if (instr->op2 != NULL)
-		z80_isel_scan_oper_used_vrs(isproc, instr->op2);
+	ir_oper_var_t *opvar;
+	z80_varmap_entry_t *entry;
+	unsigned bytes;
+	unsigned vrs;
+	int rc;
+
+	if (instr->dest != NULL && instr->dest->optype == iro_var) {
+		opvar = (ir_oper_var_t *) instr->dest->ext;
+		if (z80_isel_is_vreg(opvar->varname)) {
+			/* Determine destination variable size */
+			switch (instr->itype) {
+			case iri_eq:
+			case iri_gt:
+			case iri_gteq:
+			case iri_lt:
+			case iri_lteq:
+			case iri_neq:
+				/* These return truth value / int / 2 bytes */
+				bytes = 2;
+				break;
+			default:
+				/*
+				 * Otherwise size of result == width of
+				 * instruction
+				 */
+				bytes = instr->width / 8;
+				break;
+			}
+
+			vrs = bytes >= 2 ? bytes / 2 : 1;
+			rc = z80_varmap_find(isproc->varmap, opvar->varname,
+			    &entry);
+			if (rc == ENOENT) {
+				rc = z80_varmap_insert(isproc->varmap,
+				    opvar->varname, vrs);
+				if (rc != EOK)
+					return rc;
+			}
+		}
+	}
+
+	return EOK;
 }
 
-/** Scan IR procedure for used VRs.
- *
- * @a isproc will be updated to reflect the used VRs
+/** Create variable map for procedure.
  *
  * @param isproc Instruction selector for procedure to update
  * @param irproc IR procedure to scan
+ * @return EOK on success, ENOMEM if out of memory
  */
-static void z80_isel_scan_proc_used_vrs(z80_isel_proc_t *isproc,
+static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
     ir_proc_t *irproc)
 {
+	ir_proc_arg_t *arg;
 	ir_lblock_entry_t *entry;
+	int rc;
+
+	arg = ir_proc_first_arg(irproc);
+	while (arg != NULL) {
+		rc = z80_varmap_insert(isproc->varmap, arg->ident, 1 /* XXX */);
+		if (rc != EOK)
+			return rc;
+
+		arg = ir_proc_next_arg(arg);
+	}
 
 	entry = ir_lblock_first(irproc->lblock);
 	while (entry != NULL) {
-		if (entry->instr != NULL)
-			z80_isel_scan_instr_used_vrs(isproc, entry->instr);
+		if (entry->instr != NULL) {
+			rc = z80_isel_scan_instr_def_vars(isproc, entry->instr);
+			if (rc != EOK)
+				return rc;
+		}
 
 		entry = ir_lblock_next(entry);
 	}
+
+	return EOK;
 }
 
 /** Allocate new virtual register number.
@@ -244,7 +258,7 @@ static void z80_isel_scan_proc_used_vrs(z80_isel_proc_t *isproc,
  */
 static unsigned z80_isel_get_new_vregno(z80_isel_proc_t *isproc)
 {
-	return isproc->used_vrs++;
+	return isproc->varmap->next_vr++;
 }
 
 /** Create new local label.
@@ -322,6 +336,7 @@ static int z80_isel_proc_create(z80_isel_t *isel, const char *ident,
 {
 	z80_isel_proc_t *isproc;
 	char *dident;
+	int rc;
 
 	isproc = calloc(1, sizeof(z80_isel_proc_t));
 	if (isproc == NULL)
@@ -333,9 +348,15 @@ static int z80_isel_proc_create(z80_isel_t *isel, const char *ident,
 		return ENOMEM;
 	}
 
+	rc = z80_varmap_create(&isproc->varmap);
+	if (rc != EOK) {
+		free(dident);
+		free(isproc);
+		return ENOMEM;
+	}
+
 	isproc->isel = isel;
 	isproc->ident = dident;
-	isproc->used_vrs = 0;
 	*risproc = isproc;
 	return EOK;
 }
@@ -349,6 +370,7 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
 	if (isproc == NULL)
 		return;
 
+	z80_varmap_destroy(isproc->varmap);
 	free(isproc->ident);
 	free(isproc);
 }
@@ -5552,11 +5574,10 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	if (rc != EOK)
 		goto error;
 
-	/*
-	 * Make sure we know which VR numbers are used so that
-	 * we can allocate more.
-	 */
-	z80_isel_scan_proc_used_vrs(isproc, irproc);
+	/* Build variable - VR map */
+	rc = z80_isel_proc_create_varmap(isproc, irproc);
+	if (rc != EOK)
+		goto error;
 
 	rc = z80ic_lblock_create(&lblock);
 	if (rc != EOK)
@@ -5596,7 +5617,7 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 		entry = ir_lblock_next(entry);
 	}
 
-	icproc->used_vrs = isproc->used_vrs;
+	icproc->used_vrs = isproc->varmap->next_vr;
 
 	free(ident);
 	z80_isel_proc_destroy(isproc);

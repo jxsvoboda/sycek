@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -21,29 +21,20 @@
  */
 
 /*
- * Z80 instruction selection
+ * Z80 IR local variable to VR map
  */
 
-#ifndef TYPES_Z80_ISEL_H
-#define TYPES_Z80_ISEL_H
+#ifndef Z80_VARMAP_H
+#define Z80_VARMAP_H
 
 #include <types/z80/varmap.h>
 
-/** Z80 instruction selector */
-typedef struct {
-	int dummy;
-} z80_isel_t;
-
-/** Z80 instruction selector for procedure */
-typedef struct {
-	/** Containing instruction selector */
-	z80_isel_t *isel;
-	/** Procedure identifier */
-	char *ident;
-	/** Variable - virtual register map */
-	z80_varmap_t *varmap;
-	/** Next label number to allocate */
-	unsigned next_label;
-} z80_isel_proc_t;
+extern int z80_varmap_create(z80_varmap_t **);
+extern void z80_varmap_destroy(z80_varmap_t *);
+extern int z80_varmap_insert(z80_varmap_t *, const char *, unsigned);
+extern int z80_varmap_find(z80_varmap_t *, const char *, z80_varmap_entry_t **);
+extern void z80_varmap_entry_destroy(z80_varmap_entry_t *);
+extern z80_varmap_entry_t *z80_varmap_first(z80_varmap_t *);
+extern z80_varmap_entry_t *z80_varmap_next(z80_varmap_entry_t *);
 
 #endif
