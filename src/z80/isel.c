@@ -1,4 +1,5 @@
 /*
+
  * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -158,6 +159,35 @@ static unsigned z80_isel_get_vregno(z80_isel_proc_t *isproc, ir_oper_t *oper)
 	assert(rc == EOK);
 
 	return entry->vr0;
+}
+
+/** Determine virtual register part and offset in which a particular
+ * byte of an integer resides.
+ *
+ * An 8-bit integer is stored in a single virtual register (%N).
+ * A 16-bit or larger integer is stored in one or more virtual
+ * register pairs. E. g. a 64-bit integer is stored in four virtual
+ * register pairs (%%N, %%N+1, %%N+2. %%N+3) starting from the less
+ * significant word and ending with the most significant word.
+ *
+ * @param byte Byte being addressed (0..lowest, n-1 .. highest)
+ * @param nbytes Size of integer in bytes
+ * @param part Place to store virtual register part
+ * @param vroff Place to store virtual register offset (0, 1, ..)
+ */
+static void z80_isel_reg_part_off(unsigned byte, unsigned nbytes,
+    z80ic_vr_part_t *part, unsigned *vroff)
+{
+	assert(byte < nbytes);
+
+	if (nbytes == 1) {
+		*part = z80ic_vrp_r8;
+		*vroff = 0;
+	} else {
+		*part = (byte & 1) != 0 ? z80ic_vrp_r16h :
+		    z80ic_vrp_r16l;
+		*vroff = byte / 2;
+	}
 }
 
 /** Scan IR instruction for defined variables.
@@ -601,12 +631,15 @@ static int z80_isel_and(z80_isel_proc_t *isproc, const char *label,
 	z80ic_and_vr_t *and = NULL;
 	z80ic_ld_vr_r_t *ldvrr = NULL;
 	z80ic_vr_part_t part;
+	unsigned byte;
+	unsigned vroff;
 	unsigned destvr;
 	unsigned vr1, vr2;
 	int rc;
 
 	assert(irinstr->itype == iri_and);
-//	assert(irinstr->width == 16);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_var);
 
@@ -614,8 +647,10 @@ static int z80_isel_and(z80_isel_proc_t *isproc, const char *label,
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
 
-	/* Do the same thing for lower and upper halves */
-	for (part = z80ic_vrp_r16l; part <= z80ic_vrp_r16h; part++) {
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
 		/* ld A, vr1.X */
 
@@ -627,7 +662,7 @@ static int z80_isel_and(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr1, part, &vr);
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -648,7 +683,7 @@ static int z80_isel_and(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr2, part, &vr);
+		rc = z80ic_oper_vr_create(vr2 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -667,7 +702,7 @@ static int z80_isel_and(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(destvr, part, &vr);
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -717,20 +752,25 @@ static int z80_isel_bnot(z80_isel_proc_t *isproc, const char *label,
 	z80ic_cpl_t *cpl = NULL;
 	z80ic_ld_vr_r_t *ldvrr = NULL;
 	z80ic_vr_part_t part;
+	unsigned byte;
+	unsigned vroff;
 	unsigned destvr;
 	unsigned vr1;
 	int rc;
 
 	assert(irinstr->itype == iri_bnot);
-//	assert(irinstr->width == 16);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2 == NULL);
 
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 
-	/* Do the same thing for lower and upper halves */
-	for (part = z80ic_vrp_r16l; part <= z80ic_vrp_r16h; part++) {
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
 		/* ld A, vr1.X */
 
@@ -742,7 +782,7 @@ static int z80_isel_bnot(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr1, part, &vr);
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -775,7 +815,7 @@ static int z80_isel_bnot(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(destvr, part, &vr);
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -4557,7 +4597,9 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 	z80ic_ld_r_vr_t *ldrvr = NULL;
 	z80ic_or_vr_t *or = NULL;
 	z80ic_ld_vr_r_t *ldvrr = NULL;
+	unsigned byte;
 	z80ic_vr_part_t part;
+	unsigned vroff;
 	unsigned destvr;
 	unsigned vr1, vr2;
 	int rc;
@@ -4571,8 +4613,10 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
 
-	/* Do the same thing for lower and upper halves */
-	for (part = z80ic_vrp_r16l; part <= z80ic_vrp_r16h; part++) {
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
 		/* ld A, vr1.X */
 
@@ -4584,7 +4628,7 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr1, part, &vr);
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -4605,7 +4649,7 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr2, part, &vr);
+		rc = z80ic_oper_vr_create(vr2 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -4624,7 +4668,7 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(destvr, part, &vr);
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -4676,7 +4720,10 @@ static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
 	z80ic_oper_vrr_t *asrc = NULL;
 	z80ic_oper_ss_t *ainc = NULL;
 	z80ic_oper_vr_t *ddest = NULL;
+	unsigned byte;
 	unsigned destvr;
+	z80ic_vr_part_t part;
+	unsigned vroff;
 	unsigned vr;
 	int rc;
 
@@ -4714,62 +4761,53 @@ static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
 
 	ldaddr = NULL;
 
-	/* ld vrrB.L, (HL) */
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
-	rc = z80ic_ld_vr_ihl_create(&lddata);
-	if (rc != EOK)
-		goto error;
+		/* ld vrrB.X, (HL) */
 
-	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16l, &ddest);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_ld_vr_ihl_create(&lddata);
+		if (rc != EOK)
+			goto error;
 
-	lddata->dest = ddest;
-	ddest = NULL;
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &ddest);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
-	if (rc != EOK)
-		goto error;
+		lddata->dest = ddest;
+		ddest = NULL;
 
-	lddata = NULL;
+		rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
+		if (rc != EOK)
+			goto error;
 
-	/* inc HL */
+		lddata = NULL;
 
-	rc = z80ic_inc_ss_create(&inc);
-	if (rc != EOK)
-		goto error;
+		/* No need to increment HL in last iteration */
+		if (byte >= irinstr->width / 8 - 1)
+			break;
 
-	rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
-	if (rc != EOK)
-		goto error;
+		/* inc HL */
 
-	inc->dest = ainc;
-	ainc = NULL;
+		rc = z80ic_inc_ss_create(&inc);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
+		if (rc != EOK)
+			goto error;
 
-	inc = NULL;
+		inc->dest = ainc;
+		ainc = NULL;
 
-	/* ld vrrB.H, (HL) */
+		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_ld_vr_ihl_create(&lddata);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16h, &ddest);
-	if (rc != EOK)
-		goto error;
-
-	lddata->dest = ddest;
-	ddest = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
-	if (rc != EOK)
-		goto error;
-
-	lddata = NULL;
+		inc = NULL;
+	}
 
 	return EOK;
 error:
@@ -4949,6 +4987,9 @@ static int z80_isel_write(z80_isel_proc_t *isproc, const char *label,
 	z80ic_oper_vr_t *dsrc = NULL;
 	unsigned srcvr;
 	unsigned vr;
+	unsigned byte;
+	unsigned vroff;
+	z80ic_vr_part_t part;
 	int rc;
 
 	/*
@@ -4985,62 +5026,53 @@ static int z80_isel_write(z80_isel_proc_t *isproc, const char *label,
 
 	ldaddr = NULL;
 
-	/* ld (HL), vrrB.L */
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
-	rc = z80ic_ld_ihl_vr_create(&lddata);
-	if (rc != EOK)
-		goto error;
+		/* ld (HL), vrrB.X */
 
-	rc = z80ic_oper_vr_create(srcvr, z80ic_vrp_r16l, &dsrc);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_ld_ihl_vr_create(&lddata);
+		if (rc != EOK)
+			goto error;
 
-	lddata->src = dsrc;
-	dsrc = NULL;
+		rc = z80ic_oper_vr_create(srcvr + vroff, part, &dsrc);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
-	if (rc != EOK)
-		goto error;
+		lddata->src = dsrc;
+		dsrc = NULL;
 
-	lddata = NULL;
+		rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
+		if (rc != EOK)
+			goto error;
 
-	/* inc HL */
+		lddata = NULL;
 
-	rc = z80ic_inc_ss_create(&inc);
-	if (rc != EOK)
-		goto error;
+		/* No need to increment HL in last iteration */
+		if (byte >= irinstr->width / 8 - 1)
+			break;
 
-	rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
-	if (rc != EOK)
-		goto error;
+		/* inc HL */
 
-	inc->dest = ainc;
-	ainc = NULL;
+		rc = z80ic_inc_ss_create(&inc);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
+		if (rc != EOK)
+			goto error;
 
-	inc = NULL;
+		inc->dest = ainc;
+		ainc = NULL;
 
-	/* ld (HL), vrrB.H */
+		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_ld_ihl_vr_create(&lddata);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(srcvr, z80ic_vrp_r16h, &dsrc);
-	if (rc != EOK)
-		goto error;
-
-	lddata->src = dsrc;
-	dsrc = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
-	if (rc != EOK)
-		goto error;
-
-	lddata = NULL;
+		inc = NULL;
+	}
 
 	return EOK;
 error:
@@ -5074,6 +5106,8 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 	z80ic_ld_r_vr_t *ldrvr = NULL;
 	z80ic_xor_vr_t *xor = NULL;
 	z80ic_ld_vr_r_t *ldvrr = NULL;
+	unsigned byte;
+	unsigned vroff;
 	z80ic_vr_part_t part;
 	unsigned destvr;
 	unsigned vr1, vr2;
@@ -5088,8 +5122,10 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
 
-	/* Do the same thing for lower and upper halves */
-	for (part = z80ic_vrp_r16l; part <= z80ic_vrp_r16h; part++) {
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
 		/* ld A, vr1.X */
 
@@ -5101,7 +5137,7 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr1, part, &vr);
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -5122,7 +5158,7 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(vr2, part, &vr);
+		rc = z80ic_oper_vr_create(vr2 + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 
@@ -5141,7 +5177,7 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_vr_create(destvr, part, &vr);
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &vr);
 		if (rc != EOK)
 			goto error;
 

@@ -131,6 +131,7 @@ int z80_varmap_find(z80_varmap_t *varmap, const char *ident,
 
 void z80_varmap_entry_destroy(z80_varmap_entry_t *entry)
 {
+	free(entry->ident);
 	list_remove(&entry->lentries);
 	free(entry);
 }
