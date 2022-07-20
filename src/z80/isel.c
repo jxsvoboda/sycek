@@ -1,5 +1,4 @@
 /*
-
  * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -2472,11 +2471,16 @@ static int z80_isel_imm(z80_isel_proc_t *isproc, const char *label,
 	z80ic_oper_vrr_t *vrr = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	ir_oper_imm_t *irimm;
+	z80ic_ld_vr_n_t *ldimm8 = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	unsigned word;
 	unsigned vregno;
 	int rc;
 
 	assert(irinstr->itype == iri_imm);
-//	assert(irinstr->width == 16);
+	assert(irinstr->width > 0);
+	assert(irinstr->width == 8 || irinstr->width % 16 == 0);
 
 	assert(irinstr->op1->optype == iro_imm);
 	irimm = (ir_oper_imm_t *) irinstr->op1->ext;
@@ -2485,28 +2489,55 @@ static int z80_isel_imm(z80_isel_proc_t *isproc, const char *label,
 
 	vregno = z80_isel_get_vregno(isproc, irinstr->dest);
 
-	/* ld vrr, NN */
+	if (irinstr->width == 8) {
 
-	rc = z80ic_ld_vrr_nn_create(&ldimm);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_ld_vr_n_create(&ldimm8);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_oper_vrr_create(vregno, &vrr);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_oper_vr_create(vregno, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_oper_imm16_create_val(irimm->value, &imm);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_oper_imm8_create(irimm->value, &imm8);
+		if (rc != EOK)
+			goto error;
 
-	ldimm->dest = vrr;
-	ldimm->imm16 = imm;
-	vrr = NULL;
-	imm = NULL;
+		ldimm8->dest = vr;
+		ldimm8->imm8 = imm8;
+		vr = NULL;
+		imm8 = NULL;
 
-	rc = z80ic_lblock_append(lblock, label, &ldimm->instr);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_lblock_append(lblock, label, &ldimm8->instr);
+		if (rc != EOK)
+			goto error;
+	} else {
+		for (word = 0; word < irinstr->width / 16; word++) {
+			/* ld vrr, NN */
+
+			rc = z80ic_ld_vrr_nn_create(&ldimm);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(vregno + word, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_imm16_create_val(
+			    (irimm->value >> 16 * word) & 0xffff, &imm);
+			if (rc != EOK)
+				goto error;
+
+			ldimm->dest = vrr;
+			ldimm->imm16 = imm;
+			vrr = NULL;
+			imm = NULL;
+
+			rc = z80ic_lblock_append(lblock, label, &ldimm->instr);
+			if (rc != EOK)
+				goto error;
+		}
+	}
 
 	return EOK;
 error:
@@ -2515,6 +2546,8 @@ error:
 
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_imm16_destroy(imm);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_imm8_destroy(imm8);
 
 	return rc;
 }
@@ -5336,9 +5369,30 @@ static int z80_isel_int(z80_isel_t *isel, ir_dentry_t *irdentry,
 	(void) isel;
 	assert(irdentry->dtype == ird_int);
 
-	rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
-	if (rc != EOK)
-		goto error;
+	switch (irdentry->width) {
+	case 8:
+		rc = z80ic_dentry_create_defb(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	case 16:
+		rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	case 32:
+		rc = z80ic_dentry_create_defdw(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	case 64:
+		rc = z80ic_dentry_create_defqw(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	default:
+		assert(false);
+	}
 
 	rc = z80ic_dblock_append(dblock, dentry);
 	if (rc != EOK)
@@ -5366,9 +5420,25 @@ static int z80_isel_uint(z80_isel_t *isel, ir_dentry_t *irdentry,
 	(void) isel;
 	assert(irdentry->dtype == ird_uint);
 
-	rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
-	if (rc != EOK)
-		goto error;
+	switch (irdentry->width) {
+	case 16:
+		rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	case 32:
+		rc = z80ic_dentry_create_defdw(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	case 64:
+		rc = z80ic_dentry_create_defqw(irdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+		break;
+	default:
+		assert(false);
+	}
 
 	rc = z80ic_dblock_append(dblock, dentry);
 	if (rc != EOK)

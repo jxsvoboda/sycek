@@ -464,7 +464,7 @@ static int z80ic_dentry_defb_print(z80ic_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == z80icd_defb);
 
-	rv = fprintf(f, "defb $%" PRIx16, dentry->value);
+	rv = fprintf(f, "defb $%" PRIx16, (unsigned)dentry->value);
 	if (rv < 0)
 		return EIO;
 
@@ -473,7 +473,7 @@ static int z80ic_dentry_defb_print(z80ic_dentry_t *dentry, FILE *f)
 
 /** Print Z80 IC DEFW data entry.
  *
- * @param dentry Z80 IC DEFB data entry
+ * @param dentry Z80 IC DEFW data entry
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -483,7 +483,77 @@ static int z80ic_dentry_defw_print(z80ic_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == z80icd_defw);
 
-	rv = fprintf(f, "defw $%" PRIx16, dentry->value);
+	rv = fprintf(f, "defw $%" PRIx16, (unsigned)dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print Z80 IC DEFDW data entry.
+ *
+ * @param dentry Z80 IC DEFDW data entry
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int z80ic_dentry_defdw_print(z80ic_dentry_t *dentry, FILE *f)
+{
+	int rv;
+
+	assert(dentry->dtype == z80icd_defdw);
+
+	/* Need to print as two words for Z80asm */
+
+	rv = fprintf(f, "; defdw $%" PRIx32 "\n", (uint32_t)dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "\tdefw $%" PRIx16 "\n", (unsigned)(dentry->value & 0xffff));
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "\tdefw $%" PRIx16, (unsigned)(dentry->value >> 16));
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print Z80 IC DEFQW data entry.
+ *
+ * @param dentry Z80 IC DEFQW data entry
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int z80ic_dentry_defqw_print(z80ic_dentry_t *dentry, FILE *f)
+{
+	int rv;
+
+	assert(dentry->dtype == z80icd_defqw);
+
+	/* Need to print as four words for Z80asm */
+
+	rv = fprintf(f, "; defqw $%" PRIx64 "\n", dentry->value);
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "\tdefw $%" PRIx16 "\n",
+	    (unsigned)(dentry->value & 0xffff));
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "\tdefw $%" PRIx16 "\n",
+	    (unsigned)((dentry->value >> 16) & 0xffff));
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "\tdefw $%" PRIx16 "\n",
+	    (unsigned)((dentry->value >> 32) & 0xffff));
+	if (rv < 0)
+		return EIO;
+
+	rv = fprintf(f, "\tdefw $%" PRIx16,
+	    (unsigned)((dentry->value >> 48) & 0xffff));
 	if (rv < 0)
 		return EIO;
 
@@ -580,6 +650,50 @@ int z80ic_dentry_create_defw(uint16_t value, z80ic_dentry_t **rdentry)
 	return EOK;
 }
 
+/** Create Z80 IC DEFDW data entry.
+ *
+ * @param value Value
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dentry_create_defdw(uint32_t value, z80ic_dentry_t **rdentry)
+{
+	z80ic_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(z80ic_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = z80icd_defdw;
+	dentry->value = value;
+
+	*rdentry = dentry;
+	return EOK;
+}
+
+/** Create Z80 IC DEFQW data entry.
+ *
+ * @param value Value
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dentry_create_defqw(uint64_t value, z80ic_dentry_t **rdentry)
+{
+	z80ic_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(z80ic_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = z80icd_defqw;
+	dentry->value = value;
+
+	*rdentry = dentry;
+	return EOK;
+}
+
 /** Print Z80 IC data entry.
  *
  * @param dblock Labeled block
@@ -601,6 +715,12 @@ int z80ic_dentry_print(z80ic_dentry_t *dentry, FILE *f)
 		break;
 	case z80icd_defw:
 		rc = z80ic_dentry_defw_print(dentry, f);
+		break;
+	case z80icd_defdw:
+		rc = z80ic_dentry_defdw_print(dentry, f);
+		break;
+	case z80icd_defqw:
+		rc = z80ic_dentry_defqw_print(dentry, f);
 		break;
 	default:
 		assert(false);

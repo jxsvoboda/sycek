@@ -1450,8 +1450,12 @@ typedef struct z80ic_lblock {
 typedef enum {
 	/** Define byte */
 	z80icd_defb,
-	/** Define 16-bit word */
-	z80icd_defw
+	/** Define 16-bit value (word) */
+	z80icd_defw,
+	/** Define 32-bit value (doubleword) */
+	z80icd_defdw,
+	/** Define 64-bit value (quadword) */
+	z80icd_defqw
 } z80ic_dentry_type_t;
 
 /** Z80 IC data entry */
@@ -1459,7 +1463,7 @@ typedef struct {
 	/** Data entry type */
 	z80ic_dentry_type_t dtype;
 	/** Value */
-	uint16_t value;
+	uint64_t value;
 } z80ic_dentry_t;
 
 /** Z80 IC data block entry */

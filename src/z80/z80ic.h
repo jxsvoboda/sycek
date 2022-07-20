@@ -56,6 +56,8 @@ extern z80ic_dblock_entry_t *z80ic_dblock_last(z80ic_dblock_t *);
 extern z80ic_dblock_entry_t *z80ic_dblock_prev(z80ic_dblock_entry_t *);
 extern int z80ic_dentry_create_defb(uint8_t, z80ic_dentry_t **);
 extern int z80ic_dentry_create_defw(uint16_t, z80ic_dentry_t **);
+extern int z80ic_dentry_create_defdw(uint32_t, z80ic_dentry_t **);
+extern int z80ic_dentry_create_defqw(uint64_t, z80ic_dentry_t **);
 extern int z80ic_dentry_print(z80ic_dentry_t *, FILE *);
 extern void z80ic_dentry_destroy(z80ic_dentry_t *);
 extern int z80ic_proc_create(const char *, z80ic_lblock_t *, z80ic_proc_t **);

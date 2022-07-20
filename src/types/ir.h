@@ -115,7 +115,7 @@ typedef struct {
 	/** Base object */
 	ir_oper_t oper;
 	/** Value */
-	int32_t value;
+	int64_t value;
 } ir_oper_imm_t;
 
 /** IR list operand */
@@ -181,7 +181,7 @@ typedef struct {
 	/** Data entry width in bits */
 	unsigned width;
 	/** Value */
-	int32_t value;
+	int64_t value;
 } ir_dentry_t;
 
 /** IR data block entry */

@@ -411,7 +411,7 @@ static int ir_dentry_int_print(ir_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == ird_int);
 
-	rv = fprintf(f, "int.%u %" PRId32, dentry->width, dentry->value);
+	rv = fprintf(f, "int.%u %" PRId64, dentry->width, dentry->value);
 	if (rv < 0)
 		return EIO;
 
@@ -430,7 +430,7 @@ static int ir_dentry_uint_print(ir_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == ird_uint);
 
-	rv = fprintf(f, "uint.%u %" PRId32, dentry->width, dentry->value);
+	rv = fprintf(f, "uint.%u %" PRIu64, dentry->width, dentry->value);
 	if (rv < 0)
 		return EIO;
 
@@ -491,7 +491,7 @@ void ir_dblock_destroy(ir_dblock_t *dblock)
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_dentry_create_int(unsigned width, int32_t value, ir_dentry_t **rdentry)
+int ir_dentry_create_int(unsigned width, int64_t value, ir_dentry_t **rdentry)
 {
 	ir_dentry_t *dentry;
 
@@ -515,7 +515,7 @@ int ir_dentry_create_int(unsigned width, int32_t value, ir_dentry_t **rdentry)
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_dentry_create_uint(unsigned width, int32_t value, ir_dentry_t **rdentry)
+int ir_dentry_create_uint(unsigned width, uint64_t value, ir_dentry_t **rdentry)
 {
 	ir_dentry_t *dentry;
 
@@ -1354,7 +1354,7 @@ void ir_instr_destroy(ir_instr_t *instr)
  * @param rimm Place to store pointer to new IR immediate operand
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_oper_imm_create(int32_t value, ir_oper_imm_t **rimm)
+int ir_oper_imm_create(int64_t value, ir_oper_imm_t **rimm)
 {
 	ir_oper_imm_t *imm;
 
@@ -1430,7 +1430,7 @@ static int ir_oper_imm_print(ir_oper_imm_t *imm, FILE *f)
 {
 	int rv;
 
-	rv = fprintf(f, "%" PRId32, imm->value);
+	rv = fprintf(f, "%" PRId64, imm->value);
 	if (rv < 0)
 		return EIO;
 

@@ -1,0 +1,3 @@
+<test/syc/ugly/constlong.c:6:26-32:num:0x10000>: Warning: Constant should be long.
+<test/syc/ugly/constlong.c:9:30-40:num:0x123456789>: Warning: Constant should be long long.
+<test/syc/ugly/constlong.c:12:32-43:num:0x123456789L>: Warning: Constant should be long long.

@@ -121,14 +121,18 @@ static int cgen_gprefix(const char *ident, char **rpident)
 
 /** Get value of integer literal token.
  *
+ * @param cgen Code generator
  * @param tlit Literal token
  * @param rval Place to store value
+ * @param rtype Place to store elementary type
  * @return EOK on success, EINVAL if token format is invalid
  */
-static int cgen_intlit_val(comp_tok_t *tlit, int32_t *rval)
+static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
+    cgtype_elmtype_t *rtype)
 {
 	const char *text = tlit->tok.text;
-	int32_t val;
+	cgtype_elmtype_t elmtype;
+	int64_t val;
 
 	val = 0;
 
@@ -160,11 +164,45 @@ static int cgen_intlit_val(comp_tok_t *tlit, int32_t *rval)
 		}
 	}
 
-	// XXX Support suffixes
+	/* Unsigned */
+	if (*text == 'u' || *text == 'U') {
+		++text;
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Ignoring unsigned literal suffix.\n");
+		++cgen->warnings;
+	}
+
+	/* Long */
+	if (*text == 'l' || *text == 'L') {
+		++text;
+
+		/* Long long */
+		if (*text == 'l' || *text == 'L') {
+			++text;
+			elmtype = cgelm_longlong;
+		} else {
+			elmtype = cgelm_long;
+		}
+	} else {
+		elmtype = cgelm_int;
+	}
+
+	if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong) {
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Constant should be long long.\n");
+		++cgen->warnings;
+	} else if ((uint64_t)val > 0xffff && elmtype != cgelm_long &&
+	    elmtype != cgelm_longlong) {
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Constant should be long.\n");
+		++cgen->warnings;
+	}
+
 	if (*text != '\0')
 		return EINVAL;
 
 	*rval = val;
+	*rtype = elmtype;
 	return EOK;
 }
 
@@ -1156,12 +1194,13 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_imm_t *imm = NULL;
-	int32_t val;
+	int64_t val;
 	cgtype_basic_t *btype = NULL;
+	cgtype_elmtype_t elmtype;
 	int rc;
 
 	lit = (comp_tok_t *) eint->tlit.data;
-	rc = cgen_intlit_val(lit, &val);
+	rc = cgen_intlit_val(cgproc->cgen, lit, &val, &elmtype);
 	if (rc != EOK) {
 		lexer_dprint_tok(&lit->tok, stderr);
 		fprintf(stderr, ": Invalid integer literal.\n");
@@ -1181,12 +1220,12 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_basic_create(cgelm_int, &btype);
+	rc = cgtype_basic_create(elmtype, &btype);
 	if (rc != EOK)
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgen_basic_type_bits(cgproc->cgen, btype);
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -7336,8 +7375,9 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	char *pident = NULL;
-	int32_t initval;
+	int64_t initval;
 	cgtype_t *stype = NULL;
+	cgtype_elmtype_t elmtype;
 	unsigned bits;
 	int rc;
 
@@ -7372,7 +7412,7 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 		eint = (ast_eint_t *) entry->init->ext;
 
 		lit = (comp_tok_t *) eint->tlit.data;
-		rc = cgen_intlit_val(lit, &initval);
+		rc = cgen_intlit_val(cgen, lit, &initval, &elmtype);
 		if (rc != EOK) {
 			lexer_dprint_tok(&lit->tok, stderr);
 			fprintf(stderr, ": Invalid integer literal.\n");
@@ -7380,6 +7420,8 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 			rc = EINVAL;
 			goto error;
 		}
+
+		// XXX Convert from elmtype to stype
 	} else {
 		/* Initialize with zero (TODO: uninitialized?) */
 		initval = 0;

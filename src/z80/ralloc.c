@@ -2246,6 +2246,66 @@ error:
 	return rc;
 }
 
+/** Copy over Z80 IC DEFDW data entry through register allocation stage.
+ *
+ * @param ralloc Register allocator
+ * @param vrdentry Data entry from Z80 IC module with virtual registers
+ * @param dblock Data block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_defdw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
+    z80ic_dblock_t *dblock)
+{
+	z80ic_dentry_t *dentry = NULL;
+	int rc;
+
+	(void) ralloc;
+	assert(vrdentry->dtype == z80icd_defdw);
+
+	rc = z80ic_dentry_create_defdw(vrdentry->value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Copy over Z80 IC DEFQW data entry through register allocation stage.
+ *
+ * @param ralloc Register allocator
+ * @param vrdentry Data entry from Z80 IC module with virtual registers
+ * @param dblock Data block where to append the new data entry
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_defqw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
+    z80ic_dblock_t *dblock)
+{
+	z80ic_dentry_t *dentry = NULL;
+	int rc;
+
+	(void) ralloc;
+	assert(vrdentry->dtype == z80icd_defqw);
+
+	rc = z80ic_dentry_create_defqw(vrdentry->value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	z80ic_dentry_destroy(dentry);
+	return rc;
+}
+
 /** Copy over Z80 IC data entry through register allocation stage.
  *
  * @param ralloc Register allocator
@@ -2261,6 +2321,10 @@ static int z80_ralloc_dentry(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 		return z80_ralloc_defb(ralloc, vrdentry, dblock);
 	case z80icd_defw:
 		return z80_ralloc_defw(ralloc, vrdentry, dblock);
+	case z80icd_defdw:
+		return z80_ralloc_defdw(ralloc, vrdentry, dblock);
+	case z80icd_defqw:
+		return z80_ralloc_defqw(ralloc, vrdentry, dblock);
 	}
 
 	assert(false);
