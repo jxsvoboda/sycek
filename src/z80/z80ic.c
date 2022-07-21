@@ -1791,6 +1791,94 @@ static void z80ic_pop_ix_destroy(z80ic_pop_ix_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC add (IX+d) to A instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_add_a_iixd_create(z80ic_add_a_iixd_t **rinstr)
+{
+	z80ic_add_a_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_add_a_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_add_a_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add (IX+d) to A instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_add_a_iixd_print(z80ic_add_a_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "add A, (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC add (IX+d) to A instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_add_a_iixd_destroy(z80ic_add_a_iixd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC add (IX+d) to A instruction with carry.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_adc_a_iixd_create(z80ic_adc_a_iixd_t **rinstr)
+{
+	z80ic_adc_a_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_adc_a_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_adc_a_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add (IX+d) to A instruction with carry.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_adc_a_iixd_print(z80ic_adc_a_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "adc A, (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC add (IX+d) to A instruction with carry.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_adc_a_iixd_destroy(z80ic_adc_a_iixd_t *instr)
+{
+	(void) instr;
+}
+
 /** Create Z80 IC subtract 8-bit immediate instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -3584,6 +3672,104 @@ static void z80ic_ld_vrr_spnn_destroy(z80ic_ld_vrr_spnn_t *instr)
 	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
+/** Create Z80 IC add virtual register to A instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_add_a_vr_create(z80ic_add_a_vr_t **rinstr)
+{
+	z80ic_add_a_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_add_a_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_add_a_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add virtual register to A instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_add_a_vr_print(z80ic_add_a_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("add A, ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC add virtual register to A instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_add_a_vr_destroy(z80ic_add_a_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
+/** Create Z80 IC add virtual register to A instruction with carry.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_adc_a_vr_create(z80ic_adc_a_vr_t **rinstr)
+{
+	z80ic_adc_a_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_adc_a_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_adc_a_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add virtual register to A instruction with carry.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_adc_a_vr_print(z80ic_adc_a_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("adc A, ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC add virtual register to A instruction with carry.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_adc_a_vr_destroy(z80ic_adc_a_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
 /** Create Z80 IC subtract virtual register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -4391,6 +4577,12 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_pop_ix:
 		rc = z80ic_pop_ix_print((z80ic_pop_ix_t *) instr->ext, f);
 		break;
+	case z80i_add_a_iixd:
+		rc = z80ic_add_a_iixd_print((z80ic_add_a_iixd_t *) instr->ext, f);
+		break;
+	case z80i_adc_a_iixd:
+		rc = z80ic_adc_a_iixd_print((z80ic_adc_a_iixd_t *) instr->ext, f);
+		break;
 	case z80i_sub_n:
 		rc = z80ic_sub_n_print((z80ic_sub_n_t *) instr->ext, f);
 		break;
@@ -4508,6 +4700,12 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_ld_vrr_spnn:
 		rc = z80ic_ld_vrr_spnn_print((z80ic_ld_vrr_spnn_t *) instr->ext, f);
 		break;
+	case z80i_add_a_vr:
+		rc = z80ic_add_a_vr_print((z80ic_add_a_vr_t *) instr->ext, f);
+		break;
+	case z80i_adc_a_vr:
+		rc = z80ic_adc_a_vr_print((z80ic_adc_a_vr_t *) instr->ext, f);
+		break;
 	case z80i_sub_vr:
 		rc = z80ic_sub_vr_print((z80ic_sub_vr_t *) instr->ext, f);
 		break;
@@ -4615,6 +4813,12 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_add_hl_ss:
 		z80ic_add_hl_ss_destroy((z80ic_add_hl_ss_t *) instr->ext);
 		break;
+	case z80i_add_a_iixd:
+		z80ic_add_a_iixd_destroy((z80ic_add_a_iixd_t *) instr->ext);
+		break;
+	case z80i_adc_a_iixd:
+		z80ic_adc_a_iixd_destroy((z80ic_adc_a_iixd_t *) instr->ext);
+		break;
 	case z80i_sub_n:
 		z80ic_sub_n_destroy((z80ic_sub_n_t *) instr->ext);
 		break;
@@ -4719,6 +4923,12 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_ld_vrr_spnn:
 		z80ic_ld_vrr_spnn_destroy((z80ic_ld_vrr_spnn_t *) instr->ext);
+		break;
+	case z80i_add_a_vr:
+		z80ic_add_a_vr_destroy((z80ic_add_a_vr_t *) instr->ext);
+		break;
+	case z80i_adc_a_vr:
+		z80ic_adc_a_vr_destroy((z80ic_adc_a_vr_t *) instr->ext);
 		break;
 	case z80i_sub_vr:
 		z80ic_sub_vr_destroy((z80ic_sub_vr_t *) instr->ext);

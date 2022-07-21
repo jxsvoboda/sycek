@@ -1008,6 +1008,22 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
 
+/** Z80 IC add (IX+d) to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_add_a_iixd_t;
+
+/** Z80 IC add (IX+d) to A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_adc_a_iixd_t;
+
 /** Z80 IC subtract 8-bit immediate */
 typedef struct {
 	/** Base object */
@@ -1309,6 +1325,22 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_spnn_t;
+
+/** Z80 IC add virtual register to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_add_a_vr_t;
+
+/** Z80 IC add virtual register to A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_adc_a_vr_t;
 
 /** Z80 IC subtract virtual register */
 typedef struct {

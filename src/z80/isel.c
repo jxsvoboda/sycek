@@ -627,16 +627,23 @@ error:
 static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_oper_vrr_t *dest = NULL;
-	z80ic_oper_vrr_t *src = NULL;
-	z80ic_ld_vrr_vrr_t *ld = NULL;
-	z80ic_add_vrr_vrr_t *add = NULL;
+	z80ic_oper_vr_t *dest = NULL;
+	z80ic_oper_vr_t *src = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_ld_r_vr_t *ldrvr = NULL;
+	z80ic_ld_vr_r_t *ldvrr = NULL;
+	z80ic_add_a_vr_t *add = NULL;
+	z80ic_adc_a_vr_t *adc = NULL;
+	z80ic_vr_part_t part;
+	unsigned vroff;
+	unsigned byte;
 	unsigned destvr;
 	unsigned vr1, vr2;
 	int rc;
 
 	assert(irinstr->itype == iri_add);
-//	assert(irinstr->width == 16);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_var);
 
@@ -644,62 +651,112 @@ static int z80_isel_add(z80_isel_proc_t *isproc, const char *label,
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
 
-	/* ld dest, vr1 */
+	/* For each byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
 
-	rc = z80ic_ld_vrr_vrr_create(&ld);
-	if (rc != EOK)
-		goto error;
+		/* ld A, vr1.X */
 
-	rc = z80ic_oper_vrr_create(destvr, &dest);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_ld_r_vr_create(&ldrvr);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_oper_vrr_create(vr1, &src);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
 
-	ld->dest = dest;
-	ld->src = src;
-	dest = NULL;
-	src = NULL;
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &src);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_lblock_append(lblock, label, &ld->instr);
-	if (rc != EOK)
-		goto error;
+		ldrvr->dest = reg;
+		ldrvr->src = src;
+		reg = NULL;
+		src = NULL;
 
-	ld = NULL;
+		rc = z80ic_lblock_append(lblock, label, &ldrvr->instr);
+		if (rc != EOK)
+			goto error;
 
-	/* add dest, vr2 */
+		ldrvr = NULL;
 
-	rc = z80ic_add_vrr_vrr_create(&add);
-	if (rc != EOK)
-		goto error;
+		if (byte == 0) {
+			/* add A, vr2 */
 
-	rc = z80ic_oper_vrr_create(destvr, &dest);
-	if (rc != EOK)
-		goto error;
+			rc = z80ic_add_a_vr_create(&add);
+			if (rc != EOK)
+				goto error;
 
-	rc = z80ic_oper_vrr_create(vr2, &src);
-	if (rc != EOK)
-		goto error;
+			rc = z80ic_oper_vr_create(vr2 + vroff, part, &src);
+			if (rc != EOK)
+				goto error;
 
-	add->dest = dest;
-	add->src = src;
-	dest = NULL;
-	src = NULL;
+			add->src = src;
+			dest = NULL;
+			src = NULL;
 
-	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
-	if (rc != EOK)
-		goto error;
+			rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* adc A, vr2 */
+			rc = z80ic_adc_a_vr_create(&adc);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(vr2 + vroff, part, &src);
+			if (rc != EOK)
+				goto error;
+
+			adc->src = src;
+			dest = NULL;
+			src = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+			if (rc != EOK)
+				goto error;
+		}
+
+		/* ld destvr.X, A */
+
+		rc = z80ic_ld_vr_r_create(&ldvrr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &dest);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr->dest = dest;
+		ldvrr->src = reg;
+		dest = NULL;
+		reg = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldvrr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr = NULL;
+	}
 
 	return EOK;
 error:
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
 	if (add != NULL)
 		z80ic_instr_destroy(&add->instr);
-	z80ic_oper_vrr_destroy(dest);
-	z80ic_oper_vrr_destroy(src);
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+	z80ic_oper_vr_destroy(dest);
+	z80ic_oper_vr_destroy(src);
+	z80ic_oper_reg_destroy(reg);
 
 	return rc;
 }

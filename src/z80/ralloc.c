@@ -1369,6 +1369,82 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 add virtual register to A instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrsub Add instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_add_a_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_add_a_vr_t *vradd, z80ic_lblock_t *lblock)
+{
+	z80ic_add_a_iixd_t *add = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* add A, (IX+d) */
+
+	rc = z80ic_add_a_iixd_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vradd->src->part);
+	add->disp = z80_ralloc_disp(-2 * (1 + (long) vradd->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &add->instr);
+	if (rc != EOK)
+		goto error;
+
+	add = NULL;
+	return EOK;
+error:
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+
+	return rc;
+}
+
+/** Allocate registers for Z80 add virtual register to A with carry instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrsub Add instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_adc_a_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_adc_a_vr_t *vradc, z80ic_lblock_t *lblock)
+{
+	z80ic_adc_a_iixd_t *adc = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* adc A, (IX+d) */
+
+	rc = z80ic_adc_a_iixd_create(&adc);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vradc->src->part);
+	adc->disp = z80_ralloc_disp(-2 * (1 + (long) vradc->src->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
+	adc = NULL;
+	return EOK;
+error:
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 subtract virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -2150,6 +2226,12 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_vrr_spnn:
 		return z80_ralloc_ld_vrr_spnn(raproc, label,
 		    (z80ic_ld_vrr_spnn_t *) vrinstr->ext, lblock);
+	case z80i_add_a_vr:
+		return z80_ralloc_add_a_vr(raproc, label,
+		    (z80ic_add_a_vr_t *) vrinstr->ext, lblock);
+	case z80i_adc_a_vr:
+		return z80_ralloc_adc_a_vr(raproc, label,
+		    (z80ic_adc_a_vr_t *) vrinstr->ext, lblock);
 	case z80i_sub_vr:
 		return z80_ralloc_sub_vr(raproc, label,
 		    (z80ic_sub_vr_t *) vrinstr->ext, lblock);
