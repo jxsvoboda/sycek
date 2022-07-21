@@ -2,9 +2,27 @@
  * Postdecrement
  */
 
-int a;
+char a;
+int b;
+long c;
+long long d;
+
+void postdec_char(void)
+{
+	a--;
+}
 
 int postdec(void)
 {
-	a--;
+	b--;
+}
+
+void postdec_long(void)
+{
+	c--;
+}
+
+void postdec_longlong(void)
+{
+	d--;
 }
