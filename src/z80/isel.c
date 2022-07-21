@@ -4740,7 +4740,8 @@ static int z80_isel_or(z80_isel_proc_t *isproc, const char *label,
 	int rc;
 
 	assert(irinstr->itype == iri_or);
-//	assert(irinstr->width == 16);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_var);
 
@@ -5249,7 +5250,8 @@ static int z80_isel_xor(z80_isel_proc_t *isproc, const char *label,
 	int rc;
 
 	assert(irinstr->itype == iri_xor);
-//	assert(irinstr->width == 16);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_var);
 
