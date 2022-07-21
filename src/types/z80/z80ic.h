@@ -1350,6 +1350,14 @@ typedef struct {
 	z80ic_oper_vr_t *src;
 } z80ic_xor_vr_t;
 
+/** Z80 IC increment virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Virtual register */
+	z80ic_oper_vr_t *vr;
+} z80ic_inc_vr_t;
+
 /** Z80 IC decrement virtual register */
 typedef struct {
 	/** Base object */

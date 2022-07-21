@@ -1560,6 +1560,44 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 increment virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrdec Increment instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_inc_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_inc_vr_t *vrinc, z80ic_lblock_t *lblock)
+{
+	z80ic_inc_iixd_t *inc = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* inc (IX+d) */
+
+	rc = z80ic_inc_iixd_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrinc->vr->part);
+	inc->disp = z80_ralloc_disp(-2 * (1 + (long) vrinc->vr->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 decrement virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -2127,6 +2165,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_xor_vr:
 		return z80_ralloc_xor_vr(raproc, label,
 		    (z80ic_xor_vr_t *) vrinstr->ext, lblock);
+	case z80i_inc_vr:
+		return z80_ralloc_inc_vr(raproc, label,
+		    (z80ic_inc_vr_t *) vrinstr->ext, lblock);
 	case z80i_dec_vr:
 		return z80_ralloc_dec_vr(raproc, label,
 		    (z80ic_dec_vr_t *) vrinstr->ext, lblock);

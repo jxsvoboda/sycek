@@ -4398,7 +4398,10 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *barg = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
 	cgen_eres_t bres;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -4407,6 +4410,27 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	rc = cgen_expr_promoted_rvalue(cgproc, eusign->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
+
+	atok = ast_tree_first_tok(&eusign->node);
+	ctok = (comp_tok_t *) atok->data;
+
+	if (bres.cgtype->ntype != cgn_basic) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)bres.cgtype->ext);
+	if (bits == 0) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented variable type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	if (eusign->usign == aus_minus) {
 		/* neg %<dest>, %<bres> */
@@ -4424,7 +4448,7 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 			goto error;
 
 		instr->itype = iri_neg;
-		instr->width = 16;
+		instr->width = bits;
 		instr->dest = &dest->oper;
 		instr->op1 = &barg->oper;
 		instr->op2 = NULL;
