@@ -2112,6 +2112,45 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 shift right logical virtual register
+ * instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrsrl Shift right logical instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_srl_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_srl_vr_t *vrsrl, z80ic_lblock_t *lblock)
+{
+	z80ic_srl_iixd_t *srl = NULL;
+	unsigned vroff;
+	int rc;
+
+	(void) raproc;
+
+	/* srl (IX+d) */
+
+	rc = z80ic_srl_iixd_create(&srl);
+	if (rc != EOK)
+		goto error;
+
+	vroff = z80_ralloc_vroff(vrsrl->vr->part);
+	srl->disp = z80_ralloc_disp(-2 * (1 + (long) vrsrl->vr->vregno) + vroff);
+
+	rc = z80ic_lblock_append(lblock, label, &srl->instr);
+	if (rc != EOK)
+		goto error;
+
+	srl = NULL;
+	return EOK;
+error:
+	if (srl != NULL)
+		z80ic_instr_destroy(&srl->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 test bit of virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -2274,6 +2313,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_sra_vr:
 		return z80_ralloc_sra_vr(raproc, label,
 		    (z80ic_sra_vr_t *) vrinstr->ext, lblock);
+	case z80i_srl_vr:
+		return z80_ralloc_srl_vr(raproc, label,
+		    (z80ic_srl_vr_t *) vrinstr->ext, lblock);
 	case z80i_bit_b_vr:
 		return z80_ralloc_bit_b_vr(raproc, label,
 		    (z80ic_bit_b_vr_t *) vrinstr->ext, lblock);

@@ -2798,6 +2798,50 @@ static void z80ic_sra_iixd_destroy(z80ic_sra_iixd_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC shift right logical (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_srl_iixd_create(z80ic_srl_iixd_t **rinstr)
+{
+	z80ic_srl_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_srl_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_srl_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC shift right logical (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_srl_iixd_print(z80ic_srl_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "srl (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC shift right logical (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_srl_iixd_destroy(z80ic_srl_iixd_t *instr)
+{
+	(void) instr;
+}
+
 /** Create Z80 IC test bit of (IX+d) instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -2833,7 +2877,7 @@ static int z80ic_bit_b_iixd_print(z80ic_bit_b_iixd_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy Z80 IC shift right arithmetic (IX+d) instruction.
+/** Destroy Z80 IC test bit of (IX+d) instruction.
  *
  * @param instr Instruction
  */
@@ -4480,6 +4524,55 @@ static void z80ic_sra_vr_destroy(z80ic_sra_vr_t *instr)
 	z80ic_oper_vr_destroy(instr->vr);
 }
 
+/** Create Z80 IC shift right logical virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_srl_vr_create(z80ic_srl_vr_t **rinstr)
+{
+	z80ic_srl_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_srl_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_srl_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC shift right logical virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_srl_vr_print(z80ic_srl_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("srl ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->vr, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC shift right logical virtual register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_srl_vr_destroy(z80ic_srl_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->vr);
+}
+
 /** Create Z80 test bit of virtual register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -4643,6 +4736,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_sra_iixd:
 		rc = z80ic_sra_iixd_print((z80ic_sra_iixd_t *) instr->ext, f);
 		break;
+	case z80i_srl_iixd:
+		rc = z80ic_srl_iixd_print((z80ic_srl_iixd_t *) instr->ext, f);
+		break;
 	case z80i_bit_b_iixd:
 		rc = z80ic_bit_b_iixd_print((z80ic_bit_b_iixd_t *) instr->ext, f);
 		break;
@@ -4750,6 +4846,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_sra_vr:
 		rc = z80ic_sra_vr_print((z80ic_sra_vr_t *) instr->ext, f);
+		break;
+	case z80i_srl_vr:
+		rc = z80ic_srl_vr_print((z80ic_srl_vr_t *) instr->ext, f);
 		break;
 	case z80i_bit_b_vr:
 		rc = z80ic_bit_b_vr_print((z80ic_bit_b_vr_t *) instr->ext, f);
@@ -4876,6 +4975,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_sra_iixd:
 		z80ic_sra_iixd_destroy((z80ic_sra_iixd_t *) instr->ext);
 		break;
+	case z80i_srl_iixd:
+		z80ic_srl_iixd_destroy((z80ic_srl_iixd_t *) instr->ext);
+		break;
 	case z80i_bit_b_iixd:
 		z80ic_bit_b_iixd_destroy((z80ic_bit_b_iixd_t *) instr->ext);
 		break;
@@ -4971,6 +5073,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_sra_vr:
 		z80ic_sra_vr_destroy((z80ic_sra_vr_t *) instr->ext);
+		break;
+	case z80i_srl_vr:
+		z80ic_srl_vr_destroy((z80ic_srl_vr_t *) instr->ext);
 		break;
 	case z80i_bit_b_vr:
 		z80ic_bit_b_vr_destroy((z80ic_bit_b_vr_t *) instr->ext);

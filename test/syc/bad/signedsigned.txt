@@ -1,2 +1,1 @@
-<test/syc/bad/signedsigned.c:5:1-6:'signed'>: Warning: Unimplemented type specifier.
 <test/syc/bad/signedsigned.c:5:8-13:'signed'>: More than one signed specifier.

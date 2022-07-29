@@ -1178,6 +1178,14 @@ typedef struct {
 	int8_t disp;
 } z80ic_sra_iixd_t;
 
+/** Z80 IC shift right logical (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_srl_iixd_t;
+
 /** Z80 IC test bit of (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1457,6 +1465,14 @@ typedef struct {
 	/** Virtual register */
 	z80ic_oper_vr_t *vr;
 } z80ic_sra_vr_t;
+
+/** Z80 IC shift right logical virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Virtual register */
+	z80ic_oper_vr_t *vr;
+} z80ic_srl_vr_t;
 
 /** Z80 IC shift right arithmetic virtual register */
 typedef struct {

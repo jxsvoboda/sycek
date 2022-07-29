@@ -78,8 +78,10 @@ typedef enum {
 	iri_retv,
 	/** Shift left */
 	iri_shl,
-	/** Shift right */
-	iri_shr,
+	/** Shift right arithmetic */
+	iri_shra,
+	/** Shift right logical */
+	iri_shrl,
 	/** Subtraction */
 	iri_sub,
 	/** Get pointer to global variable */

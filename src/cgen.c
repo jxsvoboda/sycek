@@ -102,6 +102,72 @@ static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 	}
 }
 
+/** Return if basic type is signed.
+ *
+ * @param cgen Code generator
+ * @param tbasic Basic type
+ * @return @c true iff type is signed
+ */
+static int cgen_basic_type_signed(cgen_t *cgen, cgtype_basic_t *tbasic)
+{
+	(void) cgen;
+
+	switch (tbasic->elmtype) {
+	case cgelm_char:
+	case cgelm_short:
+	case cgelm_int:
+	case cgelm_logic:
+	case cgelm_long:
+	case cgelm_longlong:
+		return true;
+	case cgelm_uchar:
+	case cgelm_ushort:
+	case cgelm_uint:
+	case cgelm_ulong:
+	case cgelm_ulonglong:
+		return false;
+	default:
+		assert(false);
+		return false;
+	}
+}
+
+/** Determine if type is an integer type.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is an integer type
+ */
+static bool cgen_type_is_integer(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_basic_t *tbasic;
+
+	(void) cgen;
+
+	if (cgtype->ntype != cgn_basic) {
+		return false;
+	}
+
+	tbasic = (cgtype_basic_t *)cgtype->ext;
+
+	switch (tbasic->elmtype) {
+	case cgelm_char:
+	case cgelm_short:
+	case cgelm_int:
+	case cgelm_logic:
+	case cgelm_long:
+	case cgelm_longlong:
+	case cgelm_uchar:
+	case cgelm_ushort:
+	case cgelm_uint:
+	case cgelm_ulong:
+	case cgelm_ulonglong:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /** Prefix identifier with '@' global variable prefix.
  *
  * @param ident Identifier
@@ -1856,13 +1922,15 @@ error:
 /** Generate code for shift right.
  *
  * @param cgproc Code generator for procedure
+ * @param ebinop Binary operator expression (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_shr(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+    cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -1870,25 +1938,34 @@ static int cgen_shr(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
 	unsigned bits;
+	bool is_signed;
 	int rc;
 
 	/* Check the type */
-	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+	if (!cgen_type_is_integer(cgproc->cgen, lres->cgtype)) {
+		atok = ast_tree_first_tok(ebinop->larg);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Left argument of '>>' operator should be "
+		    "of integer type. Found ");
+		(void) cgtype_print(lres->cgtype, stderr);
+		fprintf(stderr, ".\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
+	assert(lres->cgtype->ntype == cgn_basic);
+
 	bits = cgen_basic_type_bits(cgproc->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
-	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
+	assert(bits != 0);
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres->cgtype->ext);
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
 	if (rc != EOK)
@@ -1910,7 +1987,7 @@ static int cgen_shr(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_shr;
+	instr->itype = is_signed ? iri_shra : iri_shrl;
 	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
@@ -2362,7 +2439,7 @@ static int cgen_bo_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Shift right */
-	rc = cgen_shr(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_shr(cgproc, ebinop, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -3829,7 +3906,7 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Shift right */
-	rc = cgen_shr(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_shr(cgproc, ebinop, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 

@@ -875,14 +875,16 @@ error:
  * @param isproc Instruction selector for procedure
  * @param vregno First virtual register number
  * @param bytes Size of value in bytes
+ * @param arithm Arithmetic (signed) shift
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
 static int z80_isel_vrr_shr(z80_isel_proc_t *isproc, unsigned vregno,
-    unsigned bytes, z80ic_lblock_t *lblock)
+    unsigned bytes, bool arithm, z80ic_lblock_t *lblock)
 {
 	z80ic_oper_vr_t *dvr = NULL;
 	z80ic_sra_vr_t *sra = NULL;
+	z80ic_srl_vr_t *srl = NULL;
 	z80ic_rr_vr_t *rr = NULL;
 	unsigned byte;
 	unsigned vroff;
@@ -894,24 +896,45 @@ static int z80_isel_vrr_shr(z80_isel_proc_t *isproc, unsigned vregno,
 
 	z80_isel_reg_part_off(bytes - 1, bytes, &part, &vroff);
 
-	/* sra dest.<MSB> */
+	if (arithm) {
+		/* sra dest.<MSB> */
 
-	rc = z80ic_sra_vr_create(&sra);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_sra_vr_create(&sra);
+		if (rc != EOK)
+			goto error;
 
-	rc = z80ic_oper_vr_create(vregno + vroff, part, &dvr);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_oper_vr_create(vregno + vroff, part, &dvr);
+		if (rc != EOK)
+			goto error;
 
-	sra->vr = dvr;
-	dvr = NULL;
+		sra->vr = dvr;
+		dvr = NULL;
 
-	rc = z80ic_lblock_append(lblock, NULL, &sra->instr);
-	if (rc != EOK)
-		goto error;
+		rc = z80ic_lblock_append(lblock, NULL, &sra->instr);
+		if (rc != EOK)
+			goto error;
 
-	sra = NULL;
+		sra = NULL;
+	} else {
+		/* srl dest.<MSB> */
+
+		rc = z80ic_srl_vr_create(&srl);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(vregno + vroff, part, &dvr);
+		if (rc != EOK)
+			goto error;
+
+		srl->vr = dvr;
+		dvr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &srl->instr);
+		if (rc != EOK)
+			goto error;
+
+		srl = NULL;
+	}
 
 	/* From second most significant byte to the least significant */
 	for (byte = 1; byte < bytes; byte++) {
@@ -942,6 +965,8 @@ static int z80_isel_vrr_shr(z80_isel_proc_t *isproc, unsigned vregno,
 error:
 	if (sra != NULL)
 		z80ic_instr_destroy(&sra->instr);
+	if (srl != NULL)
+		z80ic_instr_destroy(&srl->instr);
 	if (rr != NULL)
 		z80ic_instr_destroy(&rr->instr);
 
@@ -2582,7 +2607,7 @@ error:
 	return rc;
 }
 
-/** Select Z80 IC instructions code for IR shr instruction.
+/** Select Z80 IC instructions code for IR shra/shrl instructions.
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR shr instruction
@@ -2609,7 +2634,7 @@ static int z80_isel_shr(z80_isel_proc_t *isproc, const char *label,
 	char *end_lbl = NULL;
 	int rc;
 
-	assert(irinstr->itype == iri_shr);
+	assert(irinstr->itype == iri_shra || irinstr->itype == iri_shrl);
 	assert(irinstr->width > 0);
 	assert(irinstr->width % 8 == 0);
 	assert(irinstr->op1->optype == iro_var);
@@ -2714,7 +2739,8 @@ static int z80_isel_shr(z80_isel_proc_t *isproc, const char *label,
 
 	/* dest >>= 1 */
 
-	rc = z80_isel_vrr_shr(isproc, destvr, irinstr->width / 8, lblock);
+	rc = z80_isel_vrr_shr(isproc, destvr, irinstr->width / 8,
+	    irinstr->itype == iri_shra, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -4021,7 +4047,7 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 
 	/* u >>= 1 */
 
-	rc = z80_isel_vrr_shr(isproc, uvr, irinstr->width / 8, lblock);
+	rc = z80_isel_vrr_shr(isproc, uvr, irinstr->width / 8, false, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -4045,7 +4071,7 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 
 	jpcc = NULL;
 
-	/* t += dest */
+	/* dest += t */
 
 	rc = z80_isel_vrr_add(isproc, destvr, destvr, tvr,
 	    irinstr->width / 8, lblock);
@@ -5239,7 +5265,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_retv(isproc, label, irinstr, lblock);
 	case iri_shl:
 		return z80_isel_shl(isproc, label, irinstr, lblock);
-	case iri_shr:
+	case iri_shra:
+	case iri_shrl:
 		return z80_isel_shr(isproc, label, irinstr, lblock);
 	case iri_sub:
 		return z80_isel_sub(isproc, label, irinstr, lblock);

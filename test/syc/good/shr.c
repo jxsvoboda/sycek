@@ -3,29 +3,53 @@
  */
 
 char ca, cb;
+unsigned char uca, ucb;
 int a, b;
+unsigned ua, ub;
 long la, lb;
+unsigned long ula, ulb;
 long long lla, llb;
+unsigned long long ulla, ullb;
 
 int s;
 
-void shl_char(void)
+void shr_char(void)
 {
 	ca = cb >> s;
 }
 
-int shl(void)
+void shr_uchar(void)
+{
+	uca = ucb >> s;
+}
+
+int shr(void)
 {
 	a = b >> s;
 	return a;
 }
 
-void shl_long(void)
+void shr_uint(void)
+{
+	ua = ub >> s;
+}
+
+void shr_long(void)
 {
 	la = lb >> s;
 }
 
-void shl_longlong(void)
+void shr_ulong(void)
+{
+	ula = ulb >> s;
+}
+
+void shr_longlong(void)
 {
 	lla = llb >> s;
+}
+
+void shr_ulonglong(void)
+{
+	ulla = ullb >> s;
 }

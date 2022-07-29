@@ -1,11 +1,7 @@
 <test/syc/ugly/intsuperf.c:7:7-9:'int'>: superfluous 'int' used with short/long/signed/unsigned.
 <test/syc/ugly/intsuperf.c:8:6-8:'int'>: superfluous 'int' used with short/long/signed/unsigned.
 <test/syc/ugly/intsuperf.c:9:11-13:'int'>: superfluous 'int' used with short/long/signed/unsigned.
-<test/syc/ugly/intsuperf.c:10:1-6:'signed'>: Warning: Unimplemented type specifier.
 <test/syc/ugly/intsuperf.c:10:8-10:'int'>: superfluous 'int' used with short/long/signed/unsigned.
-<test/syc/ugly/intsuperf.c:11:1-8:'unsigned'>: Warning: Unimplemented type specifier.
 <test/syc/ugly/intsuperf.c:11:10-12:'int'>: superfluous 'int' used with short/long/signed/unsigned.
-<test/syc/ugly/intsuperf.c:12:1-6:'signed'>: Warning: Unimplemented type specifier.
 <test/syc/ugly/intsuperf.c:12:13-15:'int'>: superfluous 'int' used with short/long/signed/unsigned.
-<test/syc/ugly/intsuperf.c:13:1-8:'unsigned'>: Warning: Unimplemented type specifier.
 <test/syc/ugly/intsuperf.c:13:15-17:'int'>: superfluous 'int' used with short/long/signed/unsigned.
