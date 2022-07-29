@@ -68,6 +68,7 @@ static int cgen_switch_create(cgen_switch_t *, cgen_switch_t **);
 static void cgen_switch_destroy(cgen_switch_t *);
 static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
+static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 
 /** Return the bit width of an arithmetic type.
  *
@@ -5850,40 +5851,54 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	cgen_eres_init(&ares);
 	cgen_eres_init(&cres);
 
-	rc = cgen_expr_rvalue(cgproc, areturn->arg, lblock, &ares);
-	if (rc != EOK)
-		goto error;
+	printf("areturn->arg=%p\n", (void *)areturn->arg);
 
-	// TODO Determine real return type of function
-	rc = cgtype_basic_create(cgelm_int, &btype);
-	if (rc != EOK)
-		goto error;
+	if (areturn->arg != NULL) {
+		/* Return value */
+		// XXX Verify that function is not void
 
-	/* Convert to the return type */
-	rc = cgen_type_convert(cgproc->cgen, areturn->arg, &ares,
-	    &btype->cgtype, &cres);
-	if (rc != EOK)
-		goto error;
+		rc = cgen_expr_rvalue(cgproc, areturn->arg, lblock, &ares);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
+		// TODO Determine real return type of function
+		rc = cgtype_basic_create(cgelm_int, &btype);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_oper_var_create(cres.varname, &arg);
-	if (rc != EOK)
-		goto error;
+		/* Convert to the return type */
+		rc = cgen_type_convert(cgproc->cgen, areturn->arg, &ares,
+		    &btype->cgtype, &cres);
+		if (rc != EOK)
+			goto error;
 
-	instr->itype = iri_retv;
-	instr->width = cgproc->cgen->arith_width;
-	instr->dest = NULL;
-	instr->op1 = &arg->oper;
-	instr->op2 = NULL;
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
 
-	ir_lblock_append(lblock, NULL, instr);
+		rc = ir_oper_var_create(cres.varname, &arg);
+		if (rc != EOK)
+			goto error;
 
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&cres);
-	cgtype_destroy(&btype->cgtype);
+		instr->itype = iri_retv;
+		instr->width = cgproc->cgen->arith_width;
+		instr->dest = NULL;
+		instr->op1 = &arg->oper;
+		instr->op2 = NULL;
+
+		ir_lblock_append(lblock, NULL, instr);
+
+		cgen_eres_fini(&ares);
+		cgen_eres_fini(&cres);
+		cgtype_destroy(&btype->cgtype);
+	} else {
+		/* Return without value */
+		// XXX Verify that function is void
+		rc = cgen_ret(cgproc, lblock);
+		if (rc != EOK)
+			goto error;
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
