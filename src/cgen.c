@@ -7103,6 +7103,37 @@ static int cgen_gn_block(cgen_proc_t *cgproc, ast_block_t *block,
 	return cgen_block(cgproc, block, lblock);
 }
 
+/** Generate return instruction.
+ *
+ * @param cgproc Code generator for procedure
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_ret(cgen_proc_t *cgproc, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	int rc;
+
+	(void) cgproc;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_ret;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = NULL;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	return rc;
+}
+
 /** Generate code for function definition.
  *
  * @param cgen Code generator
@@ -7290,6 +7321,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	if (gdecln->body != NULL) {
 		rc = cgen_block(cgproc, gdecln->body, proc->lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* Make sure we return if control reaches '}' */
+		rc = cgen_ret(cgproc, proc->lblock);
 		if (rc != EOK)
 			goto error;
 	}

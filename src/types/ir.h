@@ -72,6 +72,8 @@ typedef enum {
 	iri_or,
 	/** Read from memory */
 	iri_read,
+	/** Return */
+	iri_ret,
 	/** Return value */
 	iri_retv,
 	/** Shift left */

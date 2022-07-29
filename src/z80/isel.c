@@ -1966,7 +1966,7 @@ static int z80_isel_gt(z80_isel_proc_t *isproc, const char *label,
 
 	rc = z80ic_ld_vr_n_create(&ldvrn);
 	if (rc != EOK)
-	goto error;
+		goto error;
 
 	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16l, &vr);
 	if (rc != EOK)
@@ -4756,6 +4756,45 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR return instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ret(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_ret_t *ret = NULL;
+	int rc;
+
+	(void) isproc;
+
+	assert(irinstr->itype == iri_ret);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1 == NULL);
+	assert(irinstr->op2 == NULL);
+
+	/* ret */
+
+	rc = z80ic_ret_create(&ret);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, label, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
+	ret = NULL;
+	return EOK;
+error:
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR return value instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -5194,6 +5233,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_or(isproc, label, irinstr, lblock);
 	case iri_read:
 		return z80_isel_read(isproc, label, irinstr, lblock);
+	case iri_ret:
+		return z80_isel_ret(isproc, label, irinstr, lblock);
 	case iri_retv:
 		return z80_isel_retv(isproc, label, irinstr, lblock);
 	case iri_shl:
