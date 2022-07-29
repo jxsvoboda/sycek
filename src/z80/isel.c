@@ -3924,25 +3924,16 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 	z80ic_oper_vr_t *vr = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
-	z80ic_ld_r_vr_t *ldrvr = NULL;
-	z80ic_ld_vr_r_t *ldvr_r = NULL;
 	z80ic_ld_vr_n_t *ldn = NULL;
 	z80ic_dec_vr_t *dec = NULL;
-	z80ic_xor_vr_t *xor = NULL;
-	z80ic_bit_b_vr_t *bit = NULL;
 	z80ic_jp_cc_nn_t *jpcc = NULL;
 	unsigned destvr;
 	unsigned vr1, vr2;
-	unsigned uvr, tvr, svr;
+	unsigned uvr, tvr;
 	unsigned cntvr;
 	unsigned lblno;
-	z80ic_vr_part_t part;
-	unsigned vroff;
 	char *rep_lbl = NULL;
 	char *no_add_lbl = NULL;
-	char *a_nonneg_lbl = NULL;
-	char *b_nonneg_lbl = NULL;
-	char *nonneg_lbl = NULL;
 	int rc;
 
 	assert(irinstr->itype == iri_mul);
@@ -3959,7 +3950,6 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 	/* Allocate virtual registers for temporary storage */
 	tvr = z80_isel_get_new_vregnos(isproc, irinstr->width / 8);
 	uvr = z80_isel_get_new_vregnos(isproc, irinstr->width / 8);
-	svr = z80_isel_get_new_vregno(isproc);
 	cntvr = z80_isel_get_new_vregno(isproc);
 
 	lblno = z80_isel_new_label_num(isproc);
@@ -3973,20 +3963,6 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 		goto error;
 
 	rc = z80_isel_create_label(isproc, "mul_no_add", lblno, &no_add_lbl);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80_isel_create_label(isproc, "mul_a_nonneg", lblno,
-	    &a_nonneg_lbl);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80_isel_create_label(isproc, "mul_b_nonneg", lblno,
-	    &b_nonneg_lbl);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80_isel_create_label(isproc, "mul_nonneg", lblno, &nonneg_lbl);
 	if (rc != EOK)
 		goto error;
 
@@ -4032,189 +4008,6 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 		goto error;
 
 	ldn = NULL;
-
-	/*
-	 * Determine sign of result
-	 */
-
-	/* Determine part and offest of most significant byte */
-	z80_isel_reg_part_off(irinstr->width / 8 - 1, irinstr->width / 8,
-	    &part, &vroff);
-
-	/* ld A, u.<MSB> */
-
-	rc = z80ic_ld_r_vr_create(&ldrvr);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(uvr + vroff, part, &vr);
-	if (rc != EOK)
-		goto error;
-
-	ldrvr->dest = reg;
-	ldrvr->src = vr;
-	reg = NULL;
-	vr = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &ldrvr->instr);
-	if (rc != EOK)
-		goto error;
-
-	ldrvr = NULL;
-
-	/* xor t.<MSB> */
-
-	rc = z80ic_xor_vr_create(&xor);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(tvr + vroff, part, &vr);
-	if (rc != EOK)
-		goto error;
-
-	xor->src = vr;
-	vr = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
-	if (rc != EOK)
-		goto error;
-
-	xor = NULL;
-
-	/* ld s, A */
-
-	rc = z80ic_ld_vr_r_create(&ldvr_r);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(svr, z80ic_vrp_r8, &vr);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
-	if (rc != EOK)
-		goto error;
-
-	ldvr_r->dest = vr;
-	ldvr_r->src = reg;
-	vr = NULL;
-	reg = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &ldvr_r->instr);
-	if (rc != EOK)
-		goto error;
-
-	ldvr_r = NULL;
-
-	/*
-	 * Make multiplicands non-negative
-	 */
-
-	/* bit 7, u.<MSB> */
-
-	rc = z80ic_bit_b_vr_create(&bit);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(uvr + vroff, part, &vr);
-	if (rc != EOK)
-		goto error;
-
-	bit->bit = 7;
-	bit->src = vr;
-	vr = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
-	if (rc != EOK)
-		goto error;
-
-	bit = NULL;
-
-	/* jp Z, mul_a_nonneg */
-
-	rc = z80ic_jp_cc_nn_create(&jpcc);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_imm16_create_symbol(a_nonneg_lbl, &imm16);
-	if (rc != EOK)
-		goto error;
-
-	jpcc->cc = z80ic_cc_z;
-	jpcc->imm16 = imm16;
-	imm16 = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
-	if (rc != EOK)
-		goto error;
-
-	jpcc = NULL;
-
-	/* Negate u */
-	rc = z80_isel_neg_vrr(isproc, uvr, uvr, irinstr->width / 8, lblock);
-	if (rc != EOK)
-		goto error;
-
-	/* label mul_a_nonneg */
-
-	rc = z80ic_lblock_append(lblock, a_nonneg_lbl, NULL);
-	if (rc != EOK)
-		goto error;
-
-	/* bit 7, t.<MSB> */
-
-	rc = z80ic_bit_b_vr_create(&bit);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(tvr + vroff, part, &vr);
-	if (rc != EOK)
-		goto error;
-
-	bit->bit = 7;
-	bit->src = vr;
-	vr = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
-	if (rc != EOK)
-		goto error;
-
-	bit = NULL;
-
-	/* jp Z, mul_b_nonneg */
-
-	rc = z80ic_jp_cc_nn_create(&jpcc);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_imm16_create_symbol(b_nonneg_lbl, &imm16);
-	if (rc != EOK)
-		goto error;
-
-	jpcc->cc = z80ic_cc_z;
-	jpcc->imm16 = imm16;
-	imm16 = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
-	if (rc != EOK)
-		goto error;
-
-	jpcc = NULL;
-
-	/* Negate t */
-	rc = z80_isel_neg_vrr(isproc, tvr, tvr, irinstr->width / 8, lblock);
-	if (rc != EOK)
-		goto error;
-
-	/* label mul_b_nonneg */
-
-	rc = z80ic_lblock_append(lblock, b_nonneg_lbl, NULL);
-	if (rc != EOK)
-		goto error;
 
 	/*
 	 * Main multiplication loop
@@ -4310,81 +4103,14 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 
 	jpcc = NULL;
 
-	/*
-	 * Apply sign to result
-	 */
-
-	/* bit 7, s */
-
-	rc = z80ic_bit_b_vr_create(&bit);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vr_create(svr, z80ic_vrp_r8, &vr);
-	if (rc != EOK)
-		goto error;
-
-	bit->bit = 7;
-	bit->src = vr;
-	vr = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
-	if (rc != EOK)
-		goto error;
-
-	bit = NULL;
-
-	/* jp Z, mul_nonneg */
-
-	rc = z80ic_jp_cc_nn_create(&jpcc);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_imm16_create_symbol(nonneg_lbl, &imm16);
-	if (rc != EOK)
-		goto error;
-
-	jpcc->cc = z80ic_cc_z;
-	jpcc->imm16 = imm16;
-	imm16 = NULL;
-
-	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
-	if (rc != EOK)
-		goto error;
-
-	jpcc = NULL;
-
-	/* Negate dest */
-	rc = z80_isel_neg_vrr(isproc, destvr, destvr, irinstr->width / 8,
-	    lblock);
-	if (rc != EOK)
-		goto error;
-
-	/* label mul_nonneg */
-
-	rc = z80ic_lblock_append(lblock, nonneg_lbl, NULL);
-	if (rc != EOK)
-		goto error;
-
 	free(rep_lbl);
 	free(no_add_lbl);
-	free(a_nonneg_lbl);
-	free(b_nonneg_lbl);
-	free(nonneg_lbl);
 	return EOK;
 error:
-	if (ldrvr != NULL)
-		z80ic_instr_destroy(&ldrvr->instr);
-	if (ldvr_r != NULL)
-		z80ic_instr_destroy(&ldvr_r->instr);
 	if (ldn != NULL)
 		z80ic_instr_destroy(&ldn->instr);
 	if (dec != NULL)
 		z80ic_instr_destroy(&dec->instr);
-	if (xor != NULL)
-		z80ic_instr_destroy(&xor->instr);
-	if (bit != NULL)
-		z80ic_instr_destroy(&bit->instr);
 	if (jpcc != NULL)
 		z80ic_instr_destroy(&jpcc->instr);
 
@@ -4397,12 +4123,6 @@ error:
 		free(rep_lbl);
 	if (no_add_lbl != NULL)
 		free(no_add_lbl);
-	if (a_nonneg_lbl != NULL)
-		free(a_nonneg_lbl);
-	if (b_nonneg_lbl != NULL)
-		free(b_nonneg_lbl);
-	if (nonneg_lbl != NULL)
-		free(nonneg_lbl);
 
 	return rc;
 }
