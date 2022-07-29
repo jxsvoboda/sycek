@@ -975,6 +975,23 @@ static void cgen_warn_tspec_not_impl(cgen_t *cgen, ast_node_t *tspec)
 	++cgen->warnings;
 }
 
+/** Generate warning: int is superfluous.
+ *
+ * @param cgen Code generator
+ * @param tspec Char specifier
+ */
+static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": superfluous 'int' used with short/long/signed/unsigned.\n");
+
+	++cgen->warnings;
+}
+
 /** Generate code for declaration specifiers.
  *
  * Declaration specifiers declare the base type which is then further modified
@@ -1140,6 +1157,16 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 					elmtype = cgelm_short;
 				else
 					elmtype = cgelm_int;
+
+				/*
+				 * Style: If there is any other specifier
+				 * than int (signed, unsigned, short, long),
+				 * then int is superfluous.
+				 */
+				if (long_cnt > 0 || short_cnt > 0) {
+					cgen_warn_int_superfluous(cgen,
+					    tsbasic);
+				}
 			}
 
 			rc = cgtype_basic_create(elmtype, &btype);
@@ -5850,8 +5877,6 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&cres);
-
-	printf("areturn->arg=%p\n", (void *)areturn->arg);
 
 	if (areturn->arg != NULL) {
 		/* Return value */
