@@ -83,14 +83,19 @@ static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 
 	switch (tbasic->elmtype) {
 	case cgelm_char:
+	case cgelm_uchar:
 		return 8;
 	case cgelm_short:
+	case cgelm_ushort:
 	case cgelm_int:
+	case cgelm_uint:
 	case cgelm_logic:
 		return 16;
 	case cgelm_long:
+	case cgelm_ulong:
 		return 32;
 	case cgelm_longlong:
+	case cgelm_ulonglong:
 		return 64;
 	default:
 		return 0;
@@ -1071,7 +1076,6 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 					cgen_error_signed_unsigned(cgen, tsbasic);
 					return EINVAL;
 				}
-				cgen_warn_tspec_not_impl(cgen, dspec);
 				++signed_cnt;
 				break;
 			case abts_unsigned:
@@ -1083,7 +1087,6 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 					cgen_error_signed_unsigned(cgen, tsbasic);
 					return EINVAL;
 				}
-				cgen_warn_tspec_not_impl(cgen, dspec);
 				++unsigned_cnt;
 				break;
 			default:
@@ -1129,7 +1132,11 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 			tsbasic = (ast_tsbasic_t *) tspec->ext;
 			switch (tsbasic->btstype) {
 			case abts_char:
-				elmtype = cgelm_char;
+				if (unsigned_cnt > 0)
+					elmtype = cgelm_uchar;
+				else
+					elmtype = cgelm_char;
+
 				if (short_cnt > 0) {
 					cgen_error_short_char(cgen, tsbasic);
 					return EINVAL;
@@ -1149,21 +1156,33 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 			}
 
 			if (elmtype == cgelm_int) {
-				if (long_cnt > 1)
-					elmtype = cgelm_longlong;
-				else if (long_cnt > 0)
-					elmtype = cgelm_long;
-				else if (short_cnt > 0)
-					elmtype = cgelm_short;
-				else
-					elmtype = cgelm_int;
+				if (unsigned_cnt > 0) {
+					if (long_cnt > 1)
+						elmtype = cgelm_ulonglong;
+					else if (long_cnt > 0)
+						elmtype = cgelm_ulong;
+					else if (short_cnt > 0)
+						elmtype = cgelm_ushort;
+					else
+						elmtype = cgelm_uint;
+				} else {
+					if (long_cnt > 1)
+						elmtype = cgelm_longlong;
+					else if (long_cnt > 0)
+						elmtype = cgelm_long;
+					else if (short_cnt > 0)
+						elmtype = cgelm_short;
+					else
+						elmtype = cgelm_int;
+				}
 
 				/*
 				 * Style: If there is any other specifier
 				 * than int (signed, unsigned, short, long),
 				 * then int is superfluous.
 				 */
-				if (long_cnt > 0 || short_cnt > 0) {
+				if (long_cnt > 0 || short_cnt > 0 ||
+				    signed_cnt > 0 || unsigned_cnt > 0) {
 					cgen_warn_int_superfluous(cgen,
 					    tsbasic);
 				}
@@ -1183,14 +1202,25 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 	} else {
 		/* Default to int */
 
-		if (long_cnt > 1)
-			elmtype = cgelm_longlong;
-		else if (long_cnt > 0)
-			elmtype = cgelm_long;
-		else if (short_cnt > 0)
-			elmtype = cgelm_short;
-		else
-			elmtype = cgelm_int;
+		if (unsigned_cnt > 0) {
+			if (long_cnt > 1)
+				elmtype = cgelm_ulonglong;
+			else if (long_cnt > 0)
+				elmtype = cgelm_ulong;
+			else if (short_cnt > 0)
+				elmtype = cgelm_ushort;
+			else
+				elmtype = cgelm_uint;
+		} else {
+			if (long_cnt > 1)
+				elmtype = cgelm_longlong;
+			else if (long_cnt > 0)
+				elmtype = cgelm_long;
+			else if (short_cnt > 0)
+				elmtype = cgelm_short;
+			else
+				elmtype = cgelm_int;
+		}
 
 		rc = cgtype_basic_create(elmtype, &btype);
 		if (rc != EOK)

@@ -74,17 +74,32 @@ static int cgtype_basic_print(cgtype_basic_t *basic, FILE *f)
 	case cgelm_char:
 		rv = fputs("char", f);
 		break;
+	case cgelm_uchar:
+		rv = fputs("unsigned char", f);
+		break;
 	case cgelm_short:
 		rv = fputs("short", f);
+		break;
+	case cgelm_ushort:
+		rv = fputs("unsigned short", f);
 		break;
 	case cgelm_int:
 		rv = fputs("int", f);
 		break;
+	case cgelm_uint:
+		rv = fputs("unsigned int", f);
+		break;
 	case cgelm_long:
 		rv = fputs("long", f);
 		break;
+	case cgelm_ulong:
+		rv = fputs("unsigned long", f);
+		break;
 	case cgelm_longlong:
 		rv = fputs("long long", f);
+		break;
+	case cgelm_ulonglong:
+		rv = fputs("unsigned long long", f);
 		break;
 	case cgelm_logic:
 		rv = fputs("logic", f);

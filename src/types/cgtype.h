@@ -40,10 +40,15 @@ typedef enum {
 	cgelm_void,
 	/* TODO distinguish between char and signed/unsigned char? */
 	cgelm_char,
+	cgelm_uchar,
 	cgelm_short,
+	cgelm_ushort,
 	cgelm_int,
+	cgelm_uint,
 	cgelm_long,
+	cgelm_ulong,
 	cgelm_longlong,
+	cgelm_ulonglong,
 	/* TODO float, double, long double */
 	/* TODO _Bool */
 	cgelm_logic
