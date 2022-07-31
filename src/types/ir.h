@@ -44,8 +44,12 @@ typedef enum {
 	iri_eq,
 	/** Greater than */
 	iri_gt,
+	/** Greater than unsigned */
+	iri_gtu,
 	/** Greater than or equal */
 	iri_gteq,
+	/** Greater than or equal unsigned */
+	iri_gteu,
 	/** Introduce immediate value */
 	iri_imm,
 	/** Jump */
@@ -56,8 +60,12 @@ typedef enum {
 	iri_jz,
 	/** Less than */
 	iri_lt,
+	/** Less than unsigned */
+	iri_ltu,
 	/** Less than or equal */
 	iri_lteq,
+	/** Less than or equal unsigned */
+	iri_lteu,
 	/** Get ponter to local variable */
 	iri_lvarptr,
 	/** Multiplication */

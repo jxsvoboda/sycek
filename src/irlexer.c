@@ -639,9 +639,16 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 't' && !is_idcnt(p[2])) {
 			return ir_lexer_keyword(lexer, itt_gt, 2, tok);
 		}
+		if (p[1] == 't' && p[2] == 'u' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_gtu, 3, tok);
+		}
 		if (p[1] == 't' && p[2] == 'e' && p[3] == 'q' &&
 		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_gteq, 4, tok);
+		}
+		if (p[1] == 't' && p[2] == 'e' && p[3] == 'u' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_gteu, 4, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'i':
@@ -667,9 +674,16 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 't' && !is_idcnt(p[2])) {
 			return ir_lexer_keyword(lexer, itt_lt, 2, tok);
 		}
+		if (p[1] == 't' && p[2] == 'u' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_ltu, 3, tok);
+		}
 		if (p[1] == 't' && p[2] == 'e' && p[3] == 'q' &&
 		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_lteq, 4, tok);
+		}
+		if (p[1] == 't' && p[2] == 'e' && p[3] == 'u' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_lteu, 4, tok);
 		}
 		if (p[1] == 'v' && p[2] == 'a' && p[3] == 'r' &&
 		    !is_idcnt(p[4])) {
@@ -865,8 +879,12 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'extern'";
 	case itt_gt:
 		return "'gt'";
+	case itt_gtu:
+		return "'gtu'";
 	case itt_gteq:
 		return "'gteq'";
+	case itt_gteu:
+		return "'gteu'";
 	case itt_imm:
 		return "'imm'";
 	case itt_int:
@@ -879,8 +897,12 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'jz'";
 	case itt_lt:
 		return "'lt'";
+	case itt_ltu:
+		return "'ltu'";
 	case itt_lteq:
 		return "'lteq'";
+	case itt_lteu:
+		return "'lteu'";
 	case itt_lvar:
 		return "'lvar'";
 	case itt_lvarptr:

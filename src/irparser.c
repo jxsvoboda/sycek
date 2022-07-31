@@ -398,8 +398,14 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_gt:
 		instr->itype = iri_gt;
 		break;
+	case itt_gtu:
+		instr->itype = iri_gtu;
+		break;
 	case itt_gteq:
 		instr->itype = iri_gteq;
+		break;
+	case itt_gteu:
+		instr->itype = iri_gteu;
 		break;
 	case itt_imm:
 		instr->itype = iri_imm;
@@ -416,8 +422,14 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_lt:
 		instr->itype = iri_lt;
 		break;
+	case itt_ltu:
+		instr->itype = iri_ltu;
+		break;
 	case itt_lteq:
 		instr->itype = iri_lteq;
+		break;
+	case itt_lteu:
+		instr->itype = iri_lteu;
 		break;
 	case itt_lvarptr:
 		instr->itype = iri_lvarptr;
