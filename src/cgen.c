@@ -204,9 +204,11 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 {
 	const char *text = tlit->tok.text;
 	cgtype_elmtype_t elmtype;
+	bool lunsigned;
 	int64_t val;
 
 	val = 0;
+	lunsigned = false;
 
 	if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
 		text += 2;
@@ -239,9 +241,7 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	/* Unsigned */
 	if (*text == 'u' || *text == 'U') {
 		++text;
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Ignoring unsigned literal suffix.\n");
-		++cgen->warnings;
+		lunsigned = true;
 	}
 
 	/* Long */
@@ -251,20 +251,22 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		/* Long long */
 		if (*text == 'l' || *text == 'L') {
 			++text;
-			elmtype = cgelm_longlong;
+			elmtype = lunsigned ? cgelm_ulonglong : cgelm_longlong;
 		} else {
-			elmtype = cgelm_long;
+			elmtype = lunsigned ? cgelm_ulong : cgelm_long;
 		}
 	} else {
-		elmtype = cgelm_int;
+		elmtype = lunsigned ? cgelm_uint : cgelm_int;
 	}
 
-	if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong) {
+	if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong &&
+	    elmtype != cgelm_ulonglong) {
 		lexer_dprint_tok(&tlit->tok, stderr);
 		fprintf(stderr, ": Warning: Constant should be long long.\n");
 		++cgen->warnings;
 	} else if ((uint64_t)val > 0xffff && elmtype != cgelm_long &&
-	    elmtype != cgelm_longlong) {
+	    elmtype != cgelm_ulong && elmtype != cgelm_longlong &&
+	    elmtype != cgelm_ulonglong) {
 		lexer_dprint_tok(&tlit->tok, stderr);
 		fprintf(stderr, ": Warning: Constant should be long.\n");
 		++cgen->warnings;

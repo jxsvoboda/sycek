@@ -13,6 +13,17 @@ int hexabcd = 0xabcd;
 /* 43981 in hex */
 int hexABCD = 0xABCD;
 
+/* 4096 in decimal */
+unsigned decval_u = 4096u;
+/* 4096 in octal */
+unsigned octval_u = 010000u;
+/* 4096 in hex */
+unsigned hexval_u = 0x1000u;
+/* 43981 in hex */
+unsigned hexabcd_u = 0xabcdu;
+/* 43981 in hex */
+unsigned hexABCD_u = 0xABCDu;
+
 /* 1677216L in decimal */
 long decval_l = 1677216L;
 /* 1677216L in octal */
@@ -23,6 +34,17 @@ long hexval_l = 0x1000000L;
 long hexabcddcba_l = 0xabcddcbaL;
 /* 0xABCDDCBAl in hex */
 long hexABCDDCBA_l = 0xABCDDCBAl;
+
+/* 1677216UL in decimal */
+unsigned long decval_ul = 1677216UL;
+/* 1677216UL in octal */
+unsigned long octval_ul = 0100000000UL;
+/* 1677216UL in hex */
+unsigned long hexval_ul = 0x1000000UL;
+/* 0xabcddcbaUL in hex */
+unsigned long hexabcddcba_ul = 0xabcddcbaUL;
+/* 0xABCDDCBAul in hex */
+unsigned long hexABCDDCBA_ul = 0xABCDDCBAul;
 
 /* 2**48 in decimal */
 long long decval_ll = 281474976710656LL;
@@ -35,24 +57,56 @@ long long hexabcddcba_ll = 0xabcddcbaabcddcbaLL;
 /* 0xABCDDCBAl in hex */
 long long hexABCDDCBA_ll = 0xABCDDCBAABCDDCBAll;
 
-int a;
-long b;
-long long c;
+/* 2**48 in decimal */
+long long decval_ull = 281474976710656ULL;
+/* 2**48 in octal */
+long long octval_ull = 0100000000000000000ULL;
+/* 2**47 in hex */
+long long hexval_ull = 0x1000000000000ULL;
+/* 0xabcddcbaL in hex */
+long long hexabcddcba_ull = 0xabcddcbaabcddcbaULL;
+/* 0xABCDDCBAl in hex */
+long long hexABCDDCBA_ull = 0xABCDDCBAABCDDCBAull;
+
+int i;
+unsigned u;
+long l;
+unsigned long ul;
+long long ll;
+unsigned long long ull;
 
 void lit_int(void)
 {
 	/* Integer literal expression */
-	a = 0x1234;
+	i = 0x1234;
+}
+
+void lit_uint(void)
+{
+	/* Unsigned integer literal expression */
+	u = 0x1234u;
 }
 
 void lit_long(void)
 {
 	/* Long integer literal expression */
-	b = 0x12345678l;
+	l = 0x12345678l;
+}
+
+void lit_ulong(void)
+{
+	/* Unsigned long integer literal expression */
+	ul = 0x12345678ul;
 }
 
 void lit_longlong(void)
 {
 	/* Long long integer literal expression */
-	c = 0x1234567812345678ll;
+	ll = 0x1234567812345678ll;
+}
+
+void lit_ulonglong(void)
+{
+	/* Long long integer literal expression */
+	ull = 0x1234567812345678ull;
 }
