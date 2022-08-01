@@ -605,6 +605,66 @@ error:
 	return rc;
 }
 
+/** Parse IR type expression.
+ *
+ * @param parser IR parser
+ * @param rtexpr Place to store pointer to new type expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
+{
+	ir_lexer_tok_t itok;
+	ir_texpr_t *texpr = NULL;
+	int32_t width;
+	int rc;
+
+	/* 'int' keyword */
+
+	rc = ir_parser_match(parser, itt_int);
+	if (rc != EOK)
+		goto error;
+
+	/* '.' */
+
+	rc = ir_parser_match(parser, itt_period);
+	if (rc != EOK)
+		goto error;
+
+	/* Width */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_number) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_lexer_number_val(&itok, &width);
+	if (rc != EOK) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " is not a valid number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	ir_parser_skip(parser);
+
+	rc = ir_texpr_int_create(width, &texpr);
+	if (rc != EOK)
+		goto error;
+
+	*rtexpr = texpr;
+	return EOK;
+error:
+	if (texpr != NULL)
+		ir_texpr_destroy(texpr);
+	return rc;
+}
+
 /** Parse IR procedure declaration.
  *
  * @param parser IR parser
@@ -619,6 +679,8 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	ir_proc_t *proc = NULL;
 	ir_proc_arg_t *arg;
 	ir_lvar_t *lvar;
+	char *ident = NULL;
+	ir_texpr_t *vtype = NULL;
 	ir_lblock_t *lblock = NULL;
 	bool first;
 	int rc;
@@ -709,14 +771,41 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 		ir_parser_skip(parser);
 		itt = ir_parser_next_ttype(parser);
 		while (itt == itt_ident) {
+			/* Identifier */
+
 			ir_parser_read_next_tok(parser, &itok);
-			rc = ir_lvar_create(itok.text, &lvar);
+			/* itok.text is only valid until we skip the token */
+			ident = strdup(itok.text);
+			if (ident == NULL) {
+				rc = ENOMEM;
+				goto error;
+			}
+
+			printf("itok.text='%s'\n", itok.text);
+			ir_parser_skip(parser);
+
+			/* ':' */
+
+			rc = ir_parser_match(parser, itt_colon);
 			if (rc != EOK)
 				goto error;
 
+			/* Type */
+
+			rc = ir_parser_process_texpr(parser, &vtype);
+			if (rc != EOK)
+				goto error;
+
+			printf("ident='%s'\n", ident);
+			rc = ir_lvar_create(ident, vtype, &lvar);
+			if (rc != EOK)
+				goto error;
+
+			free(ident);
+			ident = NULL;
+			vtype = NULL; /* ownership transferred */
 			ir_proc_append_lvar(proc, lvar);
 
-			ir_parser_skip(parser);
 			rc = ir_parser_match(parser, itt_scolon);
 			if (rc != EOK)
 				goto error;
@@ -748,6 +837,10 @@ error:
 		ir_proc_destroy(proc);
 	if (lblock != NULL)
 		ir_lblock_destroy(lblock);
+	if (ident != NULL)
+		free(ident);
+	if (vtype != NULL)
+		ir_texpr_destroy(vtype);
 	return rc;
 }
 

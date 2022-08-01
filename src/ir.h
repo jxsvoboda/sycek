@@ -28,6 +28,7 @@
 #define IR_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <types/ir.h>
@@ -73,7 +74,7 @@ extern ir_lvar_t *ir_proc_first_lvar(ir_proc_t *);
 extern ir_lvar_t *ir_proc_next_lvar(ir_lvar_t *);
 extern ir_lvar_t *ir_proc_last_lvar(ir_proc_t *);
 extern ir_lvar_t *ir_proc_prev_lvar(ir_lvar_t *);
-extern int ir_lvar_create(const char *, ir_lvar_t **);
+extern int ir_lvar_create(const char *, ir_texpr_t *, ir_lvar_t **);
 extern void ir_lvar_destroy(ir_lvar_t *);
 extern int ir_lvar_print(ir_lvar_t *, FILE *);
 extern int ir_lblock_create(ir_lblock_t **);
@@ -98,5 +99,9 @@ extern ir_oper_t *ir_oper_list_first(ir_oper_list_t *);
 extern ir_oper_t *ir_oper_list_next(ir_oper_t *);
 extern ir_oper_t *ir_oper_list_last(ir_oper_list_t *);
 extern ir_oper_t *ir_oper_list_prev(ir_oper_t *);
+extern int ir_texpr_int_create(unsigned, ir_texpr_t **);
+extern int ir_texpr_print(ir_texpr_t *, FILE *);
+extern size_t ir_texpr_sizeof(ir_texpr_t *);
+extern void ir_texpr_destroy(ir_texpr_t *);
 
 #endif

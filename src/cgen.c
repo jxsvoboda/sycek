@@ -6956,8 +6956,10 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	comp_tok_t *ident;
 	char *vident = NULL;
 	ir_lvar_t *lvar;
+	ir_texpr_t *vtype = NULL;
 	scope_member_t *member;
 	cgtype_t *stype;
+	unsigned bits;
 	int rc;
 
 	(void) lblock;
@@ -6989,6 +6991,23 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			tok = (comp_tok_t *) atok->data;
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		/* Check the type */
+		if (stype->ntype != cgn_basic) {
+			fprintf(stderr, "Unimplemented variable type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		bits = cgen_basic_type_bits(cgproc->cgen,
+		    (cgtype_basic_t *)stype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented variable type.\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -7038,12 +7057,17 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			}
 		}
 
-		rc = ir_lvar_create(vident, &lvar);
+		rc = ir_texpr_int_create(bits, &vtype);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_lvar_create(vident, vtype, &lvar);
 		if (rc != EOK)
 			goto error;
 
 		free(vident);
 		vident = NULL;
+		vtype = NULL; /* ownership transferred */
 
 		ir_proc_append_lvar(cgproc->irproc, lvar);
 
@@ -7056,6 +7080,8 @@ error:
 	cgtype_destroy(stype);
 	if (vident != NULL)
 		free(vident);
+	if (vtype != NULL)
+		ir_texpr_destroy(vtype);
 	return rc;
 }
 
@@ -7404,16 +7430,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		rc = cgen_dspecs(cgproc->cgen, arg->dspecs, &stype);
 		if (rc != EOK)
 			goto error;
-
-		if (arg->decl->ntype != ant_dident) {
-			atok = ast_tree_first_tok(arg->decl);
-			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Declarator not implemented.\n");
-			cgproc->cgen->error = true; // XXX
-			rc = EINVAL;
-			goto error;
-		}
 
 		dident = (ast_dident_t *) arg->decl->ext;
 		tok = (comp_tok_t *) dident->tident.data;

@@ -258,6 +258,26 @@ typedef enum {
 	irp_extern = 0x1
 } ir_proc_flags_t;
 
+/** IR type type */
+typedef enum {
+	irt_int
+} ir_tetype_t;
+
+/** Integer type */
+typedef struct {
+	/** Number of bits */
+	unsigned width;
+} ir_type_int_t;
+
+/** IR type expression */
+typedef struct {
+	/** Type expression type */
+	ir_tetype_t tetype;
+	union {
+		ir_type_int_t tint;
+	} t;
+} ir_texpr_t;
+
 /** IR local variable */
 typedef struct {
 	/** Containing procedure definition */
@@ -266,6 +286,8 @@ typedef struct {
 	link_t llvars;
 	/** Identifier */
 	char *ident;
+	/** Variable type */
+	ir_texpr_t *vtype;
 } ir_lvar_t;
 
 /** IR procedure definition */

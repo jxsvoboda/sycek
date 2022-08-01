@@ -6792,6 +6792,7 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 	z80ic_lvar_t *icvar;
 	char *icident = NULL;
 	uint16_t off;
+	size_t size;
 	int rc;
 
 	(void) isel;
@@ -6804,6 +6805,8 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 		if (rc != EOK)
 			goto error;
 
+		size = ir_texpr_sizeof(lvar->vtype);
+
 		rc = z80ic_lvar_create(icident, off, &icvar);
 		if (rc != EOK)
 			goto error;
@@ -6813,7 +6816,7 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 
 		z80ic_proc_append_lvar(icproc, icvar);
 
-		off += 2;
+		off += size;
 		lvar = ir_proc_next_lvar(lvar);
 	}
 

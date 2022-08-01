@@ -30,6 +30,7 @@
 #include <ir.h>
 #include <merrno.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1020,11 +1021,12 @@ ir_lvar_t *ir_proc_prev_lvar(ir_lvar_t *cur)
 
 /** Create IR procedure local variable.
  *
- * @param ident Argument identifier
+ * @param ident Variable identifier (cloned)
+ * @param vtype Variable type (ownership transferred)
  * @param rlvar Place to store pointer to new local variable
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_lvar_create(const char *ident, ir_lvar_t **rlvar)
+int ir_lvar_create(const char *ident, ir_texpr_t *vtype, ir_lvar_t **rlvar)
 {
 	ir_lvar_t *lvar;
 
@@ -1038,6 +1040,8 @@ int ir_lvar_create(const char *ident, ir_lvar_t **rlvar)
 		return ENOMEM;
 	}
 
+	lvar->vtype = vtype;
+
 	*rlvar = lvar;
 	return EOK;
 }
@@ -1049,6 +1053,7 @@ int ir_lvar_create(const char *ident, ir_lvar_t **rlvar)
 void ir_lvar_destroy(ir_lvar_t *lvar)
 {
 	free(lvar->ident);
+	ir_texpr_destroy(lvar->vtype);
 	free(lvar);
 }
 
@@ -1061,10 +1066,15 @@ void ir_lvar_destroy(ir_lvar_t *lvar)
 int ir_lvar_print(ir_lvar_t *lvar, FILE *f)
 {
 	int rv;
+	int rc;
 
-	rv = fputs(lvar->ident, f);
+	rv = fprintf(f, "%s : ", lvar->ident);
 	if (rv < 0)
 		return EIO;
+
+	rc = ir_texpr_print(lvar->vtype, f);
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1660,4 +1670,98 @@ ir_oper_t *ir_oper_list_prev(ir_oper_t *cur)
 		return NULL;
 
 	return list_get_instance(link, ir_oper_t, llist);
+}
+
+/** Create IR integer type expression.
+ *
+ * @param width Number of bits
+ * @param rtexpr Place to store pointer to new type expression
+ * @return EOK on success or an error code
+ */
+int ir_texpr_int_create(unsigned width, ir_texpr_t **rtexpr)
+{
+	ir_texpr_t *texpr;
+
+	texpr = calloc(1, sizeof(ir_texpr_t));
+	if (texpr == NULL)
+		return ENOMEM;
+
+	texpr->tetype = irt_int;
+	texpr->t.tint.width = width;
+	*rtexpr = texpr;
+	return EOK;
+}
+
+/** Print IR integer type expression.
+ *
+ * @param irtype IR integer type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_int_print(ir_texpr_t *texpr, FILE *f)
+{
+	int rv;
+
+	assert(texpr->tetype == irt_int);
+
+	rv = fprintf(f, "int.%u", texpr->t.tint.width);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print IR type expression.
+ *
+ * @param irtype IR type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
+{
+	switch (texpr->tetype) {
+	case irt_int:
+		return ir_texpr_int_print(texpr, f);
+	}
+
+	assert(false);
+	return EIO;
+}
+
+/** Get size of type described by IR integer type expression in bytes.
+ *
+ * @param irtype IR integer type expression
+ * @return Size in bytes
+ */
+static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_int);
+
+	/* Convert bits to bytes */
+	return (texpr->t.tint.width + 7) / 8;
+}
+
+/** Get size of type described by IR type expression in bytes.
+ *
+ * @param irtype IR type expression
+ * @return Size in bytes
+ */
+size_t ir_texpr_sizeof(ir_texpr_t *texpr)
+{
+	switch (texpr->tetype) {
+	case irt_int:
+		return ir_texpr_int_sizeof(texpr);
+	}
+
+	assert(false);
+	return 0;
+}
+
+/** Destroy type expression.
+ *
+ * @param texpr Type expression
+ */
+void ir_texpr_destroy(ir_texpr_t *texpr)
+{
+	free(texpr);
 }
