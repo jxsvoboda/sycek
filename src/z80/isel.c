@@ -6883,7 +6883,9 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80_isel_proc_args(isel, irproc, lblock);
+	lblock = NULL;
+
+	rc = z80_isel_proc_args(isel, irproc, icproc->lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6896,12 +6898,14 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 		if (entry->instr != NULL) {
 			/* Instruction */
 			assert(entry->label == NULL);
-			rc = z80_isel_instr(isproc, NULL, entry->instr, lblock);
+			rc = z80_isel_instr(isproc, NULL, entry->instr,
+			    icproc->lblock);
 			if (rc != EOK)
 				goto error;
 		} else {
 			/* Label */
-			rc = z80_isel_label(isproc, entry->label, lblock);
+			rc = z80_isel_label(isproc, entry->label,
+			    icproc->lblock);
 			if (rc != EOK)
 				goto error;
 		}

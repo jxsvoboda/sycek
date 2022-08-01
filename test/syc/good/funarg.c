@@ -2,7 +2,7 @@
  * Function with arguments
  */
 
-int add(int x, int y, int z)
+int add(int x, int y, int z, int w)
 {
 	return x + y + z;
 }
