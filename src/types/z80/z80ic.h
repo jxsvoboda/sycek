@@ -516,6 +516,9 @@ typedef enum {
 	 */
 	z80i_ld_vrr_r16,
 
+	/** Load virtual register pair from (IX+d) */
+	z80i_ld_vrr_iixd,
+
 	/** Load virt. register pair from 16-bit immediate */
 	z80i_ld_vrr_nn,
 	/** Load virt. register pair from fixed memory address */
@@ -733,6 +736,21 @@ typedef enum {
 	z80ic_pp_sp
 } z80ic_pp_t;
 
+/** Z80 IC qq register pair.
+ *
+ * One of the four 16-bit registers BC, DE, HL, AF.
+ */
+typedef enum {
+	/** BC register pair */
+	z80ic_qq_bc,
+	/** DE register pair */
+	z80ic_qq_de,
+	/** HL register pair */
+	z80ic_qq_hl,
+	/** AF register pair */
+	z80ic_qq_af
+} z80ic_qq_t;
+
 /** Z80 IC ss register pair.
  *
  * One of the four 16-bit registers BC, DE, HL, SP.
@@ -835,6 +853,15 @@ typedef struct {
 	/** Register */
 	z80ic_pp_t rpp;
 } z80ic_oper_pp_t;
+
+/** Z80 IC qq register pair operand.
+ *
+ * One of the four 16-bit registers BC, DE, HL, AF.
+ */
+typedef struct {
+	/** Register */
+	z80ic_qq_t rqq;
+} z80ic_oper_qq_t;
 
 /** Z80 IC ss register pair operand.
  *
@@ -1000,11 +1027,27 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_ld_sp_ix_t;
 
+/** Z80 IC push 16-bit qq register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_qq_t *src;
+} z80ic_push_qq_t;
+
 /** Z80 IC push IX instruction */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_push_ix_t;
+
+/** Z80 IC pop 16-bit qq register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_qq_t *src;
+} z80ic_pop_qq_t;
 
 /** Z80 IC pop IX instruction */
 typedef struct {
@@ -1318,6 +1361,16 @@ typedef struct {
 	z80ic_oper_r16_t *src;
 } z80ic_ld_vrr_r16_t;
 
+/** Z80 IC load virtual register pair from (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register pair */
+	z80ic_oper_vrr_t *dest;
+	/** Displacement */
+	int8_t disp;
+} z80ic_ld_vrr_iixd_t;
+
 /** Z80 IC load virtual register pair from 16-bit immediate */
 typedef struct {
 	/** Base object */
@@ -1337,6 +1390,14 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_spnn_t;
+
+/** Z80 IC push virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register pair */
+	z80ic_oper_vrr_t *src;
+} z80ic_push_vrr_t;
 
 /** Z80 IC add virtual register to A */
 typedef struct {

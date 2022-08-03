@@ -63,6 +63,14 @@ static const char *z80ic_pp_name[] = {
 	[z80ic_pp_sp] = "SP"
 };
 
+/** Z80 16-bit qq register names */
+static const char *z80ic_qq_name[] = {
+	[z80ic_qq_bc] = "BC",
+	[z80ic_qq_de] = "DE",
+	[z80ic_qq_hl] = "HL",
+	[z80ic_qq_af] = "AF"
+};
+
 /** Z80 16-bit ss register names */
 static const char *z80ic_ss_name[] = {
 	[z80ic_ss_bc] = "BC",
@@ -1026,10 +1034,13 @@ int z80ic_lvar_create(const char *ident, uint16_t off, z80ic_lvar_t **rlvar)
 
 /** Destroy Z80 IC procedure local variable.
  *
- * @param lvar Local variable
+ * @param lvar Local variable or @c NULL
  */
 void z80ic_lvar_destroy(z80ic_lvar_t *lvar)
 {
+	if (lvar == NULL)
+		return;
+
 	free(lvar->ident);
 	free(lvar);
 }
@@ -1697,6 +1708,55 @@ static void z80ic_ld_sp_ix_destroy(z80ic_ld_sp_ix_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC push 16-bit qq register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_push_qq_create(z80ic_push_qq_t **rinstr)
+{
+	z80ic_push_qq_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_push_qq_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_push_qq;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC push 16-bit qq register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_push_qq_print(z80ic_push_qq_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("push ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_qq_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_push_qq_destroy(z80ic_push_qq_t *instr)
+{
+	z80ic_oper_qq_destroy(instr->src);
+}
+
 /** Create Z80 IC push IX instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1742,6 +1802,55 @@ static void z80ic_push_ix_destroy(z80ic_push_ix_t *instr)
 {
 	/* Intentionally empty */
 	(void) instr;
+}
+
+/** Create Z80 IC pop 16-bit qq register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_pop_qq_create(z80ic_pop_qq_t **rinstr)
+{
+	z80ic_pop_qq_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_pop_qq_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_pop_qq;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC pop 16-bit qq register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_pop_qq_print(z80ic_pop_qq_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("pop ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_qq_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_pop_qq_destroy(z80ic_pop_qq_t *instr)
+{
+	z80ic_oper_qq_destroy(instr->src);
 }
 
 /** Create Z80 IC pop IX instruction.
@@ -3597,6 +3706,59 @@ static void z80ic_ld_vrr_r16_destroy(z80ic_ld_vrr_r16_t *instr)
 	z80ic_oper_r16_destroy(instr->src);
 }
 
+/** Create Z80 IC load virtual register pair from (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_vrr_iixd_create(z80ic_ld_vrr_iixd_t **rinstr)
+{
+	z80ic_ld_vrr_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_vrr_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_vrr_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load virtual register pair from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_vrr_iixd_print(z80ic_ld_vrr_iixd_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fprintf(f, ", (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load virtual register pair from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_vrr_iixd_destroy(z80ic_ld_vrr_iixd_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->dest);
+}
+
 /** Create Z80 IC load virtual register pair from 16-bit immediate instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -3714,6 +3876,55 @@ static void z80ic_ld_vrr_spnn_destroy(z80ic_ld_vrr_spnn_t *instr)
 {
 	z80ic_oper_vrr_destroy(instr->dest);
 	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
+/** Create Z80 IC push virtual register pair instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_push_vrr_create(z80ic_push_vrr_t **rinstr)
+{
+	z80ic_push_vrr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_push_vrr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_push_vrr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC push virtual register pair instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_push_vrr_print(z80ic_push_vrr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("push ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vrr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC push virtual register pair instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_push_vrr_destroy(z80ic_push_vrr_t *instr)
+{
+	z80ic_oper_vrr_destroy(instr->src);
 }
 
 /** Create Z80 IC add virtual register to A instruction.
@@ -4664,8 +4875,14 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_ld_sp_ix:
 		rc = z80ic_ld_sp_ix_print((z80ic_ld_sp_ix_t *) instr->ext, f);
 		break;
+	case z80i_push_qq:
+		rc = z80ic_push_qq_print((z80ic_push_qq_t *) instr->ext, f);
+		break;
 	case z80i_push_ix:
 		rc = z80ic_push_ix_print((z80ic_push_ix_t *) instr->ext, f);
+		break;
+	case z80i_pop_qq:
+		rc = z80ic_pop_qq_print((z80ic_pop_qq_t *) instr->ext, f);
 		break;
 	case z80i_pop_ix:
 		rc = z80ic_pop_ix_print((z80ic_pop_ix_t *) instr->ext, f);
@@ -4790,11 +5007,17 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		rc = z80ic_ld_vrr_r16_print((z80ic_ld_vrr_r16_t *) instr->ext,
 		    f);
 		break;
+	case z80i_ld_vrr_iixd:
+		rc = z80ic_ld_vrr_iixd_print((z80ic_ld_vrr_iixd_t *) instr->ext, f);
+		break;
 	case z80i_ld_vrr_nn:
 		rc = z80ic_ld_vrr_nn_print((z80ic_ld_vrr_nn_t *) instr->ext, f);
 		break;
 	case z80i_ld_vrr_spnn:
 		rc = z80ic_ld_vrr_spnn_print((z80ic_ld_vrr_spnn_t *) instr->ext, f);
+		break;
+	case z80i_push_vrr:
+		rc = z80ic_push_vrr_print((z80ic_push_vrr_t *) instr->ext, f);
 		break;
 	case z80i_add_a_vr:
 		rc = z80ic_add_a_vr_print((z80ic_add_a_vr_t *) instr->ext, f);
@@ -4903,8 +5126,14 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_ld_sp_ix:
 		z80ic_ld_sp_ix_destroy((z80ic_ld_sp_ix_t *) instr->ext);
 		break;
+	case z80i_push_qq:
+		z80ic_push_qq_destroy((z80ic_push_qq_t *) instr->ext);
+		break;
 	case z80i_push_ix:
 		z80ic_push_ix_destroy((z80ic_push_ix_t *) instr->ext);
+		break;
+	case z80i_pop_qq:
+		z80ic_pop_qq_destroy((z80ic_pop_qq_t *) instr->ext);
 		break;
 	case z80i_pop_ix:
 		z80ic_pop_ix_destroy((z80ic_pop_ix_t *) instr->ext);
@@ -5020,11 +5249,17 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_ld_vrr_r16:
 		z80ic_ld_vrr_r16_destroy((z80ic_ld_vrr_r16_t *) instr->ext);
 		break;
+	case z80i_ld_vrr_iixd:
+		z80ic_ld_vrr_iixd_destroy((z80ic_ld_vrr_iixd_t *) instr->ext);
+		break;
 	case z80i_ld_vrr_nn:
 		z80ic_ld_vrr_nn_destroy((z80ic_ld_vrr_nn_t *) instr->ext);
 		break;
 	case z80i_ld_vrr_spnn:
 		z80ic_ld_vrr_spnn_destroy((z80ic_ld_vrr_spnn_t *) instr->ext);
+		break;
+	case z80i_push_vrr:
+		z80ic_push_vrr_destroy((z80ic_push_vrr_t *) instr->ext);
 		break;
 	case z80i_add_a_vr:
 		z80ic_add_a_vr_destroy((z80ic_add_a_vr_t *) instr->ext);
@@ -5127,10 +5362,13 @@ int z80ic_oper_imm8_print(z80ic_oper_imm8_t *imm, FILE *f)
 
 /** Destroy Z80 IC 8-bit immediate operand.
  *
- * @param imm Z80 IC 8-bit immediate operand
+ * @param imm Z80 IC 8-bit immediate operand or @c NULL
  */
 void z80ic_oper_imm8_destroy(z80ic_oper_imm8_t *imm)
 {
+	if (imm == NULL)
+		return;
+
 	free(imm);
 }
 
@@ -5234,10 +5472,13 @@ int z80ic_oper_imm16_print(z80ic_oper_imm16_t *imm, FILE *f)
 
 /** Destroy Z80 IC 16-bit immediate operand.
  *
- * @param imm Z80 IC 16-bit immediate operand
+ * @param imm Z80 IC 16-bit immediate operand or @c NULL
  */
 void z80ic_oper_imm16_destroy(z80ic_oper_imm16_t *imm)
 {
+	if (imm == NULL)
+		return;
+
 	if (imm->symbol != NULL)
 		free(imm->symbol);
 	free(imm);
@@ -5282,10 +5523,13 @@ int z80ic_oper_reg_print(z80ic_oper_reg_t *reg, FILE *f)
 
 /** Destroy Z80 IC register operand.
  *
- * @param reg Z80 IC register operand
+ * @param reg Z80 IC register operand or @c NULL
  */
 void z80ic_oper_reg_destroy(z80ic_oper_reg_t *reg)
 {
+	if (reg == NULL)
+		return;
+
 	free(reg);
 }
 
@@ -5381,6 +5625,52 @@ void z80ic_oper_pp_destroy(z80ic_oper_pp_t *pp)
 	free(pp);
 }
 
+/** Create Z80 IC 16-bit qq register operand.
+ *
+ * @param rqq 16-bit qq register
+ * @param rreg Place to store pointer to new Z80 IC register operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_oper_qq_create(z80ic_qq_t rqq, z80ic_oper_qq_t **roqq)
+{
+	z80ic_oper_qq_t *oqq;
+
+	oqq = calloc(1, sizeof(z80ic_oper_qq_t));
+	if (oqq == NULL)
+		return ENOMEM;
+
+	oqq->rqq = rqq;
+
+	*roqq = oqq;
+	return EOK;
+}
+
+/** Print Z80 IC 16-bit qq register operand.
+ *
+ * @param qq Z80 IC 16-bit qq register operand
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_oper_qq_print(z80ic_oper_qq_t *qq, FILE *f)
+{
+	int rv;
+
+	rv = fputs(z80ic_qq_name[qq->rqq], f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC 16-bit qq register operand.
+ *
+ * @param qq Z80 IC 16-bit qq register operand
+ */
+void z80ic_oper_qq_destroy(z80ic_oper_qq_t *qq)
+{
+	free(qq);
+}
+
 /** Create Z80 IC 16-bit ss register operand.
  *
  * @param rss 16-bit ss register
@@ -5466,10 +5756,13 @@ int z80ic_oper_r16_print(z80ic_oper_r16_t *reg, FILE *f)
 
 /** Destroy Z80 IC 16-bit register operand.
  *
- * @param reg Z80 IC 16-bit register operand
+ * @param reg Z80 IC 16-bit register operand or @c NULL
  */
 void z80ic_oper_r16_destroy(z80ic_oper_r16_t *reg)
 {
+	if (reg == NULL)
+		return;
+
 	free(reg);
 }
 
@@ -5529,10 +5822,13 @@ int z80ic_oper_vr_print(z80ic_oper_vr_t *vr, FILE *f)
 
 /** Destroy Z80 IC virtual register operand.
  *
- * @param reg Z80 IC virtual register operand
+ * @param reg Z80 IC virtual register operand or @c NULL
  */
 void z80ic_oper_vr_destroy(z80ic_oper_vr_t *vr)
 {
+	if (vr == NULL)
+		return;
+
 	free(vr);
 }
 

@@ -1437,19 +1437,24 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	z80ic_call_nn_t *call = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	z80ic_ld_vrr_r16_t *ld = NULL;
-	z80ic_oper_vrr_t *ldasrc = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
 	z80ic_oper_r16_t *ldadest = NULL;
 	z80ic_ld_r16_vrr_t *ldarg = NULL;
+	z80ic_push_vrr_t *push = NULL;
+	z80ic_inc_ss_t *inc = NULL;
+	z80ic_oper_ss_t *ainc = NULL;
 	z80_argloc_t *argloc = NULL;
 	z80_argloc_entry_t *entry;
 	ir_oper_var_t *op1;
 	ir_oper_list_t *op2;
 	ir_oper_t *arg;
+	ir_oper_var_t *argvar;
 	unsigned argvr;
 	char *varident = NULL;
 	unsigned destvr;
-	unsigned aidx;
+	unsigned vroff;
 	z80ic_r16_t argreg;
+	unsigned i;
 	int rc;
 
 	assert(irinstr->itype == iri_call);
@@ -1468,49 +1473,93 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	/* Load arguments to designated registers (BC, DE, HL) */
+	/* For arguments first to last */
 	arg = ir_oper_list_first(op2);
-	aidx = 0;
 	while (arg != NULL) {
+		assert(arg->optype == iro_var);
+		argvar = (ir_oper_var_t *) arg->ext;
+
 		/** Allocate argument location */
-		rc = z80_argloc_alloc(argloc, "XXX", 2, &entry);
+		rc = z80_argloc_alloc(argloc, argvar->varname, 2, &entry);
 		if (rc != EOK)
 			goto error;
 
-		/* ld BC|DE|HL, vrr */
+		arg = ir_oper_list_next(arg);
+	}
 
-		rc = z80ic_ld_r16_vrr_create(&ldarg);
+	/*
+	 * Process arguments from last to the first. This ensures that
+	 * (1) the argument at the top of the stack has the lowest number,
+	 * (2) arguments passed by registers are loaded into those registers
+	 * just prior to the call instruction (thus not occupying the
+	 * registers longer than necessary).
+	 */
+	arg = ir_oper_list_last(op2);
+	while (arg != NULL) {
+		assert(arg->optype == iro_var);
+		argvar = (ir_oper_var_t *) arg->ext;
+
+		/** Find argument location */
+		rc = z80_argloc_find(argloc, argvar->varname, &entry);
+		assert(rc == EOK);
 		if (rc != EOK)
-			goto error;
-
-		if (entry->stack_sz > 0) {
-			fprintf(stderr, "Too many arguments to function '%s' "
-			    "(not implemented).\n", op1->varname);
-		}
-
-		argreg = entry->reg[0].reg;
-
-		rc = z80ic_oper_r16_create(argreg, &ldadest);
-		if (rc != EOK)
-			goto error;
+			return rc;
 
 		argvr = z80_isel_get_vregno(isproc, arg);
-		rc = z80ic_oper_vrr_create(argvr, &ldasrc);
-		if (rc != EOK)
-			goto error;
+		vroff = 0;
 
-		ldarg->dest = ldadest;
-		ldarg->src = ldasrc;
-		ldadest = NULL;
-		ldasrc = NULL;
+		for (i = 0; i < entry->reg_entries; i++) {
+			/* ld r16, vrr */
 
-		rc = z80ic_lblock_append(lblock, label, &ldarg->instr);
-		if (rc != EOK)
-			goto error;
+			rc = z80ic_ld_r16_vrr_create(&ldarg);
+			if (rc != EOK)
+				goto error;
 
-		ldarg = NULL;
-		arg = ir_oper_list_next(arg);
-		++aidx;
+			argreg = entry->reg[i].reg;
+
+			rc = z80ic_oper_r16_create(argreg, &ldadest);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			ldarg->dest = ldadest;
+			ldarg->src = vrr;
+			ldadest = NULL;
+			vrr = NULL;
+
+			rc = z80ic_lblock_append(lblock, label, &ldarg->instr);
+			if (rc != EOK)
+				goto error;
+
+			ldarg = NULL;
+			++vroff;
+		}
+
+		for (i = 0; i < entry->stack_sz; i += 2) {
+			/* push vrr */
+
+			rc = z80ic_push_vrr_create(&push);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			push->src = vrr;
+			vrr = NULL;
+
+			rc = z80ic_lblock_append(lblock, label, &push->instr);
+			if (rc != EOK)
+				goto error;
+
+			++vroff;
+		}
+
+		arg = ir_oper_list_prev(arg);
 	}
 
 	/* call NN */
@@ -1557,6 +1606,45 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 	ld = NULL;
 
+	/*
+	 * Remove arguments from the stack.
+	 */
+	arg = ir_oper_list_last(op2);
+	while (arg != NULL) {
+		assert(arg->optype == iro_var);
+		argvar = (ir_oper_var_t *) arg->ext;
+
+		/** Find argument location */
+		rc = z80_argloc_find(argloc, argvar->varname, &entry);
+		assert(rc == EOK);
+		if (rc != EOK)
+			return rc;
+
+		for (i = 0; i < entry->stack_sz; i++) {
+
+			/* inc SP */
+
+			rc = z80ic_inc_ss_create(&inc);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_ss_create(z80ic_ss_sp, &ainc);
+			if (rc != EOK)
+				goto error;
+
+			inc->dest = ainc;
+			ainc = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+			if (rc != EOK)
+				goto error;
+
+			inc = NULL;
+		}
+
+		arg = ir_oper_list_prev(arg);
+	}
+
 	free(varident);
 	z80_argloc_destroy(argloc);
 	return EOK;
@@ -1569,10 +1657,15 @@ error:
 		z80ic_instr_destroy(&call->instr);
 	if (ldarg != NULL)
 		z80ic_instr_destroy(&ldarg->instr);
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
 	z80ic_oper_vrr_destroy(lddest);
 	z80ic_oper_r16_destroy(ldsrc);
 	z80ic_oper_imm16_destroy(imm);
-	z80ic_oper_vrr_destroy(ldasrc);
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_ss_destroy(ainc);
 	if (argloc != NULL)
 		z80_argloc_destroy(argloc);
 
@@ -6719,12 +6812,15 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
     z80ic_lblock_t *lblock)
 {
 	z80ic_oper_r16_t *ldsrc = NULL;
-	z80ic_oper_vrr_t *lddest = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
 	z80ic_ld_vrr_r16_t *ld = NULL;
+	z80ic_ld_vrr_iixd_t *ldix = NULL;
 	z80_argloc_t *argloc = NULL;
 	z80_argloc_entry_t *entry;
 	ir_proc_arg_t *arg;
-	unsigned argno;
+	unsigned vrno;
+	unsigned i;
+	unsigned fpoff;
 	z80ic_r16_t argreg;
 	int rc;
 
@@ -6734,40 +6830,75 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		goto error;
 
 	arg = ir_proc_first_arg(irproc);
-	argno = 0;
+	vrno = 0;
+
+	/*
+	 * IX points to old frame pointer, IX+2 to the return address,
+	 * IX+4 to the first argument on the stack
+	 */
+	fpoff = 4;
+
 	while (arg != NULL) {
 		/* Allocate location for the argument */
 		rc = z80_argloc_alloc(argloc, arg->ident, 2, &entry);
 		if (rc != EOK)
 			goto error;
 
-		// XXX Handle other cases than 16-bit register
-		argreg = entry->reg[0].reg;
+		/* Parts stored in registers */
+		for (i = 0; i < entry->reg_entries; i++) {
+			argreg = entry->reg[i].reg;
 
-		rc = z80ic_ld_vrr_r16_create(&ld);
-		if (rc != EOK)
-			goto error;
+			rc = z80ic_ld_vrr_r16_create(&ld);
+			if (rc != EOK)
+				goto error;
 
-		rc = z80ic_oper_vrr_create(argno, &lddest);
-		if (rc != EOK)
-			goto error;
+			rc = z80ic_oper_vrr_create(vrno, &vrr);
+			if (rc != EOK)
+				goto error;
 
-		rc = z80ic_oper_r16_create(argreg, &ldsrc);
-		if (rc != EOK)
-			goto error;
+			rc = z80ic_oper_r16_create(argreg, &ldsrc);
+			if (rc != EOK)
+				goto error;
 
-		ld->dest = lddest;
-		ld->src = ldsrc;
-		lddest = NULL;
-		ldsrc = NULL;
+			ld->dest = vrr;
+			ld->src = ldsrc;
+			vrr = NULL;
+			ldsrc = NULL;
 
-		rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
-		if (rc != EOK)
-			goto error;
+			rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+			if (rc != EOK)
+				goto error;
 
-		ld = NULL;
+			ld = NULL;
+			++vrno;
+		}
+
+		/* Part stored on the stack */
+		for (i = 0; i < entry->stack_sz; i += 2) {
+			/* ld vrr, (IX+d) */
+
+			rc = z80ic_ld_vrr_iixd_create(&ldix);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(vrno, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			ldix->disp = fpoff;
+			ldix->dest = vrr;
+			vrr = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
+			if (rc != EOK)
+				goto error;
+
+			ldix = NULL;
+			++vrno;
+			fpoff += 2;
+		}
+
 		arg = ir_proc_next_arg(arg);
-		++argno;
 	}
 
 	z80_argloc_destroy(argloc);
@@ -6775,7 +6906,9 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
-	z80ic_oper_vrr_destroy(lddest);
+	if (ldix != NULL)
+		z80ic_instr_destroy(&ldix->instr);
+	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_r16_destroy(ldsrc);
 	if (argloc != NULL)
 		z80_argloc_destroy(argloc);

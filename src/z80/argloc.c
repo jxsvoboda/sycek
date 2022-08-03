@@ -264,6 +264,7 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 			/* Success */
 			entry->reg[0].reg = r16;
 			entry->reg[0].part = part;
+			entry->reg_entries = 1;
 			--bytes;
 		}
 	} else {
@@ -283,6 +284,8 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 			++eidx;
 			bytes -= 2;
 		}
+
+		entry->reg_entries = eidx;
 	}
 
 	/* Allocate remaining bytes on the stack */

@@ -1236,6 +1236,81 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 load virtual register pair from (IX+d)
+ * instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrld Load instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_ld_vrr_iixd(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_ld_vrr_iixd_t *vrld, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r_iixd_t *ld = NULL;
+	z80ic_oper_reg_t *oreg = NULL;
+	int rc;
+
+	/* ld A, (IX+d) */
+
+	rc = z80ic_ld_r_iixd_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &oreg);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = oreg;
+	oreg = NULL;
+	ld->disp = vrld->disp;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* Spill A to vrr.L */
+	rc = z80_ralloc_spill_reg(raproc, NULL, z80ic_reg_a,
+	    vrld->dest->vregno, z80ic_vrp_r16l, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* ld A, (IX+d+1) */
+
+	rc = z80ic_ld_r_iixd_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &oreg);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = oreg;
+	oreg = NULL;
+	ld->disp = vrld->disp + 1;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* Spill A to vrr.H */
+	rc = z80_ralloc_spill_reg(raproc, NULL, z80ic_reg_a,
+	    vrld->dest->vregno, z80ic_vrp_r16h, lblock);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_reg_destroy(oreg);
+	return rc;
+}
+
 /** Allocate registers for Z80 load virtual register pair from 16-bit
  * immediate instruction.
  *
@@ -1366,6 +1441,53 @@ error:
 		z80ic_instr_destroy(&ldnn->instr);
 	z80ic_oper_dd_destroy(dd);
 	z80ic_oper_imm16_destroy(imm);
+	return rc;
+}
+
+/** Allocate registers for Z80 push virtual register pair instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrpush Push instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_push_vrr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_push_vrr_t *vrpush, z80ic_lblock_t *lblock)
+{
+	z80ic_push_qq_t *push = NULL;
+	z80ic_oper_qq_t *qq = NULL;
+	int rc;
+
+	/* Fill HL */
+	rc = z80_ralloc_fill_r16(raproc, label, vrpush->src->vregno,
+	    z80ic_r16_hl, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* push HL */
+
+	rc = z80ic_push_qq_create(&push);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_qq_create(z80ic_qq_hl, &qq);
+	if (rc != EOK)
+		goto error;
+
+	push->src = qq;
+	qq = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &push->instr);
+	if (rc != EOK)
+		goto error;
+
+	push = NULL;
+
+	return EOK;
+error:
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	z80ic_oper_qq_destroy(qq);
 	return rc;
 }
 
@@ -2259,12 +2381,18 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_vrr_r16:
 		return z80_ralloc_ld_vrr_r16(raproc, label,
 		    (z80ic_ld_vrr_r16_t *) vrinstr->ext, lblock);
+	case z80i_ld_vrr_iixd:
+		return z80_ralloc_ld_vrr_iixd(raproc, label,
+		    (z80ic_ld_vrr_iixd_t *) vrinstr->ext, lblock);
 	case z80i_ld_vrr_nn:
 		return z80_ralloc_ld_vrr_nn(raproc, label,
 		    (z80ic_ld_vrr_nn_t *) vrinstr->ext, lblock);
 	case z80i_ld_vrr_spnn:
 		return z80_ralloc_ld_vrr_spnn(raproc, label,
 		    (z80ic_ld_vrr_spnn_t *) vrinstr->ext, lblock);
+	case z80i_push_vrr:
+		return z80_ralloc_push_vrr(raproc, label,
+		    (z80ic_push_vrr_t *) vrinstr->ext, lblock);
 	case z80i_add_a_vr:
 		return z80_ralloc_add_a_vr(raproc, label,
 		    (z80ic_add_a_vr_t *) vrinstr->ext, lblock);
