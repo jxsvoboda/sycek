@@ -794,6 +794,10 @@ typedef enum {
 	z80ic_r16_sp
 } z80ic_r16_t;
 
+enum {
+	z80ic_r16_limit = z80ic_r16_sp + 1
+};
+
 /** Virtual register part */
 typedef enum {
 	/** Entire 8-bit virtual register */

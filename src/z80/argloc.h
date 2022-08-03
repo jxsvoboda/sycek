@@ -24,31 +24,18 @@
  * Z80 IR local variable to VR map
  */
 
-#ifndef TYPES_Z80_VARMAP_H
-#define TYPES_Z80_VARMAP_H
+#ifndef Z80_ARGLOC_H
+#define Z80_ARGLOC_H
 
-#include <adt/list.h>
+#include <types/z80/argloc.h>
 
-/** Z80 IR local variable to VR map */
-typedef struct {
-	/** Entries (of z80_varmap_entry_t) */
-	list_t entries;
-	/** Next free virtual register */
-	unsigned next_vr;
-} z80_varmap_t;
-
-/** Z80 IR local variable to VR map entry */
-typedef struct {
-	/** Containing variable map */
-	z80_varmap_t *varmap;
-	/** Link to @c varmap->entries */
-	link_t lentries;
-	/** Variable identifier */
-	char *ident;
-	/** First used virtual register */
-	unsigned vr0;
-	/** Number of used virtual registers */
-	unsigned vrn;
-} z80_varmap_entry_t;
+extern int z80_argloc_create(z80_argloc_t **);
+extern void z80_argloc_destroy(z80_argloc_t *);
+extern int z80_argloc_alloc(z80_argloc_t *, const char *, unsigned,
+    z80_argloc_entry_t **);
+extern int z80_argloc_find(z80_argloc_t *, const char *, z80_argloc_entry_t **);
+extern void z80_argloc_entry_destroy(z80_argloc_entry_t *);
+extern z80_argloc_entry_t *z80_argloc_first(z80_argloc_t *);
+extern z80_argloc_entry_t *z80_argloc_next(z80_argloc_entry_t *);
 
 #endif

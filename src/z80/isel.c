@@ -31,6 +31,7 @@
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <z80/argloc.h>
 #include <z80/isel.h>
 #include <z80/varmap.h>
 #include <z80/z80ic.h>
@@ -1439,6 +1440,8 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	z80ic_oper_vrr_t *ldasrc = NULL;
 	z80ic_oper_r16_t *ldadest = NULL;
 	z80ic_ld_r16_vrr_t *ldarg = NULL;
+	z80_argloc_t *argloc = NULL;
+	z80_argloc_entry_t *entry;
 	ir_oper_var_t *op1;
 	ir_oper_list_t *op2;
 	ir_oper_t *arg;
@@ -1461,31 +1464,31 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
+	rc = z80_argloc_create(&argloc);
+	if (rc != EOK)
+		goto error;
+
 	/* Load arguments to designated registers (BC, DE, HL) */
 	arg = ir_oper_list_first(op2);
 	aidx = 0;
 	while (arg != NULL) {
+		/** Allocate argument location */
+		rc = z80_argloc_alloc(argloc, "XXX", 2, &entry);
+		if (rc != EOK)
+			goto error;
+
 		/* ld BC|DE|HL, vrr */
 
 		rc = z80ic_ld_r16_vrr_create(&ldarg);
 		if (rc != EOK)
 			goto error;
 
-		switch (aidx) {
-		case 0:
-			argreg = z80ic_r16_bc;
-			break;
-		case 1:
-			argreg = z80ic_r16_de;
-			break;
-		case 2:
-			argreg = z80ic_r16_hl;
-			break;
-		default:
+		if (entry->stack_sz > 0) {
 			fprintf(stderr, "Too many arguments to function '%s' "
 			    "(not implemented).\n", op1->varname);
-			goto error;
 		}
+
+		argreg = entry->reg[0].reg;
 
 		rc = z80ic_oper_r16_create(argreg, &ldadest);
 		if (rc != EOK)
@@ -1555,6 +1558,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	ld = NULL;
 
 	free(varident);
+	z80_argloc_destroy(argloc);
 	return EOK;
 error:
 	if (varident != NULL)
@@ -1569,6 +1573,8 @@ error:
 	z80ic_oper_r16_destroy(ldsrc);
 	z80ic_oper_imm16_destroy(imm);
 	z80ic_oper_vrr_destroy(ldasrc);
+	if (argloc != NULL)
+		z80_argloc_destroy(argloc);
 
 	return rc;
 }
@@ -6715,33 +6721,28 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 	z80ic_oper_r16_t *ldsrc = NULL;
 	z80ic_oper_vrr_t *lddest = NULL;
 	z80ic_ld_vrr_r16_t *ld = NULL;
+	z80_argloc_t *argloc = NULL;
+	z80_argloc_entry_t *entry;
 	ir_proc_arg_t *arg;
 	unsigned argno;
 	z80ic_r16_t argreg;
 	int rc;
 
 	(void) isel;
+	rc = z80_argloc_create(&argloc);
+	if (rc != EOK)
+		goto error;
 
 	arg = ir_proc_first_arg(irproc);
 	argno = 0;
 	while (arg != NULL) {
-		/* ld vrr, BC|DE|HL */
-		switch (argno) {
-		case 0:
-			argreg = z80ic_r16_bc;
-			break;
-		case 1:
-			argreg = z80ic_r16_de;
-			break;
-		case 2:
-			argreg = z80ic_r16_hl;
-			break;
-		default:
-			fprintf(stderr, "Function '%s' has too many arguments"
-			    "(not implemented).\n", irproc->ident);
-			rc = ENOTSUP;
+		/* Allocate location for the argument */
+		rc = z80_argloc_alloc(argloc, arg->ident, 2, &entry);
+		if (rc != EOK)
 			goto error;
-		}
+
+		// XXX Handle other cases than 16-bit register
+		argreg = entry->reg[0].reg;
 
 		rc = z80ic_ld_vrr_r16_create(&ld);
 		if (rc != EOK)
@@ -6769,12 +6770,15 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		++argno;
 	}
 
+	z80_argloc_destroy(argloc);
 	return EOK;
 error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	z80ic_oper_vrr_destroy(lddest);
 	z80ic_oper_r16_destroy(ldsrc);
+	if (argloc != NULL)
+		z80_argloc_destroy(argloc);
 	return rc;
 }
 
