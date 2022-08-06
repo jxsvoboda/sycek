@@ -232,32 +232,6 @@ typedef struct {
 	void *ext;
 } ir_decln_t;
 
-/** IR variable definition */
-typedef struct {
-	/** Base object */
-	ir_decln_t decln;
-	/** Indentifier */
-	char *ident;
-	/** Data block containing variable data */
-	ir_dblock_t *dblock;
-} ir_var_t;
-
-/** IR argument in procedure definition */
-typedef struct {
-	/** Containing procedure definition */
-	struct ir_proc *proc;
-	/** Link to @c proc->args */
-	link_t largs;
-	/** Identifier */
-	char *ident;
-} ir_proc_arg_t;
-
-/** IR procedure flags */
-typedef enum {
-	/** Extern procedure declaration */
-	irp_extern = 0x1
-} ir_proc_flags_t;
-
 /** IR type type */
 typedef enum {
 	irt_int
@@ -277,6 +251,34 @@ typedef struct {
 		ir_type_int_t tint;
 	} t;
 } ir_texpr_t;
+
+/** IR variable definition */
+typedef struct {
+	/** Base object */
+	ir_decln_t decln;
+	/** Indentifier */
+	char *ident;
+	/** Data block containing variable data */
+	ir_dblock_t *dblock;
+} ir_var_t;
+
+/** IR argument in procedure definition */
+typedef struct {
+	/** Containing procedure definition */
+	struct ir_proc *proc;
+	/** Link to @c proc->args */
+	link_t largs;
+	/** Identifier */
+	char *ident;
+	/** Argument type */
+	ir_texpr_t *atype;
+} ir_proc_arg_t;
+
+/** IR procedure flags */
+typedef enum {
+	/** Extern procedure declaration */
+	irp_extern = 0x1
+} ir_proc_flags_t;
 
 /** IR local variable */
 typedef struct {

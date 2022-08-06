@@ -67,7 +67,7 @@ extern ir_proc_arg_t *ir_proc_first_arg(ir_proc_t *);
 extern ir_proc_arg_t *ir_proc_next_arg(ir_proc_arg_t *);
 extern ir_proc_arg_t *ir_proc_last_arg(ir_proc_t *);
 extern ir_proc_arg_t *ir_proc_prev_arg(ir_proc_arg_t *);
-extern int ir_proc_arg_create(const char *, ir_proc_arg_t **);
+extern int ir_proc_arg_create(const char *, ir_texpr_t *, ir_proc_arg_t **);
 extern void ir_proc_arg_destroy(ir_proc_arg_t *);
 extern int ir_proc_arg_print(ir_proc_arg_t *, FILE *);
 extern ir_lvar_t *ir_proc_first_lvar(ir_proc_t *);

@@ -462,6 +462,8 @@ typedef enum {
 	z80i_ld_vr_n,
 	/** Load virtual register from (HL) */
 	z80i_ld_vr_ihl,
+	/** Load virtual register from (IX+d) */
+	z80i_ld_vr_iixd,
 	/** Load virtual register from address stored in virt. reg. pair */
 	z80i_ld_vr_ivrr,
 	/** Load virtual register from address stored in virt. reg. pair + d. */
@@ -1302,6 +1304,16 @@ typedef struct {
 	/** Destination virtual register */
 	z80ic_oper_vr_t *dest;
 } z80ic_ld_vr_ihl_t;
+
+/** Z80 IC load virtual register from (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register */
+	z80ic_oper_vr_t *dest;
+	/** Displacement */
+	int8_t disp;
+} z80ic_ld_vr_iixd_t;
 
 /** Z80 IC load (HL) from virtual register */
 typedef struct {

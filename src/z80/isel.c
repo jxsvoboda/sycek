@@ -260,11 +260,17 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 {
 	ir_proc_arg_t *arg;
 	ir_lblock_entry_t *entry;
+	unsigned bytes;
+	unsigned vregs;
 	int rc;
 
 	arg = ir_proc_first_arg(irproc);
 	while (arg != NULL) {
-		rc = z80_varmap_insert(isproc->varmap, arg->ident, 1 /* XXX */);
+		/* Number of bytes / virtual registers occupied */
+		bytes = ir_texpr_sizeof(arg->atype);
+		vregs = bytes >= 2 ? bytes / 2 : 1;
+
+		rc = z80_varmap_insert(isproc->varmap, arg->ident, vregs);
 		if (rc != EOK)
 			return rc;
 
@@ -6812,15 +6818,21 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
     z80ic_lblock_t *lblock)
 {
 	z80ic_oper_r16_t *ldsrc = NULL;
+	z80ic_oper_reg_t *reg = NULL;
 	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_vr_t *vr = NULL;
 	z80ic_ld_vrr_r16_t *ld = NULL;
+	z80ic_ld_vr_r_t *ld8 = NULL;
 	z80ic_ld_vrr_iixd_t *ldix = NULL;
+	z80ic_ld_vr_iixd_t *ldix8 = NULL;
 	z80_argloc_t *argloc = NULL;
 	z80_argloc_entry_t *entry;
+	z80ic_reg_t r;
 	ir_proc_arg_t *arg;
 	unsigned vrno;
 	unsigned i;
 	unsigned fpoff;
+	unsigned bits;
 	z80ic_r16_t argreg;
 	int rc;
 
@@ -6839,8 +6851,17 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 	fpoff = 4;
 
 	while (arg != NULL) {
+		if (arg->atype->tetype != irt_int) {
+			printf("Unsupported argument type (%d)\n",
+			    arg->atype->tetype);
+			goto error;
+		}
+
+		bits = arg->atype->t.tint.width;
+
 		/* Allocate location for the argument */
-		rc = z80_argloc_alloc(argloc, arg->ident, 2, &entry);
+		rc = z80_argloc_alloc(argloc, arg->ident, (bits + 7) / 8,
+		    &entry);
 		if (rc != EOK)
 			goto error;
 
@@ -6848,33 +6869,68 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		for (i = 0; i < entry->reg_entries; i++) {
 			argreg = entry->reg[i].reg;
 
-			rc = z80ic_ld_vrr_r16_create(&ld);
-			if (rc != EOK)
-				goto error;
+			if (entry->reg[i].part == z80_argloc_hl) {
+				/* 16-bit register */
 
-			rc = z80ic_oper_vrr_create(vrno, &vrr);
-			if (rc != EOK)
-				goto error;
+				rc = z80ic_ld_vrr_r16_create(&ld);
+				if (rc != EOK)
+					goto error;
 
-			rc = z80ic_oper_r16_create(argreg, &ldsrc);
-			if (rc != EOK)
-				goto error;
+				rc = z80ic_oper_vrr_create(vrno, &vrr);
+				if (rc != EOK)
+					goto error;
 
-			ld->dest = vrr;
-			ld->src = ldsrc;
-			vrr = NULL;
-			ldsrc = NULL;
+				rc = z80ic_oper_r16_create(argreg, &ldsrc);
+				if (rc != EOK)
+					goto error;
 
-			rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
-			if (rc != EOK)
-				goto error;
+				ld->dest = vrr;
+				ld->src = ldsrc;
+				vrr = NULL;
+				ldsrc = NULL;
 
-			ld = NULL;
-			++vrno;
+				rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+				if (rc != EOK)
+					goto error;
+
+				ld = NULL;
+				++vrno;
+			} else {
+				/* 8-bit register */
+
+				z80_argloc_r16_part_to_r(argreg,
+				    entry->reg[i].part, &r);
+
+				rc = z80ic_ld_vr_r_create(&ld8);
+				if (rc != EOK)
+					goto error;
+
+				rc = z80ic_oper_vr_create(vrno, z80ic_vrp_r8,
+				    &vr);
+				if (rc != EOK)
+					goto error;
+
+				rc = z80ic_oper_reg_create(r, &reg);
+				if (rc != EOK)
+					goto error;
+
+				ld8->dest = vr;
+				ld8->src = reg;
+				vr = NULL;
+				reg = NULL;
+
+				rc = z80ic_lblock_append(lblock, NULL,
+				    &ld8->instr);
+				if (rc != EOK)
+					goto error;
+
+				ld = NULL;
+				++vrno;
+			}
 		}
 
-		/* Part stored on the stack */
-		for (i = 0; i < entry->stack_sz; i += 2) {
+		/* Words stored on the stack */
+		for (i = 0; i + 1 < entry->stack_sz; i += 2) {
 			/* ld vrr, (IX+d) */
 
 			rc = z80ic_ld_vrr_iixd_create(&ldix);
@@ -6894,6 +6950,36 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 				goto error;
 
 			ldix = NULL;
+			++vrno;
+			fpoff += 2;
+		}
+
+		/*
+		 * Byte stored on the stack. A byte is padded to a full
+		 * 16-bit stack entry (to make things simpler and faster).
+		 * The value of the padding is undefined. Here we just
+		 * load the lower byte to an 8-bit virtual register.
+		 */
+		for (i = 0; i < entry->stack_sz; i++) {
+			/* ld vr, (IX+d) */
+
+			rc = z80ic_ld_vr_iixd_create(&ldix8);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(vrno, z80ic_vrp_r8, &vr);
+			if (rc != EOK)
+				goto error;
+
+			ldix8->disp = fpoff;
+			ldix8->dest = vr;
+			vr = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &ldix8->instr);
+			if (rc != EOK)
+				goto error;
+
+			ldix8 = NULL;
 			++vrno;
 			fpoff += 2;
 		}

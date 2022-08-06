@@ -128,6 +128,14 @@ void z80_argloc_destroy(z80_argloc_t *argloc)
 	free(argloc);
 }
 
+/** Convert 8-bit register to 16-bit register, part (upper, lower, both).
+ *
+ * Part must not be both.
+ *
+ * @param r 8-bit register
+ * @param r16 Place to store 16-bit register
+ * @param part Place to store part (upper, lower, both)
+ */
 static void z80_argloc_r_to_r16_part(z80ic_reg_t r, z80ic_r16_t *r16,
     z80_argloc_rp_t *part)
 {
@@ -160,6 +168,66 @@ static void z80_argloc_r_to_r16_part(z80ic_reg_t r, z80ic_r16_t *r16,
 		*r16 = z80ic_r16_hl;
 		*part = z80_argloc_l;
 		break;
+	}
+}
+
+/** Convert 16-bit register, part (upper, lower, both) to 8-bit register.
+ *
+ * 16-bit register must be a register pair (AF, BC, DE, HL), the part
+ * must not be both and cannot specify AF / lower - F is not a valid
+ * result.
+ *
+ * @param r 8-bit register
+ * @param r16 Place to store 16-bit register
+ * @param part Place to store part (upper, lower)
+ */
+void z80_argloc_r16_part_to_r(z80ic_r16_t r16, z80_argloc_rp_t part,
+    z80ic_reg_t *reg)
+{
+	assert(part == z80_argloc_h || part == z80_argloc_l);
+
+	if (part == z80_argloc_h) {
+		/* Upper */
+		switch (r16) {
+		case z80ic_r16_af:
+			*reg = z80ic_reg_a;
+			break;
+		case z80ic_r16_bc:
+			*reg = z80ic_reg_b;
+			break;
+		case z80ic_r16_de:
+			*reg = z80ic_reg_d;
+			break;
+		case z80ic_r16_hl:
+			*reg = z80ic_reg_h;
+			break;
+		case z80ic_r16_ix:
+		case z80ic_r16_iy:
+		case z80ic_r16_sp:
+			assert(false);
+			break;
+		}
+	} else {
+		/* Lower */
+		switch (r16) {
+		case z80ic_r16_af:
+			assert(false);
+			break;
+		case z80ic_r16_bc:
+			*reg = z80ic_reg_c;
+			break;
+		case z80ic_r16_de:
+			*reg = z80ic_reg_e;
+			break;
+		case z80ic_r16_hl:
+			*reg = z80ic_reg_l;
+			break;
+		case z80ic_r16_ix:
+		case z80ic_r16_iy:
+		case z80ic_r16_sp:
+			assert(false);
+			break;
+		}
 	}
 }
 

@@ -7327,6 +7327,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	ast_dfun_t *dfun;
 	ast_dfun_arg_t *arg;
 	ir_proc_arg_t *iarg;
+	ir_texpr_t *atype = NULL;
 	char *pident = NULL;
 	char *arg_ident = NULL;
 	ast_tok_t *atok;
@@ -7335,6 +7336,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	scope_member_t *member;
 	symbol_t *symbol;
 	cgtype_t *stype = NULL;
+	unsigned bits;
 	int rc;
 	int rv;
 
@@ -7450,18 +7452,40 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			++cgen->warnings;
 		}
 
+		/* Check the type */
+		if (stype->ntype != cgn_basic) {
+			fprintf(stderr, "Unimplemented argument type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		bits = cgen_basic_type_bits(cgproc->cgen,
+		    (cgtype_basic_t *)stype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented argument type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
 		rv = asprintf(&arg_ident, "%%%d", cgproc->next_var++);
 		if (rv < 0) {
 			rc = ENOMEM;
 			goto error;
 		}
 
-		rc = ir_proc_arg_create(arg_ident, &iarg);
+		rc = ir_texpr_int_create(bits, &atype);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_proc_arg_create(arg_ident, atype, &iarg);
 		if (rc != EOK)
 			goto error;
 
 		free(arg_ident);
 		arg_ident = NULL;
+		atype = NULL; /* ownership transferred */
 
 		/* Insert identifier into argument scope */
 		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
@@ -7524,6 +7548,8 @@ error:
 		free(pident);
 	if (arg_ident != NULL)
 		free(arg_ident);
+	if (atype != NULL)
+		ir_texpr_destroy(atype);
 	return rc;
 }
 

@@ -220,6 +220,7 @@ static int test_ir_proc(void)
 	ir_proc_t *proc = NULL;
 	ir_proc_arg_t *arg = NULL;
 	ir_lblock_t *lblock = NULL;
+	ir_texpr_t *texpr = NULL;
 	int rc;
 
 	rc = ir_lblock_create(&lblock);
@@ -234,7 +235,11 @@ static int test_ir_proc(void)
 
 	assert(proc != NULL);
 
-	rc = ir_proc_arg_create("a1", &arg);
+	rc = ir_texpr_int_create(8, &texpr);
+	if (rc != EOK)
+		return rc;
+
+	rc = ir_proc_arg_create("a1", texpr, &arg);
 	if (rc != EOK)
 		return rc;
 

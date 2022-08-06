@@ -680,7 +680,7 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	ir_proc_arg_t *arg;
 	ir_lvar_t *lvar;
 	char *ident = NULL;
-	ir_texpr_t *vtype = NULL;
+	ir_texpr_t *texpr = NULL;
 	ir_lblock_t *lblock = NULL;
 	bool first;
 	int rc;
@@ -738,13 +738,36 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 			goto error;
 		}
 
-		rc = ir_proc_arg_create(itok.text, &arg);
+		/* itok.text is only valid until we skip the token */
+		ident = strdup(itok.text);
+		if (ident == NULL) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		ir_parser_skip(parser);
+
+		/* ':' */
+
+		rc = ir_parser_match(parser, itt_colon);
 		if (rc != EOK)
 			goto error;
 
-		ir_proc_append_arg(proc, arg);
+		/* Type */
 
-		ir_parser_skip(parser);
+		rc = ir_parser_process_texpr(parser, &texpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_proc_arg_create(ident, texpr, &arg);
+		if (rc != EOK)
+			goto error;
+
+		free(ident);
+		ident = NULL;
+		texpr = NULL; /* ownership transferred */
+
+		ir_proc_append_arg(proc, arg);
 
 		first = false;
 		itt = ir_parser_next_ttype(parser);
@@ -781,7 +804,6 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 				goto error;
 			}
 
-			printf("itok.text='%s'\n", itok.text);
 			ir_parser_skip(parser);
 
 			/* ':' */
@@ -792,18 +814,17 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 
 			/* Type */
 
-			rc = ir_parser_process_texpr(parser, &vtype);
+			rc = ir_parser_process_texpr(parser, &texpr);
 			if (rc != EOK)
 				goto error;
 
-			printf("ident='%s'\n", ident);
-			rc = ir_lvar_create(ident, vtype, &lvar);
+			rc = ir_lvar_create(ident, texpr, &lvar);
 			if (rc != EOK)
 				goto error;
 
 			free(ident);
 			ident = NULL;
-			vtype = NULL; /* ownership transferred */
+			texpr = NULL; /* ownership transferred */
 			ir_proc_append_lvar(proc, lvar);
 
 			rc = ir_parser_match(parser, itt_scolon);
@@ -839,8 +860,8 @@ error:
 		ir_lblock_destroy(lblock);
 	if (ident != NULL)
 		free(ident);
-	if (vtype != NULL)
-		ir_texpr_destroy(vtype);
+	if (texpr != NULL)
+		ir_texpr_destroy(texpr);
 	return rc;
 }
 

@@ -3360,6 +3360,59 @@ static void z80ic_ld_vr_ihl_destroy(z80ic_ld_vr_ihl_t *instr)
 	z80ic_oper_vr_destroy(instr->dest);
 }
 
+/** Create Z80 IC load virtual register from (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_vr_iixd_create(z80ic_ld_vr_iixd_t **rinstr)
+{
+	z80ic_ld_vr_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_vr_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_vr_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load virtual register from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_vr_iixd_print(z80ic_ld_vr_iixd_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fprintf(f, ", (IX%+" PRId8 ")", instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load virtual register from (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_vr_iixd_destroy(z80ic_ld_vr_iixd_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->dest);
+}
+
 /** Create Z80 IC load (HL) from virtual register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -4983,6 +5036,10 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		rc = z80ic_ld_vr_ihl_print((z80ic_ld_vr_ihl_t *) instr->ext,
 		    f);
 		break;
+	case z80i_ld_vr_iixd:
+		rc = z80ic_ld_vr_iixd_print((z80ic_ld_vr_iixd_t *) instr->ext,
+		    f);
+		break;
 	case z80i_ld_ihl_vr:
 		rc = z80ic_ld_ihl_vr_print((z80ic_ld_ihl_vr_t *) instr->ext,
 		    f);
@@ -5230,6 +5287,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_ld_vr_ihl:
 		z80ic_ld_vr_ihl_destroy((z80ic_ld_vr_ihl_t *) instr->ext);
+		break;
+	case z80i_ld_vr_iixd:
+		z80ic_ld_vr_iixd_destroy((z80ic_ld_vr_iixd_t *) instr->ext);
 		break;
 	case z80i_ld_ihl_vr:
 		z80ic_ld_ihl_vr_destroy((z80ic_ld_ihl_vr_t *) instr->ext);

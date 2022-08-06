@@ -37,5 +37,7 @@ extern int z80_argloc_find(z80_argloc_t *, const char *, z80_argloc_entry_t **);
 extern void z80_argloc_entry_destroy(z80_argloc_entry_t *);
 extern z80_argloc_entry_t *z80_argloc_first(z80_argloc_t *);
 extern z80_argloc_entry_t *z80_argloc_next(z80_argloc_entry_t *);
+extern void z80_argloc_r16_part_to_r(z80ic_r16_t, z80_argloc_rp_t,
+    z80ic_reg_t *);
 
 #endif

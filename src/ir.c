@@ -906,10 +906,12 @@ ir_proc_arg_t *ir_proc_prev_arg(ir_proc_arg_t *cur)
 /** Create IR procedure argument.
  *
  * @param ident Argument identifier
+ * @param atype Argument type type (ownership transferred)
  * @param rarg Place to store pointer to new argument
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_proc_arg_create(const char *ident, ir_proc_arg_t **rarg)
+int ir_proc_arg_create(const char *ident,  ir_texpr_t *atype,
+    ir_proc_arg_t **rarg)
 {
 	ir_proc_arg_t *arg;
 
@@ -923,6 +925,7 @@ int ir_proc_arg_create(const char *ident, ir_proc_arg_t **rarg)
 		return ENOMEM;
 	}
 
+	arg->atype = atype;
 	*rarg = arg;
 	return EOK;
 }
@@ -934,6 +937,7 @@ int ir_proc_arg_create(const char *ident, ir_proc_arg_t **rarg)
 void ir_proc_arg_destroy(ir_proc_arg_t *arg)
 {
 	free(arg->ident);
+	ir_texpr_destroy(arg->atype);
 	free(arg);
 }
 
@@ -946,10 +950,15 @@ void ir_proc_arg_destroy(ir_proc_arg_t *arg)
 int ir_proc_arg_print(ir_proc_arg_t *arg, FILE *f)
 {
 	int rv;
+	int rc;
 
-	rv = fputs(arg->ident, f);
+	rv = fprintf(f, "%s : ", arg->ident);
 	if (rv < 0)
 		return EIO;
+
+	rc = ir_texpr_print(arg->atype, f);
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
