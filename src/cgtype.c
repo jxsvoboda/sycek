@@ -140,9 +140,243 @@ static void cgtype_basic_destroy(cgtype_basic_t *basic)
 	free(basic);
 }
 
+/** Create function type.
+ *
+ * @param rtype Return type
+ * @param rfunc Place to store pointer to new function type
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgtype_func_create(cgtype_t *rtype, cgtype_func_t **rfunc)
+{
+	cgtype_func_t *func;
+
+	func = calloc(1, sizeof(cgtype_func_t));
+	if (func == NULL)
+		return ENOMEM;
+
+	func->cgtype.ntype = cgn_func;
+	func->cgtype.ext = func;
+	func->rtype = rtype;
+	list_initialize(&func->args);
+
+	*rfunc = func;
+	return EOK;
+}
+
+/** Print function type.
+ *
+ * @param func Function type
+ * @param f Output stream
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int cgtype_func_print(cgtype_func_t *func, FILE *f)
+{
+	cgtype_func_arg_t *arg;
+	bool first;
+	int rv;
+	int rc;
+
+	rc = cgtype_print(func->rtype, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputc('(', f);
+	if (rv < 0)
+		return EIO;
+
+	/* Print arguments */
+
+	first = true;
+	arg = cgtype_func_first(func);
+
+	while (arg != NULL) {
+		if (!first) {
+			rv = fputs(", ", f);
+			if (rv < 0)
+				return EIO;
+		}
+
+		rc = cgtype_print(arg->atype, f);
+		if (rc != EOK)
+			return rc;
+
+		first = false;
+		arg = cgtype_func_next(arg);
+	}
+
+	rv = fputc(')', f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Clone function type.
+ *
+ * @param orig Original function type
+ * @param rcopy Place to store pointer to copy
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgtype_func_clone(cgtype_func_t *orig, cgtype_t **rcopy)
+{
+	cgtype_func_t *copy = NULL;
+	cgtype_t *rtcopy = NULL;
+	cgtype_t *catype = NULL;
+	cgtype_func_arg_t *arg;
+	int rc;
+
+	rc = cgtype_clone(orig->rtype, &rtcopy);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_func_create(rtcopy, &copy);
+	if (rc != EOK)
+		goto error;
+
+	rtcopy = NULL; /* ownership transferred */
+
+	/* Copy arguments */
+
+	arg = cgtype_func_first(orig);
+	while (arg != NULL) {
+		rc = cgtype_clone(arg->atype, &catype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgtype_func_append_arg(copy, catype);
+		if (rc != EOK)
+			goto error;
+
+		catype = NULL; /* ownership transferred */
+
+		arg = cgtype_func_next(arg);
+	}
+
+	*rcopy = &copy->cgtype;
+	return EOK;
+
+error:
+	if (rtcopy != NULL)
+		cgtype_destroy(rtcopy);
+	if (copy != NULL)
+		cgtype_destroy(&copy->cgtype);
+	if (catype != NULL)
+		cgtype_destroy(catype);
+	return rc;
+}
+
+/** Destroy function type.
+ *
+ * @param func Function type
+ */
+static void cgtype_func_destroy(cgtype_func_t *func)
+{
+	cgtype_func_arg_t *arg;
+
+	cgtype_destroy(func->rtype);
+
+	/* Destroy arguments */
+	arg = cgtype_func_first(func);
+	while (arg != NULL) {
+		cgtype_destroy(arg->atype);
+		list_remove(&arg->largs);
+		free(arg);
+
+		arg = cgtype_func_first(func);
+	}
+
+	free(func);
+}
+
+/** Append argument to function type.
+ *
+ * @param func Function type
+ * @param atype Argument type (ownership transferred)
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgtype_func_append_arg(cgtype_func_t *func, cgtype_t *atype)
+{
+	cgtype_func_arg_t *arg;
+
+	arg = calloc(1, sizeof(cgtype_func_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->func = func;
+	list_append(&arg->largs, &func->args);
+	arg->atype = atype;
+	return EOK;
+}
+
+/** Get first argument of function type.
+ *
+ * @param func Function type
+ * @return First argument or @c NULL if none
+ */
+cgtype_func_arg_t *cgtype_func_first(cgtype_func_t *func)
+{
+	link_t *link;
+
+	link = list_first(&func->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgtype_func_arg_t, largs);
+}
+
+/** Get next argument of function type.
+ *
+ * @param cur Current argument
+ * @return Next argument or @c NULL if none
+ */
+cgtype_func_arg_t *cgtype_func_next(cgtype_func_arg_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->largs, &cur->func->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgtype_func_arg_t, largs);
+}
+
+/** Get last argument of function type.
+ *
+ * @param func Function type
+ * @return last argument or @c NULL if none
+ */
+cgtype_func_arg_t *cgtype_func_last(cgtype_func_t *func)
+{
+	link_t *link;
+
+	link = list_last(&func->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgtype_func_arg_t, largs);
+}
+
+/** Get previous argument of function type.
+ *
+ * @param cur Current argument
+ * @return Previous argument or @c NULL if none
+ */
+cgtype_func_arg_t *cgtype_func_prev(cgtype_func_arg_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->largs, &cur->func->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgtype_func_arg_t, largs);
+}
+
 /** Create pointer type.
  *
- * @param tgtype Pointer target type
+ * @param tgtype Pointer target type (ownership transferred)
  * @param rpointer Place to store pointer to new pointer type
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -234,6 +468,8 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 	switch (orig->ntype) {
 	case cgn_basic:
 		return cgtype_basic_clone((cgtype_basic_t *) orig->ext, rcopy);
+	case cgn_func:
+		return cgtype_func_clone((cgtype_func_t *) orig->ext, rcopy);
 	case cgn_pointer:
 		return cgtype_pointer_clone((cgtype_pointer_t *) orig->ext,
 		    rcopy);
@@ -256,6 +492,9 @@ void cgtype_destroy(cgtype_t *cgtype)
 	case cgn_basic:
 		cgtype_basic_destroy((cgtype_basic_t *) cgtype->ext);
 		break;
+	case cgn_func:
+		cgtype_func_destroy((cgtype_func_t *) cgtype->ext);
+		break;
 	case cgn_pointer:
 		cgtype_pointer_destroy((cgtype_pointer_t *) cgtype->ext);
 		break;
@@ -274,6 +513,8 @@ int cgtype_print(cgtype_t *cgtype, FILE *f)
 	switch (cgtype->ntype) {
 	case cgn_basic:
 		return cgtype_basic_print((cgtype_basic_t *) cgtype->ext, f);
+	case cgn_func:
+		return cgtype_func_print((cgtype_func_t *) cgtype->ext, f);
 	case cgn_pointer:
 		return cgtype_pointer_print((cgtype_pointer_t *) cgtype->ext,
 		    f);

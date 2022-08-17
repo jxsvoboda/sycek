@@ -31,8 +31,13 @@
 #include <types/cgtype.h>
 
 extern int cgtype_basic_create(cgtype_elmtype_t, cgtype_basic_t **);
+extern int cgtype_func_create(cgtype_t *, cgtype_func_t **);
+extern int cgtype_func_append_arg(cgtype_func_t *, cgtype_t *);
+extern cgtype_func_arg_t *cgtype_func_first(cgtype_func_t *);
+extern cgtype_func_arg_t *cgtype_func_next(cgtype_func_arg_t *);
+extern cgtype_func_arg_t *cgtype_func_last(cgtype_func_t *);
+extern cgtype_func_arg_t *cgtype_func_prev(cgtype_func_arg_t *);
 extern int cgtype_pointer_create(cgtype_t *, cgtype_pointer_t **);
-extern int cgtype_logic_create(cgtype_basic_t **);
 extern int cgtype_clone(cgtype_t *, cgtype_t **);
 extern void cgtype_destroy(cgtype_t *);
 extern int cgtype_print(cgtype_t *, FILE *f);

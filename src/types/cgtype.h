@@ -27,10 +27,14 @@
 #ifndef TYPES_CGTYPE_H
 #define TYPES_CGTYPE_H
 
+#include <adt/list.h>
+
 /** Code generator type node type */
 typedef enum {
 	/** Basic type */
 	cgn_basic,
+	/** Function type */
+	cgn_func,
 	/** Pointer type */
 	cgn_pointer
 } cgtype_ntype_t;
@@ -68,8 +72,27 @@ typedef struct {
 	cgtype_t cgtype;
 	/** Elementary type */
 	cgtype_elmtype_t elmtype;
-	/* TODO signed / unsigned */
 } cgtype_basic_t;
+
+/** Function type */
+typedef struct {
+	/** Base type object */
+	cgtype_t cgtype;
+	/** Return type */
+	cgtype_t *rtype;
+	/** Arguments (of cgtype_func_arg_t) */
+	list_t args;
+} cgtype_func_t;
+
+/** Function argument type */
+typedef struct {
+	/** Containing function type */
+	cgtype_func_t *func;
+	/** Link to @c func->args */
+	link_t largs;
+	/** Argument type */
+	cgtype_t *atype;
+} cgtype_func_arg_t;
 
 /** Pointer type */
 typedef struct {

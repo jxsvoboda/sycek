@@ -59,6 +59,64 @@ error:
 	return rc;
 }
 
+/** Test code generator function type.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int test_cgtype_func(void)
+{
+	int rc;
+	cgtype_basic_t *basic = NULL;
+	cgtype_func_t *func = NULL;
+	cgtype_t *copy = NULL;
+
+	rc = cgtype_basic_create(cgelm_void, &basic);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_func_create(&basic->cgtype, &func);
+	if (rc != EOK)
+		goto error;
+
+	basic = NULL;
+
+	rc = cgtype_basic_create(cgelm_int, &basic);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_func_append_arg(func, &basic->cgtype);
+	if (rc != EOK)
+		goto error;
+
+	basic = NULL;
+
+	rc = cgtype_basic_create(cgelm_int, &basic);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_func_append_arg(func, &basic->cgtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_print(&func->cgtype, stdout);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_clone(&func->cgtype, &copy);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(copy);
+	cgtype_destroy(&func->cgtype);
+	return EOK;
+error:
+	if (basic != NULL)
+		cgtype_destroy(&basic->cgtype);
+	if (func != NULL)
+		cgtype_destroy(&func->cgtype);
+	return rc;
+}
+
 /** Test code generator pointer type.
  *
  * @return EOK on success or non-zero error code
@@ -108,6 +166,10 @@ int test_cgtype(void)
 	int rc;
 
 	rc = test_cgtype_basic();
+	if (rc != EOK)
+		return rc;
+
+	rc = test_cgtype_func();
 	if (rc != EOK)
 		return rc;
 
