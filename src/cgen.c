@@ -7608,12 +7608,12 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 /** Generate code for global variable definition.
  *
  * @param cgen Code generator
- * @param dspecs Declaration specifiers
+ * @param btype Base type (based on declaration specifiers)
  * @param entry Init-declarator list entry that declares a variable
  * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
+static int cgen_vardef(cgen_t *cgen, cgtype_t *btype,
     ast_idlist_entry_t *entry, ir_module_t *irmod)
 {
 	ir_var_t *var = NULL;
@@ -7635,12 +7635,8 @@ static int cgen_vardef(cgen_t *cgen, ast_dspecs_t *dspecs,
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
 
-	/* Process declaration specifiers */
-	/*
-	 * XXX Don't do this again for each declarator! It will produce
-	 * duplicate warnings, if there are any
-	 */
-	rc = cgen_dspecs(cgen, dspecs, &stype);
+	/* Variable type (XXX process declarators) */
+	rc = cgtype_clone(btype, &stype);
 	if (rc != EOK)
 		goto error;
 
@@ -7745,6 +7741,7 @@ error:
 static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 {
 	ast_idlist_entry_t *entry;
+	cgtype_t *stype = NULL;
 	int rc;
 
 	if (gdecln->body != NULL) {
@@ -7752,12 +7749,17 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {
+		/* Process declaration specifiers */
+		rc = cgen_dspecs(cgen, gdecln->dspecs, &stype);
+		if (rc != EOK)
+			goto error;
+
 		/* Possibly variable declarations */
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
 			if (ast_decl_is_vardecln(entry->decl)) {
 				/* Variable declaration */
-				rc = cgen_vardef(cgen, gdecln->dspecs, entry,
+				rc = cgen_vardef(cgen, stype, entry,
 				    irmod);
 				if (rc != EOK)
 					goto error;
@@ -7770,10 +7772,14 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 			entry = ast_idlist_next(entry);
 		}
+
+		cgtype_destroy(stype);
 	}
 
 	return EOK;
 error:
+	if (stype != NULL)
+		cgtype_destroy(stype);
 	return rc;
 }
 
