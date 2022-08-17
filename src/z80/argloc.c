@@ -139,6 +139,13 @@ void z80_argloc_destroy(z80_argloc_t *argloc)
 static void z80_argloc_r_to_r16_part(z80ic_reg_t r, z80ic_r16_t *r16,
     z80_argloc_rp_t *part)
 {
+	/*
+	 * Just to convince compiler that we always initialize the output
+	 * arguments.
+	 */
+	*r16 = z80ic_r16_af;
+	*part = z80_argloc_l;
+
 	switch (r) {
 	case z80ic_reg_a:
 		*r16 = z80ic_r16_af;
