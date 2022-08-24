@@ -42,6 +42,7 @@
 #include <symbols.h>
 
 static void cgen_proc_destroy(cgen_proc_t *);
+static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *, cgtype_t **);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -1217,6 +1218,9 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 			case abts_int:
 				elmtype = cgelm_int;
 				break;
+			case abts_void:
+				elmtype = cgelm_void;
+				break;
 			default:
 				cgen_warn_tspec_not_impl(cgen, tspec);
 				elmtype = cgelm_int;
@@ -1303,6 +1307,178 @@ error:
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
 	return rc;
+}
+
+/** Generate code for identifier declarator.
+ *
+ * Base type (@a stype) determined by the declaration specifiers is
+ * further modified by the declarator and returned as @a *rdtype.
+ *
+ * @param cgen Code generator
+ * @param stype Type derived from declaration specifiers
+ * @param dident Identifier declarator
+ * @param rdtype Place to store pointer to the declared type
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
+    cgtype_t **rdtype)
+{
+	cgtype_t *dtype;
+	int rc;
+
+	(void)cgen;
+	(void)dident;
+
+	rc = cgtype_clone(stype, &dtype);
+	if (rc != EOK)
+		return rc;
+
+	*rdtype = dtype;
+	return EOK;
+}
+
+/** Generate code for function declarator.
+ *
+ * Base type (@a stype) determined by the declaration specifiers is
+ * further modified by the declarator and returned as @a *rdtype.
+ *
+ * @param cgen Code generator
+ * @param btype Type derived from declaration specifiers
+ * @param dfun Function declarator
+ * @param rdtype Place to store pointer to the declared type
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
+    cgtype_t **rdtype)
+{
+	cgtype_func_t *func = NULL;
+	ast_dfun_arg_t *arg;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	cgtype_t *btype_copy = NULL;
+	cgtype_t *stype = NULL;
+	cgtype_t *atype = NULL;
+	cgtype_basic_t *abasic;
+	int rc;
+
+	rc = cgtype_clone(btype, &btype_copy);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_func_create(btype_copy, &func);
+	if (rc != EOK)
+		goto error;
+
+	btype_copy = NULL; /* ownership transferred */
+
+	arg = ast_dfun_first(dfun);
+	while (arg != NULL) {
+		rc = cgen_dspecs(cgen, arg->dspecs, &stype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_decl(cgen, stype, arg->decl, &atype);
+		if (rc != EOK)
+			goto error;
+
+		/* Check for 'void' being the only parameter */
+		if (stype->ntype == cgn_basic) {
+			abasic = (cgtype_basic_t *)atype->ext;
+
+			if (abasic->elmtype == cgelm_void &&
+			    arg->decl->ntype == ant_dnoident) {
+				if ((ast_dfun_next(arg) != NULL || arg != ast_dfun_first(dfun))) {
+					atok = ast_tree_first_tok(&arg->dspecs->node);
+					tok = (comp_tok_t *) atok->data;
+					lexer_dprint_tok(&tok->tok, stderr);
+					fprintf(stderr, ": 'void' must be the only parameter.\n");
+					cgen->error = true; // XXX
+					rc = EINVAL;
+					goto error;
+				}
+
+				cgtype_destroy(stype);
+				stype = NULL;
+				cgtype_destroy(atype);
+				atype = NULL;
+				break;
+			}
+		}
+
+		if (arg->aslist != NULL) {
+			atok = ast_tree_first_tok(&arg->aslist->node);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		rc = cgtype_func_append_arg(func, atype);
+		if (rc != EOK)
+			goto error;
+
+		atype = NULL; /* ownership transferred */
+
+		cgtype_destroy(stype);
+		stype = NULL;
+
+		arg = ast_dfun_next(arg);
+	}
+
+	*rdtype = &func->cgtype;
+	return EOK;
+error:
+	if (stype != NULL)
+		cgtype_destroy(stype);
+	if (atype != NULL)
+		cgtype_destroy(atype);
+	if (func != NULL)
+		cgtype_destroy(&func->cgtype);
+	if (btype_copy != NULL)
+		cgtype_destroy(btype_copy);
+	return rc;
+}
+
+/** Generate code for declarator.
+ *
+ * Base type (@a stype) determined by the declaration specifiers is
+ * further modified by the declarator and returned as @a *rdtype.
+ *
+ * @param cgen Code generator
+ * @param stype Type derived from declaration specifiers
+ * @param decl Declarator
+ * @param rdtype Place to store pointer to the declared type
+ * @return EOK on success or an error code
+ */
+static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
+    cgtype_t **rdtype)
+{
+	cgtype_t *dtype;
+	int rc;
+
+	(void)cgen;
+	switch (decl->ntype) {
+	case ant_dident:
+	case ant_dnoident:
+		rc = cgen_decl_ident(cgen, stype, (ast_dident_t *) decl->ext,
+		    &dtype);
+		break;
+	case ant_dfun:
+		rc = cgen_decl_fun(cgen, stype, (ast_dfun_t *) decl->ext,
+		    &dtype);
+		break;
+	default:
+		printf("[cgen_decl] Unimplemented declarator type.\n");
+		return ENOTSUP;
+	}
+
+	if (rc != EOK)
+		return rc;
+
+	*rdtype = dtype;
+	return EOK;
 }
 
 /** Generate code for integer literal expression.
@@ -7313,10 +7489,12 @@ error:
  *
  * @param cgen Code generator
  * @param gdecln Global declaration that is a function definition
+ * @param btype Type derived from declaration specifiers
  * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
+static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
+    ir_module_t *irmod)
 {
 	ir_proc_t *proc = NULL;
 	ir_lblock_t *lblock = NULL;
@@ -7336,6 +7514,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	scope_member_t *member;
 	symbol_t *symbol;
 	cgtype_t *stype = NULL;
+	cgtype_t *dtype = NULL;
+	cgtype_func_t *dtfunc;
+	cgtype_func_arg_t *dtarg;
 	unsigned bits;
 	int rc;
 	int rv;
@@ -7366,8 +7547,21 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	/* Mark the symbol as defined */
 	symbol->flags |= sf_defined;
 
+	/* Identifier-declarator list entry */
+	idle = ast_idlist_first(gdecln->idlist);
+	assert(idle != NULL);
+	assert(ast_idlist_next(idle) == NULL);
+
+	/* Process declarator */
+	rc = cgen_decl(cgen, btype, idle->decl, &dtype);
+	if (rc != EOK)
+		goto error;
+
+	assert(dtype->ntype == cgn_func);
+	dtfunc = (cgtype_func_t *)dtype->ext;
+
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok, NULL /* XXX */);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, dtype);
 	if (rc == ENOMEM)
 		goto error;
 
@@ -7390,11 +7584,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	/* lblock is now owned by proc */
 	lblock = NULL;
 
-	/* Identifier-declarator list entry */
-	idle = ast_idlist_first(gdecln->idlist);
-	assert(idle != NULL);
-	assert(ast_idlist_next(idle) == NULL);
-
 	/* Get the function declarator */
 	if (idle->decl->ntype != ant_dfun) {
 		atok = ast_tree_first_tok(idle->decl);
@@ -7408,30 +7597,24 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	dfun = (ast_dfun_t *)idle->decl->ext;
 
-	/* Check for function without paremeters */
-
 	/* Arguments */
 	arg = ast_dfun_first(dfun);
-	while (arg != NULL) {
-		if (arg->decl->ntype == ant_dnoident) {
-			/* Should be void */
-			if (ast_dfun_next(arg) != NULL || arg != ast_dfun_first(dfun)) {
+	dtarg = cgtype_func_first(dtfunc);
+	while (dtarg != NULL) {
+		assert(dtarg != NULL);
+		stype = dtarg->atype;
+
+		if (arg->decl->ntype != ant_dident) {
+			atok = ast_tree_first_tok(arg->decl);
+			if (atok == NULL)
 				atok = ast_tree_first_tok(&arg->dspecs->node);
-				tok = (comp_tok_t *) atok->data;
-				lexer_dprint_tok(&tok->tok, stderr);
-				fprintf(stderr, ": 'void' must be the only parameter.\n");
-				cgproc->cgen->error = true; // XXX
-				rc = EINVAL;
-				goto error;
-			}
-
-			break;
-		}
-
-		/* Process declaration specifiers */
-		rc = cgen_dspecs(cgproc->cgen, arg->dspecs, &stype);
-		if (rc != EOK)
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Identifier expected.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
 			goto error;
+		}
 
 		dident = (ast_dident_t *) arg->decl->ext;
 		tok = (comp_tok_t *) dident->tident.data;
@@ -7501,11 +7684,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			}
 		}
 
-		cgtype_destroy(stype);
-		stype = NULL;
-
 		ir_proc_append_arg(proc, iarg);
 		arg = ast_dfun_next(arg);
+		dtarg = cgtype_func_next(dtarg);
 	}
 
 	if (gdecln->body != NULL) {
@@ -7521,6 +7702,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 	free(pident);
 	pident = NULL;
+
+	cgtype_destroy(dtype);
+	dtype = NULL;
 
 	ir_module_append(irmod, &proc->decln);
 	proc = NULL;
@@ -7550,17 +7734,21 @@ error:
 		free(arg_ident);
 	if (atype != NULL)
 		ir_texpr_destroy(atype);
+	if (dtype != NULL)
+		cgtype_destroy(dtype);
 	return rc;
 }
 
 /** Generate code for function declaration.
  *
  * @param cgen Code generator
+ * @param ftype Function type
  * @param gdecln Global declaration that is a function definition
  * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
+static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln,
+    ir_module_t *irmod)
 {
 	ast_tok_t *aident;
 	comp_tok_t *ident;
@@ -7587,8 +7775,7 @@ static int cgen_fundecl(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 			return rc;
 
 		/* Insert identifier into module scope */
-		rc = scope_insert_gsym(cgen->scope, &ident->tok,
-		    NULL /* XXX */);
+		rc = scope_insert_gsym(cgen->scope, &ident->tok, ftype);
 		if (rc == ENOMEM)
 			return rc;
 	} else {
@@ -7742,44 +7929,56 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 {
 	ast_idlist_entry_t *entry;
 	cgtype_t *stype = NULL;
+	cgtype_t *dtype = NULL;
 	int rc;
 
+	/* Process declaration specifiers */
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &stype);
+	if (rc != EOK)
+		goto error;
+
 	if (gdecln->body != NULL) {
-		rc = cgen_fundef(cgen, gdecln, irmod);
+		rc = cgen_fundef(cgen, gdecln, stype, irmod);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {
-		/* Process declaration specifiers */
-		rc = cgen_dspecs(cgen, gdecln->dspecs, &stype);
-		if (rc != EOK)
-			goto error;
-
 		/* Possibly variable declarations */
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
+			/* Process declarator */
+			rc = cgen_decl(cgen, stype, entry->decl, &dtype);
+			if (rc != EOK)
+				goto error;
+
 			if (ast_decl_is_vardecln(entry->decl)) {
 				/* Variable declaration */
-				rc = cgen_vardef(cgen, stype, entry,
+				rc = cgen_vardef(cgen, dtype, entry,
 				    irmod);
 				if (rc != EOK)
 					goto error;
 			} else {
 				/* Assuming it's a function declaration */
-				rc = cgen_fundecl(cgen, gdecln, irmod);
+				rc = cgen_fundecl(cgen, dtype, gdecln, irmod);
 				if (rc != EOK)
 					goto error;
 			}
 
+			cgtype_destroy(dtype);
+			dtype = NULL;
+
 			entry = ast_idlist_next(entry);
 		}
-
-		cgtype_destroy(stype);
 	}
+
+	cgtype_destroy(stype);
+	stype = NULL;
 
 	return EOK;
 error:
 	if (stype != NULL)
 		cgtype_destroy(stype);
+	if (dtype != NULL)
+		cgtype_destroy(dtype);
 	return rc;
 }
 
