@@ -1,5 +1,5 @@
 /*
- * Too many arguments to function.
+ * Too few arguments to function.
  */
 
 int x;
