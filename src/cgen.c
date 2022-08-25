@@ -4441,7 +4441,6 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ir_oper_list_t *args = NULL;
 	ir_oper_var_t *arg = NULL;
 	cgtype_basic_t *btype = NULL;
-	cgtype_basic_t *atype = NULL;
 	cgtype_func_t *ftype;
 	cgtype_func_arg_t *farg;
 	int rc;
@@ -4537,23 +4536,15 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		if (rc != EOK)
 			goto error;
 
-		/// XXX Determine real type of argument
-		rc = cgtype_basic_create(cgelm_int, &atype);
-		if (rc != EOK)
-			goto error;
-
 		/*
 		 * If the function has a prototype and the argument is not
 		 * variadic, convert it to its declared type.
 		 * XXX Otherwise it should be simply promoted.
 		 */
 		rc = cgen_type_convert(cgproc->cgen, earg->arg, &ares,
-		    &atype->cgtype, &cres);
+		    farg->atype, &cres);
 		if (rc != EOK)
 			goto error;
-
-		cgtype_destroy(&atype->cgtype);
-		atype = NULL;
 
 		rc = ir_oper_var_create(cres.varname, &arg);
 		if (rc != EOK)
@@ -4621,8 +4612,6 @@ error:
 	cgen_eres_fini(&cres);
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
-	if (atype != NULL)
-		cgtype_destroy(&atype->cgtype);
 	return rc;
 }
 
