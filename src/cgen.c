@@ -4442,6 +4442,8 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ir_oper_var_t *arg = NULL;
 	cgtype_basic_t *btype = NULL;
 	cgtype_basic_t *atype = NULL;
+	cgtype_func_t *ftype;
+	cgtype_func_arg_t *farg;
 	int rc;
 
 	cgen_eres_init(&ares);
@@ -4470,6 +4472,17 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		rc = EINVAL;
 		goto error;
 	}
+
+	if (member->cgtype->ntype != cgn_func) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Called object '%s' is not a function.\n",
+		    ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	ftype = (cgtype_func_t *)member->cgtype->ext;
 
 	/* Mark identifier as used */
 
@@ -4502,7 +4515,24 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	 * list.
 	 */
 	earg = ast_ecall_first(ecall);
+	farg = cgtype_func_first(ftype);
 	while (earg != NULL) {
+		/*
+		 * We have an argument, but function does not have
+		 * another parameter.
+		 */
+		if (farg == NULL) {
+			atok = ast_tree_first_tok(earg->arg);
+			tok = (comp_tok_t *) atok->data;
+
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Too many arguments to function '%s'.\n",
+			    ident->tok.text);
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
 		rc = cgen_expr_rvalue(cgproc, earg->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
@@ -4539,6 +4569,22 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		cgen_eres_init(&cres);
 
 		earg = ast_ecall_next(earg);
+		farg = cgtype_func_next(farg);
+	}
+
+	/*
+	 * Check if we provided all the declared parameters.
+	 */
+	if (farg != NULL) {
+		/* Still some left */
+		tok = (comp_tok_t *) ecall->trparen.data;
+
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Too few arguments to function '%s'.\n",
+		    ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
 	}
 
 	rc = cgen_create_new_lvar_oper(cgproc, &dest);

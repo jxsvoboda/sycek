@@ -1,0 +1,1 @@
+<test/syc/bad/callmanyarg.c:14:17-18:num:20>: Too many arguments to function 'foo'.
