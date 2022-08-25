@@ -6960,7 +6960,7 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		 * The value of the padding is undefined. Here we just
 		 * load the lower byte to an 8-bit virtual register.
 		 */
-		for (i = 0; i < entry->stack_sz; i++) {
+		for (; i < entry->stack_sz; i++) {
 			/* ld vr, (IX+d) */
 
 			rc = z80ic_ld_vr_iixd_create(&ldix8);
