@@ -31,7 +31,8 @@
 
 /** Z80 instruction selector */
 typedef struct {
-	int dummy;
+	/** IR module */
+	struct ir_module *irmodule;
 } z80_isel_t;
 
 /** Z80 instruction selector for procedure */

@@ -179,6 +179,32 @@ ir_decln_t *ir_module_last(ir_module_t *module)
 	return list_get_instance(link, ir_decln_t, ldeclns);
 }
 
+/** Find declaration by name.
+ *
+ * @param module IR module
+ * @param ident Identifier
+ * @param rdecln Place to store pointer to declaration
+ * @return EOK on success, ENOENT if not found
+ */
+int ir_module_find(ir_module_t *module, const char *ident, ir_decln_t **rdecln)
+{
+	ir_decln_t *decln;
+	const char *dident;
+
+	decln = ir_module_first(module);
+	while (decln != NULL) {
+		dident = ir_decln_ident(decln);
+		if (strcmp(dident, ident) == 0) {
+			*rdecln = decln;
+			return EOK;
+		}
+
+		decln = ir_module_next(decln);
+	}
+
+	return ENOENT;
+}
+
 /** Get previous declaration in IR module.
  *
  * @param cur Current declaration
@@ -289,6 +315,23 @@ int ir_decln_print(ir_decln_t *decln, FILE *f)
 		return EIO;
 
 	return EOK;
+}
+
+/** Get IR declaration identifier.
+ *
+ * @param decln IR declaration
+ * @return Identifier
+ */
+const char *ir_decln_ident(ir_decln_t *decln)
+{
+	switch (decln->dtype) {
+	case ird_var:
+		return ((ir_var_t *)decln->ext)->ident;
+	case ird_proc:
+		return ((ir_proc_t *)decln->ext)->ident;
+	}
+
+	return NULL;
 }
 
 /** Create IR variable.

@@ -1455,10 +1455,14 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	ir_oper_list_t *op2;
 	ir_oper_t *arg;
 	ir_oper_var_t *argvar;
+	ir_decln_t *pdecln;
+	ir_proc_t *proc;
+	ir_proc_arg_t *parg;
 	unsigned argvr;
 	char *varident = NULL;
 	unsigned destvr;
 	unsigned vroff;
+	unsigned bits;
 	z80ic_r16_t argreg;
 	unsigned i;
 	int rc;
@@ -1475,22 +1479,65 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
+	rc = ir_module_find(isproc->isel->irmodule, op1->varname, &pdecln);
+	if (rc != EOK) {
+		fprintf(stderr, "Call to undefined procedure '%s'.\n",
+		    op1->varname);
+		goto error;
+	}
+
+	if (pdecln->dtype != ird_proc) {
+		fprintf(stderr, "Calling object '%s' which is not a procedure.\n",
+		    op1->varname);
+		rc = EINVAL;
+		goto error;
+	}
+
+	proc = (ir_proc_t *)pdecln->ext;
+
 	rc = z80_argloc_create(&argloc);
 	if (rc != EOK)
 		goto error;
 
 	/* For arguments first to last */
 	arg = ir_oper_list_first(op2);
+	parg = ir_proc_first_arg(proc);
 	while (arg != NULL) {
+		if (parg == NULL) {
+			/* Too many arguments */
+			fprintf(stderr, "Too many arguments to procedure "
+			    "'%s'.\n", op1->varname);
+			rc = EINVAL;
+			goto error;
+		}
+
+		if (parg->atype->tetype != irt_int) {
+			fprintf(stderr, "Unsupported argument type (%d)\n",
+			    parg->atype->tetype);
+			goto error;
+		}
+
+		bits = parg->atype->t.tint.width;
+
 		assert(arg->optype == iro_var);
 		argvar = (ir_oper_var_t *) arg->ext;
 
 		/** Allocate argument location */
-		rc = z80_argloc_alloc(argloc, argvar->varname, 2, &entry);
+		rc = z80_argloc_alloc(argloc, argvar->varname,
+		    (bits + 7) / 8, &entry);
 		if (rc != EOK)
 			goto error;
 
 		arg = ir_oper_list_next(arg);
+		parg = ir_proc_next_arg(parg);
+	}
+
+	if (parg != NULL) {
+		/* Too few arguments */
+		fprintf(stderr, "Too few arguments to procedure "
+		    "'%s'.\n", op1->varname);
+		rc = EINVAL;
+		goto error;
 	}
 
 	/*
@@ -1499,6 +1546,10 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	 * (2) arguments passed by registers are loaded into those registers
 	 * just prior to the call instruction (thus not occupying the
 	 * registers longer than necessary).
+	 *
+	 * XXX We should explicitly process stack arguments first and
+	 * register arguments second, we might have a late register
+	 * entry in the form of an 8-bit argument.
 	 */
 	arg = ir_oper_list_last(op2);
 	while (arg != NULL) {
@@ -1512,16 +1563,52 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			return rc;
 
 		argvr = z80_isel_get_vregno(isproc, arg);
-		vroff = 0;
+
+		/*
+		 * First push to the stack. This requires us to clobber
+		 * registers. We go backwards (from the most significant
+		 * word to the least), so moving toward lower-number
+		 * virtual registers.
+		 */
+
+		for (i = 0; i < entry->stack_sz; i += 2) {
+			vroff = entry->reg_entries + entry->stack_sz / 2
+			    - 1 - i / 2;
+
+			/* push vrr */
+
+			rc = z80ic_push_vrr_create(&push);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			push->src = vrr;
+			vrr = NULL;
+
+			rc = z80ic_lblock_append(lblock, label, &push->instr);
+			if (rc != EOK)
+				goto error;
+
+		}
+
+		/*
+		 * Now fill registers (last to first). Again moving
+		 * from higher- to lower-numbered virtual registers.
+		 */
 
 		for (i = 0; i < entry->reg_entries; i++) {
+			vroff = entry->reg_entries - 1 - i;
+
 			/* ld r16, vrr */
 
 			rc = z80ic_ld_r16_vrr_create(&ldarg);
 			if (rc != EOK)
 				goto error;
 
-			argreg = entry->reg[i].reg;
+			argreg = entry->reg[entry->reg_entries - 1 - i].reg;
 
 			rc = z80ic_oper_r16_create(argreg, &ldadest);
 			if (rc != EOK)
@@ -1541,28 +1628,6 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 				goto error;
 
 			ldarg = NULL;
-			++vroff;
-		}
-
-		for (i = 0; i < entry->stack_sz; i += 2) {
-			/* push vrr */
-
-			rc = z80ic_push_vrr_create(&push);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
-			if (rc != EOK)
-				goto error;
-
-			push->src = vrr;
-			vrr = NULL;
-
-			rc = z80ic_lblock_append(lblock, label, &push->instr);
-			if (rc != EOK)
-				goto error;
-
-			++vroff;
 		}
 
 		arg = ir_oper_list_prev(arg);
@@ -6852,7 +6917,7 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 
 	while (arg != NULL) {
 		if (arg->atype->tetype != irt_int) {
-			printf("Unsupported argument type (%d)\n",
+			fprintf(stderr, "Unsupported argument type (%d)\n",
 			    arg->atype->tetype);
 			goto error;
 		}
@@ -7250,6 +7315,8 @@ int z80_isel_module(z80_isel_t *isel, ir_module_t *irmod,
 	if (rc != EOK)
 		return rc;
 
+	isel->irmodule = irmod;
+
 	decln = ir_module_first(irmod);
 	while (decln != NULL) {
 		rc = z80_isel_decln(isel, decln, icmod);
@@ -7259,6 +7326,7 @@ int z80_isel_module(z80_isel_t *isel, ir_module_t *irmod,
 		decln = ir_module_next(decln);
 	}
 
+	isel->irmodule = NULL;
 	*ricmod = icmod;
 	return EOK;
 error:
