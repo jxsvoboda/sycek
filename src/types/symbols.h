@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -65,6 +65,8 @@ typedef struct {
 	symbol_type_t stype;
 	/** Symbol flags */
 	symbol_flags_t flags;
+	/** Code generator type */
+	struct cgtype *cgtype;
 } symbol_t;
 
 #endif

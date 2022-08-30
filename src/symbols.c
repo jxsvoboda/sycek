@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2022 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
  * Symbols correspond to identifiers in the global scope.
  */
 
+#include <cgtype.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,6 +62,7 @@ void symbols_destroy(symbols_t *symbols)
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
 		list_remove(&symbol->lsyms);
+		cgtype_destroy(symbol->cgtype);
 		free(symbol->ident);
 		free(symbol);
 		symbol = symbols_first(symbols);

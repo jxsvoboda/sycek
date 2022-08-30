@@ -7520,6 +7520,87 @@ error:
 	return rc;
 }
 
+/** Generate code for function arguments definition.
+ *
+ * Add arguments to IR procedure based on CG function type.
+ *
+ * @param cgen Code generator
+ * @param ftype Function type
+ * @param irproc IR procedure to which the arguments should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
+{
+	ir_proc_arg_t *iarg;
+	ir_texpr_t *atype = NULL;
+	char *arg_ident = NULL;
+	cgtype_func_t *dtfunc;
+	cgtype_func_arg_t *dtarg;
+	cgtype_t *stype;
+	unsigned bits;
+	unsigned next_var;
+	int rc;
+	int rv;
+
+	assert(ftype->ntype == cgn_func);
+	dtfunc = (cgtype_func_t *)ftype->ext;
+
+	next_var = 0;
+
+	/* Arguments */
+	dtarg = cgtype_func_first(dtfunc);
+	while (dtarg != NULL) {
+		assert(dtarg != NULL);
+		stype = dtarg->atype;
+
+		/* Check the type */
+		if (stype->ntype != cgn_basic) {
+			fprintf(stderr, "Unimplemented argument type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		bits = cgen_basic_type_bits(cgen,
+		    (cgtype_basic_t *)stype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented argument type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		rv = asprintf(&arg_ident, "%%%d", next_var++);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		rc = ir_texpr_int_create(bits, &atype);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_proc_arg_create(arg_ident, atype, &iarg);
+		if (rc != EOK)
+			goto error;
+
+		free(arg_ident);
+		arg_ident = NULL;
+		atype = NULL; /* ownership transferred */
+
+		ir_proc_append_arg(proc, iarg);
+		dtarg = cgtype_func_next(dtarg);
+	}
+
+	return EOK;
+error:
+	if (arg_ident != NULL)
+		free(arg_ident);
+	if (atype != NULL)
+		ir_texpr_destroy(atype);
+	return rc;
+}
+
 /** Generate code for function definition.
  *
  * @param cgen Code generator
@@ -7539,7 +7620,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	ast_idlist_entry_t *idle;
 	ast_dfun_t *dfun;
 	ast_dfun_arg_t *arg;
-	ir_proc_arg_t *iarg;
 	ir_texpr_t *atype = NULL;
 	char *pident = NULL;
 	char *arg_ident = NULL;
@@ -7552,7 +7632,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	cgtype_t *dtype = NULL;
 	cgtype_func_t *dtfunc;
 	cgtype_func_arg_t *dtarg;
-	unsigned bits;
 	int rc;
 	int rv;
 
@@ -7592,6 +7671,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	if (rc != EOK)
 		goto error;
 
+	/* Copy type to symbol */
+	rc = cgtype_clone(dtype, &symbol->cgtype);
+	if (rc != EOK)
+		goto error;
+
 	assert(dtype->ntype == cgn_func);
 	dtfunc = (cgtype_func_t *)dtype->ext;
 
@@ -7625,7 +7709,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Function declarator required.\n");
-		cgproc->cgen->error = true; // TODO
+		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -7636,7 +7720,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	arg = ast_dfun_first(dfun);
 	dtarg = cgtype_func_first(dtfunc);
 	while (dtarg != NULL) {
-		assert(dtarg != NULL);
 		stype = dtarg->atype;
 
 		if (arg->decl->ntype != ant_dident) {
@@ -7646,7 +7729,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 			tok = (comp_tok_t *) atok->data;
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Identifier expected.\n");
-			cgproc->cgen->error = true; // TODO
+			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
 		}
@@ -7657,7 +7740,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 		if (arg->aslist != NULL) {
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Warning: Atribute specifier not implemented.\n");
-			++cgproc->cgen->warnings;
+			++cgen->warnings;
 		}
 
 		/* Check for shadowing a global-scope identifier */
@@ -7670,44 +7753,15 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 			++cgen->warnings;
 		}
 
-		/* Check the type */
-		if (stype->ntype != cgn_basic) {
-			fprintf(stderr, "Unimplemented argument type.\n");
-			cgproc->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		bits = cgen_basic_type_bits(cgproc->cgen,
-		    (cgtype_basic_t *)stype->ext);
-		if (bits == 0) {
-			fprintf(stderr, "Unimplemented argument type.\n");
-			cgproc->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
 		rv = asprintf(&arg_ident, "%%%d", cgproc->next_var++);
 		if (rv < 0) {
 			rc = ENOMEM;
 			goto error;
 		}
 
-		rc = ir_texpr_int_create(bits, &atype);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_proc_arg_create(arg_ident, atype, &iarg);
-		if (rc != EOK)
-			goto error;
-
-		free(arg_ident);
-		arg_ident = NULL;
-		atype = NULL; /* ownership transferred */
-
 		/* Insert identifier into argument scope */
 		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
-		    stype, iarg->ident);
+		    stype, arg_ident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -7719,10 +7773,17 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 			}
 		}
 
-		ir_proc_append_arg(proc, iarg);
+		free(arg_ident);
+		arg_ident = NULL;
+
 		arg = ast_dfun_next(arg);
 		dtarg = cgtype_func_next(dtarg);
 	}
+
+	/* Generate IR procedure arguments */
+	rc = cgen_fun_args(cgproc->cgen, dtype, proc);
+	if (rc != EOK)
+		goto error;
 
 	if (gdecln->body != NULL) {
 		rc = cgen_block(cgproc, gdecln->body, proc->lblock);
@@ -7806,6 +7867,13 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln,
 	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
 	if (symbol == NULL) {
 		rc = symbols_insert(cgen->symbols, st_fun, ident->tok.text);
+		if (rc != EOK)
+			return rc;
+
+		symbol = symbols_lookup(cgen->symbols, ident->tok.text);
+		assert(symbol != NULL);
+
+		rc = cgtype_clone(ftype, &symbol->cgtype);
 		if (rc != EOK)
 			return rc;
 
@@ -8088,7 +8156,17 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
 			free(pident);
 			pident = NULL;
 
+			fprintf(stderr, "cgen_module_symdecls: ident='%s' type:",
+			    symbol->ident);
+			cgtype_print(symbol->cgtype, stderr);
+			fprintf(stderr, "\n");
+
+			rc = cgen_fun_args(cgen, symbol->cgtype, proc);
+			if (rc != EOK)
+				goto error;
+
 			ir_module_append(irmod, &proc->decln);
+			proc = NULL;
 		}
 
 		symbol = symbols_next(symbol);
@@ -8098,6 +8176,8 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
 error:
 	if (pident != NULL)
 		free(pident);
+	if (proc != NULL)
+		ir_proc_destroy(proc);
 	return rc;
 }
 

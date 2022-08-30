@@ -1572,8 +1572,8 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		 */
 
 		for (i = 0; i < entry->stack_sz; i += 2) {
-			vroff = entry->reg_entries + entry->stack_sz / 2
-			    - 1 - i / 2;
+			vroff = entry->reg_entries + entry->stack_sz / 2 -
+			    1 - i / 2;
 
 			/* push vrr */
 
