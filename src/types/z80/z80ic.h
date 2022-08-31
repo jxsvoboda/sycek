@@ -531,6 +531,8 @@ typedef enum {
 	z80i_ld_inn_vrr,
 	/** Load SP from virt. register pair */
 	z80i_ld_sp_vrr,
+	/** Push virt. register */
+	z80i_push_vr,
 	/** Push virt. register pair */
 	z80i_push_vrr,
 	/** Pop virt. register pair */
@@ -1402,6 +1404,14 @@ typedef struct {
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_spnn_t;
+
+/** Z80 IC push virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_push_vr_t;
 
 /** Z80 IC push virtual register pair */
 typedef struct {

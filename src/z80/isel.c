@@ -1440,17 +1440,22 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 {
 	z80ic_oper_r16_t *ldsrc = NULL;
 	z80ic_oper_vrr_t *lddest = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_vr_t *vr = NULL;
 	z80ic_call_nn_t *call = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	z80ic_ld_vrr_r16_t *ld = NULL;
 	z80ic_oper_vrr_t *vrr = NULL;
 	z80ic_oper_r16_t *ldadest = NULL;
 	z80ic_ld_r16_vrr_t *ldarg = NULL;
+	z80ic_ld_r_vr_t *ldarg8 = NULL;
 	z80ic_push_vrr_t *push = NULL;
+	z80ic_push_vr_t *push8 = NULL;
 	z80ic_inc_ss_t *inc = NULL;
 	z80ic_oper_ss_t *ainc = NULL;
 	z80_argloc_t *argloc = NULL;
 	z80_argloc_entry_t *entry;
+	z80ic_reg_t r;
 	ir_oper_var_t *op1;
 	ir_oper_list_t *op2;
 	ir_oper_t *arg;
@@ -1571,10 +1576,10 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		 * virtual registers.
 		 */
 
-		for (i = 0; i < entry->stack_sz; i += 2) {
-			vroff = entry->reg_entries + entry->stack_sz / 2 -
-			    1 - i / 2;
+		vroff = entry->reg_entries + (entry->stack_sz + 1) / 2 - 1;
 
+		/* Push words */
+		for (i = 0; i + 1 < entry->stack_sz; i += 2) {
 			/* push vrr */
 
 			rc = z80ic_push_vrr_create(&push);
@@ -1592,6 +1597,36 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			if (rc != EOK)
 				goto error;
 
+			push = NULL;
+			--vroff;
+		}
+
+		/*
+		 * Push bytes. We pad bytes to 16-bit stack entries.
+		 * The lower part contains the data, the contents of
+		 * the upper part is undefined.
+		 */
+		for (; i < entry->stack_sz; i++) {
+			/* push vr */
+
+			rc = z80ic_push_vr_create(&push8);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(argvr + vroff, z80ic_vrp_r8,
+			    &vr);
+			if (rc != EOK)
+				goto error;
+
+			push8->src = vr;
+			vr = NULL;
+
+			rc = z80ic_lblock_append(lblock, label, &push8->instr);
+			if (rc != EOK)
+				goto error;
+
+			push8 = NULL;
+			--vroff;
 		}
 
 		/*
@@ -1600,34 +1635,71 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		 */
 
 		for (i = 0; i < entry->reg_entries; i++) {
-			vroff = entry->reg_entries - 1 - i;
+			if (entry->reg[entry->reg_entries - 1 - i].part ==
+			    z80_argloc_hl) {
+				/* 16-bit register */
 
-			/* ld r16, vrr */
+				/* ld r16, vrr */
 
-			rc = z80ic_ld_r16_vrr_create(&ldarg);
-			if (rc != EOK)
-				goto error;
+				rc = z80ic_ld_r16_vrr_create(&ldarg);
+				if (rc != EOK)
+					goto error;
 
-			argreg = entry->reg[entry->reg_entries - 1 - i].reg;
+				argreg = entry->reg[entry->reg_entries - 1 - i].reg;
 
-			rc = z80ic_oper_r16_create(argreg, &ldadest);
-			if (rc != EOK)
-				goto error;
+				rc = z80ic_oper_r16_create(argreg, &ldadest);
+				if (rc != EOK)
+					goto error;
 
-			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
-			if (rc != EOK)
-				goto error;
+				rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
+				if (rc != EOK)
+					goto error;
 
-			ldarg->dest = ldadest;
-			ldarg->src = vrr;
-			ldadest = NULL;
-			vrr = NULL;
+				ldarg->dest = ldadest;
+				ldarg->src = vrr;
+				ldadest = NULL;
+				vrr = NULL;
 
-			rc = z80ic_lblock_append(lblock, label, &ldarg->instr);
-			if (rc != EOK)
-				goto error;
+				rc = z80ic_lblock_append(lblock, label, &ldarg->instr);
+				if (rc != EOK)
+					goto error;
 
-			ldarg = NULL;
+				ldarg = NULL;
+			} else {
+				/* 8-bit register */
+
+				/* ld r16, vrr */
+
+				rc = z80ic_ld_r_vr_create(&ldarg8);
+				if (rc != EOK)
+					goto error;
+
+				argreg = entry->reg[entry->reg_entries - 1 - i].reg;
+				z80_argloc_r16_part_to_r(argreg,
+				    entry->reg[entry->reg_entries - 1 - i].part, &r);
+
+				rc = z80ic_oper_reg_create(r, &reg);
+				if (rc != EOK)
+					goto error;
+
+				rc = z80ic_oper_vr_create(argvr + vroff,
+				    z80ic_vrp_r8, &vr);
+				if (rc != EOK)
+					goto error;
+
+				ldarg8->dest = reg;
+				ldarg8->src = vr;
+				reg = NULL;
+				vr = NULL;
+
+				rc = z80ic_lblock_append(lblock, label, &ldarg8->instr);
+				if (rc != EOK)
+					goto error;
+
+				ldarg8 = NULL;
+			}
+
+			--vroff;
 		}
 
 		arg = ir_oper_list_prev(arg);
@@ -1734,6 +1806,8 @@ error:
 		z80ic_instr_destroy(&inc->instr);
 	z80ic_oper_vrr_destroy(lddest);
 	z80ic_oper_r16_destroy(ldsrc);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_reg_destroy(reg);
 	z80ic_oper_imm16_destroy(imm);
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_ss_destroy(ainc);

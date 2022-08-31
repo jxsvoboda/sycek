@@ -3931,6 +3931,55 @@ static void z80ic_ld_vrr_spnn_destroy(z80ic_ld_vrr_spnn_t *instr)
 	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
+/** Create Z80 IC push virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_push_vr_create(z80ic_push_vr_t **rinstr)
+{
+	z80ic_push_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_push_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_push_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC push virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_push_vr_print(z80ic_push_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("push ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC push virtual register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_push_vr_destroy(z80ic_push_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
 /** Create Z80 IC push virtual register pair instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -5073,6 +5122,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_ld_vrr_spnn:
 		rc = z80ic_ld_vrr_spnn_print((z80ic_ld_vrr_spnn_t *) instr->ext, f);
 		break;
+	case z80i_push_vr:
+		rc = z80ic_push_vr_print((z80ic_push_vr_t *) instr->ext, f);
+		break;
 	case z80i_push_vrr:
 		rc = z80ic_push_vrr_print((z80ic_push_vrr_t *) instr->ext, f);
 		break;
@@ -5317,6 +5369,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_ld_vrr_spnn:
 		z80ic_ld_vrr_spnn_destroy((z80ic_ld_vrr_spnn_t *) instr->ext);
+		break;
+	case z80i_push_vr:
+		z80ic_push_vr_destroy((z80ic_push_vr_t *) instr->ext);
 		break;
 	case z80i_push_vrr:
 		z80ic_push_vrr_destroy((z80ic_push_vrr_t *) instr->ext);
