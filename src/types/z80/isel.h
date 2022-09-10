@@ -45,6 +45,8 @@ typedef struct {
 	z80_varmap_t *varmap;
 	/** Next label number to allocate */
 	unsigned next_label;
+	/** This procedure is a user service routine */
+	bool usr;
 } z80_isel_proc_t;
 
 #endif

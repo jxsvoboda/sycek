@@ -1,0 +1,1 @@
+<test/syc/bad/usrnoarg.c:4:34-36:id:usr>: User service routine cannot have any arguments.

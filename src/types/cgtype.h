@@ -58,6 +58,14 @@ typedef enum {
 	cgelm_logic
 } cgtype_elmtype_t;
 
+/** Calling convention */
+typedef enum {
+	/** Default calling convention */
+	cgcc_default,
+	/** User service routine */
+	cgcc_usr
+} cgtype_cconv_t;
+
 /** Code generator C type */
 typedef struct cgtype {
 	/** Entire / type-specific structure */
@@ -82,6 +90,8 @@ typedef struct {
 	cgtype_t *rtype;
 	/** Arguments (of cgtype_func_arg_t) */
 	list_t args;
+	/** Calling convention */
+	cgtype_cconv_t cconv;
 } cgtype_func_t;
 
 /** Function argument type */

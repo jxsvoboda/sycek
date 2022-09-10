@@ -727,6 +727,7 @@ int ir_proc_create(const char *ident, ir_proc_flags_t flags,
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
 	list_initialize(&proc->args);
+	list_initialize(&proc->attrs);
 	list_initialize(&proc->lvars);
 	*rproc = proc;
 	return EOK;
@@ -741,6 +742,7 @@ int ir_proc_create(const char *ident, ir_proc_flags_t flags,
 int ir_proc_print(ir_proc_t *proc, FILE *f)
 {
 	ir_proc_arg_t *arg;
+	ir_proc_attr_t *attr;
 	ir_lvar_t *lvar;
 	int rv;
 	int rc;
@@ -773,6 +775,25 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 	rv = fputs(")", f);
 	if (rv < 0)
 		return EIO;
+
+	attr = ir_proc_first_attr(proc);
+	if (attr != NULL) {
+		rv = fputs(" attr(", f);
+		if (rv < 0)
+			return EIO;
+
+		do {
+			rc = ir_proc_attr_print(attr, f);
+			if (rc != EOK)
+				return rc;
+
+			attr = ir_proc_next_attr(attr);
+		} while (attr != NULL);
+
+		rv = fputs(")", f);
+		if (rv < 0)
+			return EIO;
+	}
 
 	if ((proc->flags & irp_extern) != 0) {
 		rv = fputs(" extern", f);
@@ -837,6 +858,18 @@ void ir_proc_append_arg(ir_proc_t *proc, ir_proc_arg_t *arg)
 	list_append(&arg->largs, &proc->args);
 }
 
+/** Append attribute to IR procedure.
+ *
+ * @param proc IR procedure
+ * @param attr Attibute
+ */
+void ir_proc_append_attr(ir_proc_t *proc, ir_proc_attr_t *attr)
+{
+	assert(attr->proc == NULL);
+	attr->proc = proc;
+	list_append(&attr->lattrs, &proc->attrs);
+}
+
 /** Append local variable to IR procedure.
  *
  * @param proc IR procedure
@@ -856,6 +889,7 @@ void ir_proc_append_lvar(ir_proc_t *proc, ir_lvar_t *lvar)
 void ir_proc_destroy(ir_proc_t *proc)
 {
 	ir_proc_arg_t *arg;
+	ir_proc_attr_t *attr;
 	ir_lvar_t *lvar;
 
 	if (proc == NULL)
@@ -869,6 +903,13 @@ void ir_proc_destroy(ir_proc_t *proc)
 		list_remove(&arg->largs);
 		ir_proc_arg_destroy(arg);
 		arg = ir_proc_first_arg(proc);
+	}
+
+	attr = ir_proc_first_attr(proc);
+	while (attr != NULL) {
+		list_remove(&attr->lattrs);
+		ir_proc_attr_destroy(attr);
+		attr = ir_proc_first_attr(proc);
 	}
 
 	lvar = ir_proc_first_lvar(proc);
@@ -1002,6 +1043,141 @@ int ir_proc_arg_print(ir_proc_arg_t *arg, FILE *f)
 	rc = ir_texpr_print(arg->atype, f);
 	if (rc != EOK)
 		return rc;
+
+	return EOK;
+}
+
+/** Get first attribute of IR procedure.
+ *
+ * @param proc IR procedure
+ * @return First attribute or @c NULL if there is none
+ */
+ir_proc_attr_t *ir_proc_first_attr(ir_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_first(&proc->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_attr_t, lattrs);
+}
+
+/** Get next attribute of IR procedure.
+ *
+ * @param cur Current attribute
+ * @return Next attribute or @c NULL if @a cur is the last attribute
+ */
+ir_proc_attr_t *ir_proc_next_attr(ir_proc_attr_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lattrs, &cur->proc->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_attr_t, lattrs);
+}
+
+/** Get last attribute of IR procedure.
+ *
+ * @param proc IR procedure
+ * @return Last attribute or @c NULL if there is none
+ */
+ir_proc_attr_t *ir_proc_last_attr(ir_proc_t *proc)
+{
+	link_t *link;
+
+	link = list_last(&proc->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_attr_t, lattrs);
+}
+
+/** Get previous attribute of IR procedure.
+ *
+ * @param cur Current attribute
+ * @return Previous attribute or @c NULL if @a cur is the first attribute
+ */
+ir_proc_attr_t *ir_proc_prev_attr(ir_proc_attr_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->lattrs, &cur->proc->attrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_proc_attr_t, lattrs);
+}
+
+/** Determine if procedure has attribute.
+ *
+ * @param proc IR procedure
+ * @param ident Attribute identifier
+ * @return @c true iff @a proc has attribute @a ident.
+ */
+bool ir_proc_has_attr(ir_proc_t *proc, const char *ident)
+{
+	ir_proc_attr_t *attr;
+
+	attr = ir_proc_first_attr(proc);
+	while (attr != NULL) {
+		if (strcmp(attr->ident, ident) == 0)
+			return true;
+		attr = ir_proc_next_attr(attr);
+	}
+
+	return false;
+}
+
+/** Create IR procedure attribute.
+ *
+ * @param ident Attribute identifier
+ * @param rattr Place to store pointer to new attribute
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_proc_attr_create(const char *ident, ir_proc_attr_t **rattr)
+{
+	ir_proc_attr_t *attr;
+
+	attr = calloc(1, sizeof(ir_proc_attr_t));
+	if (attr == NULL)
+		return ENOMEM;
+
+	attr->ident = strdup(ident);
+	if (attr->ident == NULL) {
+		free(attr);
+		return ENOMEM;
+	}
+
+	*rattr = attr;
+	return EOK;
+}
+
+/** Destroy IR procedure attribute.
+ *
+ * @param attr Attribute
+ */
+void ir_proc_attr_destroy(ir_proc_attr_t *attr)
+{
+	free(attr->ident);
+	free(attr);
+}
+
+/** Print IR procedure attribute.
+ *
+ * @param attr Attribute
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_proc_attr_print(ir_proc_attr_t *attr, FILE *f)
+{
+	int rv;
+
+	rv = fputs(attr->ident, f);
+	if (rv < 0)
+		return EIO;
 
 	return EOK;
 }

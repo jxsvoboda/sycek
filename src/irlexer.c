@@ -606,6 +606,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'n' && p[2] == 'd' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_and, 3, tok);
 		}
+		if (p[1] == 't' && p[2] == 't' && p[3] == 'r' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_attr, 4, tok);
+		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'b':
 		if (p[1] == 'e' && p[2] == 'g' && p[3] == 'i' &&
@@ -865,6 +869,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'add'";
 	case itt_and:
 		return "'and'";
+	case itt_attr:
+		return "'attr'";
 	case itt_begin:
 		return "'begin'";
 	case itt_bnot:

@@ -682,6 +682,7 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	char *ident = NULL;
 	ir_texpr_t *texpr = NULL;
 	ir_lblock_t *lblock = NULL;
+	ir_proc_attr_t *attr;
 	bool first;
 	int rc;
 
@@ -776,6 +777,49 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	rc = ir_parser_match(parser, itt_rparen);
 	if (rc != EOK)
 		goto error;
+
+	/* Attr */
+
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_attr) {
+		ir_parser_skip(parser);
+
+		rc = ir_parser_match(parser, itt_lparen);
+		if (rc != EOK)
+			goto error;
+
+		while (true) {
+			itt = ir_parser_next_ttype(parser);
+			if (itt != itt_ident) {
+				fprintf(stderr, "Error: ");
+				ir_parser_dprint_next_tok(parser, stderr);
+				fprintf(stderr, " unexpected, expected indentifier.\n");
+				rc = EINVAL;
+				goto error;
+			}
+
+			ir_parser_read_next_tok(parser, &itok);
+
+			rc = ir_proc_attr_create(itok.text, &attr);
+			if (rc != EOK)
+				goto error;
+
+			ir_proc_append_attr(proc, attr);
+
+			ir_parser_skip(parser);
+
+			itt = ir_parser_next_ttype(parser);
+			if (itt == itt_rparen)
+				break;
+
+			rc = ir_parser_match(parser, itt_comma);
+			if (rc != EOK)
+				goto error;
+		}
+
+		/* Skip itt_rparen */
+		ir_parser_skip(parser);
+	}
 
 	/* Extern */
 

@@ -1470,6 +1470,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned bits;
 	z80ic_r16_t argreg;
 	unsigned i;
+	bool is_usr;
 	int rc;
 
 	assert(irinstr->itype == iri_call);
@@ -1499,6 +1500,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	}
 
 	proc = (ir_proc_t *)pdecln->ext;
+	is_usr = ir_proc_has_attr(proc, "@usr");
 
 	rc = z80_argloc_create(&argloc);
 	if (rc != EOK)
@@ -1724,7 +1726,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 	call = NULL;
 
-	/* ld dest, BC */
+	/* ld dest, r16 */
 
 	rc = z80ic_ld_vrr_r16_create(&ld);
 	if (rc != EOK)
@@ -1734,7 +1736,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_oper_r16_create(z80ic_r16_bc, &ldsrc);
+	rc = z80ic_oper_r16_create(is_usr ? z80ic_r16_bc : z80ic_r16_hl, &ldsrc);
 	if (rc != EOK)
 		goto error;
 
@@ -6299,13 +6301,14 @@ static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
 
 	vr = z80_isel_get_vregno(isproc, irinstr->op1);
 
-	/* ld BC, vr */
+	/* ld r16, vr */
 
 	rc = z80ic_ld_r16_vrr_create(&ld);
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_oper_r16_create(z80ic_r16_bc, &dest);
+	rc = z80ic_oper_r16_create(isproc->usr ? z80ic_r16_bc :
+	    z80ic_r16_hl, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -7227,6 +7230,9 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	rc = z80_isel_proc_create(isel, irproc->ident, &isproc);
 	if (rc != EOK)
 		goto error;
+
+	if (ir_proc_has_attr(irproc, "@usr"))
+		isproc->usr = true;
 
 	/* Build variable - VR map */
 	rc = z80_isel_proc_create_varmap(isproc, irproc);

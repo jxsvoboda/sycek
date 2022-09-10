@@ -274,6 +274,16 @@ typedef struct {
 	ir_texpr_t *atype;
 } ir_proc_arg_t;
 
+/** IR procedure attribute */
+typedef struct {
+	/** Containing procedure definition */
+	struct ir_proc *proc;
+	/** Link to @c proc->attrs */
+	link_t lattrs;
+	/** Attribute identifier */
+	char *ident;
+} ir_proc_attr_t;
+
 /** IR procedure flags */
 typedef enum {
 	/** Extern procedure declaration */
@@ -300,6 +310,8 @@ typedef struct ir_proc {
 	char *ident;
 	/** Arguments */
 	list_t args; /* of ir_proc_arg_t */
+	/** Attributes */
+	list_t attrs; /* of ir_proc_attr_t */
 	/** Flags */
 	ir_proc_flags_t flags;
 	/** Local variables */

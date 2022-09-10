@@ -9,7 +9,11 @@ int ret_const(void)
 	return 1;
 }
 
-int add_const(void)
+/*
+ * Declare the function as a user service routine so that the value
+ * can be returned to BASIC
+ */
+int add_const(void) __attribute__((usr))
 {
 	/*
 	 * Despite being constant, the expression will be translated

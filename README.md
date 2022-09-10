@@ -218,10 +218,11 @@ Specifically, these language features are supported:
  * All statements (except inline assembly)
  * Function declaration, definition, calling functions (up to 3 arguments)
  * Most arithmetic operators
+ * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
 
 These are NOT supported:
 
- * Any other type than `int` (pointers, structures, arrays, enumerated types,
+ * Any other type than integer (pointers, structures, arrays, enumerated types,
    floating point)
  * Functions with more than 3 arguments, variadic functions
  * Division and modulus (`/`, `%`)
@@ -271,8 +272,9 @@ this skips the BASIC loader and loads just the machine code block.
 Consult the file `example/test.map` to determine the address where
 the function `add_const` starts at and convert it from hex to decimal.
 Let's say it starts at address 0x802a = 32810. This function computes
-the value of the expression 1 + 2 + 3 and returns it in the BC register,
-where BASIC expects value from the USR. We can test it with
+the value of the expression 1 + 2 + 3 and returns it. Because the function
+is declared with the attribute `usr`, it will return the value in the BC
+register, where BASIC expects value from the USR. We can test it with
 the basic command
 
     PRINT USR 32810
@@ -286,6 +288,17 @@ program in various compilation stages to the standard output:
  * `--dump-toks` Dump tokenized source file
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
+
+User service routines
+---------------------
+Any function without arguments can be called using the BASIC USR function,
+but to return value, it must return a 16-bit integer and it must be
+declared with the attribute `usr`. For example:
+
+    unsigned my_usr(void) __attribute__((usr))
+    {
+            return 42;
+    }
 
 Syc as a checker
 ----------------

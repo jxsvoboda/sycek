@@ -157,6 +157,7 @@ int cgtype_func_create(cgtype_t *rtype, cgtype_func_t **rfunc)
 	func->cgtype.ntype = cgn_func;
 	func->cgtype.ext = func;
 	func->rtype = rtype;
+	func->cconv = cgcc_default;
 	list_initialize(&func->args);
 
 	*rfunc = func;
@@ -209,6 +210,12 @@ static int cgtype_func_print(cgtype_func_t *func, FILE *f)
 	if (rv < 0)
 		return EIO;
 
+	if (func->cconv == cgcc_usr) {
+		rv = fputs(" __attribute__((usr))", f);
+    		if (rv < 0)
+			return EIO;
+	}
+
 	return EOK;
 }
 
@@ -254,6 +261,7 @@ static int cgtype_func_clone(cgtype_func_t *orig, cgtype_t **rcopy)
 		arg = cgtype_func_next(arg);
 	}
 
+	copy->cconv = orig->cconv;
 	*rcopy = &copy->cgtype;
 	return EOK;
 

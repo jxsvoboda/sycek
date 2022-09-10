@@ -54,6 +54,7 @@ typedef enum {
 
 	itt_add,
 	itt_and,
+	itt_attr,
 	itt_begin,
 	itt_bnot,
 	itt_call,

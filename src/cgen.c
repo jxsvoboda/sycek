@@ -42,7 +42,8 @@
 #include <symbols.h>
 
 static void cgen_proc_destroy(cgen_proc_t *);
-static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *, cgtype_t **);
+static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *, ast_aslist_t *,
+    cgtype_t **);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -1345,11 +1346,12 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
  * @param cgen Code generator
  * @param btype Type derived from declaration specifiers
  * @param dfun Function declarator
+ * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
 static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
-    cgtype_t **rdtype)
+    ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_func_t *func = NULL;
 	ast_dfun_arg_t *arg;
@@ -1359,6 +1361,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	cgtype_t *stype = NULL;
 	cgtype_t *atype = NULL;
 	cgtype_basic_t *abasic;
+	ast_aspec_t *aspec;
+	ast_aspec_attr_t *attr;
+	bool have_args = false;
 	int rc;
 
 	rc = cgtype_clone(btype, &btype_copy);
@@ -1377,7 +1382,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		if (rc != EOK)
 			goto error;
 
-		rc = cgen_decl(cgen, stype, arg->decl, &atype);
+		rc = cgen_decl(cgen, stype, arg->decl, arg->aslist, &atype);
 		if (rc != EOK)
 			goto error;
 
@@ -1419,12 +1424,53 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		if (rc != EOK)
 			goto error;
 
+		have_args = true;
+
 		atype = NULL; /* ownership transferred */
 
 		cgtype_destroy(stype);
 		stype = NULL;
 
 		arg = ast_dfun_next(arg);
+	}
+
+	/* Function attributes */
+	if (aslist != NULL) {
+		aspec = ast_aslist_first(aslist);
+		while (aspec != NULL) {
+			attr = ast_aspec_first(aspec);
+			while (attr != NULL) {
+				tok = (comp_tok_t *) attr->tname.data;
+				if (strcmp(tok->tok.text, "usr") == 0) {
+					if (attr->have_params) {
+						tok = (comp_tok_t *) attr->tlparen.data;
+
+						lexer_dprint_tok(&tok->tok, stderr);
+						fprintf(stderr, ": Attribute 'usr' should not have any "
+						    "arguments.\n");
+						cgen->error = true; // XXX
+						return EINVAL;
+					}
+
+					if (have_args) {
+						tok = (comp_tok_t *) attr->tname.data;
+
+						lexer_dprint_tok(&tok->tok, stderr);
+						fprintf(stderr, ": User service routine cannot "
+						    "have any arguments.\n");
+						cgen->error = true; // XXX
+						return EINVAL;
+					}
+
+					/* User service routine */
+					func->cconv = cgcc_usr;
+				}
+
+				attr = ast_aspec_next(attr);
+			}
+
+			aspec = ast_aslist_next(aspec);
+		}
 	}
 
 	*rdtype = &func->cgtype;
@@ -1449,16 +1495,16 @@ error:
  * @param cgen Code generator
  * @param stype Type derived from declaration specifiers
  * @param decl Declarator
+ * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
 static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
-    cgtype_t **rdtype)
+    ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_t *dtype;
 	int rc;
 
-	(void)cgen;
 	switch (decl->ntype) {
 	case ant_dident:
 	case ant_dnoident:
@@ -1467,7 +1513,7 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 		break;
 	case ant_dfun:
 		rc = cgen_decl_fun(cgen, stype, (ast_dfun_t *) decl->ext,
-		    &dtype);
+		    aslist, &dtype);
 		break;
 	default:
 		printf("[cgen_decl] Unimplemented declarator type.\n");
@@ -7601,6 +7647,60 @@ error:
 	return rc;
 }
 
+/** Process function definition attribute 'usr'.
+ *
+ * @param cgproc Code generator for procedure
+ */
+static int cgen_fundef_attr_usr(cgen_proc_t *cgproc, ast_aspec_attr_t *attr)
+{
+	comp_tok_t *tok;
+	ir_proc_attr_t *irattr = NULL;
+	int rc;
+
+	if (attr->have_params) {
+		tok = (comp_tok_t *) attr->tlparen.data;
+
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Attribute 'usr' should not have any "
+		    "arguments.\n");
+		cgproc->cgen->error = true; // XXX
+		return EINVAL;
+	}
+
+	rc = ir_proc_attr_create("@usr", &irattr);
+	if (rc != EOK)
+		return rc;
+
+	ir_proc_append_attr(cgproc->irproc, irattr);
+	return EOK;
+}
+
+/** Process one attribute of function definition.
+ *
+ * @param cgproc Code generator for procedure
+ */
+static int cgen_fundef_attr(cgen_proc_t *cgproc, ast_aspec_attr_t *attr)
+{
+	comp_tok_t *tok;
+	int rc;
+
+	tok = (comp_tok_t *) attr->tname.data;
+
+	if (strcmp(tok->tok.text, "usr") == 0) {
+		rc = cgen_fundef_attr_usr(cgproc, attr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Unknown attribute '%s'.\n",
+		    tok->tok.text);
+		cgproc->cgen->error = true; // XXX
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
 /** Generate code for function definition.
  *
  * @param cgen Code generator
@@ -7632,6 +7732,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	cgtype_t *dtype = NULL;
 	cgtype_func_t *dtfunc;
 	cgtype_func_arg_t *dtarg;
+	ast_aspec_t *aspec;
+	ast_aspec_attr_t *attr;
 	int rc;
 	int rv;
 
@@ -7667,7 +7769,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	assert(ast_idlist_next(idle) == NULL);
 
 	/* Process declarator */
-	rc = cgen_decl(cgen, btype, idle->decl, &dtype);
+	rc = cgen_decl(cgen, btype, idle->decl, idle->aslist, &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -7696,9 +7798,28 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	if (rc != EOK)
 		goto error;
 
+	lblock = NULL;
+
 	rc = cgen_proc_create(cgen, proc, &cgproc);
 	if (rc != EOK)
 		goto error;
+
+	/* Attributes */
+	if (idle->aslist != NULL) {
+		aspec = ast_aslist_first(idle->aslist);
+		while (aspec != NULL) {
+			attr = ast_aspec_first(aspec);
+			while (attr != NULL) {
+				rc = cgen_fundef_attr(cgproc, attr);
+				if (rc != EOK)
+					goto error;
+
+				attr = ast_aspec_next(attr);
+			}
+
+			aspec = ast_aslist_next(aspec);
+		}
+	}
 
 	/* lblock is now owned by proc */
 	lblock = NULL;
@@ -8049,7 +8170,8 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
 			/* Process declarator */
-			rc = cgen_decl(cgen, stype, entry->decl, &dtype);
+			rc = cgen_decl(cgen, stype, entry->decl,
+			    entry->aslist, &dtype);
 			if (rc != EOK)
 				goto error;
 
@@ -8139,8 +8261,8 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
 	ir_proc_t *proc;
 	symbol_t *symbol;
 	char *pident = NULL;
-
-	(void) cgen;
+	ir_proc_attr_t *irattr;
+	cgtype_func_t *cgfunc;
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
@@ -8156,14 +8278,20 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
 			free(pident);
 			pident = NULL;
 
-			fprintf(stderr, "cgen_module_symdecls: ident='%s' type:",
-			    symbol->ident);
-			cgtype_print(symbol->cgtype, stderr);
-			fprintf(stderr, "\n");
-
 			rc = cgen_fun_args(cgen, symbol->cgtype, proc);
 			if (rc != EOK)
 				goto error;
+
+			assert(symbol->cgtype->ntype == cgn_func);
+			cgfunc = (cgtype_func_t *)symbol->cgtype->ext;
+
+			if (cgfunc->cconv == cgcc_usr) {
+				rc = ir_proc_attr_create("@usr", &irattr);
+				if (rc != EOK)
+					return rc;
+
+				ir_proc_append_attr(proc, irattr);
+			}
 
 			ir_module_append(irmod, &proc->decln);
 			proc = NULL;
