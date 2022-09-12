@@ -1428,6 +1428,61 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions to get 16-bit IR call return value.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param proc IR procedure being called
+ * @param destvr Destination virtual register
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_call_get_retv_16(z80_isel_proc_t *isproc, ir_proc_t *proc,
+    const char *label, unsigned destvr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_vrr_r16_t *ld = NULL;
+	z80ic_oper_r16_t *ldsrc = NULL;
+	z80ic_oper_vrr_t *lddest = NULL;
+	bool is_usr;
+	int rc;
+
+	(void)isproc;
+	is_usr = ir_proc_has_attr(proc, "@usr");
+
+	/* ld dest, r16 */
+
+	rc = z80ic_ld_vrr_r16_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &lddest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(is_usr ? z80ic_r16_bc : z80ic_r16_hl, &ldsrc);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = lddest;
+	ld->src = ldsrc;
+	lddest = NULL;
+	ldsrc = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_vrr_destroy(lddest);
+	z80ic_oper_r16_destroy(ldsrc);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR call instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -1470,7 +1525,6 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned bits;
 	z80ic_r16_t argreg;
 	unsigned i;
-	bool is_usr;
 	int rc;
 
 	assert(irinstr->itype == iri_call);
@@ -1500,7 +1554,6 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	}
 
 	proc = (ir_proc_t *)pdecln->ext;
-	is_usr = ir_proc_has_attr(proc, "@usr");
 
 	rc = z80_argloc_create(&argloc);
 	if (rc != EOK)
@@ -1726,30 +1779,11 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 	call = NULL;
 
-	/* ld dest, r16 */
+	/* Get return value */
 
-	rc = z80ic_ld_vrr_r16_create(&ld);
+	rc = z80_isel_call_get_retv_16(isproc, proc, label, destvr, lblock);
 	if (rc != EOK)
 		goto error;
-
-	rc = z80ic_oper_vrr_create(destvr, &lddest);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_r16_create(is_usr ? z80ic_r16_bc : z80ic_r16_hl, &ldsrc);
-	if (rc != EOK)
-		goto error;
-
-	ld->dest = lddest;
-	ld->src = ldsrc;
-	lddest = NULL;
-	ldsrc = NULL;
-
-	rc = z80ic_lblock_append(lblock, label, &ld->instr);
-	if (rc != EOK)
-		goto error;
-
-	ld = NULL;
 
 	/*
 	 * Remove arguments from the stack.
@@ -6276,14 +6310,88 @@ error:
 	return rc;
 }
 
-/** Select Z80 IC instructions code for IR return value instruction.
+/** Select Z80 IC instructions code for IR 8-bit return value instruction.
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR add instruction
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
-static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
+static int z80_isel_retv_8(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_reg_t *dest = NULL;
+	z80ic_oper_vr_t *src = NULL;
+	z80ic_ld_r_vr_t *ld = NULL;
+	z80ic_ret_t *ret = NULL;
+	unsigned vr;
+	int rc;
+
+	assert(irinstr->itype == iri_retv);
+	assert(irinstr->width == 8);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	vr = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	/* ld A, vr */
+
+	rc = z80ic_ld_r_vr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(vr, z80ic_vrp_r8, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* ret */
+
+	rc = z80ic_ret_create(&ret);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
+	ret = NULL;
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+
+	z80ic_oper_reg_destroy(dest);
+	z80ic_oper_vr_destroy(src);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR 16-bit return value instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_retv_16(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
 	z80ic_oper_r16_t *dest = NULL;
@@ -6349,6 +6457,127 @@ error:
 	z80ic_oper_vrr_destroy(src);
 
 	return rc;
+}
+
+/** Select Z80 IC instructions code for IR 32-bit return value instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_retv_32(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_r16_t *dest = NULL;
+	z80ic_oper_vrr_t *src = NULL;
+	z80ic_ld_r16_vrr_t *ld = NULL;
+	z80ic_ret_t *ret = NULL;
+	unsigned vr;
+	int rc;
+
+	assert(irinstr->itype == iri_retv);
+	assert(irinstr->width == 32);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	vr = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	/* ld DE, vr+1 */
+
+	rc = z80ic_ld_r16_vrr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(z80ic_r16_de, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr + 1, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* ld HL, vr */
+
+	rc = z80ic_ld_r16_vrr_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(z80ic_r16_hl, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(vr, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* ret */
+
+	rc = z80ic_ret_create(&ret);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
+	ret = NULL;
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+
+	z80ic_oper_r16_destroy(dest);
+	z80ic_oper_vrr_destroy(src);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR return value instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	switch (irinstr->width) {
+	case 8:
+		return z80_isel_retv_8(isproc, label, irinstr, lblock);
+	case 16:
+		return z80_isel_retv_16(isproc, label, irinstr, lblock);
+	case 32:
+		return z80_isel_retv_32(isproc, label, irinstr, lblock);
+	default:
+		assert(false);
+	}
 }
 
 /** Select Z80 IC instructions code for IR variable pointer instruction.

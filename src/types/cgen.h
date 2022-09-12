@@ -27,6 +27,8 @@
 #ifndef TYPES_CGEN_H
 #define TYPES_CGEN_H
 
+#include <types/cgtype.h>
+
 /** Code generator */
 typedef struct {
 	/** Arithmetic width */
@@ -47,6 +49,8 @@ typedef struct {
 	cgen_t *cgen;
 	/** IR procedure being constructed */
 	struct ir_proc *irproc;
+	/** Return type of the current procedure */
+	cgtype_t *rtype;
 	/** Next local variable number to allocate */
 	unsigned next_var;
 	/** Next label number to allocate */

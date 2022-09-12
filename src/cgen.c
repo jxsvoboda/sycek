@@ -614,6 +614,7 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 	labels_destroy(cgproc->labels);
 	scope_destroy(cgproc->proc_scope);
 	scope_destroy(cgproc->arg_scope);
+	cgtype_destroy(cgproc->rtype);
 	free(cgproc);
 }
 
@@ -4486,7 +4487,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ir_oper_var_t *fun = NULL;
 	ir_oper_list_t *args = NULL;
 	ir_oper_var_t *arg = NULL;
-	cgtype_basic_t *btype = NULL;
+	cgtype_t *rtype = NULL;
 	cgtype_func_t *ftype;
 	cgtype_func_arg_t *farg;
 	int rc;
@@ -4537,7 +4538,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_basic_create(cgelm_int, &btype);
+	rc = cgtype_clone(ftype->rtype, &rtype);
 	if (rc != EOK)
 		goto error;
 
@@ -4642,7 +4643,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
-	eres->cgtype = &btype->cgtype;
+	eres->cgtype = rtype;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4656,8 +4657,7 @@ error:
 		free(pident);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
-	if (btype != NULL)
-		cgtype_destroy(&btype->cgtype);
+	cgtype_destroy(rtype);
 	return rc;
 }
 
@@ -6238,7 +6238,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	ir_oper_var_t *arg = NULL;
 	cgen_eres_t ares;
 	cgen_eres_t cres;
-	cgtype_basic_t *btype = NULL;
+	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&ares);
@@ -6252,16 +6252,28 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 		if (rc != EOK)
 			goto error;
 
-		// TODO Determine real return type of function
-		rc = cgtype_basic_create(cgelm_int, &btype);
+		/* Convert to the return type */
+		rc = cgen_type_convert(cgproc->cgen, areturn->arg, &ares,
+		    cgproc->rtype, &cres);
 		if (rc != EOK)
 			goto error;
 
-		/* Convert to the return type */
-		rc = cgen_type_convert(cgproc->cgen, areturn->arg, &ares,
-		    &btype->cgtype, &cres);
-		if (rc != EOK)
+		/* Check the type */
+		if (cgproc->rtype->ntype != cgn_basic) {
+			fprintf(stderr, "Unimplemented return type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
 			goto error;
+		}
+
+		bits = cgen_basic_type_bits(cgproc->cgen,
+		    (cgtype_basic_t *)cgproc->rtype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented return type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
 
 		rc = ir_instr_create(&instr);
 		if (rc != EOK)
@@ -6272,7 +6284,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 			goto error;
 
 		instr->itype = iri_retv;
-		instr->width = cgproc->cgen->arith_width;
+		instr->width = bits;
 		instr->dest = NULL;
 		instr->op1 = &arg->oper;
 		instr->op2 = NULL;
@@ -6281,7 +6293,6 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 
 		cgen_eres_fini(&ares);
 		cgen_eres_fini(&cres);
-		cgtype_destroy(&btype->cgtype);
 	} else {
 		/* Return without value */
 		// XXX Verify that function is void
@@ -6297,8 +6308,6 @@ error:
 		ir_oper_destroy(&arg->oper);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
-	if (btype != NULL)
-		cgtype_destroy(&btype->cgtype);
 	return rc;
 }
 
@@ -7801,6 +7810,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	lblock = NULL;
 
 	rc = cgen_proc_create(cgen, proc, &cgproc);
+	if (rc != EOK)
+		goto error;
+
+	/* Remember return type for use in return statement */
+	rc = cgtype_clone(dtfunc->rtype, &cgproc->rtype);
 	if (rc != EOK)
 		goto error;
 

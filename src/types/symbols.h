@@ -54,7 +54,7 @@ typedef enum {
 } symbol_flags_t;
 
 /** Symbol */
-typedef struct {
+typedef struct symbol {
 	/** Containing symbol index */
 	symbols_t *symbols;
 	/** Link to symbols_t.syms */

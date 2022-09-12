@@ -212,7 +212,7 @@ static int cgtype_func_print(cgtype_func_t *func, FILE *f)
 
 	if (func->cconv == cgcc_usr) {
 		rv = fputs(" __attribute__((usr))", f);
-    		if (rv < 0)
+		if (rv < 0)
 			return EIO;
 	}
 
