@@ -310,6 +310,8 @@ typedef struct ir_proc {
 	char *ident;
 	/** Arguments */
 	list_t args; /* of ir_proc_arg_t */
+	/** Return type */
+	ir_texpr_t *rtype;
 	/** Attributes */
 	list_t attrs; /* of ir_proc_attr_t */
 	/** Flags */

@@ -776,6 +776,16 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 	if (rv < 0)
 		return EIO;
 
+	if (proc->rtype != NULL) {
+		rv = fputs(" : ", f);
+		if (rv < 0)
+			return EIO;
+
+		rc = ir_texpr_print(proc->rtype, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	attr = ir_proc_first_attr(proc);
 	if (attr != NULL) {
 		rv = fputs(" attr(", f);
@@ -911,6 +921,8 @@ void ir_proc_destroy(ir_proc_t *proc)
 		ir_proc_attr_destroy(attr);
 		attr = ir_proc_first_attr(proc);
 	}
+
+	ir_texpr_destroy(proc->rtype);
 
 	lvar = ir_proc_first_lvar(proc);
 	while (lvar != NULL) {
@@ -1987,9 +1999,11 @@ size_t ir_texpr_sizeof(ir_texpr_t *texpr)
 
 /** Destroy type expression.
  *
- * @param texpr Type expression
+ * @param texpr Type expression or @c NULL
  */
 void ir_texpr_destroy(ir_texpr_t *texpr)
 {
+	if (texpr == NULL)
+		return;
 	free(texpr);
 }

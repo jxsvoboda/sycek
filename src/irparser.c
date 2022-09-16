@@ -778,6 +778,17 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	if (rc != EOK)
 		goto error;
 
+	/* Return type */
+
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_colon) {
+		ir_parser_skip(parser);
+
+		rc = ir_parser_process_texpr(parser, &proc->rtype);
+		if (rc != EOK)
+			goto error;
+	}
+
 	/* Attr */
 
 	itt = ir_parser_next_ttype(parser);

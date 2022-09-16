@@ -7656,6 +7656,58 @@ error:
 	return rc;
 }
 
+/** Generate code for function return type.
+ *
+ * Add return type to IR procedure based on CG function type.
+ *
+ * @param cgen Code generator
+ * @param ftype Function type
+ * @param irproc IR procedure to which the return type should be added
+ * @return EOK on success or an error code
+ */
+static int cgen_fun_rtype(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
+{
+	cgtype_func_t *dtfunc;
+	cgtype_t *stype;
+	cgtype_basic_t *tbasic;
+	unsigned bits;
+	int rc;
+
+	assert(ftype->ntype == cgn_func);
+	dtfunc = (cgtype_func_t *)ftype->ext;
+	stype = dtfunc->rtype;
+
+	/* Check the type */
+	if (stype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented return type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Void? */
+	tbasic = (cgtype_basic_t *)stype->ext;
+	if (tbasic->elmtype == cgelm_void)
+		return EOK;
+
+	bits = cgen_basic_type_bits(cgen,
+	    (cgtype_basic_t *)stype->ext);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented return type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_texpr_int_create(bits, &proc->rtype);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Process function definition attribute 'usr'.
  *
  * @param cgproc Code generator for procedure
@@ -7917,6 +7969,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 
 	/* Generate IR procedure arguments */
 	rc = cgen_fun_args(cgproc->cgen, dtype, proc);
+	if (rc != EOK)
+		goto error;
+
+	/* Generate IR return type */
+	rc = cgen_fun_rtype(cgen, dtype, proc);
 	if (rc != EOK)
 		goto error;
 
@@ -8293,6 +8350,11 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
 			pident = NULL;
 
 			rc = cgen_fun_args(cgen, symbol->cgtype, proc);
+			if (rc != EOK)
+				goto error;
+
+			/* Generate IR return type */
+			rc = cgen_fun_rtype(cgen, symbol->cgtype, proc);
 			if (rc != EOK)
 				goto error;
 
