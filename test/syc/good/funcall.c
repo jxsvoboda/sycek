@@ -1,13 +1,13 @@
 /*
- * Call function without arguments
+ * Call function without arguments or return value
  */
 
-int fun(void)
+void fun(void)
 {
-	return 1;
+	return;
 }
 
 int call_fun(void)
 {
-	return fun() + fun();
+	fun();
 }
