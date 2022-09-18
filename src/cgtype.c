@@ -531,3 +531,19 @@ int cgtype_print(cgtype_t *cgtype, FILE *f)
 	assert(false);
 	return EINVAL;
 }
+
+/** Determine if type is void.
+ *
+ * @param cgtype Code generator type
+ * @return @c true iff type is void
+ */
+bool cgtype_is_void(cgtype_t *cgtype)
+{
+	cgtype_basic_t *basic;
+
+	if (cgtype->ntype != cgn_basic)
+		return false;
+
+	basic = (cgtype_basic_t *)cgtype->ext;
+	return basic->elmtype == cgelm_void;
+}

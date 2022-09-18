@@ -1,0 +1,2 @@
+<test/syc/ugly/retvoid.c:6:9-14:'return'>: Warning: Return without a value in function returning non-void.
+<test/syc/ugly/retvoid.c:14:16-18:id:foo>: Warning: Return with a value in function returning void.

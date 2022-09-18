@@ -27,6 +27,7 @@
 #ifndef CGTYPE_H
 #define CGTYPE_H
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <types/cgtype.h>
 
@@ -41,5 +42,6 @@ extern int cgtype_pointer_create(cgtype_t *, cgtype_pointer_t **);
 extern int cgtype_clone(cgtype_t *, cgtype_t **);
 extern void cgtype_destroy(cgtype_t *);
 extern int cgtype_print(cgtype_t *, FILE *f);
+extern bool cgtype_is_void(cgtype_t *);
 
 #endif

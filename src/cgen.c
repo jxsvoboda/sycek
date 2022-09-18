@@ -6238,19 +6238,44 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	ir_oper_var_t *arg = NULL;
 	cgen_eres_t ares;
 	cgen_eres_t cres;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
 	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&cres);
 
+	/* Verify that function return type is not void if we have argument */
+	if (areturn->arg != NULL && cgtype_is_void(cgproc->rtype)) {
+		atok = ast_tree_first_tok(areturn->arg);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Return with a value in "
+		    "function returning void.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Verify that function return type is void if do not have argument */
+	if (areturn->arg == NULL && !cgtype_is_void(cgproc->rtype)) {
+		ctok = (comp_tok_t *) areturn->treturn.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Return without a value in "
+		    "function returning non-void.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Only if we have an argument */
 	if (areturn->arg != NULL) {
-		/* Return value */
-		// XXX Verify that function is not void
+		/* Evaluate the return value */
 
 		rc = cgen_expr_rvalue(cgproc, areturn->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
+	}
+
+	/* Only if we have an argument and return type is not void */
+	if (areturn->arg != NULL && !cgtype_is_void(cgproc->rtype)) {
 
 		/* Convert to the return type */
 		rc = cgen_type_convert(cgproc->cgen, areturn->arg, &ares,
@@ -6294,6 +6319,9 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 		cgen_eres_fini(&ares);
 		cgen_eres_fini(&cres);
 	} else {
+		if (areturn->arg != NULL)
+			cgen_eres_fini(&ares);
+
 		/* Return without value */
 		// XXX Verify that function is void
 		rc = cgen_ret(cgproc, lblock);
