@@ -4,9 +4,9 @@
 
 int i;
 
-int do_stuff(void)
+void do_stuff(void)
 {
-	return 0;
+	return;
 }
 
 int while_loop(void)

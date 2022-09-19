@@ -1,0 +1,8 @@
+<test/syc/ugly/valunused.c:22:9-14:id:rint>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:24:9:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:26:9-17:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:28:9:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:30:9-14:'++'>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:36:14:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:36:19:num:2>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:40:9:id:i>: Warning: Computed expression value is not used.

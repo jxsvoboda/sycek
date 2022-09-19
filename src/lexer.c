@@ -1617,7 +1617,7 @@ static int lexer_dprint_str(const char *str, FILE *f)
  *
  * @return EOK on success, EIO on I/O error
  */
-static int lexer_dprint_tok_range(lexer_tok_t *tok, src_pos_t *bpos,
+int lexer_dprint_tok_range(lexer_tok_t *tok, src_pos_t *bpos,
     src_pos_t *epos, FILE *f)
 {
 	int rc;

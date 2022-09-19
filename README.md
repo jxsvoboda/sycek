@@ -5,7 +5,7 @@ Sycek aims to provide tools based around a modular C language frontend.
 The available tools are
 
   * `ccheck` a C code style checker
-  * `syc` a C compiler for ZX Spectrum (WIP), static checker (WIP)
+  * `syc` a C compiler for ZX Spectrum, lint, static checker (WIP)
 
 Sycek is available under an MIT-style license.
 
@@ -35,16 +35,18 @@ Sycek is available under an MIT-style license.
 
 Syc
 ---
-`syc` is meant to work as a compiler or static checker. Currently
-it can compile a subset of C for the Sinclair ZX Spectrum
-(Zilog Z80 processor).
-
 NOTE: This is a work in progress. Only a subset of C is implemented.
 
-`syc` can also complement `ccheck` checking for certain programming
-issues that cannot be reliably detected withough actually preprocessing
-the source code. Instead `syc` can be used as a lint / checker / shadow
-compiler.
+`syc` is meant to work as a compiler, lint-like tool and static checker.
+Currently it can compile a subset of C for the Sinclair ZX Spectrum
+(Zilog Z80 processor).
+
+`syc` also complements `ccheck` checking for certain programming
+iand C style issues that cannot be reliably detected withough actually
+preprocessing and compiling the source code.
+
+`syc` can thus be used as a lint / checker / shadow compiler.
+See the section Syc as a checker for details.
 
 Downloading
 -----------
@@ -302,10 +304,10 @@ declared with the attribute `usr`. For example:
 
 Syc as a checker
 ----------------
-Syc attempts to produce a good amount of generic diagnostic warnings
-(e.g. shadowing a wider-scope declaration), it also implements coding
-style related checks, complementing `ccheck`, where it is desirable
-to preprocess the source code.
+Syc strives to produce uparalleled diagnostic coverage, warning about 
+all the potential programming errors that would be typically reported by
+compilers, lint-like tools, as well as complementing ccheck in the C style
+area.
 
 It can detect the following types of problems:
 
@@ -316,7 +318,12 @@ It can detect the following types of problems:
  * using truth value as an integer
  * using anything but `_Bool` or a thruth value where a truth value is
    expected
+ * computed expression value is not used
+ * specifically, ignoring return value of a function (TODO:
+   this can be supressed on a per-function basis)
+ * unused variable
  * unused goto label
+ * constant should be long (or long long)
 
 Intermediate Representation
 ---------------------------

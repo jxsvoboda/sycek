@@ -4,5 +4,5 @@
 
 int comma(void)
 {
-	return 1, 2;
+	return (void)1, 2;
 }

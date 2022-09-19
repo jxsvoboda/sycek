@@ -37,6 +37,8 @@ extern int lexer_get_tok(lexer_t *, lexer_tok_t *);
 extern void lexer_free_tok(lexer_tok_t *);
 extern int lexer_dprint_char(char, FILE *);
 extern int lexer_dprint_tok(lexer_tok_t *, FILE *);
+extern int lexer_dprint_tok_range(lexer_tok_t *, src_pos_t *, src_pos_t *,
+    FILE *);
 extern int lexer_dprint_tok_chr(lexer_tok_t *, size_t, FILE *);
 extern int lexer_print_tok(lexer_tok_t *, FILE *);
 extern bool lexer_tok_valid_chars(lexer_tok_t *, size_t, size_t *);

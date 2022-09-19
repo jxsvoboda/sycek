@@ -27,6 +27,7 @@
 #ifndef TYPES_CGEN_H
 #define TYPES_CGEN_H
 
+#include <stdbool.h>
 #include <types/cgtype.h>
 
 /** Code generator */
@@ -99,6 +100,15 @@ typedef struct {
 	cgen_valtype_t valtype;
 	/** C type */
 	struct cgtype *cgtype;
+	/** Value used.
+	 *
+	 * Indicates whether the outermost operation of the expression
+	 * (but not the subexpressions!) has some kind of side effect
+	 * that justifies it even in case the value of the entire expression
+	 * is then not used. Used for checking for computing values
+	 * that are then not used. Example: ++i -> true, (++i) + 1 -> false.
+	 */
+	bool valused;
 } cgen_eres_t;
 
 /** Code generator loop tracking record.

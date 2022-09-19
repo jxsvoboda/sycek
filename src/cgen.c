@@ -44,6 +44,8 @@
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *, ast_aslist_t *,
     cgtype_t **);
+static void cgen_expr_check_unused(cgen_proc_t *, ast_node_t *,
+    cgen_eres_t *);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -3841,6 +3843,7 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = rres.varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -3903,6 +3906,7 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -3966,6 +3970,7 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4029,6 +4034,7 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4092,6 +4098,7 @@ static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4154,6 +4161,7 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4217,6 +4225,7 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4280,6 +4289,7 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4343,6 +4353,7 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -4451,10 +4462,12 @@ static int cgen_ecomma(cgen_proc_t *cgproc, ast_ecomma_t *ecomma,
 	cgen_eres_t lres;
 	int rc;
 
-	/* Evaluate and forget left argument */
+	/* Evaluate and ignore left argument */
 	rc = cgen_expr(cgproc, ecomma->larg, lblock, &lres);
 	if (rc != EOK)
 		return rc;
+
+	cgen_expr_check_unused(cgproc, ecomma->larg, &lres);
 
 	cgen_eres_fini(&lres);
 
@@ -4644,6 +4657,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = rtype;
+	eres->valused = cgtype_is_void(ftype->rtype);
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4769,6 +4783,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	eres->varname = bres.varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = dtype;
+	eres->valused = cgtype_is_void(dtype);
 
 	cgen_eres_fini(&bres);
 	return EOK;
@@ -5276,6 +5291,7 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5459,6 +5475,7 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	eres->varname = bvalvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = true;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5697,6 +5714,7 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 		eres->varname = res->varname;
 		eres->valtype = res->valtype;
 		eres->cgtype = cgtype;
+		eres->valused = res->valused;
 		return EOK;
 	}
 
@@ -5746,6 +5764,7 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->valused = res->valused;
 
 	return EOK;
 error:
@@ -6741,9 +6760,12 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	/* Loop initialization */
 
 	if (afor->linit != NULL) {
+		/* Evaluate and ignore initialization expression */
 		rc = cgen_expr_rvalue(cgproc, afor->linit, lblock, &ires);
 		if (rc != EOK)
 			goto error;
+
+		cgen_expr_check_unused(cgproc, afor->linit, &ires);
 	}
 
 	ir_lblock_append(lblock, flabel, NULL);
@@ -6769,9 +6791,12 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	ir_lblock_append(lblock, nflabel, NULL);
 
 	if (afor->lnext != NULL) {
+		/* Evaluate and ignore next iteration expression */
 		rc = cgen_expr_rvalue(cgproc, afor->lnext, lblock, &nres);
 		if (rc != EOK)
 			goto error;
+
+		cgen_expr_check_unused(cgproc, afor->lnext, &nres);
 	}
 
 	/* jmp %for */
@@ -7205,6 +7230,40 @@ error:
 	return rc;
 }
 
+/** Check if expression value is used.
+ *
+ * This function is called whenever the result of an expression is to be
+ * ignored. It checks whether it is okay to ignore the expression result
+ * (e.g. because it is intrinsically used (++i) or void (calling function
+ * returing void, explicitly cast to void).
+ *
+ * If it is not OK to ignore the return value, it will produce a warning.
+ *
+ * @param cgproc Code generator for procedure
+ * @param expr Expression
+ * @param ares Expression result
+ */
+static void cgen_expr_check_unused(cgen_proc_t *cgproc, ast_node_t *expr,
+    cgen_eres_t *ares)
+{
+	ast_tok_t *atok;
+	comp_tok_t *catok;
+	ast_tok_t *btok;
+	comp_tok_t *cbtok;
+
+	if (!ares->valused) {
+		atok = ast_tree_first_tok(expr);
+		btok = ast_tree_last_tok(expr);
+		catok = (comp_tok_t *) atok->data;
+		cbtok = (comp_tok_t *) btok->data;
+		lexer_dprint_tok_range(&catok->tok, &catok->tok.bpos,
+		    &cbtok->tok.epos, stderr);
+		fprintf(stderr, ": Warning: Computed expression value is not "
+		    "used.\n");
+		++cgproc->cgen->warnings;
+	}
+}
+
 /** Generate code for expression statement.
  *
  * @param cgproc Code generator for procedure
@@ -7224,6 +7283,12 @@ static int cgen_stexpr(cgen_proc_t *cgproc, ast_stexpr_t *stexpr,
 	rc = cgen_expr_rvalue(cgproc, stexpr->expr, lblock, &ares);
 	if (rc != EOK)
 		goto error;
+
+	/*
+	 * If the expression computes a value that is not used within
+	 * the expression itself (e.g. i + 1), generate a warning.
+	 */
+	cgen_expr_check_unused(cgproc, stexpr->expr, &ares);
 
 	/* Ignore the value of the expression */
 	cgen_eres_fini(&ares);

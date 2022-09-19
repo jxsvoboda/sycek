@@ -3,8 +3,8 @@
 <test/syc/ugly/otherastruth.c:17:16:id:a>: Warning: 'int' used as a truth value.
 <test/syc/ugly/otherastruth.c:22:18:id:a>: Warning: 'int' used as a truth value.
 <test/syc/ugly/otherastruth.c:25:16:id:a>: Warning: 'int' used as a truth value.
-<test/syc/ugly/otherastruth.c:29:10:id:a>: Warning: 'int' used as a truth value.
-<test/syc/ugly/otherastruth.c:32:9:id:a>: Warning: 'int' used as a truth value.
-<test/syc/ugly/otherastruth.c:32:14:id:b>: Warning: 'int' used as a truth value.
-<test/syc/ugly/otherastruth.c:35:9:id:a>: Warning: 'int' used as a truth value.
-<test/syc/ugly/otherastruth.c:35:14:id:b>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:29:16:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:32:16:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:32:21:id:b>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:35:16:id:a>: Warning: 'int' used as a truth value.
+<test/syc/ugly/otherastruth.c:35:21:id:b>: Warning: 'int' used as a truth value.

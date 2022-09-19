@@ -26,13 +26,13 @@ int foo(void)
 		;
 
 	/* In logical not operator */
-	!a;
+	(void)!a;
 
 	/* In logical or operator */
-	a || b;
+	(void)(a || b);
 
 	/* In logical and operator */
-	a && b;
+	(void)(a && b);
 
 	return 0;
 }
