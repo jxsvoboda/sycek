@@ -218,7 +218,9 @@ implemented.
 Specifically, these language features are supported:
 
  * All statements (except inline assembly)
- * Function declaration, definition, calling functions (up to 3 arguments)
+ * Function declaration, definition, calling functions
+ * Function arguments are passed via registers and the stack
+   (any number of arguments of total size up to appprox. 128 bytes)
  * Most arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
 
@@ -226,7 +228,7 @@ These are NOT supported:
 
  * Any other type than integer (pointers, structures, arrays, enumerated types,
    floating point)
- * Functions with more than 3 arguments, variadic functions
+ * Variadic functions
  * Division and modulus (`/`, `%`)
  * Ternary operator
 
