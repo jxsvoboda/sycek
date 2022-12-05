@@ -1,0 +1,9 @@
+<test/ccheck/ugly/inlinews-in.c:7:19-21:'int'>: Single space expected before declarator.
+<test/ccheck/ugly/inlinews-in.c:9:23:space>: Single space expected before declarator.
+<test/ccheck/ugly/inlinews-in.c:11:22:tab>: Single space expected before declarator.
+<test/ccheck/ugly/inlinews-in.c:22:9:id:i>: Single space expected before binary operator.
+<test/ccheck/ugly/inlinews-in.c:25:11:space>: Single space expected before binary operator.
+<test/ccheck/ugly/inlinews-in.c:28:10:tab>: Single space expected before binary operator.
+<test/ccheck/ugly/inlinews-in.c:37:12:num:3>: Single space expected after binary operator.
+<test/ccheck/ugly/inlinews-in.c:40:12:space>: Single space expected after binary operator.
+<test/ccheck/ugly/inlinews-in.c:43:12:tab>: Single space expected after binary operator.

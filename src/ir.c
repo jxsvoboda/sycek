@@ -1006,7 +1006,7 @@ ir_proc_arg_t *ir_proc_prev_arg(ir_proc_arg_t *cur)
  * @param rarg Place to store pointer to new argument
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_proc_arg_create(const char *ident,  ir_texpr_t *atype,
+int ir_proc_arg_create(const char *ident, ir_texpr_t *atype,
     ir_proc_arg_t **rarg)
 {
 	ir_proc_arg_t *arg;
