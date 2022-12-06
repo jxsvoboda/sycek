@@ -2,10 +2,10 @@
 <test/ccheck/ugly/expr-in.c:12:10:space>: Unexpected whitespace before '['.
 <test/ccheck/ugly/expr-in.c:12:12:space>: Unexpected space after '['.
 <test/ccheck/ugly/expr-in.c:12:14:space>: Unexpected whitespace before ']'.
-<test/ccheck/ugly/expr-in.c:18:30:num:2>: Single space expected after binary operator.
+<test/ccheck/ugly/expr-in.c:18:30:num:2>: Whitespace expected after binary operator.
 <test/ccheck/ugly/expr-in.c:21:45:space>: Unexpected whitespace before '['.
-<test/ccheck/ugly/expr-in.c:24:27:id:b>: Single space expected after binary operator.
-<test/ccheck/ugly/expr-in.c:27:24-28:id:foo_t>: Single space expected before declarator.
+<test/ccheck/ugly/expr-in.c:24:27:id:b>: Whitespace expected after binary operator.
+<test/ccheck/ugly/expr-in.c:27:24-28:id:foo_t>: Expected space before declarator.
 <test/ccheck/ugly/expr-in.c:31:13:'+'>: Binary operator at beginning of line.
 <test/ccheck/ugly/expr-in.c:35:13:'='>: '=' at beginning of line.
 <test/ccheck/ugly/expr-in.c:39:13:'?'>: Ternary '?' at beginning of line.

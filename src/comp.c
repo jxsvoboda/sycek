@@ -201,7 +201,7 @@ int comp_create(lexer_input_ops_t *input_ops, void *input_arg,
 		goto error;
 	}
 
-	if (mtype == cmt_csrc || mtype == cmt_chdr) {
+	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
 		/* C language lexer */
 		rc = lexer_create(input_ops, input_arg, &lexer);
 		if (rc != EOK) {

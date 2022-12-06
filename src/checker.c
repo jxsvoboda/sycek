@@ -362,31 +362,6 @@ static bool checker_is_tok_lbegin(checker_tok_t *tok)
 	return false;
 }
 
-/** Determine if token is a single space and has no whitespace before or
- * after.
- *
- * @param tok Checker token (whitespace)
- * @return @c true if token is the first non-whitespace token on a line
- */
-static bool checker_is_ws_single_space(checker_tok_t *tok)
-{
-	checker_tok_t *prev;
-	checker_tok_t *next;
-
-	if (tok->tok.ttype != ltt_space)
-		return false;
-
-	prev = checker_prev_tok(tok);
-	if (lexer_is_wspace(prev->tok.ttype))
-		return false;
-
-	next = checker_next_tok(tok);
-	if (lexer_is_wspace(next->tok.ttype))
-		return false;
-
-	return true;
-}
-
 /** Get preceding newline token.
  *
  * @param tok Checker token
@@ -842,22 +817,7 @@ static int checker_check_brkspace_before(checker_scope_t *scope,
 	assert(p != NULL);
 
 	if (!lexer_is_wspace(p->tok.ttype) && checker_scfg(scope)->fmt) {
-		/* There is no whitespace before, insert single space */
 		if (scope->fix) {
-			rc = checker_prepend_tok(tok, ltt_space, " ");
-			if (rc != EOK)
-				return rc;
-		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
-		}
-	} else if (!checker_is_tok_lbegin(tok) &&
-	    !checker_is_ws_single_space(p) &&
-	    checker_scfg(scope)->fmt) {
-		/* Replace whitespace before token with single space */
-		if (scope->fix) {
-			checker_remove_ws_before(tok);
-
 			rc = checker_prepend_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
@@ -910,22 +870,7 @@ static int checker_check_brkspace_after(checker_scope_t *scope,
 	assert(p != NULL);
 
 	if (!lexer_is_wspace(p->tok.ttype) && checker_scfg(scope)->fmt) {
-		/* There is no whitespace after, insert single space */
 		if (scope->fix) {
-			rc = checker_append_tok(tok, ltt_space, " ");
-			if (rc != EOK)
-				return rc;
-		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
-		}
-	} else if (p->tok.ttype != ltt_newline &&
-	    !checker_is_ws_single_space(p) &&
-	    checker_scfg(scope)->fmt) {
-		/* Replace whitespace after token with single space */
-		if (scope->fix) {
-			checker_remove_ws_after(tok);
-
 			rc = checker_append_tok(tok, ltt_space, " ");
 			if (rc != EOK)
 				return rc;
@@ -962,20 +907,6 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 
 	if ((!lexer_is_wspace(p->tok.ttype) || checker_is_tok_lbegin(tok)) &&
 	    checker_scfg(scope)->fmt) {
-		if (scope->fix) {
-			checker_remove_ws_before(tok);
-
-			rc = checker_prepend_tok(tok, ltt_space, " ");
-			if (rc != EOK)
-				return rc;
-		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
-		}
-	} else if (!checker_is_tok_lbegin(tok) &&
-	    !checker_is_ws_single_space(p) &&
-	    checker_scfg(scope)->fmt) {
-		/* Replace whitespace before token with single space */
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 
@@ -1167,7 +1098,7 @@ static int checker_check_asm_op(checker_scope_t *scope, ast_asm_op_t *aop)
 		trbracket = (checker_tok_t *)aop->trbracket.data;
 
 		rc = checker_check_brkspace_before(scope, tlbracket,
-		    "Single space expected before '['.");
+		    "Whitespace expected before '['.");
 		if (rc != EOK)
 			return rc;
 
@@ -1184,12 +1115,12 @@ static int checker_check_asm_op(checker_scope_t *scope, ast_asm_op_t *aop)
 	tcomma = (checker_tok_t *)aop->tcomma.data;
 
 	rc = checker_check_brkspace_before(scope, tconstraint,
-	    "Single space expected before '('.");
+	    "Whitespace expected before '('.");
 	if (rc != EOK)
 		return rc;
 
 	rc = checker_check_brkspace_before(scope, tlparen,
-	    "Single space expected before '('.");
+	    "Whitespace expected before '('.");
 	if (rc != EOK)
 		return rc;
 
@@ -1229,7 +1160,7 @@ static int checker_check_asm_clobber(checker_scope_t *scope,
 	tcomma = (checker_tok_t *)clobber->tcomma.data;
 
 	rc = checker_check_brkspace_before(scope, tclobber,
-	    "Single space expected before clobber list element.");
+	    "Whitespace expected before clobber list element.");
 	if (rc != EOK)
 		return rc;
 
@@ -1258,7 +1189,7 @@ static int checker_check_asm_label(checker_scope_t *scope,
 	tcomma = (checker_tok_t *)label->tcomma.data;
 
 	rc = checker_check_brkspace_before(scope, tlabel,
-	    "Single space expected before label.");
+	    "Whitespace expected before label.");
 	if (rc != EOK)
 		return rc;
 
@@ -1320,7 +1251,7 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	}
 
 	rc = checker_check_nbspace_before(scope, tlparen,
-	    "Single space expected before '('.");
+	    "Space expected before '('.");
 	if (rc != EOK)
 		goto error;
 
@@ -1542,7 +1473,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		return rc;
 
 	rc = checker_check_nbspace_before(scope, tlparen,
-	    "Single space expected between 'if' and '('.");
+	    "There must be single space between 'if' and '('.");
 	if (rc != EOK)
 		return rc;
 
@@ -1571,7 +1502,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 
 		if (prev_block->braces) {
 			rc = checker_check_nbspace_before(scope, telse,
-			    "Single space expected between '}' and "
+			    "There must be single space between '}' and "
 			    "'else'.");
 			if (rc != EOK)
 				return rc;
@@ -1583,12 +1514,12 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		}
 
 		rc = checker_check_nbspace_before(scope, tif,
-		    "Single space expected between 'else' and 'if'.");
+		    "There must be single space between 'else' and 'if'.");
 		if (rc != EOK)
 			return rc;
 
 		rc = checker_check_nbspace_before(scope, tlparen,
-		    "Single space expected between 'if' and '('.");
+		    "There must be single space between 'if' and '('.");
 		if (rc != EOK)
 			return rc;
 
@@ -1615,7 +1546,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 
 		if (prev_block->braces) {
 			rc = checker_check_nbspace_before(scope, telse,
-			    "Single space expected between '}' and "
+			    "There must be single space between '}' and "
 			    "'else'.");
 			if (rc != EOK)
 				return rc;
@@ -1657,7 +1588,7 @@ static int checker_check_while(checker_scope_t *scope, ast_while_t *awhile)
 		return rc;
 
 	rc = checker_check_nbspace_before(scope, tlparen,
-	    "Single space expected between 'while' and '('.");
+	    "There must be single space between 'while' and '('.");
 	if (rc != EOK)
 		return rc;
 
@@ -1716,7 +1647,8 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 
 	if (ado->body->braces) {
 		rc = checker_check_nbspace_before(scope, twhile,
-		    "Single space expected between '}' and 'while'.");
+		    "There must be single space between '}' and "
+		    "'while'.");
 		if (rc != EOK)
 			return rc;
 	} else {
@@ -1727,7 +1659,7 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 	}
 
 	rc = checker_check_nbspace_before(scope, tlparen,
-	    "Single space expected between 'while' and '('.");
+	    "There must be single space between 'while' and '('.");
 	if (rc != EOK)
 		return rc;
 
@@ -1776,7 +1708,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		return rc;
 
 	rc = checker_check_nbspace_before(scope, tlparen,
-	    "Single space expected between 'for' and '('.");
+	    "There must be single space between 'for' and '('.");
 	if (rc != EOK)
 		return rc;
 
@@ -1798,7 +1730,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		if (adecl != NULL) {
 			tdecl = (checker_tok_t *)adecl->data;
 			rc = checker_check_brkspace_before(scope, tdecl,
-			    "Single space expected before declarator.");
+			    "Expected space before declarator.");
 			if (rc != EOK)
 				return rc;
 		}
@@ -1812,7 +1744,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	    "Unexpected whitespace before ';'.");
 
 	rc = checker_check_brkspace_after(scope, tscolon1,
-	    "Single space expected after ';'.");
+	    "Expected space after ';'.");
 	if (rc != EOK)
 		return rc;
 
@@ -1826,7 +1758,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	}
 
 	rc = checker_check_brkspace_after(scope, tscolon2,
-	    "Single space expected after ';'.");
+	    "Expected space after ';'.");
 	if (rc != EOK)
 		return rc;
 
@@ -1877,7 +1809,7 @@ static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
 		return rc;
 
 	rc = checker_check_nbspace_before(scope, tlparen,
-	    "Single space expected between 'switch' and '('.");
+	    "There must be single space between 'switch' and '('.");
 	if (rc != EOK)
 		return rc;
 
@@ -1928,7 +1860,7 @@ static int checker_check_clabel(checker_scope_t *scope, ast_clabel_t *clabel)
 	texpr = (checker_tok_t *) aexpr->data;
 
 	rc = checker_check_nbspace_before(scope, texpr,
-	    "Single space expected between 'case' and case expression.");
+	    "There must be single space between 'case' and case expression.");
 	if (rc != EOK) {
 		++scope->indlvl;
 		return rc;
@@ -2070,7 +2002,7 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
-		    "Single space expected before declarator.");
+		    "Expected space before declarator.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -2374,7 +2306,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 		if (adecl != NULL) {
 			tdecl = (checker_tok_t *)adecl->data;
 			rc = checker_check_brkspace_before(scope, tdecl,
-			    "Single space expected before declarator.");
+			    "Expected space before declarator.");
 			if (rc != EOK)
 				return rc;
 		}
@@ -2394,7 +2326,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 			checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
 			rc = checker_check_brkspace_after(scope, tcomma,
-			    "Single space expected after ','.");
+			    "Expected whitespace after ','.");
 			if (rc != EOK)
 				return rc;
 		}
@@ -2516,12 +2448,12 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 		if (entry->have_bitwidth) {
 			tcolon = (checker_tok_t *)entry->tcolon.data;
 			rc = checker_check_nbspace_before(scope, tcolon,
-			    "Single space expected before ':'.");
+			    "Expected space before ':'.");
 			if (rc != EOK)
 				return rc;
 
 			rc = checker_check_brkspace_after(scope, tcolon,
-			    "Single space expected after ':'.");
+			    "Expected whitespace after ':'.");
 			if (rc != EOK)
 				return rc;
 
@@ -2624,7 +2556,7 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist,
 			checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
 			rc = checker_check_brkspace_after(scope, tcomma,
-			    "Single space expected after ','.");
+			    "Whitespace expected after ','.");
 			if (rc != EOK)
 				goto error;
 		}
@@ -2673,7 +2605,7 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist,
 
 				rc = checker_check_brkspace_after(
 				    scope, tassign,
-				    "Single space expected after '='.");
+				    "Whitespace expected after '='.");
 				if (rc != EOK)
 					goto error;
 			}
@@ -2712,7 +2644,7 @@ static int checker_check_typename(checker_scope_t *scope,
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
-		    "Single space expected before declarator.");
+		    "Expected space before declarator.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -2779,7 +2711,7 @@ static int checker_check_regassign(checker_scope_t *scope,
 	trparen = (checker_tok_t *)regassign->trparen.data;
 
 	rc = checker_check_brkspace_before(scope, tasm,
-	    "Single space expected before 'asm'.");
+	    "Whitespace expected before 'asm'.");
 	if (rc != EOK)
 		return rc;
 
@@ -2835,7 +2767,7 @@ static int checker_check_aspec_attr(checker_scope_t *scope,
 				checker_check_nows_before(scope, tcomma,
 				    "Unexpected whitespace before ','.");
 				rc = checker_check_brkspace_after(scope, tcomma,
-				    "Single space expected after ','.");
+				    "Expected whitespace after ','.");
 				if (rc != EOK)
 					return rc;
 			}
@@ -2892,7 +2824,7 @@ static int checker_check_aspec(checker_scope_t *scope, ast_aspec_t *aspec)
 			checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
 			rc = checker_check_brkspace_after(scope, tcomma,
-			    "Single space expected after ','.");
+			    "Expected whitespace after ','.");
 			if (rc != EOK)
 				return rc;
 		}
@@ -2972,7 +2904,7 @@ static int checker_check_mattr(checker_scope_t *scope,
 				checker_check_nows_before(scope, tcomma,
 				    "Unexpected whitespace before ','.");
 				rc = checker_check_brkspace_after(scope, tcomma,
-				    "Single space expected after ','.");
+				    "Expected whitespace after ','.");
 				if (rc != EOK)
 					return rc;
 			}
@@ -3007,7 +2939,7 @@ static int checker_check_malist(checker_scope_t *scope, ast_malist_t *malist)
 		tattr = (checker_tok_t *)aattr->data;
 
 		rc = checker_check_brkspace_before(scope, tattr,
-		    "Single space expected before identifier.");
+		    "Whitespace expected before identifier.");
 		if (rc != EOK)
 			return rc;
 
@@ -3149,7 +3081,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	tlbrace = (checker_tok_t *)tsrecord->tlbrace.data;
 	if (tlbrace != NULL) {
 		rc = checker_check_nbspace_before(scope, tlbrace,
-		    "Single space expected before '{'.");
+		    "Expected single space before '{'.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -3175,8 +3107,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 			if (adecl != NULL) {
 				tdecl = (checker_tok_t *)adecl->data;
 				rc = checker_check_brkspace_before(escope,
-				    tdecl, "Signle space expected before "
-				    "declarator.");
+				    tdecl, "Expected space before declarator.");
 				if (rc != EOK)
 					goto error;
 			}
@@ -3226,7 +3157,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 		aaslist = ast_tree_first_tok(&tsrecord->aslist2->node);
 		rc = checker_check_brkspace_before(scope,
 		    (checker_tok_t *)aaslist->data,
-		    "Single space expected before '__attribute__'.");
+		    "Expected whitespace before '__attribute__'.");
 		if (rc != EOK)
 			goto error;
 
@@ -3275,7 +3206,7 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 	tlbrace = (checker_tok_t *)tsenum->tlbrace.data;
 	if (tlbrace != NULL) {
 		rc = checker_check_nbspace_before(scope, tlbrace,
-		    "Single space expected before '{'.");
+		    "Expected single space before '{'.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -3291,12 +3222,12 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 		tequals = (checker_tok_t *)elem->tequals.data;
 		if (tequals != NULL) {
 			rc = checker_check_nbspace_before(escope, tequals,
-			    "Single space expected before '='.");
+			    "Expected space before '='.");
 			if (rc != EOK)
 				goto error;
 
 			rc = checker_check_brkspace_after(escope, tequals,
-			    "Single space expected after '='.");
+			    "Whitespace expected after '='.");
 			if (rc != EOK)
 				goto error;
 
@@ -3484,7 +3415,7 @@ static int checker_check_block(checker_scope_t *scope, ast_block_t *block,
 	if (block->braces) {
 		tlbrace = (checker_tok_t *)block->topen.data;
 		rc = checker_check_nbspace_before(scope, tlbrace,
-		    "Single space expected before block opening brace.");
+		    "Expected single space before block opening brace.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -3600,8 +3531,8 @@ static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 	while (lit != NULL) {
 		tlit = (checker_tok_t *) lit->tlit.data;
 		msg = tlit->tok.ttype == ltt_strlit ?
-		    "Single space xpected before string literal." :
-		    "Single space expected before identifier.";
+		    "Whitespace expected before string literal." :
+		    "Whitespace expected before identifier.";
 		rc = checker_check_brkspace_before(scope, tlit, msg);
 		if (rc != EOK)
 			return rc;
@@ -3714,7 +3645,7 @@ static int checker_check_econcat(checker_scope_t *scope, ast_econcat_t *econcat)
 		aexpr = ast_tree_first_tok(elem->bexpr);
 		texpr = (checker_tok_t *) aexpr->data;
 		rc = checker_check_brkspace_before(scope, texpr,
-		    "Single space expected before expression.");
+		    "Whitespace expected before expression.");
 		if (rc != EOK)
 			return rc;
 
@@ -3758,7 +3689,7 @@ static int checker_check_ebinop(checker_scope_t *scope, ast_ebinop_t *ebinop)
 			return rc;
 
 		rc = checker_check_brkspace_after(scope, top,
-		    "Single space expected after binary operator.");
+		    "Whitespace expected after binary operator.");
 		if (rc != EOK)
 			return rc;
 	}
@@ -3801,7 +3732,7 @@ static int checker_check_etcond(checker_scope_t *scope, ast_etcond_t *etcond)
 			return rc;
 
 		rc = checker_check_brkspace_after(scope, tqmark,
-		    "Single space expected after '?'.");
+		    "Whitespace expected after '?'.");
 		if (rc != EOK)
 			return rc;
 	}
@@ -3824,7 +3755,7 @@ static int checker_check_etcond(checker_scope_t *scope, ast_etcond_t *etcond)
 			return rc;
 
 		rc = checker_check_brkspace_after(scope, tcolon,
-		    "Single space expected after ':'.");
+		    "Whitespace expected after ':'.");
 		if (rc != EOK)
 			return rc;
 	}
@@ -3858,7 +3789,7 @@ static int checker_check_ecomma(checker_scope_t *scope, ast_ecomma_t *ecomma)
 	    "Single space expected before ','.");
 
 	rc = checker_check_brkspace_after(scope, tcomma,
-	    "Single space expected after ','.");
+	    "Whitespace expected after ','.");
 	if (rc != EOK)
 		return rc;
 
@@ -3903,7 +3834,7 @@ static int checker_check_ecall(checker_scope_t *scope,
 
 		if (tcomma != NULL) {
 			rc = checker_check_brkspace_after(scope, tcomma,
-			    "Single space expected after ','.");
+			    "Whitespace expected after ','.");
 			if (rc != EOK)
 				return rc;
 		}
@@ -4087,7 +4018,7 @@ static int checker_check_ecast(checker_scope_t *scope, ast_ecast_t *ecast)
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
-		    "Single space expected before declarator.");
+		    "Expected space before declarator.");
 		if (rc != EOK)
 			return rc;
 	}
@@ -4136,7 +4067,7 @@ static int checker_check_ecliteral(checker_scope_t *scope,
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
-		    "Single space expected before declarator.");
+		    "Expected space before declarator.");
 		if (rc != EOK)
 			return rc;
 	}
@@ -4440,7 +4371,7 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 	tfirst = (checker_tok_t *)afirst->data;
 
 	rc = checker_check_brkspace_before_nocont(scope, tfirst,
-	    "Single space expected before initializer.");
+	    "Whitespace expected before initializer.");
 	if (rc != EOK)
 		goto error;
 
@@ -4493,7 +4424,7 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 			goto error;
 
 		rc = checker_check_brkspace_after(scope, tassign,
-		    "Single space expected after '='.");
+		    "Whitespace expected after '='.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -4507,7 +4438,7 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 		checker_check_nows_before(scope, tcomma,
 		    "Unexpected whitespace before ','.");
 		rc = checker_check_brkspace_after(scope, tcomma,
-		    "Single space expected after ','.");
+		    "Expected whitespace after ','.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -4550,7 +4481,7 @@ static int checker_check_cinit(checker_scope_t *scope, ast_cinit_t *cinit)
 	trbrace = (checker_tok_t *)cinit->trbrace.data;
 	if (trbrace != NULL) {
 		rc = checker_check_brkspace_before_nocont(scope, trbrace,
-		    "Single space expected before '}'.");
+		    "Whitespace expected before '}'.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -4732,7 +4663,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 	if (adecl != NULL) {
 		tdecl = (checker_tok_t *)adecl->data;
 		rc = checker_check_brkspace_before(scope, tdecl,
-		    "Single space expected before declarator.");
+		    "Expected space before declarator.");
 		if (rc != EOK)
 			goto error;
 	}
@@ -4842,7 +4773,7 @@ static int checker_check_mdecln(checker_scope_t *scope,
 		tcomma = (checker_tok_t *)arg->tcomma.data;
 		if (tcomma != NULL) {
 			rc = checker_check_brkspace_after(scope, tcomma,
-			    "Single space expected after ','.");
+			    "Whitespace expected after ','.");
 			if (rc != EOK)
 				goto error;
 
@@ -4999,12 +4930,12 @@ static int checker_check_externc(checker_scope_t *scope,
 		goto error;
 
 	rc = checker_check_nbspace_before(scope, tlang,
-	    "Single space expected before string literal.");
+	    "Space expected before string literal.");
 	if (rc != EOK)
 		goto error;
 
 	rc = checker_check_nbspace_before(scope, tlbrace,
-	    "Single space expected before '{'.");
+	    "Space expected before '{'.");
 	if (rc != EOK)
 		goto error;
 

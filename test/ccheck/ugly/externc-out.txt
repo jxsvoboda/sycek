@@ -1,7 +1,7 @@
-<test/ccheck/ugly/externc-in.c:4:5-10:'extern'>: Single space expected before string literal.
-<test/ccheck/ugly/externc-in.c:4:11-13:str>: Single space expected before '{'.
-<test/ccheck/ugly/externc-in.c:13:7:newline>: Single space expected before string literal.
-<test/ccheck/ugly/externc-in.c:14:4:newline>: Single space expected before '{'.
+<test/ccheck/ugly/externc-in.c:4:5-10:'extern'>: Space expected before string literal.
+<test/ccheck/ugly/externc-in.c:4:11-13:str>: Space expected before '{'.
+<test/ccheck/ugly/externc-in.c:13:7:newline>: Space expected before string literal.
+<test/ccheck/ugly/externc-in.c:14:4:newline>: Space expected before '{'.
 <test/ccheck/ugly/externc-in.c:4:5-10:'extern'>: Non-continuation line should not have any spaces for indentation (found 4)
 <test/ccheck/ugly/externc-in.c:4:5-10:'extern'>: Line is indented by 4 spaces (should be 0)
 <test/ccheck/ugly/externc-in.c:11:5:'}'>: Non-continuation line should not have any spaces for indentation (found 4)
