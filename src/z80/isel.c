@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -144,7 +144,7 @@ static bool z80_isel_is_vreg(const char *varname)
  * @param rz80_isel Place to store pointer to new instruction selector
  * @param oper Variable operand referring to a local numbered variable
  *
- * @return Virtual register number (same as variable number)
+ * @return Virtual register number
  */
 static unsigned z80_isel_get_vregno(z80_isel_proc_t *isproc, ir_oper_t *oper)
 {
@@ -263,6 +263,17 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 	unsigned bytes;
 	unsigned vregs;
 	int rc;
+
+	if (irproc->rtype != NULL) {
+		assert(irproc->rtype->tetype == irt_int);
+
+		/* Add hidden first argument for returning 64-bit value */
+		if (irproc->rtype->t.tint.width == 64) {
+			rc = z80_varmap_insert(isproc->varmap, "%.retval", 1);
+			if (rc != EOK)
+				return rc;
+		}
+	}
 
 	arg = ir_proc_first_arg(irproc);
 	while (arg != NULL) {
@@ -403,7 +414,7 @@ int z80_isel_create(z80_isel_t **rz80_isel)
  * @param risproc Place to store pointer to new procedure instruction selector
  * @return EOK on success, ENOMEM if out of memory
  */
-static int z80_isel_proc_create(z80_isel_t *isel, const char *ident,
+static int z80_isel_proc_create(z80_isel_t *isel, char *ident,
     z80_isel_proc_t **risproc)
 {
 	z80_isel_proc_t *isproc;
@@ -445,6 +456,251 @@ static void z80_isel_proc_destroy(z80_isel_proc_t *isproc)
 	z80_varmap_destroy(isproc->varmap);
 	free(isproc->ident);
 	free(isproc);
+}
+
+/** Select Z80 IC instructions code for writing value stored in virtual
+ * registers to memory.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param destvr Virtual register base where to store the value
+ * @param bytes Size of the value in bytes
+ * @param addrvr Virtual register containing address
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_read_vrr(z80_isel_proc_t *isproc, unsigned destvr,
+    unsigned bytes, unsigned addrvr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r16_vrr_t *ldaddr = NULL;
+	z80ic_ld_vr_ihl_t *lddata = NULL;
+	z80ic_inc_ss_t *inc = NULL;
+	z80ic_oper_r16_t *adest = NULL;
+	z80ic_oper_vrr_t *asrc = NULL;
+	z80ic_oper_ss_t *ainc = NULL;
+	z80ic_oper_vr_t *ddest = NULL;
+	unsigned byte;
+	z80ic_vr_part_t part;
+	unsigned vroff;
+	int rc;
+
+	(void)isproc;
+
+	/*
+	 * If we could allocate a new virtual register, we might use
+	 * that instead of specifying HL directly, which would, in theory,
+	 * allow using IX or IY (if available)
+	 */
+
+	/* ld HL, vrrA */
+
+	rc = z80ic_ld_r16_vrr_create(&ldaddr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(z80ic_r16_hl, &adest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(addrvr, &asrc);
+	if (rc != EOK)
+		goto error;
+
+	ldaddr->dest = adest;
+	ldaddr->src = asrc;
+	adest = NULL;
+	asrc = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldaddr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldaddr = NULL;
+
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < bytes; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, bytes, &part, &vroff);
+
+		/* ld vrrB.X, (HL) */
+
+		rc = z80ic_ld_vr_ihl_create(&lddata);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &ddest);
+		if (rc != EOK)
+			goto error;
+
+		lddata->dest = ddest;
+		ddest = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
+		if (rc != EOK)
+			goto error;
+
+		lddata = NULL;
+
+		/* No need to increment HL in last iteration */
+		if (byte >= bytes - 1)
+			break;
+
+		/* inc HL */
+
+		rc = z80ic_inc_ss_create(&inc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
+		if (rc != EOK)
+			goto error;
+
+		inc->dest = ainc;
+		ainc = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+		if (rc != EOK)
+			goto error;
+
+		inc = NULL;
+	}
+
+	return EOK;
+error:
+	if (ldaddr != NULL)
+		z80ic_instr_destroy(&ldaddr->instr);
+	if (lddata != NULL)
+		z80ic_instr_destroy(&lddata->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+
+	z80ic_oper_r16_destroy(adest);
+	z80ic_oper_vrr_destroy(asrc);
+	z80ic_oper_ss_destroy(ainc);
+	z80ic_oper_vr_destroy(ddest);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR write instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param addrvr Virtual register containing address
+ * @param srcvr Virtual register base of the value
+ * @param bytes Size of the value in bytes
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_write_vrr(z80_isel_proc_t *isproc, unsigned addrvr,
+    unsigned srcvr, unsigned bytes, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r16_vrr_t *ldaddr = NULL;
+	z80ic_ld_ihl_vr_t *lddata = NULL;
+	z80ic_inc_ss_t *inc = NULL;
+	z80ic_oper_r16_t *adest = NULL;
+	z80ic_oper_vrr_t *asrc = NULL;
+	z80ic_oper_ss_t *ainc = NULL;
+	z80ic_oper_vr_t *dsrc = NULL;
+	unsigned byte;
+	unsigned vroff;
+	z80ic_vr_part_t part;
+	int rc;
+
+	/*
+	 * If we could allocate a new virtual register, we might use
+	 * that instead of specifying HL directly, which would, in theory,
+	 * allow using IX or IY (if available)
+	 */
+
+	(void)isproc;
+
+	/* ld HL, vrrA */
+
+	rc = z80ic_ld_r16_vrr_create(&ldaddr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_r16_create(z80ic_r16_hl, &adest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(addrvr, &asrc);
+	if (rc != EOK)
+		goto error;
+
+	ldaddr->dest = adest;
+	ldaddr->src = asrc;
+	adest = NULL;
+	asrc = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldaddr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldaddr = NULL;
+
+	/* Do the same thing afor every byte */
+	for (byte = 0; byte < bytes; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, bytes, &part, &vroff);
+
+		/* ld (HL), vrrB.X */
+
+		rc = z80ic_ld_ihl_vr_create(&lddata);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(srcvr + vroff, part, &dsrc);
+		if (rc != EOK)
+			goto error;
+
+		lddata->src = dsrc;
+		dsrc = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
+		if (rc != EOK)
+			goto error;
+
+		lddata = NULL;
+
+		/* No need to increment HL in last iteration */
+		if (byte >= bytes - 1)
+			break;
+
+		/* inc HL */
+
+		rc = z80ic_inc_ss_create(&inc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
+		if (rc != EOK)
+			goto error;
+
+		inc->dest = ainc;
+		ainc = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+		if (rc != EOK)
+			goto error;
+
+		inc = NULL;
+	}
+
+	return EOK;
+error:
+	if (ldaddr != NULL)
+		z80ic_instr_destroy(&ldaddr->instr);
+	if (lddata != NULL)
+		z80ic_instr_destroy(&lddata->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+
+	z80ic_oper_r16_destroy(adest);
+	z80ic_oper_vrr_destroy(asrc);
+	z80ic_oper_ss_destroy(ainc);
+	z80ic_oper_vr_destroy(dsrc);
+
+	return rc;
 }
 
 /** Select Z80 IC instructions code for negating a value stored in
@@ -989,8 +1245,10 @@ error:
  * registers.
  *
  * @param isproc Instruction selector for procedure
- * @param irinstr IR shl instruction
- * @param lblock Labeled block where to append the new instruction
+ * @param destvr Destination virtual register base
+ * @param srcvr Source virtual register base
+ * @param bytes Number of bytes to copy
+ * @param lblock Labeled block where to append the new instructions
  * @return EOK on success or an error code
  */
 static int z80_isel_vrr_copy(z80_isel_proc_t *isproc, unsigned destvr,
@@ -1079,7 +1337,9 @@ error:
 /** Select Z80 IC instructions code to load constant into virtual registers.
  *
  * @param isproc Instruction selector for procedure
- * @param irinstr IR immediate instruction
+ * @param destvr Destination virtual register base
+ * @param value Value to load
+ * @param bytes Number of bytes to copy
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
@@ -1158,6 +1418,67 @@ error:
 	z80ic_oper_imm16_destroy(imm);
 	z80ic_oper_vr_destroy(vr);
 	z80ic_oper_imm8_destroy(imm8);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code to load local variable address into
+ * a virtual register.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param destvr Destination virtual register base
+ * @param varname Variable name
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_lvarptr(z80_isel_proc_t *isproc, unsigned destvr,
+    const char *varname, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_ld_vrr_spnn_t *ld = NULL;
+	char *varident = NULL;
+	int rc;
+
+	rc = z80_isel_mangle_lvar_ident(isproc->ident, varname, &varident);
+	if (rc != EOK)
+		goto error;
+
+	/* ld vrr, SP+$varident@SP */
+
+	rc = z80ic_ld_vrr_spnn_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(destvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(varident, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = vrr;
+	ld->imm16 = imm;
+	vrr = NULL;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	free(varident);
+	return EOK;
+error:
+	if (varident != NULL)
+		free(varident);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_imm16_destroy(imm);
 
 	return rc;
 }
@@ -1595,6 +1916,267 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions to get 64-bit IR call return value.
+ *
+ * 64-bit value does not fit in registers. We must retrieve it from
+ * a local variable where it was written by the function (we passed
+ * the address of this local variable as the first argument to the function).
+ *
+ * @param isproc Instruction selector for procedure
+ * @param proc IR procedure being called
+ * @param destvr Destination virtual register
+ * @param addrvr Virtual register containing address of return value
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_call_get_retv_64(z80_isel_proc_t *isproc, ir_proc_t *proc,
+    const char *label, unsigned destvr, unsigned addrvr, z80ic_lblock_t *lblock)
+{
+	(void)proc;
+	(void)label;
+
+	/*
+	 * Read return value from local variable that was allocated
+	 * by z80_isel_call()
+	 */
+
+	return z80_isel_read_vrr(isproc, destvr, 8, addrvr, lblock);
+}
+
+static int z80_isel_alloc_retvar(z80_isel_proc_t *isproc, uint16_t size,
+    uint16_t *roff)
+{
+	char *icident = NULL;
+	z80ic_lvar_t *icvar = NULL;
+	int rc;
+
+	rc = z80_isel_mangle_lvar_ident(isproc->ident, "%_retvar",
+	    &icident);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lvar_create(icident, isproc->icproc->lvar_sz, &icvar);
+	if (rc != EOK)
+		goto error;
+
+	free(icident);
+	icident = NULL;
+
+	z80ic_proc_append_lvar(isproc->icproc, icvar);
+
+	*roff = isproc->icproc->lvar_sz;
+	isproc->icproc->lvar_sz += size;
+	return EOK;
+error:
+	if (icident != NULL)
+		free(icident);
+	return rc;
+}
+
+/** Compute the address of return variable to a new virtual register.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param varname Return variable name
+ * @param raddrvr Place to store virtual register that holds the address
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_retvar_ptr(z80_isel_proc_t *isproc, const char *varname,
+    unsigned *raddrvr, z80ic_lblock_t *lblock)
+{
+	unsigned addrvr;
+	int rc;
+
+	addrvr = z80_isel_get_new_vregno(isproc);
+	rc = z80_isel_vrr_lvarptr(isproc, addrvr, varname, lblock);
+	if (rc != EOK)
+		return rc;
+
+	*raddrvr = addrvr;
+	return EOK;
+}
+
+/** Select Z80 IC instructions code for setting argument to procedure call.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param argloc Argument locations
+ * @param argvr Virtual register base
+ * @param varname Variable name
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_call_set_arg(z80_isel_proc_t *isproc, z80_argloc_t *argloc,
+    unsigned argvr, const char *varname, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_r16_t *ldadest = NULL;
+	z80ic_ld_r16_vrr_t *ldarg = NULL;
+	z80ic_ld_r_vr_t *ldarg8 = NULL;
+	z80ic_push_vrr_t *push = NULL;
+	z80ic_push_vr_t *push8 = NULL;
+	z80_argloc_entry_t *entry;
+	z80ic_reg_t r;
+	unsigned vroff;
+	z80ic_r16_t argreg;
+	unsigned i;
+	int rc;
+
+	(void) isproc;
+
+	/** Find argument location */
+	rc = z80_argloc_find(argloc, varname, &entry);
+	assert(rc == EOK);
+	if (rc != EOK)
+		return rc;
+
+	/*
+	 * First push to the stack. This requires us to clobber
+	 * registers. We go backwards (from the most significant
+	 * word to the least), so moving toward lower-number
+	 * virtual registers.
+	 */
+
+	vroff = entry->reg_entries + (entry->stack_sz + 1) / 2 - 1;
+
+	/* Push words */
+	for (i = 0; i + 1 < entry->stack_sz; i += 2) {
+		/* push vrr */
+
+		rc = z80ic_push_vrr_create(&push);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
+		if (rc != EOK)
+			goto error;
+
+		push->src = vrr;
+		vrr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+		if (rc != EOK)
+			goto error;
+
+		push = NULL;
+		--vroff;
+	}
+
+	/*
+	 * Push bytes. We pad bytes to 16-bit stack entries.
+	 * The lower part contains the data, the contents of
+	 * the upper part is undefined.
+	 */
+	for (; i < entry->stack_sz; i++) {
+		/* push vr */
+
+		rc = z80ic_push_vr_create(&push8);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(argvr + vroff, z80ic_vrp_r8,
+		    &vr);
+		if (rc != EOK)
+			goto error;
+
+		push8->src = vr;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &push8->instr);
+		if (rc != EOK)
+			goto error;
+
+		push8 = NULL;
+		--vroff;
+	}
+
+	/*
+	 * Now fill registers (last to first). Again moving
+	 * from higher- to lower-numbered virtual registers.
+	 */
+
+	for (i = 0; i < entry->reg_entries; i++) {
+		if (entry->reg[entry->reg_entries - 1 - i].part ==
+		    z80_argloc_hl) {
+			/* 16-bit register */
+
+			/* ld r16, vrr */
+
+			rc = z80ic_ld_r16_vrr_create(&ldarg);
+			if (rc != EOK)
+				goto error;
+
+			argreg = entry->reg[entry->reg_entries - 1 - i].reg;
+
+			rc = z80ic_oper_r16_create(argreg, &ldadest);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			ldarg->dest = ldadest;
+			ldarg->src = vrr;
+			ldadest = NULL;
+			vrr = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &ldarg->instr);
+			if (rc != EOK)
+				goto error;
+
+			ldarg = NULL;
+		} else {
+			/* 8-bit register */
+
+			/* ld r, vr */
+
+			rc = z80ic_ld_r_vr_create(&ldarg8);
+			if (rc != EOK)
+				goto error;
+
+			argreg = entry->reg[entry->reg_entries - 1 - i].reg;
+			z80_argloc_r16_part_to_r(argreg,
+			    entry->reg[entry->reg_entries - 1 - i].part, &r);
+
+			rc = z80ic_oper_reg_create(r, &reg);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(argvr + vroff,
+			    z80ic_vrp_r8, &vr);
+			if (rc != EOK)
+				goto error;
+
+			ldarg8->dest = reg;
+			ldarg8->src = vr;
+			reg = NULL;
+			vr = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &ldarg8->instr);
+			if (rc != EOK)
+				goto error;
+
+			ldarg8 = NULL;
+		}
+
+		--vroff;
+	}
+
+	return EOK;
+error:
+	if (ldarg != NULL)
+		z80ic_instr_destroy(&ldarg->instr);
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_vrr_destroy(vrr);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR call instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -1605,24 +2187,12 @@ error:
 static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_oper_r16_t *ldsrc = NULL;
-	z80ic_oper_vrr_t *lddest = NULL;
-	z80ic_oper_reg_t *reg = NULL;
-	z80ic_oper_vr_t *vr = NULL;
 	z80ic_call_nn_t *call = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
-	z80ic_ld_vrr_r16_t *ld = NULL;
-	z80ic_oper_vrr_t *vrr = NULL;
-	z80ic_oper_r16_t *ldadest = NULL;
-	z80ic_ld_r16_vrr_t *ldarg = NULL;
-	z80ic_ld_r_vr_t *ldarg8 = NULL;
-	z80ic_push_vrr_t *push = NULL;
-	z80ic_push_vr_t *push8 = NULL;
 	z80ic_inc_ss_t *inc = NULL;
 	z80ic_oper_ss_t *ainc = NULL;
 	z80_argloc_t *argloc = NULL;
 	z80_argloc_entry_t *entry;
-	z80ic_reg_t r;
 	ir_oper_var_t *op1;
 	ir_oper_list_t *op2;
 	ir_oper_t *arg;
@@ -1633,9 +2203,9 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned argvr;
 	char *varident = NULL;
 	unsigned destvr;
-	unsigned vroff;
 	unsigned bits;
-	z80ic_r16_t argreg;
+	uint16_t rvoff;
+	unsigned rvavr;
 	unsigned i;
 	int rc;
 
@@ -1670,6 +2240,28 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	rc = z80_argloc_create(&argloc);
 	if (rc != EOK)
 		goto error;
+
+	/* 64-bit return value? */
+	if (proc->rtype != NULL) {
+		assert(proc->rtype->tetype == irt_int);
+
+		if (proc->rtype->t.tint.width == 64) {
+			/* Allocate local variable to hold the return value */
+			rc = z80_isel_alloc_retvar(isproc, 8, &rvoff);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80_isel_retvar_ptr(isproc, "%_retvar", &rvavr,
+			    lblock);
+			if (rc != EOK)
+				goto error;
+
+			/** Allocate hidden argument location */
+			rc = z80_argloc_alloc(argloc, "%_retvar", 2, &entry);
+			if (rc != EOK)
+				goto error;
+		}
+	}
 
 	/* For arguments first to last */
 	arg = ir_oper_list_first(op2);
@@ -1728,148 +2320,26 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		assert(arg->optype == iro_var);
 		argvar = (ir_oper_var_t *) arg->ext;
 
-		/** Find argument location */
-		rc = z80_argloc_find(argloc, argvar->varname, &entry);
-		assert(rc == EOK);
-		if (rc != EOK)
-			return rc;
-
 		argvr = z80_isel_get_vregno(isproc, arg);
 
-		/*
-		 * First push to the stack. This requires us to clobber
-		 * registers. We go backwards (from the most significant
-		 * word to the least), so moving toward lower-number
-		 * virtual registers.
-		 */
-
-		vroff = entry->reg_entries + (entry->stack_sz + 1) / 2 - 1;
-
-		/* Push words */
-		for (i = 0; i + 1 < entry->stack_sz; i += 2) {
-			/* push vrr */
-
-			rc = z80ic_push_vrr_create(&push);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
-			if (rc != EOK)
-				goto error;
-
-			push->src = vrr;
-			vrr = NULL;
-
-			rc = z80ic_lblock_append(lblock, label, &push->instr);
-			if (rc != EOK)
-				goto error;
-
-			push = NULL;
-			--vroff;
-		}
-
-		/*
-		 * Push bytes. We pad bytes to 16-bit stack entries.
-		 * The lower part contains the data, the contents of
-		 * the upper part is undefined.
-		 */
-		for (; i < entry->stack_sz; i++) {
-			/* push vr */
-
-			rc = z80ic_push_vr_create(&push8);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vr_create(argvr + vroff, z80ic_vrp_r8,
-			    &vr);
-			if (rc != EOK)
-				goto error;
-
-			push8->src = vr;
-			vr = NULL;
-
-			rc = z80ic_lblock_append(lblock, label, &push8->instr);
-			if (rc != EOK)
-				goto error;
-
-			push8 = NULL;
-			--vroff;
-		}
-
-		/*
-		 * Now fill registers (last to first). Again moving
-		 * from higher- to lower-numbered virtual registers.
-		 */
-
-		for (i = 0; i < entry->reg_entries; i++) {
-			if (entry->reg[entry->reg_entries - 1 - i].part ==
-			    z80_argloc_hl) {
-				/* 16-bit register */
-
-				/* ld r16, vrr */
-
-				rc = z80ic_ld_r16_vrr_create(&ldarg);
-				if (rc != EOK)
-					goto error;
-
-				argreg = entry->reg[entry->reg_entries - 1 - i].reg;
-
-				rc = z80ic_oper_r16_create(argreg, &ldadest);
-				if (rc != EOK)
-					goto error;
-
-				rc = z80ic_oper_vrr_create(argvr + vroff, &vrr);
-				if (rc != EOK)
-					goto error;
-
-				ldarg->dest = ldadest;
-				ldarg->src = vrr;
-				ldadest = NULL;
-				vrr = NULL;
-
-				rc = z80ic_lblock_append(lblock, label, &ldarg->instr);
-				if (rc != EOK)
-					goto error;
-
-				ldarg = NULL;
-			} else {
-				/* 8-bit register */
-
-				/* ld r16, vrr */
-
-				rc = z80ic_ld_r_vr_create(&ldarg8);
-				if (rc != EOK)
-					goto error;
-
-				argreg = entry->reg[entry->reg_entries - 1 - i].reg;
-				z80_argloc_r16_part_to_r(argreg,
-				    entry->reg[entry->reg_entries - 1 - i].part, &r);
-
-				rc = z80ic_oper_reg_create(r, &reg);
-				if (rc != EOK)
-					goto error;
-
-				rc = z80ic_oper_vr_create(argvr + vroff,
-				    z80ic_vrp_r8, &vr);
-				if (rc != EOK)
-					goto error;
-
-				ldarg8->dest = reg;
-				ldarg8->src = vr;
-				reg = NULL;
-				vr = NULL;
-
-				rc = z80ic_lblock_append(lblock, label, &ldarg8->instr);
-				if (rc != EOK)
-					goto error;
-
-				ldarg8 = NULL;
-			}
-
-			--vroff;
-		}
+		rc = z80_isel_call_set_arg(isproc, argloc, argvr,
+		    argvar->varname, lblock);
+		if (rc != EOK)
+			goto error;
 
 		arg = ir_oper_list_prev(arg);
+	}
+
+	/* 64-bit return value? Pass hidden argument. */
+	if (proc->rtype != NULL) {
+		assert(proc->rtype->tetype == irt_int);
+
+		if (proc->rtype->t.tint.width == 64) {
+			rc = z80_isel_call_set_arg(isproc, argloc, rvavr,
+			    "%_retvar", lblock);
+			if (rc != EOK)
+				goto error;
+		}
 	}
 
 	/* call NN */
@@ -1908,6 +2378,10 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		case 32:
 			rc = z80_isel_call_get_retv_32(isproc, proc, label,
 			    destvr, lblock);
+			break;
+		case 64:
+			rc = z80_isel_call_get_retv_64(isproc, proc, label,
+			    destvr, rvavr, lblock);
 			break;
 		}
 	}
@@ -1960,22 +2434,11 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 error:
 	if (varident != NULL)
 		free(varident);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
 	if (call != NULL)
 		z80ic_instr_destroy(&call->instr);
-	if (ldarg != NULL)
-		z80ic_instr_destroy(&ldarg->instr);
-	if (push != NULL)
-		z80ic_instr_destroy(&push->instr);
 	if (inc != NULL)
 		z80ic_instr_destroy(&inc->instr);
-	z80ic_oper_vrr_destroy(lddest);
-	z80ic_oper_r16_destroy(ldsrc);
-	z80ic_oper_vr_destroy(vr);
-	z80ic_oper_reg_destroy(reg);
 	z80ic_oper_imm16_destroy(imm);
-	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_ss_destroy(ainc);
 	if (argloc != NULL)
 		z80_argloc_destroy(argloc);
@@ -5496,13 +5959,8 @@ error:
 static int z80_isel_lvarptr(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_oper_vrr_t *vrr = NULL;
-	z80ic_oper_imm16_t *imm = NULL;
-	z80ic_ld_vrr_spnn_t *ld = NULL;
 	unsigned destvr;
 	ir_oper_var_t *op1;
-	char *varident = NULL;
-	int rc;
 
 	assert(irinstr->itype == iri_lvarptr);
 	assert(irinstr->width == 16);
@@ -5512,47 +5970,8 @@ static int z80_isel_lvarptr(z80_isel_proc_t *isproc, const char *label,
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	op1 = (ir_oper_var_t *) irinstr->op1->ext;
 
-	rc = z80_isel_mangle_lvar_ident(isproc->ident, op1->varname, &varident);
-	if (rc != EOK)
-		goto error;
-
-	/* ld vrr, SP+$varident@SP */
-
-	rc = z80ic_ld_vrr_spnn_create(&ld);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vrr_create(destvr, &vrr);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_imm16_create_symbol(varident, &imm);
-	if (rc != EOK)
-		goto error;
-
-	ld->dest = vrr;
-	ld->imm16 = imm;
-	vrr = NULL;
-	imm = NULL;
-
-	rc = z80ic_lblock_append(lblock, label, &ld->instr);
-	if (rc != EOK)
-		goto error;
-
-	ld = NULL;
-
-	free(varident);
-	return EOK;
-error:
-	if (varident != NULL)
-		free(varident);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
-
-	z80ic_oper_vrr_destroy(vrr);
-	z80ic_oper_imm16_destroy(imm);
-
-	return rc;
+	(void)label;
+	return z80_isel_vrr_lvarptr(isproc, destvr, op1->varname, lblock);
 }
 
 /** Select Z80 IC instructions code for IR mul instruction.
@@ -6288,117 +6707,16 @@ error:
 static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_ld_r16_vrr_t *ldaddr = NULL;
-	z80ic_ld_vr_ihl_t *lddata = NULL;
-	z80ic_inc_ss_t *inc = NULL;
-	z80ic_oper_r16_t *adest = NULL;
-	z80ic_oper_vrr_t *asrc = NULL;
-	z80ic_oper_ss_t *ainc = NULL;
-	z80ic_oper_vr_t *ddest = NULL;
-	unsigned byte;
 	unsigned destvr;
-	z80ic_vr_part_t part;
-	unsigned vroff;
 	unsigned vr;
-	int rc;
-
-	/*
-	 * If we could allocate a new virtual register, we might use
-	 * that instead of specifying HL directly, which would, in theory,
-	 * allow using IX or IY (if available)
-	 */
 
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr = z80_isel_get_vregno(isproc, irinstr->op1);
 
-	/* ld HL, vrrA */
+	(void)label;
 
-	rc = z80ic_ld_r16_vrr_create(&ldaddr);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_r16_create(z80ic_r16_hl, &adest);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vrr_create(vr, &asrc);
-	if (rc != EOK)
-		goto error;
-
-	ldaddr->dest = adest;
-	ldaddr->src = asrc;
-	adest = NULL;
-	asrc = NULL;
-
-	rc = z80ic_lblock_append(lblock, label, &ldaddr->instr);
-	if (rc != EOK)
-		goto error;
-
-	ldaddr = NULL;
-
-	/* Do the same thing for every byte */
-	for (byte = 0; byte < irinstr->width / 8; byte++) {
-		/* Determine register part and offset */
-		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
-
-		/* ld vrrB.X, (HL) */
-
-		rc = z80ic_ld_vr_ihl_create(&lddata);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(destvr + vroff, part, &ddest);
-		if (rc != EOK)
-			goto error;
-
-		lddata->dest = ddest;
-		ddest = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
-		if (rc != EOK)
-			goto error;
-
-		lddata = NULL;
-
-		/* No need to increment HL in last iteration */
-		if (byte >= irinstr->width / 8 - 1)
-			break;
-
-		/* inc HL */
-
-		rc = z80ic_inc_ss_create(&inc);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
-		if (rc != EOK)
-			goto error;
-
-		inc->dest = ainc;
-		ainc = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
-		if (rc != EOK)
-			goto error;
-
-		inc = NULL;
-	}
-
-	return EOK;
-error:
-	if (ldaddr != NULL)
-		z80ic_instr_destroy(&ldaddr->instr);
-	if (lddata != NULL)
-		z80ic_instr_destroy(&lddata->instr);
-	if (inc != NULL)
-		z80ic_instr_destroy(&inc->instr);
-
-	z80ic_oper_r16_destroy(adest);
-	z80ic_oper_vrr_destroy(asrc);
-	z80ic_oper_ss_destroy(ainc);
-	z80ic_oper_vr_destroy(ddest);
-
-	return rc;
+	return z80_isel_read_vrr(isproc, destvr, irinstr->width / 8, vr,
+	    lblock);
 }
 
 /** Select Z80 IC instructions code for IR return instruction.
@@ -6688,6 +7006,63 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR 64-bit return value instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_retv_64(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_ret_t *ret = NULL;
+	z80_varmap_entry_t *entry;
+	unsigned vr;
+	unsigned addr_vr;
+	int rc;
+
+	(void)label;
+
+	assert(irinstr->itype == iri_retv);
+	assert(irinstr->width == 64);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	rc = z80_varmap_find(isproc->varmap, "%.retval", &entry);
+	assert(rc == EOK);
+
+	/* addr_vr is the virtual register holding %.retval */
+	addr_vr = entry->vr0;
+
+	/* vr is the first virtual register hodling the return value */
+	vr = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	rc = z80_isel_write_vrr(isproc, addr_vr, vr, irinstr->width / 8,
+	    lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* ret */
+
+	rc = z80ic_ret_create(&ret);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
+	ret = NULL;
+	return EOK;
+error:
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR return value instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -6705,6 +7080,8 @@ static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_retv_16(isproc, label, irinstr, lblock);
 	case 32:
 		return z80_isel_retv_32(isproc, label, irinstr, lblock);
+	case 64:
+		return z80_isel_retv_64(isproc, label, irinstr, lblock);
 	default:
 		assert(false);
 	}
@@ -6788,117 +7165,16 @@ error:
 static int z80_isel_write(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_ld_r16_vrr_t *ldaddr = NULL;
-	z80ic_ld_ihl_vr_t *lddata = NULL;
-	z80ic_inc_ss_t *inc = NULL;
-	z80ic_oper_r16_t *adest = NULL;
-	z80ic_oper_vrr_t *asrc = NULL;
-	z80ic_oper_ss_t *ainc = NULL;
-	z80ic_oper_vr_t *dsrc = NULL;
 	unsigned srcvr;
 	unsigned vr;
-	unsigned byte;
-	unsigned vroff;
-	z80ic_vr_part_t part;
-	int rc;
-
-	/*
-	 * If we could allocate a new virtual register, we might use
-	 * that instead of specifying HL directly, which would, in theory,
-	 * allow using IX or IY (if available)
-	 */
 
 	vr = z80_isel_get_vregno(isproc, irinstr->op1);
 	srcvr = z80_isel_get_vregno(isproc, irinstr->op2);
 
-	/* ld HL, vrrA */
+	(void)label;
 
-	rc = z80ic_ld_r16_vrr_create(&ldaddr);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_r16_create(z80ic_r16_hl, &adest);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80ic_oper_vrr_create(vr, &asrc);
-	if (rc != EOK)
-		goto error;
-
-	ldaddr->dest = adest;
-	ldaddr->src = asrc;
-	adest = NULL;
-	asrc = NULL;
-
-	rc = z80ic_lblock_append(lblock, label, &ldaddr->instr);
-	if (rc != EOK)
-		goto error;
-
-	ldaddr = NULL;
-
-	/* Do the same thing for every byte */
-	for (byte = 0; byte < irinstr->width / 8; byte++) {
-		/* Determine register part and offset */
-		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
-
-		/* ld (HL), vrrB.X */
-
-		rc = z80ic_ld_ihl_vr_create(&lddata);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(srcvr + vroff, part, &dsrc);
-		if (rc != EOK)
-			goto error;
-
-		lddata->src = dsrc;
-		dsrc = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &lddata->instr);
-		if (rc != EOK)
-			goto error;
-
-		lddata = NULL;
-
-		/* No need to increment HL in last iteration */
-		if (byte >= irinstr->width / 8 - 1)
-			break;
-
-		/* inc HL */
-
-		rc = z80ic_inc_ss_create(&inc);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_ss_create(z80ic_ss_hl, &ainc);
-		if (rc != EOK)
-			goto error;
-
-		inc->dest = ainc;
-		ainc = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
-		if (rc != EOK)
-			goto error;
-
-		inc = NULL;
-	}
-
-	return EOK;
-error:
-	if (ldaddr != NULL)
-		z80ic_instr_destroy(&ldaddr->instr);
-	if (lddata != NULL)
-		z80ic_instr_destroy(&lddata->instr);
-	if (inc != NULL)
-		z80ic_instr_destroy(&inc->instr);
-
-	z80ic_oper_r16_destroy(adest);
-	z80ic_oper_vrr_destroy(asrc);
-	z80ic_oper_ss_destroy(ainc);
-	z80ic_oper_vr_destroy(dsrc);
-
-	return rc;
+	return z80_isel_write_vrr(isproc, vr, srcvr, irinstr->width / 8,
+	    lblock);
 }
 
 /** Select Z80 IC instructions code for IR xor instruction.
@@ -7308,6 +7584,172 @@ error:
 	return rc;
 }
 
+/** Select instructions to load procedure argument to virtual register(s).
+ *
+ * @param isel Instruction selector
+ * @param ident Argument identifier
+ * @param bits Number of bits in argument
+ * @param vrno Pointer to variable holding next free virtual register
+ * @param fpoff Pointer to vairable holding next free address on the stack
+ * @param argloc Pointer to Argument location allocator
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc_arg(z80_isel_t *isel, const char *ident, unsigned bits, unsigned *vrno,
+    unsigned *fpoff, z80_argloc_t *argloc, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_r16_t *ldsrc = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_ld_vrr_r16_t *ld = NULL;
+	z80ic_ld_vr_r_t *ld8 = NULL;
+	z80ic_ld_vrr_iixd_t *ldix = NULL;
+	z80ic_ld_vr_iixd_t *ldix8 = NULL;
+	z80_argloc_entry_t *entry;
+	z80ic_reg_t r;
+	unsigned i;
+	z80ic_r16_t argreg;
+	int rc;
+
+	(void) isel;
+
+	/* Allocate location for the argument */
+	rc = z80_argloc_alloc(argloc, ident, (bits + 7) / 8,
+	    &entry);
+	if (rc != EOK)
+		goto error;
+
+	/* Parts stored in registers */
+	for (i = 0; i < entry->reg_entries; i++) {
+		argreg = entry->reg[i].reg;
+
+		if (entry->reg[i].part == z80_argloc_hl) {
+			/* 16-bit register */
+
+			rc = z80ic_ld_vrr_r16_create(&ld);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vrr_create(*vrno, &vrr);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_r16_create(argreg, &ldsrc);
+			if (rc != EOK)
+				goto error;
+
+			ld->dest = vrr;
+			ld->src = ldsrc;
+			vrr = NULL;
+			ldsrc = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+			if (rc != EOK)
+				goto error;
+
+			ld = NULL;
+			++*vrno;
+		} else {
+			/* 8-bit register */
+
+			z80_argloc_r16_part_to_r(argreg,
+			    entry->reg[i].part, &r);
+
+			rc = z80ic_ld_vr_r_create(&ld8);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(*vrno, z80ic_vrp_r8,
+			    &vr);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_reg_create(r, &reg);
+			if (rc != EOK)
+				goto error;
+
+			ld8->dest = vr;
+			ld8->src = reg;
+			vr = NULL;
+			reg = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL,
+			    &ld8->instr);
+			if (rc != EOK)
+				goto error;
+
+			ld = NULL;
+			++*vrno;
+		}
+	}
+
+	/* Words stored on the stack */
+	for (i = 0; i + 1 < entry->stack_sz; i += 2) {
+		/* ld vrr, (IX+d) */
+
+		rc = z80ic_ld_vrr_iixd_create(&ldix);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(*vrno, &vrr);
+		if (rc != EOK)
+			goto error;
+
+		ldix->disp = *fpoff;
+		ldix->dest = vrr;
+		vrr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldix = NULL;
+		++*vrno;
+		*fpoff += 2;
+	}
+
+	/*
+	 * Byte stored on the stack. A byte is padded to a full
+	 * 16-bit stack entry (to make things simpler and faster).
+	 * The value of the padding is undefined. Here we just
+	 * load the lower byte to an 8-bit virtual register.
+	 */
+	for (; i < entry->stack_sz; i++) {
+		/* ld vr, (IX+d) */
+
+		rc = z80ic_ld_vr_iixd_create(&ldix8);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(*vrno, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		ldix8->disp = *fpoff;
+		ldix8->dest = vr;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldix8->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldix8 = NULL;
+		++*vrno;
+		*fpoff += 2;
+	}
+
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	if (ldix != NULL)
+		z80ic_instr_destroy(&ldix->instr);
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_r16_destroy(ldsrc);
+	return rc;
+}
+
 /** Select instructions to load procedure arguments to virtual registers.
  *
  * @param isel Instruction selector
@@ -7318,23 +7760,11 @@ error:
 static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
     z80ic_lblock_t *lblock)
 {
-	z80ic_oper_r16_t *ldsrc = NULL;
-	z80ic_oper_reg_t *reg = NULL;
-	z80ic_oper_vrr_t *vrr = NULL;
-	z80ic_oper_vr_t *vr = NULL;
-	z80ic_ld_vrr_r16_t *ld = NULL;
-	z80ic_ld_vr_r_t *ld8 = NULL;
-	z80ic_ld_vrr_iixd_t *ldix = NULL;
-	z80ic_ld_vr_iixd_t *ldix8 = NULL;
 	z80_argloc_t *argloc = NULL;
-	z80_argloc_entry_t *entry;
-	z80ic_reg_t r;
 	ir_proc_arg_t *arg;
 	unsigned vrno;
-	unsigned i;
 	unsigned fpoff;
 	unsigned bits;
-	z80ic_r16_t argreg;
 	int rc;
 
 	(void) isel;
@@ -7351,6 +7781,18 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 	 */
 	fpoff = 4;
 
+	if (irproc->rtype != NULL) {
+		assert(irproc->rtype->tetype == irt_int);
+
+		/* Add hidden first argument for returning 64-bit value */
+		if (irproc->rtype->t.tint.width == 64) {
+			rc = z80_isel_proc_arg(isel, "%.retval", 16, &vrno, &fpoff, argloc,
+			    lblock);
+			if (rc != EOK)
+				goto error;
+		}
+	}
+
 	while (arg != NULL) {
 		if (arg->atype->tetype != irt_int) {
 			fprintf(stderr, "Unsupported argument type (%d)\n",
@@ -7360,130 +7802,9 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 
 		bits = arg->atype->t.tint.width;
 
-		/* Allocate location for the argument */
-		rc = z80_argloc_alloc(argloc, arg->ident, (bits + 7) / 8,
-		    &entry);
+		rc = z80_isel_proc_arg(isel, arg->ident, bits, &vrno, &fpoff, argloc, lblock);
 		if (rc != EOK)
 			goto error;
-
-		/* Parts stored in registers */
-		for (i = 0; i < entry->reg_entries; i++) {
-			argreg = entry->reg[i].reg;
-
-			if (entry->reg[i].part == z80_argloc_hl) {
-				/* 16-bit register */
-
-				rc = z80ic_ld_vrr_r16_create(&ld);
-				if (rc != EOK)
-					goto error;
-
-				rc = z80ic_oper_vrr_create(vrno, &vrr);
-				if (rc != EOK)
-					goto error;
-
-				rc = z80ic_oper_r16_create(argreg, &ldsrc);
-				if (rc != EOK)
-					goto error;
-
-				ld->dest = vrr;
-				ld->src = ldsrc;
-				vrr = NULL;
-				ldsrc = NULL;
-
-				rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
-				if (rc != EOK)
-					goto error;
-
-				ld = NULL;
-				++vrno;
-			} else {
-				/* 8-bit register */
-
-				z80_argloc_r16_part_to_r(argreg,
-				    entry->reg[i].part, &r);
-
-				rc = z80ic_ld_vr_r_create(&ld8);
-				if (rc != EOK)
-					goto error;
-
-				rc = z80ic_oper_vr_create(vrno, z80ic_vrp_r8,
-				    &vr);
-				if (rc != EOK)
-					goto error;
-
-				rc = z80ic_oper_reg_create(r, &reg);
-				if (rc != EOK)
-					goto error;
-
-				ld8->dest = vr;
-				ld8->src = reg;
-				vr = NULL;
-				reg = NULL;
-
-				rc = z80ic_lblock_append(lblock, NULL,
-				    &ld8->instr);
-				if (rc != EOK)
-					goto error;
-
-				ld = NULL;
-				++vrno;
-			}
-		}
-
-		/* Words stored on the stack */
-		for (i = 0; i + 1 < entry->stack_sz; i += 2) {
-			/* ld vrr, (IX+d) */
-
-			rc = z80ic_ld_vrr_iixd_create(&ldix);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vrr_create(vrno, &vrr);
-			if (rc != EOK)
-				goto error;
-
-			ldix->disp = fpoff;
-			ldix->dest = vrr;
-			vrr = NULL;
-
-			rc = z80ic_lblock_append(lblock, NULL, &ldix->instr);
-			if (rc != EOK)
-				goto error;
-
-			ldix = NULL;
-			++vrno;
-			fpoff += 2;
-		}
-
-		/*
-		 * Byte stored on the stack. A byte is padded to a full
-		 * 16-bit stack entry (to make things simpler and faster).
-		 * The value of the padding is undefined. Here we just
-		 * load the lower byte to an 8-bit virtual register.
-		 */
-		for (; i < entry->stack_sz; i++) {
-			/* ld vr, (IX+d) */
-
-			rc = z80ic_ld_vr_iixd_create(&ldix8);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vr_create(vrno, z80ic_vrp_r8, &vr);
-			if (rc != EOK)
-				goto error;
-
-			ldix8->disp = fpoff;
-			ldix8->dest = vr;
-			vr = NULL;
-
-			rc = z80ic_lblock_append(lblock, NULL, &ldix8->instr);
-			if (rc != EOK)
-				goto error;
-
-			ldix8 = NULL;
-			++vrno;
-			fpoff += 2;
-		}
 
 		arg = ir_proc_next_arg(arg);
 	}
@@ -7491,22 +7812,16 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 	z80_argloc_destroy(argloc);
 	return EOK;
 error:
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
-	if (ldix != NULL)
-		z80ic_instr_destroy(&ldix->instr);
-	z80ic_oper_vrr_destroy(vrr);
-	z80ic_oper_r16_destroy(ldsrc);
 	if (argloc != NULL)
 		z80_argloc_destroy(argloc);
 	return rc;
 }
 
-/** Generate Z80 IC procedure arguments from IR procedure arguments.
+/** Generate Z80 IC local variables from IR procedure local variables.
  *
  * @param isel Instruction selector
  * @param irproc IR procedure
- * @param icproc Z80 IC procedure where to append the new arguments
+ * @param icproc Z80 IC procedure where to append the new local variables
  * @return EOK on success or an error code
  */
 static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
@@ -7515,14 +7830,12 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 	ir_lvar_t *lvar;
 	z80ic_lvar_t *icvar;
 	char *icident = NULL;
-	uint16_t off;
 	size_t size;
 	int rc;
 
 	(void) isel;
 
 	lvar = ir_proc_first_lvar(irproc);
-	off = 0;
 	while (lvar != NULL) {
 		rc = z80_isel_mangle_lvar_ident(irproc->ident, lvar->ident,
 		    &icident);
@@ -7531,7 +7844,7 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 
 		size = ir_texpr_sizeof(lvar->vtype);
 
-		rc = z80ic_lvar_create(icident, off, &icvar);
+		rc = z80ic_lvar_create(icident, icproc->lvar_sz, &icvar);
 		if (rc != EOK)
 			goto error;
 
@@ -7540,19 +7853,42 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 
 		z80ic_proc_append_lvar(icproc, icvar);
 
-		off += size;
+		icproc->lvar_sz += size;
 		lvar = ir_proc_next_lvar(lvar);
 	}
 
+	return EOK;
+error:
+	if (icident != NULL)
+		free(icident);
+	return rc;
+}
+
+/** Add termnating entry to Z80 IC local variables.
+ *
+ * @param isel Instruction selector
+ * @param irproc IR procedure
+ * @param icproc Z80 IC procedure where to append the new local variables
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc_lvars_finish(z80_isel_t *isel, ir_proc_t *irproc,
+    z80ic_proc_t *icproc)
+{
+	z80ic_lvar_t *icvar;
+	char *icident = NULL;
+	int rc;
+
+	(void) isel;
+
 	/* If there are any local variables */
-	if (off > 0) {
+	if (icproc->lvar_sz > 0) {
 		/* Add a special %@end entry to denote total size of variables */
 		rc = z80_isel_mangle_lvar_ident(irproc->ident, "%@end",
 		    &icident);
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_lvar_create(icident, off, &icvar);
+		rc = z80ic_lvar_create(icident, icproc->lvar_sz, &icvar);
 		if (rc != EOK)
 			goto error;
 
@@ -7611,6 +7947,7 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 		goto error;
 
 	lblock = NULL;
+	isproc->icproc = icproc;
 
 	rc = z80_isel_proc_args(isel, irproc, icproc->lblock);
 	if (rc != EOK)
@@ -7641,6 +7978,11 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	}
 
 	icproc->used_vrs = isproc->varmap->next_vr;
+
+	/* Add the terminating entry to local variables */
+	rc = z80_isel_proc_lvars_finish(isel, irproc, icproc);
+	if (rc != EOK)
+		goto error;
 
 	free(ident);
 	z80_isel_proc_destroy(isproc);

@@ -6,6 +6,7 @@ char a;
 char rc;
 int ri;
 long rl;
+long long rll;
 
 /* Function returning char */
 char retc(void)
@@ -41,4 +42,16 @@ long retl(void)
 void call_l(void)
 {
 	rl = retl();
+}
+
+/* Function returning long long */
+long long retll(void)
+{
+	return 1ll;
+}
+
+/* Call function returning long long */
+void call_ll(void)
+{
+	rll = retll();
 }

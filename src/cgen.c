@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -7591,7 +7591,7 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 	while (stmt != NULL) {
 		rc = cgen_stmt(cgproc, stmt, lblock);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		stmt = ast_block_next(stmt);
 	}

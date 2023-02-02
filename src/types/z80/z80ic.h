@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1682,6 +1682,8 @@ typedef struct z80ic_proc {
 	char *ident;
 	/** Local variables (of z80ic_lvar_t) */
 	list_t lvars;
+	/** Total size of local variables in bytes */
+	uint16_t lvar_sz;
 	/** Labeled block containing the implementation */
 	z80ic_lblock_t *lblock;
 	/** Number of used virtual registers */

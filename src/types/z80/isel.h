@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,8 @@ typedef struct {
 	unsigned next_label;
 	/** This procedure is a user service routine */
 	bool usr;
+	/** Destination IC procedure */
+	struct z80ic_proc *icproc;
 } z80_isel_proc_t;
 
 #endif
