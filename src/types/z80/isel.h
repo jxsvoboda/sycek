@@ -47,6 +47,8 @@ typedef struct {
 	unsigned next_label;
 	/** This procedure is a user service routine */
 	bool usr;
+	/** Source IR procedure */
+	struct ir_proc *irproc;
 	/** Destination IC procedure */
 	struct z80ic_proc *icproc;
 } z80_isel_proc_t;

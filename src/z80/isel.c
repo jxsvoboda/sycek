@@ -190,6 +190,45 @@ static void z80_isel_reg_part_off(unsigned byte, unsigned nbytes,
 	}
 }
 
+/** Determine size of return value from call instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param instr IR instruction
+ * @param rsize Place to store return value size in bytes
+ * @return EOK on success or error code
+ */
+static int z80_isel_call_rsize(z80_isel_proc_t *isproc, ir_instr_t *instr,
+    unsigned *rsize)
+{
+	ir_module_t *irmod;
+	ir_decln_t *decln;
+	ir_oper_var_t *op1;
+	ir_proc_t *cproc;
+	int rc;
+
+	assert(instr->itype == iri_call);
+	assert(instr->op1->optype == iro_var);
+
+	op1 = (ir_oper_var_t *) instr->op1->ext;
+
+	irmod = isproc->irproc->decln.module;
+	rc = ir_module_find(irmod, op1->varname, &decln);
+	if (rc != EOK)
+		return ENOENT;
+
+	if (decln->dtype != ird_proc)
+		return EINVAL;
+
+	cproc = (ir_proc_t *)decln->ext;
+	if (cproc->rtype != NULL) {
+		assert(cproc->rtype->tetype == irt_int);
+		*rsize = cproc->rtype->t.tint.width / 8;
+	} else {
+		*rsize = 2;
+	}
+	return EOK;
+}
+
 /** Scan IR instruction for defined variables.
  *
  * @a isproc variable map will be updated to reflect the defined variables
@@ -224,6 +263,12 @@ static int z80_isel_scan_instr_def_vars(z80_isel_proc_t *isproc,
 			case iri_neq:
 				/* These return truth value / int / 2 bytes */
 				bytes = 2;
+				break;
+			case iri_call:
+				/* Depends on function return type */
+				rc = z80_isel_call_rsize(isproc, instr, &bytes);
+				if (rc != EOK)
+					return rc;
 				break;
 			default:
 				/*
@@ -410,11 +455,11 @@ int z80_isel_create(z80_isel_t **rz80_isel)
 /** Create procedure instruction selector.
  *
  * @param isel Instruction selector
- * @param ident Procedure identifier
+ * @param irproc IR procedure
  * @param risproc Place to store pointer to new procedure instruction selector
  * @return EOK on success, ENOMEM if out of memory
  */
-static int z80_isel_proc_create(z80_isel_t *isel, char *ident,
+static int z80_isel_proc_create(z80_isel_t *isel, ir_proc_t *irproc,
     z80_isel_proc_t **risproc)
 {
 	z80_isel_proc_t *isproc;
@@ -425,7 +470,7 @@ static int z80_isel_proc_create(z80_isel_t *isel, char *ident,
 	if (isproc == NULL)
 		return ENOMEM;
 
-	dident = strdup(ident);
+	dident = strdup(irproc->ident);
 	if (dident == NULL) {
 		free(isproc);
 		return ENOMEM;
@@ -440,6 +485,7 @@ static int z80_isel_proc_create(z80_isel_t *isel, char *ident,
 
 	isproc->isel = isel;
 	isproc->ident = dident;
+	isproc->irproc = irproc;
 	*risproc = isproc;
 	return EOK;
 }
@@ -2213,7 +2259,11 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_list);
 
-	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	if (irinstr->dest != NULL)
+		destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	else
+		destvr = 0;
+
 	op1 = (ir_oper_var_t *) irinstr->op1->ext;
 	op2 = (ir_oper_list_t *) irinstr->op2->ext;
 
@@ -7922,7 +7972,7 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	char *ident = NULL;
 	int rc;
 
-	rc = z80_isel_proc_create(isel, irproc->ident, &isproc);
+	rc = z80_isel_proc_create(isel, irproc, &isproc);
 	if (rc != EOK)
 		goto error;
 

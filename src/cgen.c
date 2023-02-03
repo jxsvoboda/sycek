@@ -4638,14 +4638,16 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		goto error;
 	}
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
-	if (rc != EOK)
-		goto error;
+	if (!cgtype_is_void(ftype->rtype)) {
+		rc = cgen_create_new_lvar_oper(cgproc, &dest);
+		if (rc != EOK)
+			goto error;
+	}
 
 	free(pident);
 
 	instr->itype = iri_call;
-	instr->dest = &dest->oper;
+	instr->dest = dest != NULL ? &dest->oper : NULL;
 	instr->op1 = &fun->oper;
 	instr->op2 = &args->oper;
 
@@ -4654,7 +4656,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
 
-	eres->varname = dest->varname;
+	eres->varname = dest ? dest->varname : NULL;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = rtype;
 	eres->valused = cgtype_is_void(ftype->rtype);
