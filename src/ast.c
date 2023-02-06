@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1796,7 +1796,7 @@ static ast_tok_t *ast_tsenum_last_tok(ast_tsenum_t *tsenum)
 
 /** Create AST function specifier.
  *
- * @param rtsbasic Place to store pointer to new function specifier
+ * @param rfspec Place to store pointer to new function specifier
  *
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -1857,6 +1857,84 @@ static ast_tok_t *ast_fspec_first_tok(ast_fspec_t *fspec)
 static ast_tok_t *ast_fspec_last_tok(ast_fspec_t *fspec)
 {
 	return &fspec->tfspec;
+}
+
+/** Create AST alignment specifier.
+ *
+ * @param ralignspec Place to store pointer to new alignment specifier
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_alignspec_create(ast_alignspec_t **ralignspec)
+{
+	ast_alignspec_t *alignspec;
+
+	alignspec = calloc(1, sizeof(ast_alignspec_t));
+	if (alignspec == NULL)
+		return ENOMEM;
+
+	alignspec->node.ext = alignspec;
+	alignspec->node.ntype = ant_alignspec;
+
+	*ralignspec = alignspec;
+	return EOK;
+}
+
+/** Print AST alignment specifier.
+ *
+ * @param alignspec Alignment specifier
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_alignspec_print(ast_alignspec_t *alignspec, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "alignspec(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(alignspec->aparam, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy AST alignment specifier.
+ *
+ * @param alignspec Alignment specifier
+ */
+static void ast_alignspec_destroy(ast_alignspec_t *alignspec)
+{
+	if (alignspec == NULL)
+		return;
+
+	ast_tree_destroy(alignspec->aparam);
+	free(alignspec);
+}
+
+/** Get first token of AST alignment specifier.
+ *
+ * @param alignspec Alignment specifier
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_alignspec_first_tok(ast_alignspec_t *alignspec)
+{
+	return &alignspec->talignas;
+}
+
+/** Get last token of AST alignment specifier.
+ *
+ * @param alignspec Alignment specifier
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_alignspec_last_tok(ast_alignspec_t *alignspec)
+{
+	return &alignspec->trparen;
 }
 
 /** Create AST register assignment.
@@ -8829,6 +8907,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_tsenum_print((ast_tsenum_t *)node->ext, f);
 	case ant_fspec:
 		return ast_fspec_print((ast_fspec_t *)node->ext, f);
+	case ant_alignspec:
+		return ast_alignspec_print((ast_alignspec_t *)node->ext, f);
 	case ant_regassign:
 		return ast_regassign_print((ast_regassign_t *)node->ext, f);
 	case ant_aslist:
@@ -9004,6 +9084,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_fspec:
 		ast_fspec_destroy((ast_fspec_t *)node->ext);
+		break;
+	case ant_alignspec:
+		ast_alignspec_destroy((ast_alignspec_t *)node->ext);
 		break;
 	case ant_regassign:
 		ast_regassign_destroy((ast_regassign_t *)node->ext);
@@ -9215,6 +9298,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_tsenum_first_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_first_tok((ast_fspec_t *)node->ext);
+	case ant_alignspec:
+		return ast_alignspec_first_tok((ast_alignspec_t *)node->ext);
 	case ant_regassign:
 		return ast_regassign_first_tok((ast_regassign_t *)node->ext);
 	case ant_aslist:
@@ -9370,6 +9455,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_tsenum_last_tok((ast_tsenum_t *)node->ext);
 	case ant_fspec:
 		return ast_fspec_last_tok((ast_fspec_t *)node->ext);
+	case ant_alignspec:
+		return ast_alignspec_last_tok((ast_alignspec_t *)node->ext);
 	case ant_regassign:
 		return ast_regassign_last_tok((ast_regassign_t *)node->ext);
 	case ant_aslist:

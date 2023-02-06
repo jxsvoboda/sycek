@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,8 @@ typedef enum {
 	ant_tsenum,
 	/** Function specifier */
 	ant_fspec,
+	/** Alignment specifier */
+	ant_alignspec,
 	/** Register assignment */
 	ant_regassign,
 	/** Attribute specifier */
@@ -474,6 +476,20 @@ typedef struct {
 	/** Function specifier token */
 	ast_tok_t tfspec;
 } ast_fspec_t;
+
+/** Alignment specifier */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** _Alignas token */
+	ast_tok_t talignas;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Type name or constant expression */
+	ast_node_t *aparam;
+	/** ')' token */
+	ast_tok_t trparen;
+} ast_alignspec_t;
 
 /** Register assignment */
 typedef struct {

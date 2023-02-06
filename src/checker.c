@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -2690,6 +2690,50 @@ static int checker_check_fspec(checker_scope_t *scope, ast_fspec_t *fspec)
 	return EOK;
 }
 
+/** Run checks on an alignment specifier.
+ *
+ * @param scope Checker scope
+ * @param alignspec AST alignment specifier
+ * @return EOK on success or error code
+ */
+static int checker_check_alignspec(checker_scope_t *scope,
+    ast_alignspec_t *alignspec)
+{
+	checker_tok_t *talignas;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	int rc;
+
+	talignas = (checker_tok_t *) alignspec->talignas.data;
+	tlparen = (checker_tok_t *) alignspec->tlparen.data;
+	trparen = (checker_tok_t *) alignspec->trparen.data;
+
+	checker_check_any(scope, talignas);
+
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	if (alignspec->aparam->ntype == ant_typename) {
+		/* Alignment parameter is a type name */
+		rc = checker_check_typename(scope,
+		    (ast_typename_t *) alignspec->aparam->ext);
+		if (rc != EOK)
+			return rc;
+	} else {
+		/* Alignment parameter is an expression */
+		rc = checker_check_expr(scope, alignspec->aparam);
+		if (rc != EOK)
+			return rc;
+	}
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+}
+
 /** Run checks on a register assignment.
  *
  * @param scope Checker scope
@@ -3306,14 +3350,39 @@ static int checker_check_tspec(checker_scope_t *scope, ast_node_t *tspec)
 static int checker_check_sqlist(checker_scope_t *scope, ast_sqlist_t *sqlist)
 {
 	ast_node_t *elem;
+	ast_alignspec_t *alignspec;
 	ast_tqual_t *tqual;
+	bool first;
+	ast_tok_t *afirst;
+	checker_tok_t *tfirst;
 	int rc;
 
+	first = true;
 	elem = ast_sqlist_first(sqlist);
+
 	while (elem != NULL) {
+		if (!first) {
+			/*
+			 * There should be whitespace between specifier-
+			 * qulifier list entries
+			 */
+			afirst = ast_tree_first_tok(elem);
+			if (afirst != NULL) {
+				tfirst = (checker_tok_t *)afirst->data;
+				rc = checker_check_brkspace_before(scope,
+				    tfirst, "Expected space before "
+				    "declaration specifier.");
+				if (rc != EOK)
+					return rc;
+			}
+		}
+
 		if (elem->ntype == ant_tqual) {
 			tqual = (ast_tqual_t *) elem->ext;
 			rc = checker_check_tqual(scope, tqual);
+		} else if (elem->ntype == ant_alignspec) {
+			alignspec = (ast_alignspec_t *) elem->ext;
+			rc = checker_check_alignspec(scope, alignspec);
 		} else {
 			rc = checker_check_tspec(scope, elem);
 		}
@@ -3321,6 +3390,7 @@ static int checker_check_sqlist(checker_scope_t *scope, ast_sqlist_t *sqlist)
 		if (rc != EOK)
 			return rc;
 
+		first = false;
 		elem = ast_sqlist_next(elem);
 	}
 
@@ -3364,11 +3434,33 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 	ast_tqual_t *tqual;
 	ast_sclass_t *sclass;
 	ast_fspec_t *fspec;
+	ast_alignspec_t *alignspec;
 	ast_aspec_t *aspec;
+	ast_tok_t *afirst;
+	checker_tok_t *tfirst;
+	bool first;
 	int rc;
 
+	first = true;
 	elem = ast_dspecs_first(dspecs);
+
 	while (elem != NULL) {
+		if (!first) {
+			/*
+			 * There should be whitespace between declaration
+			 * specitiers
+			 */
+			afirst = ast_tree_first_tok(elem);
+			if (afirst != NULL) {
+				tfirst = (checker_tok_t *)afirst->data;
+				rc = checker_check_brkspace_before(scope,
+				    tfirst, "Expected space before "
+				    "declaration specifier.");
+				if (rc != EOK)
+					return rc;
+			}
+		}
+
 		if (elem->ntype == ant_sclass) {
 			sclass = (ast_sclass_t *) elem->ext;
 			rc = checker_check_sclass(scope, sclass);
@@ -3378,6 +3470,9 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 		} else if (elem->ntype == ant_fspec) {
 			fspec = (ast_fspec_t *) elem->ext;
 			rc = checker_check_fspec(scope, fspec);
+		} else if (elem->ntype == ant_alignspec) {
+			alignspec = (ast_alignspec_t *) elem->ext;
+			rc = checker_check_alignspec(scope, alignspec);
 		} else if (elem->ntype == ant_aspec) {
 			aspec = (ast_aspec_t *) elem->ext;
 			rc = checker_check_aspec(scope, aspec);
@@ -3389,6 +3484,7 @@ static int checker_check_dspecs(checker_scope_t *scope, ast_dspecs_t *dspecs)
 		if (rc != EOK)
 			return rc;
 
+		first = false;
 		elem = ast_dspecs_next(elem);
 	}
 
@@ -3846,7 +3942,7 @@ static int checker_check_ecall(checker_scope_t *scope,
 			if (rc != EOK)
 				return rc;
 		} else {
-			/* Argument is an expressoin */
+			/* Argument is an expression */
 			rc = checker_check_expr(scope, arg->arg);
 			if (rc != EOK)
 				return rc;

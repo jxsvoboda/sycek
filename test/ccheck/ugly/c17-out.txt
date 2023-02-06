@@ -1,0 +1,8 @@
+<test/ccheck/ugly/c17-in.c:7:17:space>: Unexpected whitespace before '('.
+<test/ccheck/ugly/c17-in.c:7:19:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/c17-in.c:7:21:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/c17-in.c:7:22:')'>: Expected space before declaration specifier.
+<test/ccheck/ugly/c17-in.c:10:17:space>: Unexpected whitespace before '('.
+<test/ccheck/ugly/c17-in.c:10:19:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/c17-in.c:10:33:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/c17-in.c:10:34:')'>: Expected space before declaration specifier.

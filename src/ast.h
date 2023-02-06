@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -76,6 +76,7 @@ extern int ast_tsenum_append(ast_tsenum_t *, void *, void *, ast_node_t *,
 extern ast_tsenum_elem_t *ast_tsenum_first(ast_tsenum_t *);
 extern ast_tsenum_elem_t *ast_tsenum_next(ast_tsenum_elem_t *);
 extern int ast_fspec_create(ast_fspec_t **);
+extern int ast_alignspec_create(ast_alignspec_t **);
 extern int ast_aspec_create(ast_aspec_t **);
 extern void ast_aspec_append(ast_aspec_t *, ast_aspec_attr_t *);
 extern ast_aspec_attr_t *ast_aspec_first(ast_aspec_t *);

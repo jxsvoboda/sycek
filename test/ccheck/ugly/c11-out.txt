@@ -2,3 +2,11 @@
 <test/ccheck/ugly/c11-in.c:9:10:space>: Unexpected space after '('.
 <test/ccheck/ugly/c11-in.c:9:17:space>: Unexpected whitespace after '*'.
 <test/ccheck/ugly/c11-in.c:9:17:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/c11-in.c:12:9:space>: Unexpected whitespace before '('.
+<test/ccheck/ugly/c11-in.c:12:11:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/c11-in.c:12:13:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/c11-in.c:12:14:')'>: Expected space before declaration specifier.
+<test/ccheck/ugly/c11-in.c:15:9:space>: Unexpected whitespace before '('.
+<test/ccheck/ugly/c11-in.c:15:11:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/c11-in.c:15:25:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/c11-in.c:15:26:')'>: Expected space before declaration specifier.

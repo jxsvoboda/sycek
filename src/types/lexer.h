@@ -98,6 +98,7 @@ typedef enum {
 	ltt_bor_assign,
 	ltt_bxor_assign,
 
+	ltt_alignas,
 	ltt_atomic,
 	ltt_attribute,
 	ltt_asm,

@@ -169,9 +169,9 @@ a certain directory.
 
 Accepted syntax
 ---------------
-ccheck has a good understanding of the C language (C89, C99, C11, but *not*
-K & R). Apart from standard C, ccheck also understands some compiler-specific
-extensions, such as
+ccheck has a good understanding of the C language (C89, C99, C11, C17,
+but *not* K & R). Apart from standard C, ccheck also understands some
+compiler-specific extensions, such as
 
   * GCC (extended) inline assembler
   * GCC `register ... asm(...)` variable register assignment

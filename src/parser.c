@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -34,6 +34,7 @@
 
 static int parser_process_sclass(parser_t *, ast_sclass_t **);
 static int parser_process_fspec(parser_t *, ast_fspec_t **);
+static int parser_process_alignspec(parser_t *, ast_alignspec_t **);
 static int parser_process_tspec(parser_t *, ast_node_t **);
 static int parser_process_regassign(parser_t *, ast_regassign_t **);
 static int parser_process_aspec(parser_t *, ast_aspec_t **);
@@ -4466,6 +4467,7 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 	lexer_toktype_t ltt;
 	ast_sqlist_t *sqlist;
 	ast_tqual_t *tqual;
+	ast_alignspec_t *alignspec;
 	ast_node_t *elem;
 	bool have_tspec;
 	int rc;
@@ -4492,10 +4494,17 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 
 			have_tspec = true;
 		} else if (parser_next_is_tqual(parser)) {
+			/* Type qualifier */
 			rc = parser_process_tqual(parser, &tqual);
 			if (rc != EOK)
 				goto error;
 			elem = &tqual->node;
+		} else if (ltt == ltt_alignas) {
+			/* Alignment specifier */
+			rc = parser_process_alignspec(parser, &alignspec);
+			if (rc != EOK)
+				goto error;
+			elem = &alignspec->node;
 		} else {
 			/* Unexpected */
 			if (!parser->silent) {
@@ -4573,6 +4582,7 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 	ast_dspecs_t *dspecs;
 	ast_tqual_t *tqual;
 	ast_fspec_t *fspec;
+	ast_alignspec_t *alignspec;
 	ast_aspec_t *aspec;
 	ast_node_t *elem;
 	unsigned idcnt;
@@ -4638,6 +4648,12 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 			if (rc != EOK)
 				goto error;
 			elem = &fspec->node;
+		} else if (ltt == ltt_alignas) {
+			/* Alignment specifier */
+			rc = parser_process_alignspec(parser, &alignspec);
+			if (rc != EOK)
+				goto error;
+			elem = &alignspec->node;
 		} else if (parser_ttype_aspec(ltt)) {
 			/* Attribute specifier */
 			rc = parser_process_aspec(parser, &aspec);
@@ -4661,7 +4677,7 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 		ltt = parser_next_ttype(parser);
 	} while (parser_ttype_sclass(ltt) || parser_next_is_tspec(parser) ||
 	    parser_next_is_tqual(parser) || parser_ttype_fspec(ltt) ||
-	    parser_ttype_aspec(ltt));
+	    ltt == ltt_alignas || parser_ttype_aspec(ltt));
 
 	*rdspecs = dspecs;
 	return EOK;
@@ -5360,6 +5376,78 @@ static int parser_process_fspec(parser_t *parser, ast_fspec_t **rfspec)
 
 	*rfspec = fspec;
 	return EOK;
+}
+
+/** Parse alignment specifier.
+ *
+ * @param parser Parser
+ * @param ralignspec Place to store alignment specifier
+ *
+ * @return EOK on success or error code
+ */
+static int parser_process_alignspec(parser_t *parser,
+    ast_alignspec_t **ralignspec)
+{
+	lexer_toktype_t ltt;
+	ast_alignspec_t *alignspec;
+	ast_node_t *aparam = NULL;
+	ast_typename_t *atypename = NULL;
+	void *dalignas;
+	void *dlparen;
+	void *drparen;
+	parser_t *sparser = NULL;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	assert(ltt == ltt_alignas);
+	(void) ltt;
+
+	parser_skip(parser, &dalignas);
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_create_silent_sub(parser, &sparser);
+	if (rc != EOK)
+		goto error;
+
+	/* Try parsing as constant expression */
+	rc = parser_process_expr(sparser, &aparam);
+	if (rc != EOK) {
+		parser_destroy(sparser);
+
+		/* Then it must be a type name */
+		rc = parser_process_typename(parser, &atypename);
+		if (rc != EOK)
+			goto error;
+
+		aparam = &atypename->node;
+	} else {
+		/* It worked (constant expression) */
+		parser_follow_up(sparser, parser);
+		parser_destroy(sparser);
+	}
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_alignspec_create(&alignspec);
+	if (rc != EOK)
+		goto error;
+
+	alignspec->talignas.data = dalignas;
+	alignspec->tlparen.data = dlparen;
+	alignspec->aparam = aparam;
+	alignspec->trparen.data = drparen;
+
+	*ralignspec = alignspec;
+	return EOK;
+error:
+	if (aparam != NULL)
+		ast_tree_destroy(aparam);
+	return rc;
 }
 
 /** Parse register assignment.
