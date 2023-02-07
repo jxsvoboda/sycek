@@ -466,7 +466,8 @@ int comp_make_ir(comp_t *comp)
 	int rc;
 	cgen_t *cgen = NULL;
 
-	if (comp->mtype == cmt_ir && comp->mod->ir == NULL) {
+	if (comp->mtype == cmt_ir && (comp->mod == NULL ||
+	    comp->mod->ir == NULL)) {
 		rc = comp_ir_module_parse(comp);
 		if (rc != EOK)
 			goto error;
