@@ -4757,12 +4757,14 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
+	cgen_eres_t cres;
 	cgtype_t *dtype = NULL;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	int rc;
 
 	cgen_eres_init(&bres);
+	cgen_eres_init(&cres);
 
 	/* Declaration specifiers */
 	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &dtype);
@@ -4782,15 +4784,21 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	if (rc != EOK)
 		goto error;
 
-	eres->varname = bres.varname;
+	rc = cgen_type_convert(cgproc->cgen, ecast->bexpr, &bres, dtype, &cres);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = cres.varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = dtype;
 	eres->valused = cgtype_is_void(dtype);
 
 	cgen_eres_fini(&bres);
+	cgen_eres_fini(&cres);
 	return EOK;
 error:
 	cgen_eres_fini(&bres);
+	cgen_eres_fini(&cres);
 	cgtype_destroy(dtype);
 	return rc;
 }
@@ -5947,6 +5955,38 @@ error:
 	return rc;
 }
 
+/** Convert expression result to void.
+ *
+ * @param cgen Code generator
+ * @param aexpr Expression - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param cres Place to store conversion result
+ *
+ * @return EOk or an error code
+ */
+static int cgen_type_convert_to_void(cgen_t *cgen, ast_node_t *aexpr,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_eres_t *cres)
+{
+	cgtype_t *cgtype;
+	int rc;
+
+	(void)cgen;
+	(void)aexpr;
+	(void)ares;
+
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		return rc;
+
+	cres->varname = NULL;
+	cres->valtype = cgen_rvalue;
+	cres->cgtype = cgtype;
+	cres->valused = true;
+
+	return EOK;
+}
+
 /** Convert expression result to the specified type.
  *
  * @param cgen Code generator
@@ -5979,6 +6019,12 @@ static int cgen_type_convert(cgen_t *cgen, ast_node_t *aexpr,
 	    ((cgtype_basic_t *)dtype->ext)->elmtype) {
 		/* Return unchanged */
 		return cgen_eres_clone(ares, cres);
+	}
+
+	/* Destination type is void */
+	if (cgtype_is_void(dtype)) {
+		return cgen_type_convert_to_void(cgen, aexpr, ares, dtype,
+		    cres);
 	}
 
 	if (dtype->ntype != cgn_basic ||
