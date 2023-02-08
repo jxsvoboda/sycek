@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -177,10 +177,6 @@ static int compile_file(const char *fname, comp_flags_t flags)
 		printf("\n");
 	}
 
-	rc = comp_run(comp, outf);
-	if (rc != EOK)
-		goto error;
-
 	if ((flags & compf_dump_ir) != 0) {
 		rc = comp_dump_ir(comp, stdout);
 		if (rc != EOK)
@@ -192,6 +188,10 @@ static int compile_file(const char *fname, comp_flags_t flags)
 		if (rc != EOK)
 			goto error;
 	}
+
+	rc = comp_run(comp, outf);
+	if (rc != EOK)
+		goto error;
 
 	if (fflush(outf) < 0) {
 		fprintf(stderr, "Error writing to '%s'.\n", outfname);

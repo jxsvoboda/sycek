@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -430,26 +430,51 @@ static int comp_build_ast(comp_t *comp)
 	return EOK;
 }
 
-/** Run compiler.
+/** Run all compiler steps needed to get AST.
+ *
+ * If some parts are already built, they are skipped.
  *
  * @param comp Compiler
- * @param outf Output file (for writing assembly)
+ * @return EOK on success or an error code
  */
-int comp_run(comp_t *comp, FILE *outf)
+int comp_make_ast(comp_t *comp)
 {
 	int rc;
-	cgen_t *cgen = NULL;
-	z80_isel_t *isel = NULL;
-	z80_ralloc_t *ralloc = NULL;
 
+	/* Skip C parsing for IR modules */
 	if (comp->mtype == cmt_ir)
-		goto skip_frontend;
+		return EOK;
 
 	if (comp->mod == NULL || comp->mod->ast == NULL) {
 		rc = comp_build_ast(comp);
 		if (rc != EOK)
 			return rc;
 	}
+
+	return EOK;
+}
+
+/** Run all compiler steps needed to get IR.
+ *
+ * If some parts are already built, they are skipped.
+ *
+ * @param comp Compiler
+ * @return EOK on success or an error code
+ */
+int comp_make_ir(comp_t *comp)
+{
+	int rc;
+	cgen_t *cgen = NULL;
+
+	if (comp->mtype == cmt_ir && comp->mod->ir == NULL) {
+		rc = comp_ir_module_parse(comp);
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = comp_make_ast(comp);
+	if (rc != EOK)
+		goto error;
 
 	if (comp->mod->ir == NULL) {
 		rc = cgen_create(&cgen);
@@ -474,12 +499,27 @@ int comp_run(comp_t *comp, FILE *outf)
 		cgen = NULL;
 	}
 
-skip_frontend:
-	if (comp->mtype == cmt_ir) {
-		rc = comp_ir_module_parse(comp);
-		if (rc != EOK)
-			goto error;
-	}
+	return EOK;
+error:
+	cgen_destroy(cgen);
+	return rc;
+}
+
+/** Run all compiler steps needed to get VRIC.
+ *
+ * If some parts are already built, they are skipped.
+ *
+ * @param comp Compiler
+ * @return EOK on success or an error code
+ */
+int comp_make_vric(comp_t *comp)
+{
+	int rc;
+	z80_isel_t *isel = NULL;
+
+	rc = comp_make_ir(comp);
+	if (rc != EOK)
+		goto error;
 
 	if (comp->mod->vric == NULL) {
 		rc = z80_isel_create(&isel);
@@ -493,6 +533,26 @@ skip_frontend:
 		z80_isel_destroy(isel);
 		isel = NULL;
 	}
+
+	return EOK;
+error:
+	z80_isel_destroy(isel);
+	return rc;
+}
+
+/** Run compiler.
+ *
+ * @param comp Compiler
+ * @param outf Output file (for writing assembly)
+ */
+int comp_run(comp_t *comp, FILE *outf)
+{
+	int rc;
+	z80_ralloc_t *ralloc = NULL;
+
+	rc = comp_make_vric(comp);
+	if (rc != EOK)
+		goto error;
 
 	if (comp->mod->ic == NULL) {
 		rc = z80_ralloc_create(&ralloc);
@@ -516,8 +576,6 @@ skip_frontend:
 
 	return EOK;
 error:
-	cgen_destroy(cgen);
-	z80_isel_destroy(isel);
 	return rc;
 }
 
@@ -531,11 +589,9 @@ int comp_dump_ast(comp_t *comp, FILE *f)
 {
 	int rc;
 
-	if (comp->mod == NULL || comp->mod->ast == NULL) {
-		rc = comp_build_ast(comp);
-		if (rc != EOK)
-			return rc;
-	}
+	rc = comp_make_ast(comp);
+	if (rc != EOK)
+		return rc;
 
 	return ast_tree_print(&comp->mod->ast->node, f);
 }
@@ -584,6 +640,10 @@ int comp_dump_ir(comp_t *comp, FILE *f)
 {
 	int rc;
 
+	rc = comp_make_ir(comp);
+	if (rc != EOK)
+		return rc;
+
 	assert(comp->mod->ir != NULL);
 	rc = ir_module_print(comp->mod->ir, f);
 	return rc;
@@ -598,6 +658,10 @@ int comp_dump_ir(comp_t *comp, FILE *f)
 int comp_dump_vric(comp_t *comp, FILE *f)
 {
 	int rc;
+
+	rc = comp_make_vric(comp);
+	if (rc != EOK)
+		return rc;
 
 	assert(comp->mod->vric != NULL);
 	rc = z80ic_module_print(comp->mod->vric, f);
