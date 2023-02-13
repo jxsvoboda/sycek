@@ -1123,6 +1123,14 @@ typedef struct {
 	int8_t disp;
 } z80ic_or_iixd_t;
 
+/** Z80 IC bitwise XOR with register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_xor_r_t;
+
 /** Z80 IC bitwise XOR with (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1138,6 +1146,14 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_inc_iixd_t;
+
+/** Z80 IC decrement register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination / source register */
+	z80ic_oper_reg_t *dest;
+} z80ic_dec_r_t;
 
 /** Z80 IC decrement (IX+d) */
 typedef struct {

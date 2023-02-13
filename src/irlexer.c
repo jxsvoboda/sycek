@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -743,6 +743,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 's':
+		if (p[1] == 'g' && p[2] == 'n' && p[3] == 'e' &&
+		    p[4] == 'x' && p[5] == 't' && !is_idcnt(p[6])) {
+			return ir_lexer_keyword(lexer, itt_sgnext, 6, tok);
+		}
 		if (p[1] == 'h' && p[2] == 'l' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_shl, 3, tok);
 		}
@@ -756,6 +760,12 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		}
 		if (p[1] == 'u' && p[2] == 'b' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_sub, 3, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
+	case 't':
+		if (p[1] == 'r' && p[2] == 'u' && p[3] == 'n' &&
+		    p[4] == 'c' && !is_idcnt(p[5])) {
+			return ir_lexer_keyword(lexer, itt_trunc, 5, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'v':
@@ -776,6 +786,12 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 	case 'x':
 		if (p[1] == 'o' && p[2] == 'r' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_xor, 3, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
+	case 'z':
+		if (p[1] == 'r' && p[2] == 'e' && p[3] == 'x' &&
+		    p[4] == 't' && !is_idcnt(p[5])) {
+			return ir_lexer_keyword(lexer, itt_zrext, 5, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case '{':
@@ -933,6 +949,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'ret'";
 	case itt_retv:
 		return "'retv'";
+	case itt_sgnext:
+		return "'sgnext'";
 	case itt_shl:
 		return "'shl'";
 	case itt_shra:
@@ -941,6 +959,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'shrl'";
 	case itt_sub:
 		return "'sub'";
+	case itt_trunc:
+		return "'trunc'";
 	case itt_var:
 		return "'var'";
 	case itt_varptr:
@@ -949,6 +969,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'write'";
 	case itt_xor:
 		return "'xor'";
+	case itt_zrext:
+		return "'zrext'";
 	case itt_ident:
 		return "id";
 	case itt_number:

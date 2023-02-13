@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -50,6 +50,7 @@ static const char *instr_name[] = {
 	[iri_shl] = "shl",
 	[iri_shra] = "shra",
 	[iri_shrl] = "shrl",
+	[iri_trunc] = "trunc",
 	[iri_imm] = "imm",
 	[iri_jmp] = "jmp",
 	[iri_jnz] = "jnz",
@@ -65,9 +66,11 @@ static const char *instr_name[] = {
 	[iri_read] = "read",
 	[iri_ret] = "ret",
 	[iri_retv] = "retv",
+	[iri_sgnext] = "sgnext",
 	[iri_varptr] = "varptr",
 	[iri_write] = "write",
-	[iri_xor] = "xor"
+	[iri_xor] = "xor",
+	[iri_zrext] = "zrext"
 };
 
 /** @c true iff instruction has bit width specifier */
@@ -96,9 +99,12 @@ static bool instr_has_width[] = {
 	[iri_or] = true,
 	[iri_read] = true,
 	[iri_retv] = true,
+	[iri_sgnext] = true,
+	[iri_trunc] = true,
 	[iri_varptr] = true,
 	[iri_write] = true,
-	[iri_xor] = true
+	[iri_xor] = true,
+	[iri_zrext] = true
 };
 
 /** Create IR module.

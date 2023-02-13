@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -639,6 +639,92 @@ error:
 	if (sub != NULL)
 		z80ic_instr_destroy(&sub->instr);
 	z80ic_oper_imm8_destroy(imm);
+	return rc;
+}
+
+/** Allocate registers for Z80 bitwise XOR with register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrxor XOR instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_xor_r(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_xor_r_t *vrxor, z80ic_lblock_t *lblock)
+{
+	z80ic_xor_r_t *xor = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	int rc;
+
+	(void) raproc;
+
+	/* xor r */
+
+	rc = z80ic_xor_r_create(&xor);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(vrxor->src->reg, &reg);
+	if (rc != EOK)
+		goto error;
+
+	xor->src = reg;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
+	xor = NULL;
+	return EOK;
+error:
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	z80ic_oper_reg_destroy(reg);
+
+	return rc;
+}
+
+/** Allocate registers for Z80 decrement register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrdec Decrement instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_dec_r(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_dec_r_t *vrdec, z80ic_lblock_t *lblock)
+{
+	z80ic_dec_r_t *dec = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	int rc;
+
+	(void) raproc;
+
+	/* dec r */
+
+	rc = z80ic_dec_r_create(&dec);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(vrdec->dest->reg, &reg);
+	if (rc != EOK)
+		goto error;
+
+	dec->dest = reg;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
+	dec = NULL;
+	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	z80ic_oper_reg_destroy(reg);
+
 	return rc;
 }
 
@@ -2425,6 +2511,12 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_sub_n:
 		return z80_ralloc_sub_n(raproc, label,
 		    (z80ic_sub_n_t *) vrinstr->ext, lblock);
+	case z80i_xor_r:
+		return z80_ralloc_xor_r(raproc, label,
+		    (z80ic_xor_r_t *) vrinstr->ext, lblock);
+	case z80i_dec_r:
+		return z80_ralloc_dec_r(raproc, label,
+		    (z80ic_dec_r_t *) vrinstr->ext, lblock);
 	case z80i_cpl:
 		return z80_ralloc_cpl(raproc, label,
 		    (z80ic_cpl_t *) vrinstr->ext, lblock);

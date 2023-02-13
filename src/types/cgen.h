@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -147,5 +147,13 @@ typedef struct cgen_loop_switch {
 	/** Break label */
 	const char *blabel;
 } cgen_loop_switch_t;
+
+/** Explicicit or implicit type conversion */
+typedef enum {
+	/** Explicit type conversion */
+	cgen_explicit,
+	/** Implicit type conversion */
+	cgen_implicit
+} cgen_expl_t;
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -458,6 +458,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_retv:
 		instr->itype = iri_retv;
 		break;
+	case itt_sgnext:
+		instr->itype = iri_sgnext;
+		break;
 	case itt_shl:
 		instr->itype = iri_shl;
 		break;
@@ -470,6 +473,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_sub:
 		instr->itype = iri_sub;
 		break;
+	case itt_trunc:
+		instr->itype = iri_trunc;
+		break;
 	case itt_varptr:
 		instr->itype = iri_varptr;
 		break;
@@ -478,6 +484,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 		break;
 	case itt_xor:
 		instr->itype = iri_xor;
+		break;
+	case itt_zrext:
+		instr->itype = iri_zrext;
 		break;
 	default:
 		fprintf(stderr, "Error: ");

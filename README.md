@@ -223,13 +223,15 @@ Specifically, these language features are supported:
    (any number of arguments of total size up to appprox. 128 bytes)
  * Most arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
+   and integer type conversions
 
 These are NOT supported:
 
+ * Division and modulus (`/`, `%`)
+ * Integer promotion and usual arithmetic conversion
  * Any other type than integer (pointers, structures, arrays, enumerated types,
    floating point)
  * Variadic functions
- * Division and modulus (`/`, `%`)
  * Ternary operator
 
 syc only starts after preprocessing stage (i.e. there must not be any
@@ -303,6 +305,9 @@ declared with the attribute `usr`. For example:
     {
             return 42;
     }
+
+This is because user service routines must return value in the BC register
+pair. Normal functions return 16-bit values in the HL register pair.
 
 Syc as a checker
 ----------------

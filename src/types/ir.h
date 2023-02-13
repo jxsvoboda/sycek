@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -84,6 +84,8 @@ typedef enum {
 	iri_ret,
 	/** Return value */
 	iri_retv,
+	/** Sign-extend integer */
+	iri_sgnext,
 	/** Shift left */
 	iri_shl,
 	/** Shift right arithmetic */
@@ -92,12 +94,16 @@ typedef enum {
 	iri_shrl,
 	/** Subtraction */
 	iri_sub,
+	/** Truncate integer */
+	iri_trunc,
 	/** Get pointer to global variable */
 	iri_varptr,
 	/** Write to memory */
 	iri_write,
 	/** Binary XOR */
-	iri_xor
+	iri_xor,
+	/** Zero-extend integer */
+	iri_zrext
 } ir_instr_type_t;
 
 /** IR operand type */

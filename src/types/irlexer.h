@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -86,14 +86,17 @@ typedef enum {
 	itt_read,
 	itt_ret,
 	itt_retv,
+	itt_sgnext,
 	itt_shl,
 	itt_shra,
 	itt_shrl,
 	itt_sub,
+	itt_trunc,
 	itt_var,
 	itt_varptr,
 	itt_write,
 	itt_xor,
+	itt_zrext,
 
 	itt_ident,
 	itt_number,

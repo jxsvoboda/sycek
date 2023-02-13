@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -2262,6 +2262,55 @@ static void z80ic_or_iixd_destroy(z80ic_or_iixd_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC bitwise XOR with register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_xor_r_create(z80ic_xor_r_t **rinstr)
+{
+	z80ic_xor_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_xor_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_xor_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC bitwise XOR with register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_xor_r_print(z80ic_xor_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("xor ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise XOR with register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_xor_r_destroy(z80ic_xor_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->src);
+}
+
 /** Create Z80 IC bitwise XOR with (IX+d) instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -2348,6 +2397,55 @@ static int z80ic_inc_iixd_print(z80ic_inc_iixd_t *instr, FILE *f)
 static void z80ic_inc_iixd_destroy(z80ic_inc_iixd_t *instr)
 {
 	(void) instr;
+}
+
+/** Create Z80 IC decrement register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dec_r_create(z80ic_dec_r_t **rinstr)
+{
+	z80ic_dec_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_dec_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_dec_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC decrement register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_dec_r_print(z80ic_dec_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("dec ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC bitwise XOR with register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_dec_r_destroy(z80ic_dec_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->dest);
 }
 
 /** Create Z80 IC decrement (IX+d) instruction.
@@ -5013,11 +5111,17 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_or_iixd:
 		rc = z80ic_or_iixd_print((z80ic_or_iixd_t *) instr->ext, f);
 		break;
+	case z80i_xor_r:
+		rc = z80ic_xor_r_print((z80ic_xor_r_t *) instr->ext, f);
+		break;
 	case z80i_xor_iixd:
 		rc = z80ic_xor_iixd_print((z80ic_xor_iixd_t *) instr->ext, f);
 		break;
 	case z80i_inc_iixd:
 		rc = z80ic_inc_iixd_print((z80ic_inc_iixd_t *) instr->ext, f);
+		break;
+	case z80i_dec_r:
+		rc = z80ic_dec_r_print((z80ic_dec_r_t *) instr->ext, f);
 		break;
 	case z80i_dec_iixd:
 		rc = z80ic_dec_iixd_print((z80ic_dec_iixd_t *) instr->ext, f);
@@ -5274,11 +5378,17 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_or_iixd:
 		z80ic_or_iixd_destroy((z80ic_or_iixd_t *) instr->ext);
 		break;
+	case z80i_xor_r:
+		z80ic_xor_r_destroy((z80ic_xor_r_t *) instr->ext);
+		break;
 	case z80i_xor_iixd:
 		z80ic_xor_iixd_destroy((z80ic_xor_iixd_t *) instr->ext);
 		break;
 	case z80i_inc_iixd:
 		z80ic_inc_iixd_destroy((z80ic_inc_iixd_t *) instr->ext);
+		break;
+	case z80i_dec_r:
+		z80ic_dec_r_destroy((z80ic_dec_r_t *) instr->ext);
 		break;
 	case z80i_dec_iixd:
 		z80ic_dec_iixd_destroy((z80ic_dec_iixd_t *) instr->ext);

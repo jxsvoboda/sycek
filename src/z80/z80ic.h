@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -100,8 +100,10 @@ extern int z80ic_sbc_a_iixd_create(z80ic_sbc_a_iixd_t **);
 extern int z80ic_and_r_create(z80ic_and_r_t **);
 extern int z80ic_and_iixd_create(z80ic_and_iixd_t **);
 extern int z80ic_or_iixd_create(z80ic_or_iixd_t **);
+extern int z80ic_xor_r_create(z80ic_xor_r_t **);
 extern int z80ic_xor_iixd_create(z80ic_xor_iixd_t **);
 extern int z80ic_inc_iixd_create(z80ic_inc_iixd_t **);
+extern int z80ic_dec_r_create(z80ic_dec_r_t **);
 extern int z80ic_dec_iixd_create(z80ic_dec_iixd_t **);
 extern int z80ic_cpl_create(z80ic_cpl_t **);
 extern int z80ic_nop_create(z80ic_nop_t **);
