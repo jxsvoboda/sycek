@@ -6,6 +6,7 @@ The available tools are
 
   * `ccheck` a C code style checker
   * `syc` a C compiler for ZX Spectrum, lint, static checker (WIP)
+  * `z80test` a simple test harness / Z80 emulator
 
 Sycek is available under an MIT-style license.
 
@@ -47,6 +48,11 @@ preprocessing and compiling the source code.
 
 `syc` can thus be used as a lint / checker / shadow compiler.
 See the section Syc as a checker for details.
+
+z80test
+-------
+Z80test is a command-line tool for executing and testing Z80 code snippets.
+For more details, see [Z80test documentation](src/z80/z80test/README.md).
 
 Downloading
 -----------

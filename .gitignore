@@ -3,6 +3,7 @@
 /ccheck-hos
 /syc
 /syc-hos
+/z80test
 /example/fillscr.asm
 /example/mul16.asm
 /example/test.asm

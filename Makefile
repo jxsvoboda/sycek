@@ -1,5 +1,5 @@
 #
-# Copyright 2022 Jiri Svoboda
+# Copyright 2023 Jiri Svoboda
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # copy of this software and associated documentation files (the "Software"),
@@ -80,6 +80,15 @@ sources_syc_common = \
     src/z80/varmap.c \
     src/z80/z80ic.c
 
+sources_z80test_common = \
+    ext/z80.c \
+    src/file_input.c \
+    src/src_pos.c \
+    src/z80/z80test/scrlexer.c \
+    src/z80/z80test/symbols.c \
+    src/z80/z80test/z80dep.c \
+    src/z80/z80test/z80test.c
+
 sources_hcompat = \
     src/hcompat/adt/list.c
 
@@ -97,6 +106,10 @@ sources_syc = \
 sources_syc_hos = \
     $(sources_syc_common)
 
+sources_z80test = \
+    $(sources_z80test_common) \
+    $(sources_hcompat)
+
 binary_ccheck = ccheck
 binary_ccheck_hos = ccheck-hos
 ccheck = ./$(binary_ccheck)
@@ -105,11 +118,17 @@ binary_syc = syc
 binary_syc_hos = syc-hos
 syc = ./$(binary_syc)
 
+binary_z80test = z80test
+binary_z80test_hos = z80test-hos
+
 objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
 
 objects_syc = $(sources_syc:.c=.o)
 objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
+
+objects_z80test = $(sources_z80test:.c=.o)
+objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
 
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h)
 
@@ -164,7 +183,7 @@ example_outs = example/lib.o $(example_asms) $(example_os) $(example_bins) \
     $(example_maps) $(example_taps) $(example_irs) $(example_vrics) \
     $(example_irirs) $(example_irasms)
 
-all: $(binary_ccheck) $(binary_syc)
+all: $(binary_ccheck) $(binary_syc) $(binary_z80test)
 
 $(binary_ccheck): $(objects_ccheck)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
@@ -172,10 +191,13 @@ $(binary_ccheck): $(objects_ccheck)
 $(binary_syc): $(objects_syc)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
+$(binary_z80test): $(objects_z80test)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
 $(objects_ccheck): $(headers)
 $(objects_syc): $(headers)
 
-hos: $(binary_ccheck_hos) $(binary_syc_hos)
+hos: $(binary_ccheck_hos) $(binary_syc_hos) $(binary_z80test_hos)
 
 $(binary_ccheck_hos): $(objects_ccheck_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
@@ -183,8 +205,12 @@ $(binary_ccheck_hos): $(objects_ccheck_hos)
 $(binary_syc_hos): $(objects_syc_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
 
+$(binary_z80test_hos): $(objects_z80test_hos)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
+
 $(objects_ccheck_hos): $(headers)
 $(objects_syc_hos): $(headers)
+$(objects_z80test_hos): $(headers)
 
 %.hos.o: %.c
 	$(CC_hos) -c $(CFLAGS_hos) -o $@ $<
@@ -192,6 +218,8 @@ $(objects_syc_hos): $(headers)
 install-hos: hos
 	mkdir -p $(PREFIX_hos)/app
 	$(INSTALL) -T $(binary_ccheck_hos) $(PREFIX_hos)/app/ccheck
+	$(INSTALL) -T $(binary_syc_hos) $(PREFIX_hos)/app/syc
+	$(INSTALL) -T $(binary_z80test_hos) $(PREFIX_hos)/app/z80test
 
 uninstall-hos:
 	rm -f $(PREFIX_hos)/app/ccheck
@@ -201,8 +229,11 @@ test-hos: install-hos
 
 clean:
 	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_syc) \
-	$(objects_syc_hos) $(binary_ccheck) $(binary_ccheck_hos) \
-	$(binary_syc) $(binary_syc_hos) $(test_outs) $(test_syc_outs) \
+	$(objects_syc_hos) $(objects_z80test) $(objects_z80test_host) \
+	$(binary_ccheck) $(binary_ccheck_hos) \
+	$(binary_syc) $(binary_syc_hos) \
+	$(binary_z80test) $(binary_z80test_hos) \
+	$(test_outs) $(test_syc_outs) \
 	$(example_outs)
 
 test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
