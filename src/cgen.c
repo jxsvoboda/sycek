@@ -6163,7 +6163,8 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	}
 
 	if (ares->cgtype->ntype == cgn_basic &&
-	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic) {
+	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic &&
+	    expl != cgen_explicit) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Truth value used as an integer.\n");
 		++cgproc->cgen->warnings;
