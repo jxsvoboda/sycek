@@ -1,0 +1,26 @@
+mapfile "trunc.map";
+ldbin "trunc.bin", 0x8000;
+
+ld word ptr (@_i), 0x1234;
+call @_trunc_8_16;
+verify byte ptr (@_c), 0x34;
+
+ld dword ptr (@_l), 0x12345678;
+call @_trunc_8_32;
+verify byte ptr (@_c), 0x78;
+
+ld qword ptr (@_ll), 0x1234567887654321;
+call @_trunc_8_64;
+verify byte ptr (@_c), 0x21;
+
+ld dword ptr (@_l), 0x12345678;
+call @_trunc_16_32;
+verify word ptr (@_i), 0x5678;
+
+ld qword ptr (@_ll), 0x1234567887654321;
+call @_trunc_16_64;
+verify word ptr (@_i), 0x4321;
+
+ld qword ptr (@_ll), 0x1234567887654321;
+call @_trunc_32_64;
+verify dword ptr (@_l), 0x87654321;

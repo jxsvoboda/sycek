@@ -381,6 +381,16 @@ After making any changes run `make test` command which runs a number of tests
 
 Everything should finish successfully (exit code from `make` should be zero).
 
+To test functionality of generated Z80 code run `make test_z80` which
+ * Compiles all sources under `test/syc/good` with Syc into `.asm` files
+ * Assembles all of them using `z80asm` into binary files
+ * Runs `z80test` for all `.scr` files under `test/syc/good` which verifies
+   correct function of the generated code
+
+For this to work you need to have `z80asm` from z88dk. Note that this
+requirement is only temporary and will be removed once Syc can produce
+binary files directly.
+
 Run Clang Analyzer using the command
 
     $ make clean && scan-build make

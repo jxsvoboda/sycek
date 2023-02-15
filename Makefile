@@ -120,6 +120,7 @@ syc = ./$(binary_syc)
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
+z80test = ./$(binary_z80test)
 
 objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
@@ -153,7 +154,12 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_ugly_h_out_diffs) $(test_vg_outs) \
     test/ccheck/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
 test_syc_good_srcs = $(wildcard test/syc/good/*.c)
+test_syc_good_scripts = $(wildcard test/syc/good/*.scr)
 test_syc_good_asms = $(test_syc_good_srcs:.c=.asm)
+test_syc_good_z80ts = $(test_syc_good_scripts:.scr=-z80t.txt)
+test_syc_good_bins = $(test_syc_good_srcs:.c=.bin)
+test_syc_good_maps = $(test_syc_good_srcs:.c=.map)
+test_syc_good_taps = $(test_syc_good_srcs:.c=.tap)
 test_syc_bad_srcs = $(wildcard test/syc/bad/*.c)
 test_syc_bad_diffs = $(test_syc_bad_srcs:.c=.txt.diff)
 test_syc_ugly_srcs = $(wildcard test/syc/ugly/*.c)
@@ -165,6 +171,8 @@ test_syc_vg_outs = \
 test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
     test/syc/all.diff
+test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_bins) \
+    $(test_syc_good_maps) $(test_syc_good_taps)
 
 example_srcs = \
 	example/fillscr.c \
@@ -233,7 +241,7 @@ clean:
 	$(binary_ccheck) $(binary_ccheck_hos) \
 	$(binary_syc) $(binary_syc_hos) \
 	$(binary_z80test) $(binary_z80test_hos) \
-	$(test_outs) $(test_syc_outs) \
+	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
 	$(example_outs)
 
 test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
@@ -311,6 +319,15 @@ test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
 	valgrind $(syc) $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
+test/syc/good/%.asm: test/syc/good/%.c $(syc)
+	$(syc) $<
+
+test/syc/good/%.bin: test/syc/good/%.asm
+	z80asm +zx -m --origin=0x8000 $<
+
+test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
+	cd test/syc/good && ../../../$(z80test) -s ../../../$< >../../../$@ || (rm $@ ; false)
+
 test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@
 
@@ -353,7 +370,9 @@ examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
 # return non-zero exit code, failing the make
 #
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
-    test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) test/selfcheck.out
+    test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) \
+    test/selfcheck.out
+test_z80: $(test_syc_good_asms) $(test_syc_good_z80ts)
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
