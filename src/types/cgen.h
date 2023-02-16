@@ -131,8 +131,10 @@ typedef struct cgen_switch {
 	struct cgen_switch *parent;
 	/** Name of variable containing case expression result */
 	const char *svarname;
-	/** Next case label */
+	/** Next case condition label */
 	char *nclabel;
+	/** Next case body label */
+	char *nblabel;
 	/** Default label */
 	char *dlabel;
 } cgen_switch_t;

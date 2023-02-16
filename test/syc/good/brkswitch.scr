@@ -1,0 +1,27 @@
+mapfile "brkswitch.map";
+ldbin "brkswitch.bin", 0x8000;
+
+ld word ptr (@_i), 0;
+ld word ptr (@_a), 0;
+call @_brkswitch;
+verify word ptr (@_i), 0;
+
+ld word ptr (@_i), 0;
+ld word ptr (@_a), 1;
+call @_brkswitch;
+verify word ptr (@_i), 20;
+
+ld word ptr (@_i), 0;
+ld word ptr (@_a), 2;
+call @_brkswitch;
+verify word ptr (@_i), 20;
+
+ld word ptr (@_i), 0;
+ld word ptr (@_a), 3;
+call @_brkswitch;
+verify word ptr (@_i), 30;
+
+ld word ptr (@_i), 0;
+ld word ptr (@_a), 4;
+call @_brkswitch;
+verify word ptr (@_i), 0;

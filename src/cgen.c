@@ -7083,7 +7083,11 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	lswitch->blabel = eslabel;
 
-	rc = cgen_create_label(cgproc, "case", lblno, &cgswitch->nclabel);
+	rc = cgen_create_label(cgproc, "case_cnd", lblno, &cgswitch->nclabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgproc, "case_body", lblno, &cgswitch->nblabel);
 	if (rc != EOK)
 		goto error;
 
@@ -7153,6 +7157,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	/* Final case label */
 
 	ir_lblock_append(lblock, cgswitch->nclabel, NULL);
+	ir_lblock_append(lblock, cgswitch->nblabel, NULL);
 
 	if (cgswitch->dlabel != NULL) {
 		/* jmp %default */
@@ -7240,6 +7245,27 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 		goto error;
 	}
 
+	/* jmp %case_bodyN */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(cgproc->cur_switch->nblabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
 	/* Insert previously generated label for this case statement */
 
 	ir_lblock_append(lblock, cgproc->cur_switch->nclabel, NULL);
@@ -7247,11 +7273,11 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	free(cgproc->cur_switch->nclabel);
 	cgproc->cur_switch->nclabel = NULL;
 
-	/* Create label for next case */
+	/* Create label for next case condition */
 
 	lblno = cgen_new_label_num(cgproc);
 
-	rc = cgen_create_label(cgproc, "case", lblno,
+	rc = cgen_create_label(cgproc, "case_cnd", lblno,
 	    &cgproc->cur_switch->nclabel);
 	if (rc != EOK)
 		goto error;
@@ -7296,7 +7322,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
-	/* jnz %<dest>, %caseN+1 */
+	/* jz %<dest>, %caseN+1 */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -7310,7 +7336,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_jnz;
+	instr->itype = iri_jz;
 	instr->width = 0;
 	instr->dest = NULL;
 	instr->op1 = &carg->oper;
@@ -7321,6 +7347,20 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
+
+	/* %case_bodyN */
+
+	ir_lblock_append(lblock, cgproc->cur_switch->nblabel, NULL);
+
+	free(cgproc->cur_switch->nblabel);
+	cgproc->cur_switch->nblabel = NULL;
+
+	/* Create label for next case body */
+
+	rc = cgen_create_label(cgproc, "case_body", lblno,
+	    &cgproc->cur_switch->nblabel);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&cres);
 	return EOK;
@@ -8784,6 +8824,8 @@ void cgen_switch_destroy(cgen_switch_t *cgswitch)
 
 	if (cgswitch->nclabel != NULL)
 		free(cgswitch->nclabel);
+	if (cgswitch->nblabel != NULL)
+		free(cgswitch->nblabel);
 	if (cgswitch->dlabel != NULL)
 		free(cgswitch->dlabel);
 	free(cgswitch);
