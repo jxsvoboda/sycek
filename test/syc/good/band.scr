@@ -1,0 +1,26 @@
+mapfile "band.map";
+ldbin "band.bin", 0x8000;
+
+/* 8-bit bitwise AND */
+ld byte ptr (@_ca), 0xf0;
+ld byte ptr (@_cb), 0xcc;
+call @_band_char;
+verify byte ptr (@_cc), 0xc0;
+
+/* 16-bit bitwise AND */
+ld word ptr (@_a), 0xf00f;
+ld word ptr (@_b), 0xaabb;
+call @_band;
+verify word ptr (@_c), 0xa00b;
+
+/* 32-bit bitwise AND */
+ld dword ptr (@_la), 0xff00f00f;
+ld dword ptr (@_lb), 0x11223344;
+call @_band_long;
+verify dword ptr (@_lc), 0x11003004;
+
+/* 64-bit bitwise AND */
+ld qword ptr (@_lla), 0xff00f00ff0f00f0f;
+ld qword ptr (@_llb), 0x1122334455667788;
+call @_band_longlong;
+verify qword ptr (@_llc), 0x1100300450600708;

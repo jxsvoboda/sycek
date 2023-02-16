@@ -1,0 +1,26 @@
+mapfile "add.map";
+ldbin "add.bin", 0x8000;
+
+/* 8-bit addition */
+ld byte ptr (@_cb), 0x11;
+ld byte ptr (@_cc), 0x22;
+call @_add_char;
+verify byte ptr (@_ca), 0x33;
+
+/* 16-bit addition involving carry */
+ld word ptr (@_b), 0x11ff;
+ld word ptr (@_c), 0x3344;
+call @_add;
+verify word ptr (@_a), 0x4543;
+
+/* 32-bit addition involving carry */
+ld dword ptr (@_lb), 0x11ffeedd;
+ld dword ptr (@_lc), 0x11665544;
+call @_add_long;
+verify dword ptr (@_la), 0x23664421;
+
+/* 64-bit addition involving carry */
+ld qword ptr (@_llb), 0x55ff332211ffeedd;
+ld qword ptr (@_llc), 0x5544332211665544;
+call @_add_longlong;
+verify qword ptr (@_lla), 0xab43664423664421;

@@ -2,12 +2,12 @@
  * Address (&)
  */
 
-int a = 2;
+int a;
+int b;
+int c;
 
-int addr(void)
+void addr(void)
 {
-	int b;
-
 	b = &a;
-	return *b;
+	c = *b;
 }

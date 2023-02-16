@@ -1,0 +1,19 @@
+mapfile "assign.map";
+ldbin "assign.bin", 0x8000;
+
+ld byte ptr (@_cb), 0x12;
+call @_assign_char;
+verify byte ptr (@_ca), 0x12;
+
+ld word ptr (@_c), 0x1234;
+call @_assign;
+verify word ptr (@_a), 0x1234;
+verify word ptr (@_b), 0x1234;
+
+ld dword ptr (@_lb), 0x12345678;
+call @_assign_long;
+verify dword ptr (@_la), 0x12345678;
+
+ld qword ptr (@_llb), 0x1234567887654321;
+call @_assign_longlong;
+verify qword ptr (@_lla), 0x1234567887654321;

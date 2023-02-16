@@ -1,0 +1,26 @@
+mapfile "add_assign.map";
+ldbin "add_assign.bin", 0x8000;
+
+/* 8-bit add-assign */
+ld byte ptr (@_ca), 0x11;
+ld byte ptr (@_cb), 0x33;
+call @_add_assign_char;
+verify byte ptr (@_ca), 0x44;
+
+/* 16-bit add-assign */
+ld word ptr (@_a), 0x1122;
+ld word ptr (@_b), 0x3344;
+call @_add_assign;
+verify word ptr (@_a), 0x4466;
+
+/* 32-bit add-assign */
+ld dword ptr (@_la), 0x11223344;
+ld dword ptr (@_lb), 0x33445566;
+call @_add_assign_long;
+verify dword ptr (@_la), 0x446688aa;
+
+/* 64-bit add-assign */
+ld qword ptr (@_lla), 0x1122334444332211;
+ld qword ptr (@_llb), 0x33445566778899aa;
+call @_add_assign_longlong;
+verify qword ptr (@_lla), 0x446688aabbbbbbbb;

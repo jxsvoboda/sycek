@@ -3,7 +3,7 @@
  */
 
 char ca, cb, cc;
-int a, b;
+int a, b, c;
 long la, lb, lc;
 long long lla, llb, llc;
 
@@ -12,9 +12,9 @@ void bor_char(void)
 	cc = ca | cb;
 }
 
-int bor(void)
+void bor(void)
 {
-	return a | b;
+	c = a | b;
 }
 
 void bor_long(void)

@@ -1,0 +1,7 @@
+mapfile "brkfor.map";
+ldbin "brkfor.bin", 0x8000;
+
+ld word ptr (@_a), 2;
+ld word ptr (@_b), 7;
+call @_brkfor;
+verify word ptr (@_i), 5;

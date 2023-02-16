@@ -3,7 +3,7 @@
  */
 
 char ca, cb;
-int a;
+int a, b;
 long la, lb;
 long long lla, llb;
 
@@ -12,9 +12,9 @@ void bnot_char(void)
 	cb = ~ca;
 }
 
-int bnot(void)
+void bnot(void)
 {
-	return ~a;
+	b = ~a;
 }
 
 void bnot_long(void)

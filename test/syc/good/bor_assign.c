@@ -12,7 +12,7 @@ void bor_assign_char(void)
 	ca |= cb;
 }
 
-int bor_assign(void)
+void bor_assign(void)
 {
 	a |= b;
 }

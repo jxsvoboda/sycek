@@ -3,7 +3,7 @@
  */
 
 char ca, cb, cc;
-int a, b;
+int a, b, c;
 long la, lb, lc;
 long long lla, llb, llc;
 
@@ -12,16 +12,15 @@ void band_char(void)
 	cc = ca & cb;
 }
 
-int band(void)
+void band(void)
 {
-	return a & b;
+	c = a & b;
 }
 
 void band_long(void)
 {
 	lc = la & lb;
 }
-
 
 void band_longlong(void)
 {

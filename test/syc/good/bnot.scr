@@ -1,0 +1,22 @@
+mapfile "bnot.map";
+ldbin "bnot.bin", 0x8000;
+
+/* 8-bit bitwise NOT */
+ld byte ptr (@_ca), 0xfa;
+call @_bnot_char;
+verify byte ptr (@_cb), 0x05;
+
+/* 16-bit bitwise NOT */
+ld word ptr (@_a), 0xfa33;
+call @_bnot;
+verify word ptr (@_b), 0x05cc;
+
+/* 32-bit bitwise NOT */
+ld dword ptr (@_la), 0xfa338421;
+call @_bnot_long;
+verify dword ptr (@_lb), 0x05cc7bde;
+
+/* 64-bit bitwise NOT */
+ld qword ptr (@_lla), 0xfa33842173108cef;
+call @_bnot_longlong;
+verify qword ptr (@_llb), 0x05cc7bde8cef7310;

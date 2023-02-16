@@ -3,11 +3,10 @@
  */
 
 int a;
+int i;
 
-int brkswitch(void)
+void brkswitch(void)
 {
-	int i;
-
 	switch (a) {
 	case 1:
 		i = 10;
@@ -18,6 +17,4 @@ int brkswitch(void)
 	case 3:
 		i = 30;
 	}
-
-	return i;
 }

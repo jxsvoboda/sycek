@@ -1,0 +1,7 @@
+mapfile "addr.map";
+ldbin "addr.bin", 0x8000;
+
+ld word ptr (@_a), 0x1234;
+call @_addr;
+verify word ptr (@_b), @_a;
+verify word ptr (@_c), 0x1234;

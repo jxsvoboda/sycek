@@ -1,0 +1,26 @@
+mapfile "band_assign.map";
+ldbin "band_assign.bin", 0x8000;
+
+/* 8-bit bitwise AND-assign */
+ld byte ptr (@_ca), 0xf0;
+ld byte ptr (@_cb), 0xcc;
+call @_band_assign_char;
+verify byte ptr (@_ca), 0xc0;
+
+/* 16-bit bitwise AND-assign */
+ld word ptr (@_a), 0xf00f;
+ld word ptr (@_b), 0xaabb;
+call @_band_assign;
+verify word ptr (@_a), 0xa00b;
+
+/* 32-bit bitwise AND-assign */
+ld dword ptr (@_la), 0xff00f00f;
+ld dword ptr (@_lb), 0x11223344;
+call @_band_assign_long;
+verify dword ptr (@_la), 0x11003004;
+
+/* 64-bit bitwise AND-assign */
+ld qword ptr (@_lla), 0xff00f00ff0f00f0f;
+ld qword ptr (@_llb), 0x1122334455667788;
+call @_band_assign_longlong;
+verify qword ptr (@_lla), 0x1100300450600708;

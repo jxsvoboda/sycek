@@ -1,32 +1,28 @@
 /*
- * Example file for compilation with Syc.
+ * Assignment.
  */
 
-char ca, cb = 1;
-int a, b = 1, c = 2;
-long la, lb = 1;
-long long lla, llb = 1;
+char ca, cb;
+int a, b, c;
+long la, lb;
+long long lla, llb;
 
-void assign_var_char(void)
+void assign_char(void)
 {
 	ca = cb;
 }
 
-int assign_var(void)
+void assign(void)
 {
-	/* Variable assignment */
-	a = b = 3;
-
-	/* Read variable to verify value has been written properly */
-	return a;
+	a = b = c;
 }
 
-void assign_var_long(void)
+void assign_long(void)
 {
 	la = lb;
 }
 
-void assign_var_longlong(void)
+void assign_longlong(void)
 {
 	lla = llb;
 }

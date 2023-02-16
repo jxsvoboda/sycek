@@ -326,7 +326,7 @@ test/syc/good/%.bin: test/syc/good/%.asm
 	z80asm +zx -m --origin=0x8000 $<
 
 test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
-	cd test/syc/good && ../../../$(z80test) -s ../../../$< >../../../$@ || (rm $@ ; false)
+	cd test/syc/good && ../../../$(z80test) -s ../../../$< >../../../$@ || (rm ../../../$@ ; false)
 
 test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@

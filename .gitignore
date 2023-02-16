@@ -20,6 +20,10 @@
 /test/ccheck/all.diff
 /test/selfcheck.out
 /test/syc/*/*.asm
+/test/syc/*/*.bin
+/test/syc/*/*.map
+/test/syc/*/*.tap
+/test/syc/*/*-z80t.txt
 /test/syc/*/*-vg.txt
 /test/syc/*/*.txt.diff
 /test/syc/all.diff
