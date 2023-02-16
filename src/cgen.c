@@ -4330,7 +4330,7 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Bitwise OR the two operands */
-	rc = cgen_bxor(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_bor(cgproc, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
