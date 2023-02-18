@@ -3,7 +3,7 @@
  */
 
 char ca, cb, cc;
-int a, b;
+int a, b, c;
 long la, lb, lc;
 long long lla, llb, llc;
 
@@ -12,16 +12,15 @@ void bxor_char(void)
 	cc = ca ^ cb;
 }
 
-int bxor(void)
+void bxor(void)
 {
-	return a ^ b;
+	c = a ^ b;
 }
 
 void bxor_long(void)
 {
 	lc = la ^ lb;
 }
-
 
 void bxor_longlong(void)
 {

@@ -1,0 +1,14 @@
+mapfile "eq.map";
+ldbin "eq.bin", 0x8000;
+
+/* 8-bit equal */
+ld byte ptr (@_ca), 0x12;
+ld byte ptr (@_cb), 0x12;
+call @_eq_char;
+verify word ptr (@_e), 0x0001;
+
+/* 8-bit not equal */
+ld byte ptr (@_ca), 0x12;
+ld byte ptr (@_cb), 0x13;
+call @_eq_char;
+verify word ptr (@_e), 0x0000;

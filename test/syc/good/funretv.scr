@@ -1,0 +1,45 @@
+mapfile "funretv.map";
+ldbin "funretv.bin", 0x8000;
+
+ld byte ptr (@_c), 0x12;
+ld A, 0;
+call @_ret_char;
+verify A, 0x12;
+
+ld byte ptr (@_c), 0x12;
+ld byte ptr (@_rc), 0;
+call @_call_char;
+verify byte ptr (@_rc), 0x12;
+
+ld word ptr (@_i), 0x1234;
+ld HL, 0;
+call @_ret_int;
+verify HL, 0x1234;
+
+ld word ptr (@_i), 0x1234;
+ld word ptr (@_ri), 0;
+call @_call_int;
+verify word ptr (@_ri), 0x1234;
+
+ld dword ptr (@_l), 0x12345678;
+ld DE, 0;
+ld HL, 0;
+call @_ret_long;
+verify DE, 0x1234;
+verify HL, 0x5678;
+
+ld dword ptr (@_l), 0x12345678;
+ld dword ptr (@_rl), 0;
+call @_call_long;
+verify dword ptr (@_rl), 0x12345678;
+
+ld qword ptr (@_ll), 0x1234567887654321;
+ld qword ptr (@_rll), 0;
+ld HL, @_rll;
+call @_ret_longlong;
+verify qword ptr (@_rll), 0x1234567887654321;
+
+ld qword ptr (@_ll), 0x1234567887654321;
+ld qword ptr (@_rll), 0;
+call @_call_longlong;
+verify qword ptr (@_rll), 0x1234567887654321;

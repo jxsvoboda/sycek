@@ -48,7 +48,9 @@
 
 enum {
 	mem_size = 0x10000,
-	max_cycles = 1000000
+	max_cycles = 1000000,
+	stack_base = 0xfff0,
+	ret_addr = 0x1234
 };
 
 uint8_t *mem;
@@ -114,10 +116,17 @@ static void cpu_setup(void)
 
 static int do_call(uint16_t addr)
 {
-	cpus.PC = addr;
-	cpus.SP = 0xfff0;
+	uint16_t old_sp;
 
-	while (cpus.SP <= 0xfff0 && z80_clock < max_cycles) {
+	cpus.PC = addr;
+	old_sp = cpus.SP;
+
+	/* Push the return address */
+	cpus.SP -= 2;
+	mem[cpus.SP] = ret_addr & 0xff;
+	mem[cpus.SP + 1] = ret_addr >> 8;
+
+	while (cpus.SP < old_sp && z80_clock < max_cycles) {
 		z80_execinstr();
 		++instr_cnt;
 	}
@@ -125,6 +134,12 @@ static int do_call(uint16_t addr)
 	if (z80_clock >= max_cycles) {
 		printf("Error: CPU cycle limit exceeded.\n");
 		return EDOM;
+	}
+
+	if (cpus.SP != old_sp) {
+		printf("Error: SP value changed during call (0x%x != 0x%x)\n",
+		    cpus.SP, old_sp);
+		return EINVAL;
 	}
 
 	return 0;
@@ -356,21 +371,49 @@ static int script_parse_rm(script_t *script, regmem_t *regmem)
 			break;
 		}
 		break;
+	case stt_A:
+		script_skip(script);
+		regmem->rmtype = rm_A;
+		break;
 	case stt_AF:
 		script_skip(script);
 		regmem->rmtype = rm_AF;
+		break;
+	case stt_B:
+		script_skip(script);
+		regmem->rmtype = rm_B;
 		break;
 	case stt_BC:
 		script_skip(script);
 		regmem->rmtype = rm_BC;
 		break;
+	case stt_C:
+		script_skip(script);
+		regmem->rmtype = rm_C;
+		break;
+	case stt_D:
+		script_skip(script);
+		regmem->rmtype = rm_D;
+		break;
 	case stt_DE:
 		script_skip(script);
 		regmem->rmtype = rm_DE;
 		break;
+	case stt_E:
+		script_skip(script);
+		regmem->rmtype = rm_E;
+		break;
+	case stt_H:
+		script_skip(script);
+		regmem->rmtype = rm_H;
+		break;
 	case stt_HL:
 		script_skip(script);
 		regmem->rmtype = rm_HL;
+		break;
+	case stt_L:
+		script_skip(script);
+		regmem->rmtype = rm_L;
 		break;
 	default:
 		fprintf(stderr, "Error: ");
@@ -458,6 +501,48 @@ static int regmem_read(regmem_t *regmem, bool print, uint64_t *val)
 			printf("HL == 0x%x\n", (unsigned)*val);
 		}
 		break;
+	case rm_A:
+		*val = cpus.r[rA];
+		if (print) {
+			printf("A == 0x%x\n", (unsigned)*val);
+		}
+		break;
+	case rm_B:
+		*val = cpus.r[rB];
+		if (print) {
+			printf("B == 0x%x\n", (unsigned)*val);
+		}
+		break;
+	case rm_C:
+		*val = cpus.r[rC];
+		if (print) {
+			printf("C == 0x%x\n", (unsigned)*val);
+		}
+		break;
+	case rm_D:
+		*val = cpus.r[rD];
+		if (print) {
+			printf("D == 0x%x\n", (unsigned)*val);
+		}
+		break;
+	case rm_E:
+		*val = cpus.r[rE];
+		if (print) {
+			printf("E == 0x%x\n", (unsigned)*val);
+		}
+		break;
+	case rm_H:
+		*val = cpus.r[rH];
+		if (print) {
+			printf("H == 0x%x\n", (unsigned)*val);
+		}
+		break;
+	case rm_L:
+		*val = cpus.r[rL];
+		if (print) {
+			printf("L == 0x%x\n", (unsigned)*val);
+		}
+		break;
 	default:
 		assert(false);
 		return EINVAL;
@@ -517,6 +602,27 @@ static int regmem_write(regmem_t *regmem, uint64_t val)
 		break;
 	case rm_HL:
 		cpus.r[rH] = val >> 8;
+		cpus.r[rL] = val & 0xff;
+		break;
+	case rm_A:
+		cpus.r[rA] = val & 0xff;
+		break;
+	case rm_B:
+		cpus.r[rB] = val & 0xff;
+		break;
+	case rm_C:
+		cpus.r[rC] = val & 0xff;
+		break;
+	case rm_D:
+		cpus.r[rD] = val & 0xff;
+		break;
+	case rm_E:
+		cpus.r[rE] = val & 0xff;
+		break;
+	case rm_H:
+		cpus.r[rH] = val & 0xff;
+		break;
+	case rm_L:
 		cpus.r[rL] = val & 0xff;
 		break;
 	default:
@@ -646,6 +752,19 @@ static int script_do_mapfile(script_t *script)
 	return 0;
 }
 
+static int script_do_pop(script_t *script)
+{
+	script_skip(script);
+
+	cpus.SP += 2;
+	if (cpus.SP > stack_base) {
+		printf("Error: Stack underflow.\n");
+		return ERANGE;
+	}
+
+	return 0;
+}
+
 static int script_do_print(script_t *script)
 {
 	uint64_t val;
@@ -660,6 +779,24 @@ static int script_do_print(script_t *script)
 
 	rc = regmem_read(&rm, true, &val);
 	(void) val;
+
+	return rc;
+}
+
+static int script_do_push(script_t *script)
+{
+	uint64_t eval;
+	int rc;
+
+	script_skip(script);
+
+	rc = script_eval_expr(script, &eval);
+	if (rc != 0)
+		return EINVAL;
+
+	cpus.SP -= 2;
+	mem[cpus.SP] = eval & 0xff;
+	mem[cpus.SP + 1] = (eval >> 8) & 0xff;
 
 	return rc;
 }
@@ -715,8 +852,14 @@ static int script_process_cmd(script_t *script)
 	case stt_mapfile:
 		rc = script_do_mapfile(script);
 		break;
+	case stt_pop:
+		rc = script_do_pop(script);
+		break;
 	case stt_print:
 		rc = script_do_print(script);
+		break;
+	case stt_push:
+		rc = script_do_push(script);
 		break;
 	case stt_verify:
 		rc = script_do_verify(script);
@@ -823,7 +966,7 @@ int main(int argc, char *argv[])
 
 	cpu_setup();
 	cpus.PC = 0;
-	cpus.SP = 0xfff0;
+	cpus.SP = stack_base;
 	mem[0xfff0] = 0xff;
 	mem[0xfff1] = 0xff;
 	mem[0xfff2] = 0xff;

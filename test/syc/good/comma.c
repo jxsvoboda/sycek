@@ -2,7 +2,11 @@
  * Comma expression
  */
 
-int comma(void)
+int a;
+int b;
+int c;
+
+void comma(void)
 {
-	return (void)1, 2;
+	c = (++a, ++b);
 }

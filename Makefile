@@ -131,7 +131,7 @@ objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
 objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
 
-headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h)
+headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h src/*/*/*/*.h)
 
 test_good_ins = $(wildcard test/ccheck/good/*-in.c)
 test_good_out_diffs = $(test_good_ins:-in.c=-out.txt.diff)
@@ -204,6 +204,7 @@ $(binary_z80test): $(objects_z80test)
 
 $(objects_ccheck): $(headers)
 $(objects_syc): $(headers)
+$(objects_z80test): $(headers)
 
 hos: $(binary_ccheck_hos) $(binary_syc_hos) $(binary_z80test_hos)
 

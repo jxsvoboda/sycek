@@ -1,0 +1,17 @@
+mapfile "contdo.map";
+ldbin "contdo.bin", 0x8000;
+
+ld word ptr (@_a), 11;
+call @_contdo;
+verify word ptr (@_i), 10;
+verify word ptr (@_j), 10;
+
+ld word ptr (@_a), 5;
+call @_contdo;
+verify word ptr (@_i), 10;
+verify word ptr (@_j), 4;
+
+ld word ptr (@_a), 1;
+call @_contdo;
+verify word ptr (@_i), 10;
+verify word ptr (@_j), 0;

@@ -1,0 +1,14 @@
+mapfile "forloop.map";
+ldbin "forloop.bin", 0x8000;
+
+ld word ptr (@_s), 0;
+ld word ptr (@_a), 10;
+call @_for_loop;
+verify word ptr (@_i), 0;
+verify word ptr (@_a), 10;
+
+ld word ptr (@_s), 5;
+ld word ptr (@_a), 10;
+call @_for_loop;
+verify word ptr (@_i), 0;
+verify word ptr (@_a), 15;

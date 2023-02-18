@@ -2,27 +2,29 @@
  * Greater than
  */
 
+int res;
+
 char ca, cb;
 int a, b;
 long la, lb;
 long long lla, llb;
 
-int gt_char(void)
+void gt_char(void)
 {
-	return (int)(ca > cb);
+	res = (int)(ca > cb);
 }
 
-int gt(void)
+void gt(void)
 {
-	return (int)(a > b);
+	res = (int)(a > b);
 }
 
-int gt_long(void)
+void gt_long(void)
 {
-	return (int)(la > lb);
+	res = (int)(la > lb);
 }
 
-int gt_longlong(void)
+void gt_longlong(void)
 {
-	return (int)(lla > llb);
+	res = (int)(lla > llb);
 }

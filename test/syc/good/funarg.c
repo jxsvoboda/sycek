@@ -2,75 +2,91 @@
  * Function with arguments
  */
 
+char c1, c2, c3, c4, c5, c6, c7, c8;
+char rc1, rc2, rc3, rc4, rc5, rc6, rc7, rc8;
+
+int i1, i2, i3, i4, i5;
+int ri1, ri2, ri3, ri4, ri5;
+
+long l1, l2;
+long rl1, rl2;
+
+long long ll1;
+long long rll1;
+
 /*
  * Three 16-bit arguments fit into registers
  */
 
-int add3(int a1, int a2, int a3)
+void int3(int a1, int a2, int a3)
 {
-	return a1 + a2 + a3;
+	ri1 = a1;
+	ri2 = a2;
+	ri3 = a3;
 }
 
-int funcall_arg3(void)
+void call_int3(void)
 {
-	return add3(1, 2, 3);
-}
-
-int a = 1, b = 2, c = 3;
-
-int funcall_varg3(void)
-{
-	return add3(a, b, c);
+	int3(i1, i2, i3);
 }
 
 /*
  * Additional 16-bit arguments (a4, a5) are passed on the stack
  */
 
-int add5(int a1, int a2, int a3, int a4, int a5)
+void int5(int a1, int a2, int a3, int a4, int a5)
 {
-	return a1 + a2 + a3 + a4 + a5;
+	ri1 = a1;
+	ri2 = a2;
+	ri3 = a3;
+	ri4 = a4;
+	ri5 = a5;
 }
 
-int funcall_arg5(void)
+int call_int5(void)
 {
-	return add5(1, 2, 3, 4, 5);
+	int5(i1, i2, i3, i4, i5);
 }
-
-char cres;
-char c1, c2, c3, c4, c5, c6, c7, c8;
-
-int res;
-long lres;
-long long llres;
 
 /*
  * Up to seven 8-bit arguments fit in regsters.
  */
-void add_char7(char a1, char a2, char a3, char a4, char a5, char a6,
-    char a7)
+void char7(char a1, char a2, char a3, char a4, char a5, char a6, char a7)
 {
-	cres = a1 + a2 + a3 + a4 + a5 + a6 + a7;
+	rc1 = a1;
+	rc2 = a2;
+	rc3 = a3;
+	rc4 = a4;
+	rc5 = a5;
+	rc6 = a6;
+	rc7 = a7;
 }
 
-void funcall_char7(void)
+void call_char7(void)
 {
-	add_char7(c1, c2, c3, c4, c5, c6, c7);
+	char7(c1, c2, c3, c4, c5, c6, c7);
 }
 
 /*
  * Eighth character argument is passed on the stack
  */
 
-void add_char8(char a1, char a2, char a3, char a4, char a5, char a6,
-    char a7, char a8)
+void char8(char a1, char a2, char a3, char a4, char a5, char a6, char a7,
+    char a8)
 {
-	cres = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
+	rc1 = a1;
+	rc2 = a2;
+	rc3 = a3;
+	rc4 = a4;
+	rc5 = a5;
+	rc6 = a6;
+	rc7 = a7;
+	rc8 = a8;
 }
 
-void funcall_char8(void)
+void call_char8(void)
 {
-	add_char8(c1, c2, c3, c4, c5, c6, c7, c8);
+	char8(c1, c2, c3, c4, c5, c6, c7, c8);
 }
 
 /*
@@ -79,16 +95,16 @@ void funcall_char8(void)
  * in two register pairs (HL, DE). The 16-bit argument is passed in one
  * register pair (BC). The 8-bit argument is passed in an 8-bit register (A).
  */
-void add_32b_16b_8b(long a1, int a2, char a3)
+void long_int_char(long a1, int a2, char a3)
 {
-	lres += a1;
-	res += a2;
-	cres += a3;
+	rl1 = a1;
+	ri1 = a2;
+	rc1 = a3;
 }
 
-void funcall_32b_16b_8b(void)
+void call_long_int_char(void)
 {
-	add_32b_16b_8b(1L, 2, c3);
+	long_int_char(l1, i1, c1);
 }
 
 /*
@@ -98,14 +114,15 @@ void funcall_32b_16b_8b(void)
  * on the stack.
  */
 
-void add_long2(long a1, long a2)
+void long2(long a1, long a2)
 {
-	lres = a1 + a2;
+	rl1 = a1;
+	rl2 = a2;
 }
 
-void funcall_long2(void)
+void call_long2(void)
 {
-	add_long2(1L, 2L);
+	long2(l1, l2);
 }
 
 /*
@@ -113,12 +130,12 @@ void funcall_long2(void)
  * in BCDEHL, the upper 16 bits on the stack.
  */
 
-void fun_longlong(long long arg)
+void longlong(long long a1)
 {
-	llres = arg;
+	rll1 = a1;
 }
 
-void funcall_longlong(void)
+void call_longlong(void)
 {
-	fun_longlong(1LL);
+	longlong(ll1);
 }

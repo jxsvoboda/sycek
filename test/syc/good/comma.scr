@@ -1,0 +1,9 @@
+mapfile "comma.map";
+ldbin "comma.bin", 0x8000;
+
+ld word ptr (@_a), 10;
+ld word ptr (@_b), 20;
+call @_comma;
+verify word ptr (@_a), 11;
+verify word ptr (@_b), 21;
+verify word ptr (@_c), 21;

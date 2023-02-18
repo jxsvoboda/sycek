@@ -39,6 +39,20 @@ typedef enum {
 	rm_DE,
 	/** HL register pair */
 	rm_HL,
+	/** A register */
+	rm_A,
+	/** B register */
+	rm_B,
+	/** C register */
+	rm_C,
+	/** D register */
+	rm_D,
+	/** E register */
+	rm_E,
+	/** H register */
+	rm_H,
+	/** L register */
+	rm_L,
 	/** Byte pointer */
 	rm_byte_ptr,
 	/** Word pointer */

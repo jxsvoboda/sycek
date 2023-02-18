@@ -1,0 +1,17 @@
+mapfile "contfor.map";
+ldbin "contfor.bin", 0x8000;
+
+ld word ptr (@_a), 10;
+call @_contfor;
+verify word ptr (@_i), 10;
+verify word ptr (@_j), 10;
+
+ld word ptr (@_a), 5;
+call @_contfor;
+verify word ptr (@_i), 10;
+verify word ptr (@_j), 5;
+
+ld word ptr (@_a), 0;
+call @_contfor;
+verify word ptr (@_i), 10;
+verify word ptr (@_j), 0;

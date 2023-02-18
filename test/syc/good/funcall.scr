@@ -1,0 +1,6 @@
+mapfile "funcall.map";
+ldbin "funcall.bin", 0x8000;
+
+ld word ptr (@_a), 0;
+call @_call_fun;
+verify word ptr (@_a), 1;

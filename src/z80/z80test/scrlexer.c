@@ -671,23 +671,50 @@ int scr_lexer_get_tok(scr_lexer_t *lexer, scr_lexer_tok_t *tok)
 	case '@':
 		return scr_lexer_ident(lexer, tok);
 	case 'A':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_A, 1, tok);
+		}
 		if (p[1] == 'F' && !is_idcnt(p[2])) {
 			return scr_lexer_keyword(lexer, stt_AF, 2, tok);
 		}
 		return scr_lexer_invalid(lexer, tok);
 	case 'B':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_B, 1, tok);
+		}
 		if (p[1] == 'C' && !is_idcnt(p[2])) {
 			return scr_lexer_keyword(lexer, stt_BC, 2, tok);
 		}
 		return scr_lexer_invalid(lexer, tok);
+	case 'C':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_C, 1, tok);
+		}
+		return scr_lexer_invalid(lexer, tok);
 	case 'D':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_D, 1, tok);
+		}
 		if (p[1] == 'E' && !is_idcnt(p[2])) {
 			return scr_lexer_keyword(lexer, stt_DE, 2, tok);
 		}
 		return scr_lexer_invalid(lexer, tok);
+	case 'E':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_E, 1, tok);
+		}
+		return scr_lexer_invalid(lexer, tok);
 	case 'H':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_H, 1, tok);
+		}
 		if (p[1] == 'L' && !is_idcnt(p[2])) {
 			return scr_lexer_keyword(lexer, stt_HL, 2, tok);
+		}
+		return scr_lexer_invalid(lexer, tok);
+	case 'L':
+		if (!is_idcnt(p[1])) {
+			return scr_lexer_keyword(lexer, stt_L, 1, tok);
 		}
 		return scr_lexer_invalid(lexer, tok);
 	case 'b':
@@ -725,12 +752,19 @@ int scr_lexer_get_tok(scr_lexer_t *lexer, scr_lexer_tok_t *tok)
 		}
 		return scr_lexer_invalid(lexer, tok);
 	case 'p':
+		if (p[1] == 'o' && p[2] == 'p' && !is_idcnt(p[3])) {
+			return scr_lexer_keyword(lexer, stt_pop, 3, tok);
+		}
 		if (p[1] == 'r' && p[2] == 'i' && p[3] == 'n' &&
 		    p[4] == 't' && !is_idcnt(p[5])) {
 			return scr_lexer_keyword(lexer, stt_print, 5, tok);
 		}
 		if (p[1] == 't' && p[2] == 'r' && !is_idcnt(p[3])) {
 			return scr_lexer_keyword(lexer, stt_ptr, 3, tok);
+		}
+		if (p[1] == 'u' && p[2] == 's' && p[3] == 'h' &&
+		    !is_idcnt(p[4])) {
+			return scr_lexer_keyword(lexer, stt_push, 4, tok);
 		}
 		return scr_lexer_invalid(lexer, tok);
 	case 'q':
@@ -838,14 +872,28 @@ const char *scr_lexer_str_ttype(scr_lexer_toktype_t ttype)
 		return "';'";
 	case stt_period:
 		return "'.'";
+	case stt_A:
+		return "'A'";
 	case stt_AF:
 		return "'AF'";
+	case stt_B:
+		return "'B'";
 	case stt_BC:
 		return "'BC'";
+	case stt_C:
+		return "'C'";
+	case stt_D:
+		return "'D'";
 	case stt_DE:
 		return "'DE'";
+	case stt_E:
+		return "'E'";
+	case stt_H:
+		return "'H'";
 	case stt_HL:
 		return "'HL'";
+	case stt_L:
+		return "'L'";
 	case stt_byte:
 		return "'byte'";
 	case stt_call:
@@ -858,10 +906,14 @@ const char *scr_lexer_str_ttype(scr_lexer_toktype_t ttype)
 		return "'ldbin'";
 	case stt_mapfile:
 		return "'mapfile'";
+	case stt_pop:
+		return "'pop'";
 	case stt_print:
 		return "'print'";
 	case stt_ptr:
 		return "'print'";
+	case stt_push:
+		return "'push'";
 	case stt_qword:
 		return "'qword'";
 	case stt_verify:

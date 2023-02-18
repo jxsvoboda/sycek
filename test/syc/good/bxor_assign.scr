@@ -1,0 +1,26 @@
+mapfile "bxor_assign.map";
+ldbin "bxor_assign.bin", 0x8000;
+
+/* 8-bit bitwise XOR-assign */
+ld byte ptr (@_ca), 0x5f;
+ld byte ptr (@_cb), 0xaa;
+call @_bxor_assign_char;
+verify byte ptr (@_ca), 0xf5;
+
+/* 16-bit bitwise XOR-assign */
+ld word ptr (@_a), 0x8421;
+ld word ptr (@_b), 0xaaaa;
+call @_bxor_assign;
+verify word ptr (@_a), 0x2e8b;
+
+/* 32-bit bitwise XOR-assign */
+ld dword ptr (@_la), 0x8421f731;
+ld dword ptr (@_lb), 0x88442211;
+call @_bxor_assign_long;
+verify dword ptr (@_la), 0x0c65d520;
+
+/* 64-bit bitwise XOR-assign */
+ld qword ptr (@_lla), 0x1248137f1248137f;
+ld qword ptr (@_llb), 0x8888444422221111;
+call @_bxor_assign_longlong;
+verify qword ptr (@_lla), 0x9ac0573b306a026e;

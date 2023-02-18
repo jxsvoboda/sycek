@@ -1,0 +1,14 @@
+mapfile "goto.map";
+ldbin "goto.bin", 0x8000;
+
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 0;
+call @_gotolbl;
+verify word ptr (@_b), 1;
+
+ld word ptr (@_a), 1;
+ld word ptr (@_b), 0;
+call @_gotolbl;
+verify word ptr (@_b), 0;
+
+

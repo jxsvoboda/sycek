@@ -2,56 +2,59 @@
  * Return different-size types from function
  */
 
-char a;
+char c;
 char rc;
+int i;
 int ri;
+long l;
 long rl;
+long long ll;
 long long rll;
 
 /* Function returning char */
-char retc(void)
+char ret_char(void)
 {
-	return a;
+	return c;
 }
 
 /* Call function returning char */
-void call_c(void)
+void call_char(void)
 {
-	rc = retc();
+	rc = ret_char();
 }
 
 /* Function returning integer */
-int reti(void)
+int ret_int(void)
 {
-	return 1;
+	return i;
 }
 
 /* Call function returning integer */
-void call_i(void)
+void call_int(void)
 {
-	ri = reti();
+	ri = ret_int();
 }
 
 /* Function returning long */
-long retl(void)
+long ret_long(void)
 {
-	return 1l;
+	return l;
 }
 
 /* Call function returning long */
-void call_l(void)
+void call_long(void)
 {
-	rl = retl();
+	rl = ret_long();
 }
 
 /* Function returning long long */
-long long retll(void)
+long long ret_longlong(void)
 {
-	return 1ll;
+	return ll;
 }
 
 /* Call function returning long long */
-void call_ll(void)
+void call_longlong(void)
 {
-	rll = retll();
+	rll = ret_longlong();
 }

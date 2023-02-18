@@ -2,20 +2,16 @@
  * Continue from for loop statement
  */
 
-int a = 1;
-int b = 2;
+int a;
+int i;
+int j;
 
-int contfor(void)
+void contfor(void)
 {
-	int i;
-	int j;
-
-	j = 1;
+	j = 0;
 	for (i = 0; i < 10; i++) {
-		if (i == a)
+		if (i >= a)
 			continue;
 		j = j + 1;
 	}
-
-	return i;
 }

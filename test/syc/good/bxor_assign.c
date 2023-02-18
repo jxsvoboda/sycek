@@ -12,7 +12,7 @@ void bxor_assign_char(void)
 	ca ^= cb;
 }
 
-int bxor_assign(void)
+void bxor_assign(void)
 {
 	a ^= b;
 }

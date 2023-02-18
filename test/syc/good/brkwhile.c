@@ -2,13 +2,12 @@
  * Break from while loop statement
  */
 
-int a = 1;
-int b = 2;
+int a;
+int b;
+int i;
 
-int brkwhile(void)
+void brkwhile(void)
 {
-	int i;
-
 	i = 0;
 
 	while (i < 10) {
@@ -16,6 +15,4 @@ int brkwhile(void)
 			break;
 		++i;
 	}
-
-	return i;
 }

@@ -4,7 +4,7 @@
 
 int a, b;
 
-int gotolbl(void)
+void gotolbl(void)
 {
 	if (a)
 		goto skip;

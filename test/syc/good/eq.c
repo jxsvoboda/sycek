@@ -1,28 +1,29 @@
 /*
  * Equal
  */
+int e;
 
 char ca, cb;
 int a, b;
 long la, lb;
 long long lla, llb;
 
-int eq_char(void)
+void eq_char(void)
 {
-	return (int)(ca == cb);
+	e = (int)(ca == cb);
 }
 
-int eq(void)
+void eq(void)
 {
-	return (int)(a == b);
+	e = (int)(a == b);
 }
 
-int eq_long(void)
+void eq_long(void)
 {
-	return (int)(la == lb);
+	e = (int)(la == lb);
 }
 
-int eq_longlong(void)
+void eq_longlong(void)
 {
-	return (int)(lla == llb);
+	e = (int)(lla == llb);
 }
