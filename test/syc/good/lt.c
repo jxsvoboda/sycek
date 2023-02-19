@@ -2,27 +2,29 @@
  * Less than
  */
 
+int res;
+
 char ca, cb;
 int a, b;
 long la, lb;
 long long lla, llb;
 
-int lt_char(void)
+void lt_char(void)
 {
-	return (int)(ca < cb);
+	res = (int)(ca < cb);
 }
 
-int lt(void)
+void lt(void)
 {
-	return (int)(a < b);
+	res = (int)(a < b);
 }
 
-int lt_long(void)
+void lt_long(void)
 {
-	return (int)(la < lb);
+	res = (int)(la < lb);
 }
 
-int lt_longlong(void)
+void lt_longlong(void)
 {
-	return (int)(lla < llb);
+	res = (int)(lla < llb);
 }

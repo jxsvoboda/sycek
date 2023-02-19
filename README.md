@@ -233,7 +233,6 @@ Specifically, these language features are supported:
 
 These are NOT supported:
 
- * Unsigned comparison
  * Division and modulus (`/`, `%`)
  * Integer promotion and usual arithmetic conversion
  * Any other type than integer (pointers, structures, arrays, enumerated types,

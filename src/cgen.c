@@ -52,10 +52,13 @@ static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_expr_promoted_rvalue(cgen_proc_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *);
+static int cgen_eres_promoted_rvalue(cgen_proc_t *, cgen_eres_t *,
+    ir_lblock_t *, cgen_eres_t *);
 static int cgen_expr2_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
-    ir_lblock_t *, cgen_eres_t *, cgen_eres_t *);
+    ir_lblock_t *, cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
 static int cgen_expr2lr_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
-    ir_lblock_t *lblock, cgen_eres_t *, cgen_eres_t *, cgen_eres_t *);
+    ir_lblock_t *lblock, cgen_eres_t *, cgen_eres_t *, cgen_eres_t *,
+    cgen_uac_flags_t *);
 static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_eres_rvalue(cgen_proc_t *, cgen_eres_t *, ir_lblock_t *,
@@ -134,6 +137,24 @@ static bool cgen_basic_type_signed(cgen_t *cgen, cgtype_basic_t *tbasic)
 		assert(false);
 		return false;
 	}
+}
+
+/** Determine if type is signed.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is an integer type
+ */
+static bool cgen_type_is_signed(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_basic_t *tbasic;
+
+	(void) cgen;
+
+	assert(cgtype->ntype == cgn_basic);
+
+	tbasic = (cgtype_basic_t *)cgtype->ext;
+	return cgen_basic_type_signed(cgen, tbasic);
 }
 
 /** Determine if type is an integer type.
@@ -2239,7 +2260,7 @@ error:
 	return rc;
 }
 
-/** Generate code for binary AND.
+/** Generate code for bitwise AND.
  *
  * @param cgproc Code generator for procedure
  * @param lres Result of evaluating left operand
@@ -2321,7 +2342,7 @@ error:
 	return rc;
 }
 
-/** Generate code for binary XOR.
+/** Generate code for bitwise XOR.
  *
  * @param cgproc Code generator for procedure
  * @param lres Result of evaluating left operand
@@ -2403,7 +2424,7 @@ error:
 	return rc;
 }
 
-/** Generate code for binary OR.
+/** Generate code for bitwise OR.
  *
  * @param cgproc Code generator for procedure
  * @param lres Result of evaluating left operand
@@ -2498,6 +2519,7 @@ static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2505,9 +2527,12 @@ static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	/* Unsigned addition of mixed-signed numbers is OK */
+	(void)flags;
 
 	/* Add the two operands */
 	rc = cgen_add(cgproc, &lres, &rres, lblock, eres);
@@ -2537,6 +2562,7 @@ static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2544,9 +2570,12 @@ static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	/* Unsigned subtraction of mixed-sign numbers is OK */
+	(void)flags;
 
 	/* Subtract the two operands */
 	rc = cgen_sub(cgproc, &lres, &rres, lblock, eres);
@@ -2576,6 +2605,7 @@ static int cgen_bo_times(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2583,9 +2613,12 @@ static int cgen_bo_times(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	/* Unsigned multiplication of mixed-sign numbers is OK. */
+	(void)flags;
 
 	/* Multiply the two operands */
 	rc = cgen_mul(cgproc, &lres, &rres, lblock, eres);
@@ -2620,9 +2653,13 @@ static int cgen_bo_shl(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	/* Promoted value of left operand */
+	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Promoted value of right operand */
+	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
@@ -2659,9 +2696,13 @@ static int cgen_bo_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	/* Promoted value of left operand */
+	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Promoted value of right operand */
+	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
@@ -2698,7 +2739,10 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	unsigned bits;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2707,7 +2751,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -2726,6 +2770,17 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	if ((flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+		    "integers.\n");
+		++cgproc->cgen->warnings;
 	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -2748,7 +2803,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_lt;
+	instr->itype = is_signed ? iri_lt : iri_ltu;
 	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
@@ -2796,7 +2851,10 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	unsigned bits;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2805,7 +2863,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -2824,6 +2882,17 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	if ((flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+		    "integers.\n");
+		++cgproc->cgen->warnings;
 	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -2846,7 +2915,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_lteq;
+	instr->itype = is_signed ? iri_lteq : iri_lteu;
 	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
@@ -2894,7 +2963,10 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	unsigned bits;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -2903,12 +2975,13 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	/* Check the type */
-	if (lres.cgtype->ntype != cgn_basic) {
+	if (!cgen_type_is_integer(cgproc->cgen, lres.cgtype) ||
+	    !cgen_type_is_integer(cgproc->cgen, rres.cgtype)) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -2917,11 +2990,16 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	bits = cgen_basic_type_bits(cgproc->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
-	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	if ((flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+		    "integers.\n");
+		++cgproc->cgen->warnings;
 	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -2944,7 +3022,7 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_gt;
+	instr->itype = is_signed ? iri_gt : iri_gtu;
 	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
@@ -2992,7 +3070,10 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	unsigned bits;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -3001,7 +3082,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -3020,6 +3101,17 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	if ((flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+		    "integers.\n");
+		++cgproc->cgen->warnings;
 	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -3042,7 +3134,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_gteq;
+	instr->itype = is_signed ? iri_gteq : iri_gteu;
 	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
@@ -3090,6 +3182,8 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	unsigned bits;
 	int rc;
 
@@ -3099,7 +3193,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -3118,6 +3212,14 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	if ((flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+		    "integers.\n");
+		++cgproc->cgen->warnings;
 	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -3188,6 +3290,8 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgtype_basic_t *btype = NULL;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	unsigned bits;
 	int rc;
 
@@ -3197,7 +3301,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -3216,6 +3320,14 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	if ((flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+		    "integers.\n");
+		++cgproc->cgen->warnings;
 	}
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -3268,10 +3380,10 @@ error:
 	return rc;
 }
 
-/** Generate code for binary AND expression.
+/** Generate code for bitwise AND expression.
  *
  * @param cgproc Code generator for procedure
- * @param ebinop AST binary operator expression (binary AND)
+ * @param ebinop AST binary operator expression (bitwise AND)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
@@ -3281,6 +3393,9 @@ static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -3288,11 +3403,23 @@ static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Binary AND */
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	/* If any of the operands was signed */
+	if (is_signed || (flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Bitwise operation on signed "
+		    "integer(s).\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Bitwise AND */
 	rc = cgen_band(cgproc, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
@@ -3307,10 +3434,10 @@ error:
 	return rc;
 }
 
-/** Generate code for binary XOR expression.
+/** Generate code for bitwise XOR expression.
  *
  * @param cgproc Code generator for procedure
- * @param ebinop AST binary operator expression (binary XOR)
+ * @param ebinop AST binary operator expression (bitwise XOR)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
@@ -3320,6 +3447,9 @@ static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -3327,11 +3457,23 @@ static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Binary XOR */
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	/* If any of the operands was signed */
+	if (is_signed || (flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Bitwise operation on signed "
+		    "integer(s).\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Bitwise XOR */
 	rc = cgen_bxor(cgproc, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
@@ -3346,10 +3488,10 @@ error:
 	return rc;
 }
 
-/** Generate code for binary OR operator.
+/** Generate code for bitwise OR operator.
  *
  * @param cgproc Code generator for procedure
- * @param ebinop AST binary operator expression (binary OR)
+ * @param ebinop AST binary operator expression (bitwise OR)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
@@ -3359,6 +3501,9 @@ static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -3366,11 +3511,23 @@ static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres);
+	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Binary OR */
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	/* If any of the operands was signed */
+	if (is_signed || (flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Bitwise operation on signed "
+		    "integer(s).\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Bitwise OR */
 	rc = cgen_bor(cgproc, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
@@ -3868,6 +4025,7 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t bres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
+	cgen_uac_flags_t flags;
 	const char *resvn;
 	int rc;
 
@@ -3878,9 +4036,12 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	/* Unsigned addition of mixed-sign integers is OK */
+	(void)flags;
 
 	/* Add the two operands */
 	rc = cgen_add(cgproc, &ares, &bres, lblock, &ores);
@@ -3932,6 +4093,7 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t bres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
+	cgen_uac_flags_t flags;
 	const char *resvn;
 	int rc;
 
@@ -3942,9 +4104,12 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	/* Unsigned subtraction of mixed-sign integers is OK */
+	(void)flags;
 
 	/* Subtract the two operands */
 	rc = cgen_sub(cgproc, &ares, &bres, lblock, &ores);
@@ -3996,6 +4161,7 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t bres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
+	cgen_uac_flags_t flags;
 	const char *resvn;
 	int rc;
 
@@ -4006,9 +4172,12 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	/* Unsigned multiplication of mixed-sign integers is OK */
+	(void)flags;
 
 	/* Multiply the two operands */
 	rc = cgen_mul(cgproc, &ares, &bres, lblock, &ores);
@@ -4068,9 +4237,18 @@ static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	/* Address of left hand expresson */
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Promoted value of left operand */
+	rc = cgen_eres_promoted_rvalue(cgproc, &lres, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	/* Promoted value of right operand */
+	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -4131,9 +4309,18 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	/* Address of left hand expresson */
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Promoted value of left operand */
+	rc = cgen_eres_promoted_rvalue(cgproc, &lres, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	/* Promoted value of right operand */
+	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -4187,6 +4374,9 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t bres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
+	bool is_signed;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	const char *resvn;
 	int rc;
 
@@ -4197,9 +4387,21 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	/* If any of the operands was signed */
+	if (is_signed || (flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Bitwise operation on signed "
+		    "integer(s).\n");
+		++cgproc->cgen->warnings;
+	}
 
 	/* Bitwise AND the two operands */
 	rc = cgen_band(cgproc, &ares, &bres, lblock, &ores);
@@ -4251,6 +4453,9 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t bres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
+	bool is_signed;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	const char *resvn;
 	int rc;
 
@@ -4261,9 +4466,21 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	/* If any of the operands was signed */
+	if (is_signed || (flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Bitwise operation on signed "
+		    "integer(s).\n");
+		++cgproc->cgen->warnings;
+	}
 
 	/* Bitwise XOR the two operands */
 	rc = cgen_bxor(cgproc, &ares, &bres, lblock, &ores);
@@ -4315,6 +4532,9 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_t bres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
+	bool is_signed;
+	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	const char *resvn;
 	int rc;
 
@@ -4325,9 +4545,21 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres);
+	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
+
+	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+
+	/* If any of the operands was signed */
+	if (is_signed || (flags & cguac_mix2u) != 0) {
+		ctok = (comp_tok_t *) ebinop->top.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Bitwise operation on signed "
+		    "integer(s).\n");
+		++cgproc->cgen->warnings;
+	}
 
 	/* Bitwise OR the two operands */
 	rc = cgen_bor(cgproc, &ares, &bres, lblock, &ores);
@@ -5055,10 +5287,10 @@ error:
 	return rc;
 }
 
-/** Generate code for binary NOT expression.
+/** Generate code for bitwise NOT expression.
  *
  * @param cgproc Code generator for procedure
- * @param ebinop AST binary NOT expression
+ * @param ebinop AST bitwise NOT expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
@@ -5787,6 +6019,24 @@ error:
 	return rc;
 }
 
+/** Read and promote value.
+ *
+ * If @a bres is an lvalue, read it to produce an rvalue.
+ * If it is smaller than int (float), promote it.
+ *
+ * @param cgproc Code generator for procedure
+ * @param bres Base expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eres_promoted_rvalue(cgen_proc_t *cgproc, cgen_eres_t *bres,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	// TODO
+	return cgen_eres_rvalue(cgproc, bres, lblock, eres);
+}
+
 /** Generate code for expression, producing a promoted rvalue.
  *
  * If the result of expression is an lvalue, read it to produce an rvalue.
@@ -5801,8 +6051,24 @@ error:
 static int cgen_expr_promoted_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	// TODO
-	return cgen_expr_rvalue(cgproc, expr, lblock, eres);
+	cgen_eres_t bres;
+	int rc;
+
+	cgen_eres_init(&bres);
+
+	rc = cgen_expr_rvalue(cgproc, expr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_promoted_rvalue(cgproc, &bres, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&bres);
+	return EOK;
+error:
+	cgen_eres_fini(&bres);
+	return rc;
 }
 
 /** Perform usual arithmetic conversions on a pair of expression results.
@@ -5814,44 +6080,81 @@ static int cgen_expr_promoted_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
  * should be promoted.
  *
  * @param cgproc Code generator for procedure
- * @param res1 First expression results
- * @param res2 Second expression results
+ * @param res1 First expression result
+ * @param res2 Second expression result
  * @param lblock Labeled block to which to append code
  * @param eres1 Place to store result of first converted result
  * @param eres2 Place to store result of second converted result
+ * @param flags Place to store flags
  *
  * @return EOK on success or an error code
  */
 static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
     cgen_eres_t *res2, ir_lblock_t *lblock, cgen_eres_t *eres1,
-    cgen_eres_t *eres2)
+    cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
 	cgtype_t *cgtype1 = NULL;
 	cgtype_t *cgtype2 = NULL;
+	cgen_eres_t pr1;
+	cgen_eres_t pr2;
 	int rc;
 
-	(void)cgproc;
-	(void)lblock;
+	cgen_eres_init(&pr1);
+	cgen_eres_init(&pr2);
+
+	if (!cgen_type_is_integer(cgproc->cgen, res1->cgtype) ||
+	    !cgen_type_is_integer(cgproc->cgen, res2->cgtype)) {
+		fprintf(stderr, "Performing UAC on non-integral type(s) ");
+		(void) cgtype_print(res1->cgtype, stderr);
+		fprintf(stderr, ", ");
+		(void) cgtype_print(res2->cgtype, stderr);
+		fprintf(stderr, " (not implemented).\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Promote both operands */
+
+	rc = cgen_eres_promoted_rvalue(cgproc, res1, lblock, &pr1);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_promoted_rvalue(cgproc, res2, lblock, &pr2);
+	if (rc != EOK)
+		goto error;
 
 	/* For now we just copy both operands */
 
-	rc = cgtype_clone(res1->cgtype, &cgtype1);
+	rc = cgtype_clone(pr1.cgtype, &cgtype1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_clone(res2->cgtype, &cgtype2);
+	rc = cgtype_clone(pr2.cgtype, &cgtype2);
 	if (rc != EOK)
 		goto error;
 
-	eres1->varname = res1->varname;
-	eres1->valtype = res1->valtype;
+	eres1->varname = pr1.varname;
+	eres1->valtype = pr1.valtype;
 	eres1->cgtype = cgtype1;
 
-	eres2->varname = res2->varname;
-	eres2->valtype = res2->valtype;
+	eres2->varname = pr2.varname;
+	eres2->valtype = pr2.valtype;
 	eres2->cgtype = cgtype2;
+
+	*flags = cguac_none;
+
+	/* Indicate mixed signedness to unsigned conversion */
+	if (cgen_type_is_signed(cgproc->cgen, cgtype1) !=
+	    cgen_type_is_signed(cgproc->cgen, cgtype2))
+		*flags |= cguac_mix2u;
+
+	cgen_eres_fini(&pr1);
+	cgen_eres_fini(&pr2);
 	return EOK;
 error:
+	cgen_eres_fini(&pr1);
+	cgen_eres_fini(&pr2);
 	cgtype_destroy(cgtype1);
 	cgtype_destroy(cgtype2);
 	return rc;
@@ -5869,12 +6172,13 @@ error:
  * @param lblock Labeled block to which to append code
  * @param eres1 Place to store result of first expression
  * @param eres2 Place to store result of second expression
+ * @param flags Place to store flags
  *
  * @return EOK on success or an error code
  */
 static int cgen_expr2_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
     ast_node_t *expr2, ir_lblock_t *lblock, cgen_eres_t *eres1,
-    cgen_eres_t *eres2)
+    cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
 	cgen_eres_t res1;
 	cgen_eres_t res2;
@@ -5891,7 +6195,7 @@ static int cgen_expr2_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, eres1, eres2);
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, eres1, eres2, flags);
 	if (rc != EOK)
 		goto error;
 
@@ -5917,12 +6221,13 @@ error:
  * @param lres1 Place to store lvalue result of first expression
  * @param eres1 Place to store converted result of first expression
  * @param eres2 Place to store converted result of second expression
+ * @param flags Place to store flags
  *
  * @return EOK on success or an error code
  */
 static int cgen_expr2lr_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
     ast_node_t *expr2, ir_lblock_t *lblock, cgen_eres_t *lres1,
-    cgen_eres_t *eres1, cgen_eres_t *eres2)
+    cgen_eres_t *eres1, cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
 	cgen_eres_t res1;
 	cgen_eres_t res2;
@@ -5943,7 +6248,7 @@ static int cgen_expr2lr_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, eres1, eres2);
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, eres1, eres2, flags);
 	if (rc != EOK)
 		goto error;
 

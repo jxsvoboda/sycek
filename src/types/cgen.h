@@ -158,4 +158,12 @@ typedef enum {
 	cgen_implicit
 } cgen_expl_t;
 
+/** Usual arithmetic conversion flags */
+typedef enum {
+	/** No flags */
+	cguac_none = 0,
+	/** Mixed signedness integers converted to unsigned */
+	cguac_mix2u = 0x1
+} cgen_uac_flags_t;
+
 #endif

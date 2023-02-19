@@ -2,27 +2,29 @@
  * Greater than or equal
  */
 
+int res;
+
 char ca, cb;
 int a, b;
 long la, lb;
 long long lla, llb;
 
-int gteq_char(void)
+void gteq_char(void)
 {
-	return (int)(ca >= cb);
+	res = (int)(ca >= cb);
 }
 
-int gteq(void)
+void gteq(void)
 {
-	return (int)(a >= b);
+	res = (int)(a >= b);
 }
 
-int gteq_long(void)
+void gteq_long(void)
 {
-	return (int)(la >= lb);
+	res = (int)(la >= lb);
 }
 
-int gteq_longlong(void)
+void gteq_longlong(void)
 {
-	return (int)(lla >= llb);
+	res = (int)(lla >= llb);
 }

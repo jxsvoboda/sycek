@@ -2,27 +2,29 @@
  * Less than or equal
  */
 
+int res;
+
 char ca, cb;
 int a, b;
 long la, lb;
 long long lla, llb;
 
-int lteq_char(void)
+void lteq_char(void)
 {
-	return (int)(ca <= cb);
+	res = (int)(ca <= cb);
 }
 
-int lteq(void)
+void lteq(void)
 {
-	return (int)(a <= b);
+	res = (int)(a <= b);
 }
 
-int lteq_long(void)
+void lteq_long(void)
 {
-	return (int)(la <= lb);
+	res = (int)(la <= lb);
 }
 
-int lteq_longlong(void)
+void lteq_longlong(void)
 {
-	return (int)(lla <= llb);
+	res = (int)(lla <= llb);
 }

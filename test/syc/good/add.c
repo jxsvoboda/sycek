@@ -12,7 +12,7 @@ void add_char(void)
 	ca = cb + cc;
 }
 
-int add(void)
+void add(void)
 {
 	a = b + c;
 }

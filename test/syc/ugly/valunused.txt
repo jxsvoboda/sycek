@@ -1,8 +1,11 @@
-<test/syc/ugly/valunused.c:22:9-14:id:rint>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:24:9:num:1>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:26:9-17:num:1>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:28:9:num:1>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:30:9-14:'++'>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:36:14:num:1>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:36:19:num:2>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:40:9:id:i>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:23:9-14:id:rint>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:25:9:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:27:9-17:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:29:9:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:31:9-14:'++'>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:37:14:num:1>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:37:19:num:2>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:41:9:id:i>: Warning: Computed expression value is not used.
+<test/syc/ugly/valunused.c:68:11-12:'&='>: Warning: Bitwise operation on signed integer(s).
+<test/syc/ugly/valunused.c:70:11-12:'|='>: Warning: Bitwise operation on signed integer(s).
+<test/syc/ugly/valunused.c:72:11-12:'^='>: Warning: Bitwise operation on signed integer(s).

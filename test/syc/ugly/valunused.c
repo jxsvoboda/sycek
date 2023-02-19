@@ -3,6 +3,7 @@
  */
 
 int i;
+unsigned u;
 
 void rvoid(void)
 {
@@ -64,11 +65,11 @@ void nowarn(void)
 	/* Combined assignment has a side effect */
 	i *= 1;
 	/* Combined assignment has a side effect */
-	i &= 1;
+	u &= 1;
 	/* Combined assignment has a side effect */
-	i |= 1;
+	u |= 1;
 	/* Combined assignment has a side effect */
-	i ^= 1;
+	u ^= 1;
 
 	/* Casting to void silences the warning */
 	(void)1;

@@ -1,0 +1,90 @@
+mapfile "lteq.map";
+ldbin "lteq.bin", 0x8000;
+
+/* 8-bit signed less-than or equal */
+
+ld byte ptr (@_ca), 0x20;
+ld byte ptr (@_cb), 0xff;
+call @_lteq_char;
+verify word ptr (@_res), 0x0000;
+
+ld byte ptr (@_ca), 0x20;
+ld byte ptr (@_cb), 0x1f;
+call @_lteq_char;
+verify word ptr (@_res), 0x0000;
+
+ld byte ptr (@_ca), 0x20;
+ld byte ptr (@_cb), 0x20;
+call @_lteq_char;
+verify word ptr (@_res), 0x0001;
+
+ld byte ptr (@_ca), 0x20;
+ld byte ptr (@_cb), 0x21;
+call @_lteq_char;
+verify word ptr (@_res), 0x0001;
+
+/* 16-bit signed less-than or equal */
+
+ld word ptr (@_a), 0x2000;
+ld word ptr (@_b), 0xffff;
+call @_lteq;
+verify word ptr (@_res), 0x0000;
+
+ld word ptr (@_a), 0x2000;
+ld word ptr (@_b), 0x1fff;
+call @_lteq;
+verify word ptr (@_res), 0x0000;
+
+ld word ptr (@_a), 0x2000;
+ld word ptr (@_b), 0x2000;
+call @_lteq;
+verify word ptr (@_res), 0x0001;
+
+ld word ptr (@_a), 0x2000;
+ld word ptr (@_b), 0x2001;
+call @_lteq;
+verify word ptr (@_res), 0x0001;
+
+/* 32-bit signed less-than or equal */
+
+ld dword ptr (@_la), 0x20000000;
+ld dword ptr (@_lb), 0xffffffff;
+call @_lteq_long;
+verify word ptr (@_res), 0x0000;
+
+ld dword ptr (@_la), 0x20000000;
+ld dword ptr (@_lb), 0x1fffffff;
+call @_lteq_long;
+verify word ptr (@_res), 0x0000;
+
+ld dword ptr (@_la), 0x20000000;
+ld dword ptr (@_lb), 0x20000000;
+call @_lteq_long;
+verify word ptr (@_res), 0x0001;
+
+ld dword ptr (@_la), 0x20000000;
+ld dword ptr (@_lb), 0x20000001;
+call @_lteq_long;
+verify word ptr (@_res), 0x0001;
+
+/* 64-bit signed less-than or equal */
+
+ld qword ptr (@_lla), 0x2000000000000000;
+ld qword ptr (@_llb), 0xffffffffffffffff;
+call @_lteq_longlong;
+verify word ptr (@_res), 0x0000;
+
+ld qword ptr (@_lla), 0x2000000000000000;
+ld qword ptr (@_llb), 0x1fffffffffffffff;
+call @_lteq_longlong;
+verify word ptr (@_res), 0x0000;
+
+ld qword ptr (@_lla), 0x2000000000000000;
+ld qword ptr (@_llb), 0x2000000000000000;
+call @_lteq_longlong;
+verify word ptr (@_res), 0x0001;
+
+ld qword ptr (@_lla), 0x2000000000000000;
+ld qword ptr (@_llb), 0x2000000000000001;
+call @_lteq_longlong;
+verify word ptr (@_res), 0x0001;
