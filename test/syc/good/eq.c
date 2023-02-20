@@ -1,7 +1,7 @@
 /*
  * Equal
  */
-int e;
+int res;
 
 char ca, cb;
 int a, b;
@@ -10,20 +10,20 @@ long long lla, llb;
 
 void eq_char(void)
 {
-	e = (int)(ca == cb);
+	res = (int)(ca == cb);
 }
 
 void eq(void)
 {
-	e = (int)(a == b);
+	res = (int)(a == b);
 }
 
 void eq_long(void)
 {
-	e = (int)(la == lb);
+	res = (int)(la == lb);
 }
 
 void eq_longlong(void)
 {
-	e = (int)(lla == llb);
+	res = (int)(lla == llb);
 }

@@ -3,8 +3,13 @@
  */
 
 int a;
+int unr;
+int c1;
+int c2;
+int c3;
+int cdef;
 
-int stswitch(void)
+void stswitch(void)
 {
 	switch (a) {
 		/*
@@ -13,16 +18,14 @@ int stswitch(void)
 		 * instead it can be caught by a general unreachable code
 		 * test.
 		 */
-		return 1;
+		unr = 1;
 	case 1:
-		return 10;
+		c1 = 1;
 	case 2:
-		return 20;
+		c2 = 1;
 	default:
-		return 40;
+		cdef = 1;
 	case 3:
-		return 30;
+		c3 = 1;
 	}
-
-	return 0;
 }

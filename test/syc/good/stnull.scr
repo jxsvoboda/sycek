@@ -1,0 +1,5 @@
+mapfile "stnull.map";
+ldbin "stnull.bin", 0x8000;
+
+call @_stnull;
+verify HL, 0;

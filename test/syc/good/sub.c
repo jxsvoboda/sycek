@@ -12,7 +12,7 @@ void sub_char(void)
 	ca = cb - cc;
 }
 
-int sub(void)
+void sub(void)
 {
 	a = b - c;
 }

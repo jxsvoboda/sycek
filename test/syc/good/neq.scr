@@ -1,116 +1,116 @@
-mapfile "eq.map";
-ldbin "eq.bin", 0x8000;
+mapfile "neq.map";
+ldbin "neq.bin", 0x8000;
 
-/* 8-bit equal */
+/* 8-bit not not equal */
 ld byte ptr (@_ca), 0x12;
 ld byte ptr (@_cb), 0x12;
-call @_eq_char;
-verify word ptr (@_res), 0x0001;
+call @_neq_char;
+verify word ptr (@_res), 0x0000;
 
 /* 8-bit not equal */
 ld byte ptr (@_ca), 0x12;
 ld byte ptr (@_cb), 0x13;
-call @_eq_char;
-verify word ptr (@_res), 0x0000;
+call @_neq_char;
+verify word ptr (@_res), 0x0001;
 
-/* 16-bit equal */
+/* 16-bit not not equal */
 ld word ptr (@_a), 0x1234;
 ld word ptr (@_b), 0x1234;
-call @_eq;
-verify word ptr (@_res), 0x0001;
+call @_neq;
+verify word ptr (@_res), 0x0000;
 
 /* 16-bit not equal */
 ld word ptr (@_a), 0x1234;
 ld word ptr (@_b), 0x1235;
-call @_eq;
-verify word ptr (@_res), 0x0000;
+call @_neq;
+verify word ptr (@_res), 0x0001;
 
 /* 16-bit not equal */
 ld word ptr (@_a), 0x1234;
 ld word ptr (@_b), 0x1334;
-call @_eq;
-verify word ptr (@_res), 0x0000;
+call @_neq;
+verify word ptr (@_res), 0x0001;
 
-/* 32-bit equal */
+/* 32-bit not not equal */
 ld dword ptr (@_la), 0x12345678;
 ld dword ptr (@_lb), 0x12345678;
-call @_eq_long;
-verify word ptr (@_res), 0x0001;
+call @_neq_long;
+verify word ptr (@_res), 0x0000;
 
 /* 32-bit not equal */
 ld dword ptr (@_la), 0x12345678;
 ld dword ptr (@_lb), 0x12345679;
-call @_eq_long;
-verify word ptr (@_res), 0x0000;
+call @_neq_long;
+verify word ptr (@_res), 0x0001;
 
 /* 32-bit not equal */
 ld dword ptr (@_la), 0x12345678;
 ld dword ptr (@_lb), 0x12345778;
-call @_eq_long;
-verify word ptr (@_res), 0x0000;
+call @_neq_long;
+verify word ptr (@_res), 0x0001;
 
 /* 32-bit not equal */
 ld dword ptr (@_la), 0x12345678;
 ld dword ptr (@_lb), 0x12355678;
-call @_eq;
-verify word ptr (@_res), 0x0000;
+call @_neq;
+verify word ptr (@_res), 0x0001;
 
 /* 32-bit not equal */
 ld dword ptr (@_la), 0x12345678;
 ld dword ptr (@_lb), 0x13345678;
-call @_eq;
-verify word ptr (@_res), 0x0000;
+call @_neq;
+verify word ptr (@_res), 0x0001;
 
-/* 64-bit equal */
+/* 64-bit not not equal */
 ld dword ptr (@_lla), 0x12345678abcdef01;
 ld dword ptr (@_llb), 0x12345678abcdef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0001;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0000;
 
 /* 64-bit not equal */
 ld dword ptr (@_lla), 0x12345678abcdef01;
 ld dword ptr (@_llb), 0x12345679abcdef02;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld dword ptr (@_lla), 0x12345678abcdef01;
 ld dword ptr (@_llb), 0x12345679abcdf001;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld dword ptr (@_lla), 0x12345678abcdef01;
 ld dword ptr (@_llb), 0x12345679abceef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld dword ptr (@_lla), 0x12345678abcdef01;
 ld dword ptr (@_llb), 0x12345679accdef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld qword ptr (@_lla), 0x12345678abcdef01;
 ld qword ptr (@_llb), 0x12345679abcdef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld qword ptr (@_lla), 0x12345678abcdef01;
 ld qword ptr (@_llb), 0x12345778abcdef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld qword ptr (@_lla), 0x12345678abcdef01;
 ld qword ptr (@_llb), 0x12355678abcdef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;
 
 /* 64-bit not equal */
 ld qword ptr (@_lla), 0x12345678abcdef01;
 ld qword ptr (@_llb), 0x13345678abcdef01;
-call @_eq_longlong;
-verify word ptr (@_res), 0x0000;
+call @_neq_longlong;
+verify word ptr (@_res), 0x0001;

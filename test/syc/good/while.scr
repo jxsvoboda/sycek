@@ -1,0 +1,20 @@
+mapfile "while.map";
+ldbin "while.bin", 0x8000;
+
+ld word ptr (@_a), 10;
+ld word ptr (@_i), 0;
+call @_while_loop;
+verify word ptr (@_i), 0;
+verify word ptr (@_a), 10;
+
+ld word ptr (@_a), 10;
+ld word ptr (@_i), 1;
+call @_while_loop;
+verify word ptr (@_i), 0;
+verify word ptr (@_a), 11;
+
+ld word ptr (@_a), 10;
+ld word ptr (@_i), 2;
+call @_while_loop;
+verify word ptr (@_i), 0;
+verify word ptr (@_a), 12;

@@ -1,0 +1,22 @@
+mapfile "uminus.map";
+ldbin "uminus.bin", 0x8000;
+
+/* 8-bit unary minus */
+ld byte ptr (@_cb), 0x12;
+call @_uminus_char;
+verify byte ptr (@_ca), 0xee;
+
+/* 16-bit unary minus */
+ld word ptr (@_b), 0x1234;
+call @_uminus;
+verify word ptr (@_a), 0xedcc;
+
+/* 32-bit unary minus */
+ld dword ptr (@_lb), 0x12345678;
+call @_uminus_long;
+verify dword ptr (@_la), 0xedcba988;
+
+/* 64-bit unary minus */
+ld qword ptr (@_llb), 0x1122334455667788;
+call @_uminus_longlong;
+verify qword ptr (@_lla), 0xeeddccbbaa998878;

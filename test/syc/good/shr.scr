@@ -1,0 +1,90 @@
+mapfile "shr.map";
+ldbin "shr.bin", 0x8000;
+
+/* 8-bit signed shift right */
+ld byte ptr (@_cb), 0x20;
+ld word ptr (@_s), 5;
+call @_shr_char;
+verify byte ptr (@_ca), 0x01;
+
+ld byte ptr (@_cb), 0xe0;
+ld word ptr (@_s), 5;
+call @_shr_char;
+verify byte ptr (@_ca), 0xff;
+
+/* 8-bit unsigned shift right */
+ld byte ptr (@_ucb), 0x20;
+ld word ptr (@_s), 5;
+call @_shr_uchar;
+verify byte ptr (@_uca), 0x01;
+
+ld byte ptr (@_ucb), 0xe0;
+ld word ptr (@_s), 5;
+call @_shr_uchar;
+verify byte ptr (@_uca), 0x07;
+
+/* 16-bit signed shift right */
+ld word ptr (@_b), 0x2000;
+ld word ptr (@_s), 13;
+call @_shr;
+verify word ptr (@_a), 0x0001;
+
+ld word ptr (@_b), 0xa000;
+ld word ptr (@_s), 13;
+call @_shr;
+verify word ptr (@_a), 0xfffd;
+
+/* 16-bit unsigned shift right */
+ld word ptr (@_ub), 0x2000;
+ld word ptr (@_s), 13;
+call @_shr_uint;
+verify word ptr (@_ua), 0x0001;
+
+ld word ptr (@_ub), 0xa000;
+ld word ptr (@_s), 13;
+call @_shr_uint;
+verify word ptr (@_ua), 0x0005;
+
+/* 32-bit signed shift right */
+ld dword ptr (@_lb), 0x20000000;
+ld word ptr (@_s), 29;
+call @_shr_long;
+verify dword ptr (@_la), 0x00000001;
+
+ld dword ptr (@_lb), 0xa0000000;
+ld word ptr (@_s), 29;
+call @_shr_long;
+verify dword ptr (@_la), 0xfffffffd;
+
+/* 32-bit unsigned shift right */
+ld dword ptr (@_ulb), 0x20000000;
+ld word ptr (@_s), 29;
+call @_shr_ulong;
+verify dword ptr (@_ula), 0x00000001;
+
+ld dword ptr (@_ulb), 0xa0000000;
+ld word ptr (@_s), 29;
+call @_shr_ulong;
+verify dword ptr (@_ula), 0x00000005;
+
+/* 64-bit signed shift right */
+ld qword ptr (@_llb),     0x2000000000000000;
+ld word ptr (@_s), 61;
+call @_shr_longlong;
+verify qword ptr (@_lla), 0x0000000000000001;
+
+ld qword ptr (@_llb),     0xa000000000000000;
+ld word ptr (@_s), 61;
+call @_shr_longlong;
+verify qword ptr (@_lla), 0xfffffffffffffffd;
+
+/* 64-bit unsigned shift right */
+ld qword ptr (@_ullb),     0x2000000000000000;
+ld word ptr (@_s), 61;
+call @_shr_ulonglong;
+verify qword ptr (@_ulla), 0x0000000000000001;
+
+ld qword ptr (@_ullb),     0xa000000000000000;
+ld word ptr (@_s), 61;
+call @_shr_ulonglong;
+verify qword ptr (@_ulla), 0x0000000000000005;

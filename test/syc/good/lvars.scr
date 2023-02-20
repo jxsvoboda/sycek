@@ -1,0 +1,30 @@
+mapfile "lvars.map";
+ldbin "lvars.bin", 0x8000;
+
+/* 8-bit local variables */
+ld byte ptr (@_sca), 0x12;
+ld byte ptr (@_scb), 0x34;
+call @_lvars_char;
+verify byte ptr (@_dca), 0x12;
+verify byte ptr (@_dcb), 0x34;
+
+/* 16-bit local variables */
+ld word ptr (@_sa), 0x1234;
+ld word ptr (@_sb), 0x5678;
+call @_lvars;
+verify word ptr (@_da), 0x1234;
+verify word ptr (@_db), 0x5678;
+
+/* 32-bit local variables */
+ld dword ptr (@_sla), 0x12345678;
+ld dword ptr (@_slb), 0xabcdef01;
+call @_lvars_long;
+verify dword ptr (@_dla), 0x12345678;
+verify dword ptr (@_dlb), 0xabcdef01;
+
+/* 64-bit local variables */
+ld qword ptr (@_slla), 0x12345678abcdef01;
+ld qword ptr (@_sllb), 0x1122334455667788;
+call @_lvars_longlong;
+verify qword ptr (@_dlla), 0x12345678abcdef01;
+verify qword ptr (@_dllb), 0x1122334455667788;

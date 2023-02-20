@@ -2,27 +2,27 @@
  * Postincrement
  */
 
-char a;
-int b;
-long c;
-long long d;
+char ca, cb;
+int a, b;
+long la, lb;
+long long lla, llb;
 
 void postinc_char(void)
 {
-	a++;
+	ca = cb++;
 }
 
-int postinc(void)
+void postinc(void)
 {
-	b++;
+	a = b++;
 }
 
 void postinc_long(void)
 {
-	c++;
+	la = lb++;
 }
 
 void postinc_longlong(void)
 {
-	d++;
+	lla = llb++;
 }

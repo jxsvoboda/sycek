@@ -1,0 +1,56 @@
+mapfile "intlit.map";
+ldbin "intlit.bin", 0x8000;
+
+verify word ptr (@_decval), 4096;
+verify word ptr (@_octval), 4096;
+verify word ptr (@_hexval), 4096;
+verify word ptr (@_hexabcd), 0xabcd;
+verify word ptr (@_hexABCD), 0xABCD;
+
+verify word ptr (@_decval_u), 4096;
+verify word ptr (@_octval_u), 4096;
+verify word ptr (@_hexval_u), 4096;
+verify word ptr (@_hexabcd_u), 0xabcd;
+verify word ptr (@_hexABCD_u), 0xABCD;
+
+verify dword ptr (@_decval_l), 16777216;
+verify dword ptr (@_octval_l), 16777216;
+verify dword ptr (@_hexval_l), 16777216;
+verify dword ptr (@_hexabcddcba_l), 0xabcddcba;
+verify dword ptr (@_hexABCDDCBA_l), 0xABCDDCBA;
+
+verify dword ptr (@_decval_ul), 16777216;
+verify dword ptr (@_octval_ul), 16777216;
+verify dword ptr (@_hexval_ul), 16777216;
+verify dword ptr (@_hexabcddcba_ul), 0xabcddcba;
+verify dword ptr (@_hexABCDDCBA_ul), 0xABCDDCBA;
+
+verify qword ptr (@_decval_ll), 281474976710656;
+verify qword ptr (@_octval_ll), 281474976710656;
+verify qword ptr (@_hexval_ll), 281474976710656;
+verify qword ptr (@_hexabcddcba_ll), 0xabcddcbaabcddcba;
+verify qword ptr (@_hexABCDDCBA_ll), 0xABCDDCBAABCDDCBA;
+
+verify qword ptr (@_decval_ull), 281474976710656;
+verify qword ptr (@_octval_ull), 281474976710656;
+verify qword ptr (@_hexval_ull), 281474976710656;
+verify qword ptr (@_hexabcddcba_ull), 0xabcddcbaabcddcba;
+verify qword ptr (@_hexABCDDCBA_ull), 0xABCDDCBAABCDDCBA;
+
+call @_lit_int;
+verify word ptr (@_i), 0x1234;
+
+call @_lit_uint;
+verify word ptr (@_u), 0x1234;
+
+call @_lit_long;
+verify dword ptr (@_l), 0x12345678;
+
+call @_lit_ulong;
+verify dword ptr (@_ul), 0x12345678;
+
+call @_lit_longlong;
+verify qword ptr (@_ll), 0x1234567812345678;
+
+call @_lit_ulonglong;
+verify qword ptr (@_ull), 0x1234567812345678;

@@ -2,27 +2,27 @@
  * Unary minus
  */
 
-char a;
-int b;
-long c;
-long long d;
+char ca, cb;
+int a, b;
+long la, lb;
+long long lla, llb;
 
 void uminus_char(void)
 {
-	a = -a;
+	ca = -cb;
 }
 
-int uminus(void)
+void uminus(void)
 {
-	return -b;
+	a = -b;
 }
 
 void uminus_long(void)
 {
-	c = -c;
+	la = -lb;
 }
 
 void uminus_longlong(void)
 {
-	d = -d;
+	lla = -llb;
 }

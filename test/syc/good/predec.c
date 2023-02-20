@@ -2,27 +2,27 @@
  * Predecrement
  */
 
-char a;
-int b;
-long c;
-long long d;
+char ca, cb;
+int a, b;
+long la, lb;
+long long lla, llb;
 
 void predec_char(void)
 {
-	--a;
+	ca = --cb;
 }
 
-int predec(void)
+void predec(void)
 {
-	--b;
+	a = --b;
 }
 
 void predec_long(void)
 {
-	--c;
+	la = --lb;
 }
 
 void predec_longlong(void)
 {
-	--d;
+	lla = --llb;
 }

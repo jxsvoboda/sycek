@@ -3,8 +3,9 @@
  */
 
 int a;
+int res;
 
-int lnot(void)
+void lnot(void)
 {
-	return (int)!(1 < 2);
+	res = (int)!a;
 }

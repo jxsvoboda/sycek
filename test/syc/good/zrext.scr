@@ -1,0 +1,62 @@
+mapfile "zrext.map";
+ldbin "zrext.bin", 0x8000;
+
+/* Zero extend 8 to 16 bits (non-negative) */
+ld byte ptr (@_uc), 0x7f;
+call @_zrext_16_8;
+verify word ptr (@_u), 0x007f;
+
+/* Zero extend 8 to 16 bits ('negative') */
+ld byte ptr (@_uc), 0x80;
+call @_zrext_16_8;
+verify word ptr (@_u), 0x0080;
+
+/* Zero extend 8 to 32 bits (non-negative) */
+ld byte ptr (@_uc), 0x7f;
+call @_zrext_32_8;
+verify dword ptr (@_ul), 0x0000007f;
+
+/* Zero extend 8 to 32 bits ('negative') */
+ld byte ptr (@_uc), 0x80;
+call @_zrext_32_8;
+verify dword ptr (@_ul), 0x00000080;
+
+/* Zero extend 16 to 32 bits (non-negative) */
+ld word ptr (@_u), 0x7fff;
+call @_zrext_32_16;
+verify dword ptr (@_ul), 0x00007fff;
+
+/* Zero extend 16 to 32 bits ('negative') */
+ld word ptr (@_u), 0x8000;
+call @_zrext_32_16;
+verify dword ptr (@_ul), 0x00008000;
+
+/* Zero extend 8 to 64 bits (non-negative) */
+ld byte ptr (@_uc), 0x7f;
+call @_zrext_64_8;
+verify qword ptr (@_ull), 0x000000000000007f;
+
+/* Zero extend 8 to 64 bits ('negative') */
+ld byte ptr (@_uc), 0x80;
+call @_zrext_64_8;
+verify qword ptr (@_ull), 0x0000000000000080;
+
+/* Zero extend 16 to 64 bits (non-negative) */
+ld word ptr (@_u), 0x7fff;
+call @_zrext_64_16;
+verify qword ptr (@_ull), 0x0000000000007fff;
+
+/* Zero extend 16 to 64 bits ('negative') */
+ld word ptr (@_u), 0x8000;
+call @_zrext_64_16;
+verify qword ptr (@_ull), 0x0000000000008000;
+
+/* Zero extend 32 to 64 bits (non-negative) */
+ld dword ptr (@_ul), 0x7fffffff;
+call @_zrext_64_32;
+verify qword ptr (@_ull), 0x000000007fffffff;
+
+/* Zero extend 32 to 64 bits ('negative') */
+ld dword ptr (@_ul), 0x80000000;
+call @_zrext_64_32;
+verify qword ptr (@_ull), 0x0000000080000000;

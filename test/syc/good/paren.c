@@ -2,7 +2,10 @@
  * Parenthesized expression
  */
 
-int paren(void)
+int res;
+int a;
+
+void paren(void)
 {
-	return (1);
+	res = (a);
 }

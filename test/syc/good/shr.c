@@ -23,7 +23,7 @@ void shr_uchar(void)
 	uca = ucb >> s;
 }
 
-int shr(void)
+void shr(void)
 {
 	a = b >> s;
 	return a;

@@ -2,40 +2,58 @@
  * Local variables
  */
 
+char sca, scb;
+char dca, dcb;
+
+int sa, sb;
+int da, db;
+
+long sla, slb;
+long dla, dlb;
+
+long long slla, sllb;
+long long dlla, dllb;
+
 void lvars_char(void)
 {
 	char ca, cb;
 
-//	ca = '1';
-//	cb = '2';
-	ca += cb;
+	ca = sca;
+	cb = scb;
+
+	dca = ca;
+	dcb = cb;
 }
 
-int lvars(void)
+void lvars(void)
 {
 	int a, b;
 
-	a = 1;
-	b = 2;
-	a += b;
+	a = sa;
+	b = sb;
 
-	return a;
+	da = a;
+	db = b;
 }
 
 void lvars_long(void)
 {
 	long la, lb;
 
-	la = 1l;
-	lb = 2l;
-	la += lb;
+	la = sla;
+	lb = slb;
+
+	dla = la;
+	dlb = lb;
 }
 
 void lvars_longlong(void)
 {
 	long long lla, llb;
 
-	lla = 1ll;
-	llb = 2ll;
-	lla += llb;
+	lla = slla;
+	llb = sllb;
+
+	dlla = lla;
+	dllb = llb;
 }

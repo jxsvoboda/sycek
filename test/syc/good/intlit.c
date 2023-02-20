@@ -24,22 +24,22 @@ unsigned hexabcd_u = 0xabcdu;
 /* 43981 in hex */
 unsigned hexABCD_u = 0xABCDu;
 
-/* 1677216L in decimal */
-long decval_l = 1677216L;
-/* 1677216L in octal */
+/* 16777216L in decimal */
+long decval_l = 16777216L;
+/* 16777216L in octal */
 long octval_l = 0100000000L;
-/* 1677216L in hex */
+/* 16777216L in hex */
 long hexval_l = 0x1000000L;
 /* 0xabcddcbaL in hex */
 long hexabcddcba_l = 0xabcddcbaL;
 /* 0xABCDDCBAl in hex */
 long hexABCDDCBA_l = 0xABCDDCBAl;
 
-/* 1677216UL in decimal */
-unsigned long decval_ul = 1677216UL;
-/* 1677216UL in octal */
+/* 16777216UL in decimal */
+unsigned long decval_ul = 16777216UL;
+/* 16777216UL in octal */
 unsigned long octval_ul = 0100000000UL;
-/* 1677216UL in hex */
+/* 16777216UL in hex */
 unsigned long hexval_ul = 0x1000000UL;
 /* 0xabcddcbaUL in hex */
 unsigned long hexabcddcba_ul = 0xabcddcbaUL;
@@ -49,8 +49,8 @@ unsigned long hexABCDDCBA_ul = 0xABCDDCBAul;
 /* 2**48 in decimal */
 long long decval_ll = 281474976710656LL;
 /* 2**48 in octal */
-long long octval_ll = 0100000000000000000LL;
-/* 2**47 in hex */
+long long octval_ll = 010000000000000000LL;
+/* 2**48 in hex */
 long long hexval_ll = 0x1000000000000LL;
 /* 0xabcddcbaL in hex */
 long long hexabcddcba_ll = 0xabcddcbaabcddcbaLL;
@@ -58,15 +58,15 @@ long long hexabcddcba_ll = 0xabcddcbaabcddcbaLL;
 long long hexABCDDCBA_ll = 0xABCDDCBAABCDDCBAll;
 
 /* 2**48 in decimal */
-long long decval_ull = 281474976710656ULL;
+unsigned long long decval_ull = 281474976710656ULL;
 /* 2**48 in octal */
-long long octval_ull = 0100000000000000000ULL;
-/* 2**47 in hex */
-long long hexval_ull = 0x1000000000000ULL;
+unsigned long long octval_ull = 010000000000000000ULL;
+/* 2**48 in hex */
+unsigned long long hexval_ull = 0x1000000000000ULL;
 /* 0xabcddcbaL in hex */
-long long hexabcddcba_ull = 0xabcddcbaabcddcbaULL;
+unsigned long long hexabcddcba_ull = 0xabcddcbaabcddcbaULL;
 /* 0xABCDDCBAl in hex */
-long long hexABCDDCBA_ull = 0xABCDDCBAABCDDCBAull;
+unsigned long long hexABCDDCBA_ull = 0xABCDDCBAABCDDCBAull;
 
 int i;
 unsigned u;

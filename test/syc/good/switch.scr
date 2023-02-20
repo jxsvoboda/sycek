@@ -1,0 +1,58 @@
+mapfile "switch.map";
+ldbin "switch.bin", 0x8000;
+
+/* Switch with case 1 taken */
+ld word ptr (@_a), 1;
+ld word ptr (@_unr), 0;
+ld word ptr (@_c1), 0;
+ld word ptr (@_c2), 0;
+ld word ptr (@_cdef), 0;
+ld word ptr (@_c3), 0;
+call @_stswitch;
+verify word ptr (@_unr), 0;
+verify word ptr (@_c1), 1;
+verify word ptr (@_c2), 1; /* due to fall-through */
+verify word ptr (@_cdef), 1; /* due to fall-through */
+verify word ptr (@_c3), 1; /* due to fall-through */
+
+/* Switch with case 2 taken */
+ld word ptr (@_a), 2;
+ld word ptr (@_unr), 0;
+ld word ptr (@_c1), 0;
+ld word ptr (@_c2), 0;
+ld word ptr (@_cdef), 0;
+ld word ptr (@_c3), 0;
+call @_stswitch;
+verify word ptr (@_unr), 0;
+verify word ptr (@_c1), 0;
+verify word ptr (@_c2), 1;
+verify word ptr (@_cdef), 1; /* due to fall-through */
+verify word ptr (@_c3), 1; /* due to fall-through */
+
+/* Switch with default case taken */
+ld word ptr (@_a), 0;
+ld word ptr (@_unr), 0;
+ld word ptr (@_c1), 0;
+ld word ptr (@_c2), 0;
+ld word ptr (@_cdef), 0;
+ld word ptr (@_c3), 0;
+call @_stswitch;
+verify word ptr (@_unr), 0;
+verify word ptr (@_c1), 0;
+verify word ptr (@_c2), 0;
+verify word ptr (@_cdef), 1;
+verify word ptr (@_c3), 1; /* due to fall-through */
+
+/* Switch with case 3 taken */
+ld word ptr (@_a), 3;
+ld word ptr (@_unr), 0;
+ld word ptr (@_c1), 0;
+ld word ptr (@_c2), 0;
+ld word ptr (@_cdef), 0;
+ld word ptr (@_c3), 0;
+call @_stswitch;
+verify word ptr (@_unr), 0;
+verify word ptr (@_c1), 0;
+verify word ptr (@_c2), 0;
+verify word ptr (@_cdef), 0;
+verify word ptr (@_c3), 1;

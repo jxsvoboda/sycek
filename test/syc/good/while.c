@@ -1,22 +1,15 @@
 /*
- * While loop
+ * While loop statement
  */
 
+int a;
+int b;
 int i;
 
-void do_stuff(void)
+void while_loop(void)
 {
-	return;
-}
-
-int while_loop(void)
-{
-	i = 10;
-
 	while (i) {
-		do_stuff();
-		i = i - 1;
+		++a;
+		--i;
 	}
-
-	return 0;
 }

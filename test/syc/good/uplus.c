@@ -2,27 +2,27 @@
  * Unary plus
  */
 
-char a;
-int b;
-long c;
-long long d;
+char ca, cb;
+int a, b;
+long la, lb;
+long long lla, llb;
 
 void uplus_char(void)
 {
-	a = +a;
+	ca = +cb;
 }
 
-int uplus(void)
+void uplus(void)
 {
-	return +b;
+	a = +b;
 }
 
 void uplus_long(void)
 {
-	c = +c;
+	la = +lb;
 }
 
 void uplus_longlong(void)
 {
-	d = +d;
+	lla = +llb;
 }

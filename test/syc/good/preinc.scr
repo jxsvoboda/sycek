@@ -1,0 +1,26 @@
+mapfile "preinc.map";
+ldbin "preinc.bin", 0x8000;
+
+/* 8-bit pre-increment */
+ld byte ptr (@_cb), 0x10;
+call @_preinc_char;
+verify byte ptr (@_ca), 0x11;
+verify byte ptr (@_cb), 0x11;
+
+/* 16-bit pre-increment involving carry */
+ld word ptr (@_b), 0x10ff;
+call @_preinc;
+verify word ptr (@_a), 0x1100;
+verify word ptr (@_b), 0x1100;
+
+/* 32-bit pre-increment involving carry */
+ld dword ptr (@_lb), 0x10ffffff;
+call @_preinc_long;
+verify dword ptr (@_la), 0x11000000;
+verify dword ptr (@_lb), 0x11000000;
+
+/* 64-bit pre-increment involving carry */
+ld qword ptr (@_llb), 0x10ffffffffffffff;
+call @_preinc_longlong;
+verify qword ptr (@_lla), 0x1100000000000000;
+verify qword ptr (@_llb), 0x1100000000000000;

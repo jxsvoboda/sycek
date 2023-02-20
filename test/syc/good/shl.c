@@ -14,10 +14,9 @@ void shl_char(void)
 	ca = cb << s;
 }
 
-int shl(void)
+void shl(void)
 {
 	a = b << s;
-	return a;
 }
 
 void shl_long(void)

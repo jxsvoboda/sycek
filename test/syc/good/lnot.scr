@@ -1,0 +1,10 @@
+mapfile "lnot.map";
+ldbin "lnot.bin", 0x8000;
+
+ld word ptr (@_a), 0;
+call @_lnot;
+verify word ptr (@_res), 1;
+
+ld word ptr (@_a), 1;
+call @_lnot;
+verify word ptr (@_res), 0;

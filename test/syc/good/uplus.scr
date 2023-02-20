@@ -1,0 +1,22 @@
+mapfile "uplus.map";
+ldbin "uplus.bin", 0x8000;
+
+/* 8-bit unary plus */
+ld byte ptr (@_cb), 0x12;
+call @_uplus_char;
+verify byte ptr (@_ca), 0x12;
+
+/* 16-bit unary plus */
+ld word ptr (@_b), 0x1234;
+call @_uplus;
+verify word ptr (@_a), 0x1234;
+
+/* 32-bit unary plus */
+ld dword ptr (@_lb), 0x12345678;
+call @_uplus_long;
+verify dword ptr (@_la), 0x12345678;
+
+/* 64-bit unary plus */
+ld qword ptr (@_llb), 0x1122334455667788;
+call @_uplus_longlong;
+verify qword ptr (@_lla), 0x1122334455667788;

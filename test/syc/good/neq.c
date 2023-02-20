@@ -2,27 +2,29 @@
  * Not equal
  */
 
+int res;
+
 char ca, cb;
 int a, b;
 long la, lb;
 long long lla, llb;
 
-int neq_char(void)
+void neq_char(void)
 {
-	return (int)(ca != cb);
+	res = (int)(ca != cb);
 }
 
-int neq(void)
+void neq(void)
 {
-	return (int)(a != b);
+	res = (int)(a != b);
 }
 
-int neq_long(void)
+void neq_long(void)
 {
-	return (int)(la != lb);
+	res = (int)(la != lb);
 }
 
-int neq_longlong(void)
+void neq_longlong(void)
 {
-	return (int)(lla != llb);
+	res = (int)(lla != llb);
 }

@@ -2,9 +2,29 @@
  * Shift left assign
  */
 
-int a, b;
+int s;
 
-int shl_assign(void)
+char ca;
+int a;
+long la;
+long long lla;
+
+void shl_assign_char(void)
 {
-	a <<= b;
+	ca <<= s;
+}
+
+void shl_assign(void)
+{
+	a <<= s;
+}
+
+void shl_assign_long(void)
+{
+	la <<= s;
+}
+
+void shl_assign_longlong(void)
+{
+	lla <<= s;
 }

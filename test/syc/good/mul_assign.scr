@@ -1,0 +1,26 @@
+mapfile "mul_assign.map";
+ldbin "mul_assign.bin", 0x8000;
+
+/* 8-bit multiply assign */
+ld byte ptr (@_ca), 100;
+ld byte ptr (@_cb), 100;
+call @_mul_assign_char;
+verify byte ptr (@_ca), 16;
+
+/* 16-bit multiply assign */
+ld word ptr (@_a), 10000;
+ld word ptr (@_b), 10000;
+call @_mul_assign;
+verify word ptr (@_a), 57600;
+
+/* 32-bit multiply assign */
+ld dword ptr (@_la), 1000000000;
+ld dword ptr (@_lb), 1000000000;
+call @_mul_assign_long;
+verify dword ptr (@_la), 2808348672;
+
+/* 64-bit multiply assign */
+ld qword ptr (@_lla), 10000000000000000000;
+ld qword ptr (@_llb), 10000000000000000000;
+call @_mul_assign_longlong;
+verify qword ptr (@_lla), 687399551400673280;

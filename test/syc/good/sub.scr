@@ -1,0 +1,26 @@
+mapfile "sub.map";
+ldbin "sub.bin", 0x8000;
+
+/* 8-bit subtraction */
+ld byte ptr (@_cb), 0x33;
+ld byte ptr (@_cc), 0x22;
+call @_sub_char;
+verify byte ptr (@_ca), 0x11;
+
+/* 16-bit subtraction involving carry */
+ld word ptr (@_b), 0xff11;
+ld word ptr (@_c), 0x4433;
+call @_sub;
+verify word ptr (@_a), 0xbade;
+
+/* 32-bit subtraction involving carry */
+ld dword ptr (@_lb), 0x2166ee44;
+ld dword ptr (@_lc), 0x11ff55dd;
+call @_sub_long;
+verify dword ptr (@_la), 0xf679867;
+
+/* 64-bit subtraction involving carry */
+ld qword ptr (@_llb), 0x5544332211665544;
+ld qword ptr (@_llc), 0x55ff332211ffeedd;
+call @_sub_longlong;
+verify qword ptr (@_lla), 0xff44ffffff666667;

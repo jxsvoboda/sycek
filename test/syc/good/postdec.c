@@ -2,27 +2,27 @@
  * Postdecrement
  */
 
-char a;
-int b;
-long c;
-long long d;
+char ca, cb;
+int a, b;
+long la, lb;
+long long lla, llb;
 
 void postdec_char(void)
 {
-	a--;
+	ca = cb--;
 }
 
-int postdec(void)
+void postdec(void)
 {
-	b--;
+	a = b--;
 }
 
 void postdec_long(void)
 {
-	c--;
+	la = lb--;
 }
 
 void postdec_longlong(void)
 {
-	d--;
+	lla = llb--;
 }

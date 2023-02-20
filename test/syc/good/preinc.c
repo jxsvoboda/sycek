@@ -2,27 +2,27 @@
  * Preincrement
  */
 
-char a;
-int b;
-long c;
-long long d;
+char ca, cb;
+int a, b;
+long la, lb;
+long long lla, llb;
 
 void preinc_char(void)
 {
-	++a;
+	ca = ++cb;
 }
 
-int preinc(void)
+void preinc(void)
 {
-	++b;
+	a = ++b;
 }
 
 void preinc_long(void)
 {
-	++c;
+	la = ++lb;
 }
 
 void preinc_longlong(void)
 {
-	++d;
+	lla = ++llb;
 }

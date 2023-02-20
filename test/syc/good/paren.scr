@@ -1,0 +1,6 @@
+mapfile "paren.map";
+ldbin "paren.bin", 0x8000;
+
+ld word ptr (@_a), 0x1234;
+call @_paren;
+verify word ptr (@_res), 0x1234;

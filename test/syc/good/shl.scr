@@ -1,0 +1,26 @@
+mapfile "shl.map";
+ldbin "shl.bin", 0x8000;
+
+/* 8-bit shift left */
+ld byte ptr (@_cb), 0x01;
+ld word ptr (@_s), 5;
+call @_shl_char;
+verify byte ptr (@_ca), 0x20;
+
+/* 16-bit shift left */
+ld word ptr (@_b), 0x0001;
+ld word ptr (@_s), 13;
+call @_shl;
+verify word ptr (@_a), 0x2000;
+
+/* 32-bit shift left */
+ld dword ptr (@_lb), 0x00000001;
+ld word ptr (@_s), 29;
+call @_shl_long;
+verify dword ptr (@_la), 0x20000000;
+
+/* 64-bit shift left */
+ld qword ptr (@_llb), 0x0000000000000001;
+ld word ptr (@_s), 61;
+call @_shl_longlong;
+verify qword ptr (@_lla), 0x2000000000000000;

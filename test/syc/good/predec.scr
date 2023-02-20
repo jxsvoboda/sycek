@@ -1,0 +1,26 @@
+mapfile "predec.map";
+ldbin "predec.bin", 0x8000;
+
+/* 8-bit pre-decrement */
+ld byte ptr (@_cb), 0x11;
+call @_predec_char;
+verify byte ptr (@_ca), 0x10;
+verify byte ptr (@_cb), 0x10;
+
+/* 16-bit pre-decrement involving carry */
+ld word ptr (@_b), 0x1100;
+call @_predec;
+verify word ptr (@_a), 0x10ff;
+verify word ptr (@_b), 0x10ff;
+
+/* 32-bit pre-decrement involving carry */
+ld dword ptr (@_lb), 0x11000000;
+call @_predec_long;
+verify dword ptr (@_la), 0x10ffffff;
+verify dword ptr (@_lb), 0x10ffffff;
+
+/* 64-bit pre-decrement involving carry */
+ld qword ptr (@_llb), 0x1100000000000000;
+call @_predec_longlong;
+verify qword ptr (@_lla), 0x10ffffffffffffff;
+verify qword ptr (@_llb), 0x10ffffffffffffff;

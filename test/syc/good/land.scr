@@ -1,0 +1,29 @@
+mapfile "land.map";
+ldbin "land.bin", 0x8000;
+
+ld word ptr (@_ea), 0;
+ld word ptr (@_eb), 0;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 0;
+call @_land;
+verify word ptr (@_res), 0;
+verify word ptr (@_ea), 1;
+verify word ptr (@_eb), 0;
+
+ld word ptr (@_ea), 0;
+ld word ptr (@_eb), 0;
+ld word ptr (@_a), 1;
+ld word ptr (@_b), 0;
+call @_land;
+verify word ptr (@_res), 0;
+verify word ptr (@_ea), 1;
+verify word ptr (@_eb), 1;
+
+ld word ptr (@_ea), 0;
+ld word ptr (@_eb), 0;
+ld word ptr (@_a), 1;
+ld word ptr (@_b), 1;
+call @_land;
+verify word ptr (@_res), 1;
+verify word ptr (@_ea), 1;
+verify word ptr (@_eb), 1;
