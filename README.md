@@ -337,6 +337,9 @@ It can detect the following types of problems:
  * unused variable
  * unused goto label
  * constant should be long (or long long)
+ * unsigned comparison of mixed-sign integers
+ * bitwise operation on signed integers
+ * conversion may loose significant digits
 
 Intermediate Representation
 ---------------------------

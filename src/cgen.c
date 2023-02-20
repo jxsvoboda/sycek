@@ -6897,6 +6897,27 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 	if (rc != EOK)
 		goto error;
 
+	/* jmp %end_if */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(eiflabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
 	ir_lblock_append(lblock, fiflabel, NULL);
 	free(fiflabel);
 	fiflabel = NULL;

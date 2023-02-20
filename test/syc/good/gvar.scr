@@ -1,0 +1,29 @@
+mapfile "gvar.map";
+ldbin "gvar.bin", 0x8000;
+
+/* Uninitialized global variable should be zero */
+verify word ptr (@_a), 0;
+
+/* Initialized global variable should have the correct value */
+verify word ptr (@_b), 1;
+
+/* Reading global variable */
+
+call @_get_a;
+verify HL, 0;
+ld word ptr (@_a), 0x1234;
+call @_get_a;
+verify HL, 0x1234;
+
+call @_get_b;
+verify HL, 1;
+
+/* Writing global variable */
+
+ld HL, 0x5678;
+call @_set_a;
+verify word ptr (@_a), 0x5678;
+
+ld HL, 0xabcd;
+call @_set_b;
+verify word ptr (@_b), 0xabcd;

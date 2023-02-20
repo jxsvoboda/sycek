@@ -4,28 +4,24 @@
 
 int a, b, c, d;
 
-/* If statement witout else branch */
-int if_stmt_1(void)
+/* If statement without else branch */
+void if_stmt_1(void)
 {
 	if (a)
 		d = 0;
-
-	return 0;
 }
 
 /* If statement with else branch */
-int if_stmt_2(void)
+void if_stmt_2(void)
 {
 	if (a)
 		d = 0;
 	else
 		d = 1;
-
-	return 0;
 }
 
 /* If statement with else-if and else branch */
-int if_stmt_3(void)
+void if_stmt_3(void)
 {
 	if (a)
 		d = 0;
@@ -33,12 +29,10 @@ int if_stmt_3(void)
 		d = 1;
 	else
 		d = 2;
-
-	return 0;
 }
 
 /* If statement with two else-if branches and else branch */
-int if_stmt_4(void)
+void if_stmt_4(void)
 {
 	if (a)
 		d = 0;
@@ -48,6 +42,4 @@ int if_stmt_4(void)
 		d = 2;
 	else
 		d = 3;
-
-	return 0;
 }

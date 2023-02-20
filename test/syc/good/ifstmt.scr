@@ -1,0 +1,78 @@
+mapfile "ifstmt.map";
+ldbin "ifstmt.bin", 0x8000;
+
+/* If statement without else branch, condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 1;
+call @_if_stmt_1;
+verify word ptr (@_d), 0;
+
+/* If statement without else branch, condition not met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+call @_if_stmt_1;
+verify word ptr (@_d), 0xffff;
+
+/* If statement with else branch, condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 1;
+call @_if_stmt_2;
+verify word ptr (@_d), 0;
+
+/* If statement with else branch, condition not met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+call @_if_stmt_2;
+verify word ptr (@_d), 1;
+
+/* If statement with else-if and else branch, first condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 1;
+call @_if_stmt_3;
+verify word ptr (@_d), 0;
+
+/* If statement with else-if and else branch, second condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 1;
+call @_if_stmt_3;
+verify word ptr (@_d), 1;
+
+/* If statement with else-if and else branch, neither condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 0;
+call @_if_stmt_3;
+verify word ptr (@_d), 2;
+
+/* If statement with two else-if and one else branch, first condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 1;
+call @_if_stmt_4;
+verify word ptr (@_d), 0;
+
+/* If statement with two else-if and one else branch, second condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 1;
+call @_if_stmt_4;
+verify word ptr (@_d), 1;
+
+/* If statement with two else-if and one else branch, third condition met */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 0;
+ld word ptr (@_c), 1;
+call @_if_stmt_4;
+verify word ptr (@_d), 2;
+
+/*
+ * If statement with two else-if and one else branch, none of the
+ * conditions met.
+ */
+ld word ptr (@_d), 0xffff;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 0;
+ld word ptr (@_c), 0;
+call @_if_stmt_4;
+verify word ptr (@_d), 3;
