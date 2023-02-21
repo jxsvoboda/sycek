@@ -1,0 +1,38 @@
+mapfile "mixsigncmp.map";
+ldbin "mixsigncmp.bin", 0x8000;
+
+/* uchar < int */
+ld byte ptr (@_uc), 0xff;
+ld word ptr (@_i), 0x0001;
+call @_cmp_uchar_int;
+verify word ptr (@_res), 0x0000;
+
+/* uchar < long */
+ld byte ptr (@_uc), 0xff;
+ld dword ptr (@_l), 0x00000001;
+call @_cmp_uchar_long;
+verify word ptr (@_res), 0x0000;
+
+/* uchar < longlong */
+ld byte ptr (@_uc), 0xff;
+ld qword ptr (@_ll), 0x0000000000000001;
+call @_cmp_uchar_longlong;
+verify word ptr (@_res), 0x0000;
+
+/* uint < long */
+ld word ptr (@_u), 0xffff;
+ld dword ptr (@_l), 0x00000001;
+call @_cmp_uint_long;
+verify word ptr (@_res), 0x0000;
+
+/* uint < longlong */
+ld word ptr (@_u), 0xffff;
+ld qword ptr (@_ll), 0x0000000000000001;
+call @_cmp_uint_longlong;
+verify word ptr (@_res), 0x0000;
+
+/* ulong < longlong */
+ld dword ptr (@_ul), 0xffffffff;
+ld qword ptr (@_ll), 0x0000000000000001;
+call @_cmp_ulong_longlong;
+verify word ptr (@_res), 0x0000;

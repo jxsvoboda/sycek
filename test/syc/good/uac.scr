@@ -1,0 +1,140 @@
+mapfile "uac.map";
+ldbin "uac.bin", 0x8000;
+
+/* Add char, int */
+ld byte ptr (@_cb), 0xff;
+ld word ptr (@_b), 0x0100;
+call @_add_char_int;
+verify word ptr (@_a), 0x00ff;
+
+/* Add char, uint */
+ld byte ptr (@_cb), 0xff;
+ld word ptr (@_ub), 0x0100;
+call @_add_char_uint;
+verify word ptr (@_ua), 0x00ff;
+
+/* Add uchar, int */
+ld byte ptr (@_ucb), 0xff;
+ld word ptr (@_b), 0x0100;
+call @_add_uchar_int;
+verify word ptr (@_a), 0x01ff;
+
+/* Add uchar, uint */
+ld byte ptr (@_ucb), 0xff;
+ld word ptr (@_ub), 0x0100;
+call @_add_uchar_uint;
+verify word ptr (@_a), 0x01ff;
+
+/* Add char, long */
+ld byte ptr (@_cb), 0xff;
+ld dword ptr (@_lb), 0x12340100;
+call @_add_char_long;
+verify dword ptr (@_la), 0x123400ff;
+
+/* Add char, ulong */
+ld byte ptr (@_cb), 0xff;
+ld dword ptr (@_ulb), 0x12340100;
+call @_add_char_ulong;
+verify dword ptr (@_ula), 0x123400ff;
+
+/* Add uchar, long */
+ld byte ptr (@_ucb), 0xff;
+ld dword ptr (@_lb), 0x12340100;
+call @_add_uchar_long;
+verify dword ptr (@_la), 0x123401ff;
+
+/* Add char, longlong */
+ld byte ptr (@_cb), 0xff;
+ld qword ptr (@_llb), 0x1234567812340100;
+call @_add_char_longlong;
+verify qword ptr (@_lla), 0x12345678123400ff;
+
+/* Add char, ulonglong */
+ld byte ptr (@_cb), 0xff;
+ld qword ptr (@_ullb), 0x1234567812340100;
+call @_add_char_ulonglong;
+verify qword ptr (@_ulla), 0x12345678123400ff;
+
+/* Add uchar, longlong */
+ld byte ptr (@_ucb), 0xff;
+ld qword ptr (@_llb), 0x1234567812340100;
+call @_add_uchar_longlong;
+verify qword ptr (@_lla), 0x12345678123401ff;
+
+/* Add uchar, ulonglong */
+ld byte ptr (@_ucb), 0xff;
+ld qword ptr (@_ullb), 0x1234567812340100;
+call @_add_uchar_ulonglong;
+verify qword ptr (@_ulla), 0x12345678123401ff;
+
+/* Add int, long */
+ld word ptr (@_b), 0xffff;
+ld dword ptr (@_lb), 0x12340000;
+call @_add_int_long;
+verify dword ptr (@_la), 0x1233ffff;
+
+/* Add int, ulong */
+ld word ptr (@_b), 0xffff;
+ld dword ptr (@_ulb), 0x12340000;
+call @_add_int_ulong;
+verify dword ptr (@_ula), 0x1233ffff;
+
+/* Add uint, long */
+ld word ptr (@_ub), 0xffff;
+ld dword ptr (@_lb), 0x12340000;
+call @_add_uint_long;
+verify dword ptr (@_la), 0x1234ffff;
+
+/* Add uint, ulong */
+ld word ptr (@_ub), 0xffff;
+ld dword ptr (@_ulb), 0x12340000;
+call @_add_uint_ulong;
+verify dword ptr (@_ula), 0x1234ffff;
+
+/* Add int, longlong */
+ld word ptr (@_b), 0xffff;
+ld qword ptr (@_llb), 0x12345678abcd0000;
+call @_add_int_longlong;
+verify qword ptr (@_lla), 0x12345678abccffff;
+
+/* Add int, ulonglong */
+ld word ptr (@_b), 0xffff;
+ld qword ptr (@_ullb), 0x12345678abcd0000;
+call @_add_int_ulonglong;
+verify qword ptr (@_ulla), 0x12345678abccffff;
+
+/* Add uint, longlong */
+ld word ptr (@_ub), 0xffff;
+ld qword ptr (@_llb), 0x12345678abcd0000;
+call @_add_uint_longlong;
+verify qword ptr (@_lla), 0x12345678abcdffff;
+
+/* Add uint, ulonglong */
+ld word ptr (@_ub), 0xffff;
+ld qword ptr (@_ullb), 0x12345678abcd0000;
+call @_add_uint_ulonglong;
+verify qword ptr (@_ulla), 0x12345678abcdffff;
+
+/* Add long, longlong */
+ld dword ptr (@_lb), 0xffffffff;
+ld qword ptr (@_llb), 0x1234567800000000;
+call @_add_long_longlong;
+verify qword ptr (@_lla), 0x12345677ffffffff;
+
+/* Add long, ulonglong */
+ld dword ptr (@_lb), 0xffffffff;
+ld qword ptr (@_ullb), 0x1234567800000000;
+call @_add_long_ulonglong;
+verify qword ptr (@_ulla), 0x12345677ffffffff;
+
+/* Add ulong, longlong */
+ld dword ptr (@_ulb), 0xffffffff;
+ld qword ptr (@_llb), 0x1234567800000000;
+call @_add_ulong_longlong;
+verify qword ptr (@_lla), 0x12345678ffffffff;
+
+/* Add ulong, ulonglong */
+ld dword ptr (@_ulb), 0xffffffff;
+ld qword ptr (@_ullb), 0x1234567800000000;
+call @_add_ulong_ulonglong;
+verify qword ptr (@_ulla), 0x12345678ffffffff;

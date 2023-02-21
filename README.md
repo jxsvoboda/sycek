@@ -229,12 +229,12 @@ Specifically, these language features are supported:
    (any number of arguments of total size up to appprox. 128 bytes)
  * Most arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
-   and integer type conversions
+   and integer type conversions, usual arithmetic conversions
 
 These are NOT supported:
 
  * Division and modulus (`/`, `%`)
- * Integer promotion and usual arithmetic conversion
+ * Integer promotion
  * Any other type than integer (pointers, structures, arrays, enumerated types,
    floating point)
  * Variadic functions

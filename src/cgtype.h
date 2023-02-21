@@ -43,5 +43,7 @@ extern int cgtype_clone(cgtype_t *, cgtype_t **);
 extern void cgtype_destroy(cgtype_t *);
 extern int cgtype_print(cgtype_t *, FILE *f);
 extern bool cgtype_is_void(cgtype_t *);
+extern cgtype_int_rank_t cgtype_int_rank(cgtype_t *);
+extern int cgtype_int_construct(bool, cgtype_int_rank_t, cgtype_t **);
 
 #endif

@@ -1,0 +1,10 @@
+<test/syc/ugly/mixsigncmp.c:25:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:30:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:35:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:40:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:45:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:50:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:55:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:60:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:65:23:'<'>: Warning: Unsigned comparison of mixed-sign integers.
+<test/syc/ugly/mixsigncmp.c:70:24:'<'>: Warning: Unsigned comparison of mixed-sign integers.

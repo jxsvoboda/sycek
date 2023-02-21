@@ -6093,10 +6093,19 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
     cgen_eres_t *res2, ir_lblock_t *lblock, cgen_eres_t *eres1,
     cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
-	cgtype_t *cgtype1 = NULL;
-	cgtype_t *cgtype2 = NULL;
+	cgtype_t *rtype = NULL;
 	cgen_eres_t pr1;
 	cgen_eres_t pr2;
+	cgtype_int_rank_t rank1;
+	cgtype_int_rank_t rank2;
+	cgtype_int_rank_t rrank;
+	bool sign1;
+	bool sign2;
+	bool rsign;
+	unsigned bits1;
+	unsigned bits2;
+	cgtype_basic_t *bt1;
+	cgtype_basic_t *bt2;
 	int rc;
 
 	cgen_eres_init(&pr1);
@@ -6114,6 +6123,44 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
 		goto error;
 	}
 
+	bt1 = (cgtype_basic_t *)res1->cgtype->ext;
+	bt2 = (cgtype_basic_t *)res2->cgtype->ext;
+
+	/* Get rank, bits and signedness of both operands */
+
+	rank1 = cgtype_int_rank(res1->cgtype);
+	sign1 = cgen_type_is_signed(cgproc->cgen, res1->cgtype);
+	bits1 = cgen_basic_type_bits(cgproc->cgen, bt1);
+
+	rank2 = cgtype_int_rank(res2->cgtype);
+	sign2 = cgen_type_is_signed(cgproc->cgen, res2->cgtype);
+	bits2 = cgen_basic_type_bits(cgproc->cgen, bt2);
+
+	/* Determine resulting rank */
+
+	rrank = rank1 > rank2 ? rank1 : rank2;
+
+	/* Determine resulting signedness */
+
+	*flags = cguac_none;
+
+	if (sign1 == sign2) {
+		rsign = sign1;
+	} else if ((sign1 && bits1 > bits2) || (sign2 && bits1 < bits2)) {
+		/*
+		 * The unsigned type can be wholly represented in
+		 * the signed type.
+		 */
+		rsign = true;
+	} else {
+		/*
+		 * Resulting type is unsigned.
+		 */
+		rsign = false;
+		/* XXX Signed smaller than unsigned */
+		*flags |= cguac_mix2u;
+	}
+
 	/* Promote both operands */
 
 	rc = cgen_eres_promoted_rvalue(cgproc, res1, lblock, &pr1);
@@ -6124,39 +6171,32 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
 	if (rc != EOK)
 		goto error;
 
-	/* For now we just copy both operands */
+	/* Construct result type */
 
-	rc = cgtype_clone(pr1.cgtype, &cgtype1);
+	rc = cgtype_int_construct(rsign, rrank, &rtype);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_clone(pr2.cgtype, &cgtype2);
+	/* Convert the promoted arguments to the result type */
+
+	rc = cgen_type_convert(cgproc, NULL, &pr1, rtype, cgen_explicit, lblock,
+	    eres1);
 	if (rc != EOK)
 		goto error;
 
-	eres1->varname = pr1.varname;
-	eres1->valtype = pr1.valtype;
-	eres1->cgtype = cgtype1;
-
-	eres2->varname = pr2.varname;
-	eres2->valtype = pr2.valtype;
-	eres2->cgtype = cgtype2;
-
-	*flags = cguac_none;
-
-	/* Indicate mixed signedness to unsigned conversion */
-	if (cgen_type_is_signed(cgproc->cgen, cgtype1) !=
-	    cgen_type_is_signed(cgproc->cgen, cgtype2))
-		*flags |= cguac_mix2u;
+	rc = cgen_type_convert(cgproc, NULL, &pr2, rtype, cgen_explicit, lblock,
+	    eres2);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&pr1);
 	cgen_eres_fini(&pr2);
+	cgtype_destroy(rtype);
 	return EOK;
 error:
 	cgen_eres_fini(&pr1);
 	cgen_eres_fini(&pr2);
-	cgtype_destroy(cgtype1);
-	cgtype_destroy(cgtype2);
+	cgtype_destroy(rtype);
 	return rc;
 }
 
@@ -6434,7 +6474,7 @@ error:
  * @param lblock IR labeled block to which the code should be appended
  * @param cres Place to store conversion result
  *
- * @return EOk or an error code
+ * @return EOK or an error code
  */
 static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
@@ -6443,10 +6483,9 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
 
-	tok = ast_tree_first_tok(aexpr);
-	ctok = (comp_tok_t *) tok->data;
-
 	if (ares->cgtype == NULL) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": NULL type!\n");
 		return cgen_eres_clone(ares, cres);
@@ -6470,6 +6509,8 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	if (ares->cgtype->ntype == cgn_basic &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic &&
 	    expl != cgen_explicit) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Truth value used as an integer.\n");
 		++cgproc->cgen->warnings;

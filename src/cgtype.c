@@ -547,3 +547,94 @@ bool cgtype_is_void(cgtype_t *cgtype)
 	basic = (cgtype_basic_t *)cgtype->ext;
 	return basic->elmtype == cgelm_void;
 }
+
+/** Determine integer rank of type.
+ *
+ * @param cgtype Code generator type (integer type)
+ * @return @c true iff type is void
+ */
+cgtype_int_rank_t cgtype_int_rank(cgtype_t *cgtype)
+{
+	cgtype_basic_t *basic;
+	cgtype_int_rank_t rank;
+
+	assert(cgtype->ntype == cgn_basic);
+
+	basic = (cgtype_basic_t *)cgtype->ext;
+
+	switch (basic->elmtype) {
+	case cgelm_void:
+		assert(false);
+		break;
+	case cgelm_char:
+	case cgelm_uchar:
+		rank = cgir_char;
+		break;
+	case cgelm_short:
+	case cgelm_ushort:
+		rank = cgir_short;
+		break;
+	case cgelm_int:
+	case cgelm_uint:
+		rank = cgir_int;
+		break;
+	case cgelm_long:
+	case cgelm_ulong:
+		rank = cgir_long;
+		break;
+	case cgelm_longlong:
+	case cgelm_ulonglong:
+		rank = cgir_longlong;
+		break;
+	case cgelm_logic:
+		rank = cgir_int;
+		break;
+	}
+
+	return rank;
+}
+
+/** Construct integer type from signedness and rank.
+ *
+ * @param sign True iff type should be signed
+ * @param rank Integer rank
+ * @param rtype Place to store new type
+ * @return EOK on success or an error code
+ */
+int cgtype_int_construct(bool sign, cgtype_int_rank_t rank, cgtype_t **rtype)
+{
+	cgtype_elmtype_t etsigned;
+	cgtype_elmtype_t etunsigned;
+	cgtype_basic_t *tbasic;
+	int rc;
+
+	switch (rank) {
+	case cgir_char:
+		etsigned = cgelm_char;
+		etunsigned = cgelm_uchar;
+		break;
+	case cgir_short:
+		etsigned = cgelm_short;
+		etunsigned = cgelm_ushort;
+		break;
+	case cgir_int:
+		etsigned = cgelm_int;
+		etunsigned = cgelm_uint;
+		break;
+	case cgir_long:
+		etsigned = cgelm_long;
+		etunsigned = cgelm_ulong;
+		break;
+	case cgir_longlong:
+		etsigned = cgelm_longlong;
+		etunsigned = cgelm_ulonglong;
+		break;
+	}
+
+	rc = cgtype_basic_create(sign ? etsigned : etunsigned, &tbasic);
+	if (rc != EOK)
+		return rc;
+
+	*rtype = &tbasic->cgtype;
+	return EOK;
+}

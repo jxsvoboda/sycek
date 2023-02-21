@@ -58,6 +58,24 @@ typedef enum {
 	cgelm_logic
 } cgtype_elmtype_t;
 
+/** Integer type rank.
+ *
+ * This is useful for determining the result type of Usual Arithmetic
+ * Conversion and is defined by the standard
+ */
+typedef enum {
+	/** Char is the lowest rank */
+	cgir_char,
+	/** Short */
+	cgir_short,
+	/** Int */
+	cgir_int,
+	/** Long */
+	cgir_long,
+	/** Long long is the highest rank */
+	cgir_longlong
+} cgtype_int_rank_t;
+
 /** Calling convention */
 typedef enum {
 	/** Default calling convention */
@@ -111,5 +129,4 @@ typedef struct {
 	/** Type of the pointer target */
 	cgtype_t *tgtype;
 } cgtype_pointer_t;
-
 #endif
