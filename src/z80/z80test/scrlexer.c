@@ -1196,6 +1196,7 @@ int scr_lexer_string_text(scr_lexer_tok_t *itok, char **rstr)
 				*dp++ = '\\';
 				break;
 			default:
+				free(str);
 				return EINVAL;
 			}
 		} else {

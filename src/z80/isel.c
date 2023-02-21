@@ -2547,7 +2547,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned destvr;
 	unsigned bits;
 	uint16_t rvoff;
-	unsigned rvavr;
+	unsigned rvavr = 0;
 	unsigned i;
 	int rc;
 

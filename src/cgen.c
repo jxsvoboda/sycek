@@ -8979,7 +8979,7 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
     ir_module_t *irmod)
 {
 	int rc;
-	ir_proc_t *proc;
+	ir_proc_t *proc = NULL;
 	symbol_t *symbol;
 	char *pident = NULL;
 	ir_proc_attr_t *irattr;

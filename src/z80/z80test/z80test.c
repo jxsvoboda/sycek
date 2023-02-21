@@ -436,44 +436,40 @@ static int script_parse_rm(script_t *script, regmem_t *regmem)
  */
 static int regmem_read(regmem_t *regmem, bool print, uint64_t *val)
 {
-	uint16_t addr;
-
-	addr = regmem->addr;
-
 	switch (regmem->rmtype) {
 	case rm_byte_ptr:
-		*val = mem[addr];
+		*val = mem[regmem->addr];
 		if (print) {
-			printf("byte ptr (0x%x) == 0x%x\n", addr,
+			printf("byte ptr (0x%x) == 0x%x\n", regmem->addr,
 			    (unsigned)*val);
 		}
 		break;
 	case rm_word_ptr:
-		*val = mem[addr] + (((uint16_t)mem[addr + 1]) << 8);
+		*val = mem[regmem->addr] + (((uint16_t)mem[regmem->addr + 1]) << 8);
 		if (print) {
-			printf("word ptr (0x%x) == 0x%x\n", addr,
+			printf("word ptr (0x%x) == 0x%x\n", regmem->addr,
 			    (unsigned)*val);
 		}
 		break;
 	case rm_dword_ptr:
-		*val = mem[addr] + (((uint32_t)mem[addr + 1]) << 8) +
-		    (((uint32_t)mem[addr + 2]) << 16) +
-		    (((uint32_t)mem[addr + 3]) << 24);
+		*val = mem[regmem->addr] + (((uint32_t)mem[regmem->addr + 1]) << 8) +
+		    (((uint32_t)mem[regmem->addr + 2]) << 16) +
+		    (((uint32_t)mem[regmem->addr + 3]) << 24);
 		if (print) {
-			printf("dword ptr (0x%x) == 0x%x\n", addr,
+			printf("dword ptr (0x%x) == 0x%x\n", regmem->addr,
 			    (unsigned)*val);
 		}
 		break;
 	case rm_qword_ptr:
-		*val = mem[addr] + (((uint64_t)mem[addr + 1]) << 8) +
-		    (((uint64_t)mem[addr + 2]) << 16) +
-		    (((uint64_t)mem[addr + 3]) << 24) +
-		    (((uint64_t)mem[addr + 4]) << 32) +
-		    (((uint64_t)mem[addr + 5]) << 40) +
-		    (((uint64_t)mem[addr + 6]) << 48) +
-		    (((uint64_t)mem[addr + 7]) << 56);
+		*val = mem[regmem->addr] + (((uint64_t)mem[regmem->addr + 1]) << 8) +
+		    (((uint64_t)mem[regmem->addr + 2]) << 16) +
+		    (((uint64_t)mem[regmem->addr + 3]) << 24) +
+		    (((uint64_t)mem[regmem->addr + 4]) << 32) +
+		    (((uint64_t)mem[regmem->addr + 5]) << 40) +
+		    (((uint64_t)mem[regmem->addr + 6]) << 48) +
+		    (((uint64_t)mem[regmem->addr + 7]) << 56);
 		if (print) {
-			printf("qword ptr (0x%x) == 0x%lx\n", addr,
+			printf("qword ptr (0x%x) == 0x%lx\n", regmem->addr,
 			    (unsigned long)*val);
 		}
 		break;
@@ -560,33 +556,29 @@ static int regmem_read(regmem_t *regmem, bool print, uint64_t *val)
  */
 static int regmem_write(regmem_t *regmem, uint64_t val)
 {
-	uint16_t addr;
-
-	addr = regmem->addr;
-
 	switch (regmem->rmtype) {
 	case rm_byte_ptr:
-		mem[addr] = val;
+		mem[regmem->addr] = val;
 		break;
 	case rm_word_ptr:
-		mem[addr] = val & 0xff;
-		mem[addr + 1] = val >> 8;
+		mem[regmem->addr] = val & 0xff;
+		mem[regmem->addr + 1] = val >> 8;
 		break;
 	case rm_dword_ptr:
-		mem[addr] = val & 0xff;
-		mem[addr + 1] = val >> 8;
-		mem[addr + 2] = val >> 16;
-		mem[addr + 3] = val >> 24;
+		mem[regmem->addr] = val & 0xff;
+		mem[regmem->addr + 1] = val >> 8;
+		mem[regmem->addr + 2] = val >> 16;
+		mem[regmem->addr + 3] = val >> 24;
 		break;
 	case rm_qword_ptr:
-		mem[addr] = val & 0xff;
-		mem[addr + 1] = val >> 8;
-		mem[addr + 2] = val >> 16;
-		mem[addr + 3] = val >> 24;
-		mem[addr + 4] = val >> 32;
-		mem[addr + 5] = val >> 40;
-		mem[addr + 6] = val >> 48;
-		mem[addr + 7] = val >> 56;
+		mem[regmem->addr] = val & 0xff;
+		mem[regmem->addr + 1] = val >> 8;
+		mem[regmem->addr + 2] = val >> 16;
+		mem[regmem->addr + 3] = val >> 24;
+		mem[regmem->addr + 4] = val >> 32;
+		mem[regmem->addr + 5] = val >> 40;
+		mem[regmem->addr + 6] = val >> 48;
+		mem[regmem->addr + 7] = val >> 56;
 		break;
 	case rm_AF:
 		cpus.r[rA] = val >> 8;
@@ -815,6 +807,8 @@ static int script_do_verify(script_t *script)
 		return rc;
 
 	rc = regmem_read(&rm, false, &rmval);
+	if (rc != 0)
+		return rc;
 
 	rc = script_match(script, stt_comma);
 	if (rc != 0)
