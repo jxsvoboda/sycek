@@ -1,0 +1,14 @@
+mapfile "ptrcast.map";
+ldbin "ptrcast.bin", 0x8000;
+
+ld word ptr (@_u), 0x1234;
+call @_ptr_cast_char_uint;
+verify word ptr (@_uc), 0x1234;
+
+ld word ptr (@_ul), 0x1234;
+call @_ptr_cast_uint_ulong;
+verify word ptr (@_u), 0x1234;
+
+ld word ptr (@_ull), 0x1234;
+call @_ptr_cast_ulong_ulonglong;
+verify word ptr (@_ul), 0x1234;

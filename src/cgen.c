@@ -5125,27 +5125,21 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
-	cgen_eres_t cres;
+	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
-	ast_tok_t *atok;
-	comp_tok_t *tok;
 	int rc;
 
 	cgen_eres_init(&bres);
-	cgen_eres_init(&cres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &dtype);
+	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &stype);
 	if (rc != EOK)
 		goto error;
 
-	if (ecast->decl->ntype != ant_dnoident) {
-		atok = ast_tree_first_tok(ecast->decl);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Unexpected or unimplemented declarator.\n");
-		++cgproc->cgen->warnings;
-	}
+	/* Declarator */
+	rc = cgen_decl(cgproc->cgen, stype, ecast->decl, NULL, &dtype);
+	if (rc != EOK)
+		goto error;
 
 	/* Evaluate expression */
 	rc = cgen_expr(cgproc, ecast->bexpr, lblock, &bres);
@@ -5153,22 +5147,18 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 		goto error;
 
 	rc = cgen_type_convert(cgproc, ecast->bexpr, &bres, dtype,
-	    cgen_explicit, lblock, &cres);
+	    cgen_explicit, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
-	eres->varname = cres.varname;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = dtype;
-	eres->valused = cgtype_is_void(dtype);
-
+	cgtype_destroy(dtype);
+	cgtype_destroy(stype);
 	cgen_eres_fini(&bres);
-	cgen_eres_fini(&cres);
 	return EOK;
 error:
 	cgen_eres_fini(&bres);
-	cgen_eres_fini(&cres);
 	cgtype_destroy(dtype);
+	cgtype_destroy(stype);
 	return rc;
 }
 
