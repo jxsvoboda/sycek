@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -473,6 +473,7 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 		*rcopy = NULL;
 		return EOK; // XXX
 	}
+
 	switch (orig->ntype) {
 	case cgn_basic:
 		return cgtype_basic_clone((cgtype_basic_t *) orig->ext, rcopy);
@@ -637,4 +638,29 @@ int cgtype_int_construct(bool sign, cgtype_int_rank_t rank, cgtype_t **rtype)
 
 	*rtype = &tbasic->cgtype;
 	return EOK;
+}
+
+/** Determine if two pointer types are compatible for conversion.
+ *
+ * @param sptr Source pointer type
+ * @param dptr Destination pointer type
+ */
+bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
+{
+	if (sptr->tgtype->ntype != dptr->tgtype->ntype)
+		return false;
+
+	switch (sptr->tgtype->ntype) {
+	case cgn_basic:
+		return ((cgtype_basic_t *)sptr->tgtype->ext)->elmtype ==
+		    ((cgtype_basic_t *)dptr->tgtype->ext)->elmtype;
+	case cgn_pointer:
+		return cgtype_ptr_compatible(
+		    (cgtype_pointer_t *)sptr->tgtype->ext,
+		    (cgtype_pointer_t *)dptr->tgtype->ext);
+	case cgn_func:
+		assert(false);
+		return false;
+	}
+	return true;
 }

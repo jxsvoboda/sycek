@@ -77,6 +77,10 @@ static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 
+enum {
+	cgen_pointer_bits = 16
+};
+
 /** Return the bit width of an arithmetic type.
  *
  * Note that this might depend on the memory model.
@@ -191,6 +195,30 @@ static bool cgen_type_is_integer(cgen_t *cgen, cgtype_t *cgtype)
 	default:
 		return false;
 	}
+}
+
+/** Return the size of a type in bytes.
+ *
+ * @param cgen Code generator
+ * @param tbasic Basic type
+ */
+static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_basic_t *tbasic;
+
+	switch (cgtype->ntype) {
+	case cgn_basic:
+		tbasic = (cgtype_basic_t *)cgtype->ext;
+		return cgen_basic_type_bits(cgen, tbasic) / 8;
+	case cgn_func:
+		assert(false);
+		return 0;
+	case cgn_pointer:
+		return cgen_pointer_bits / 8;
+	}
+
+	assert(false);
+	return 0;
 }
 
 /** Prefix identifier with '@' global variable prefix.
@@ -1511,6 +1539,47 @@ error:
 	return rc;
 }
 
+/** Generate code for pointer declarator.
+ *
+ * Base type (@a stype) determined by the declaration specifiers is
+ * further modified by the declarator and returned as @a *rdtype.
+ *
+ * @param cgen Code generator
+ * @param btype Type derived from declaration specifiers
+ * @param dptr Pointer declarator
+ * @param aslist Attribute specifier list
+ * @param rdtype Place to store pointer to the declared type
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
+    ast_aslist_t *aslist, cgtype_t **rdtype)
+{
+	cgtype_pointer_t *ptrtype;
+	cgtype_t *btype_copy = NULL;
+	int rc;
+
+	(void)cgen;
+	(void)dptr;
+
+	rc = cgtype_clone(btype, &btype_copy);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_pointer_create(btype_copy, &ptrtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_decl(cgen, &ptrtype->cgtype, dptr->bdecl, aslist, rdtype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(&ptrtype->cgtype);
+	return EOK;
+error:
+	cgtype_destroy(btype_copy);
+	return rc;
+}
+
 /** Generate code for declarator.
  *
  * Base type (@a stype) determined by the declaration specifiers is
@@ -1537,6 +1606,10 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 		break;
 	case ant_dfun:
 		rc = cgen_decl_fun(cgen, stype, (ast_dfun_t *) decl->ext,
+		    aslist, &dtype);
+		break;
+	case ant_dptr:
+		rc = cgen_decl_ptr(cgen, stype, (ast_dptr_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	default:
@@ -3901,16 +3974,18 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	int rc;
 
 	/* Check the type */
-	if (vres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)vres->cgtype->ext);
-	if (bits == 0) {
+	if (vres->cgtype->ntype == cgn_basic) {
+		bits = cgen_basic_type_bits(cgproc->cgen,
+		    (cgtype_basic_t *)vres->cgtype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented variable type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+	} else if (vres->cgtype->ntype == cgn_pointer) {
+		bits = cgen_pointer_bits;
+	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -4922,18 +4997,39 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 {
 	cgen_eres_t bres;
 	cgtype_t *cgtype;
+	comp_tok_t *tok;
+	cgtype_pointer_t *ptrtype;
 	int rc;
 
 	cgen_eres_init(&bres);
 
 	/* Evaluate expression as rvalue */
 	rc = cgen_expr_rvalue(cgproc, ederef->bexpr, lblock, &bres);
-	if (rc != EOK)
-		return rc;
+	if (rc != EOK) {
+		printf("error\n");
+		goto error;
+	}
 
-	// XXX This is not the correct type!
-	cgtype = bres.cgtype;
-	bres.cgtype = NULL;
+	/* Check that we are dereferencing a pointer */
+	if (bres.cgtype->ntype != cgn_pointer) {
+		/* Still some left */
+		tok = (comp_tok_t *) ederef->tasterisk.data;
+
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Dereference operator needs a pointer, got '");
+		(void) cgtype_print(bres.cgtype, stderr);
+		fprintf(stderr, "'.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Resulting type is the pointer target type */
+	ptrtype = (cgtype_pointer_t *)bres.cgtype->ext;
+	rc = cgtype_clone(ptrtype->tgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
 	cgen_eres_fini(&bres);
 
 	/* Return address as lvalue */
@@ -4941,6 +5037,9 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = cgtype;
 	return EOK;
+error:
+	cgen_eres_fini(&bres);
+	return rc;
 }
 
 /** Generate code for address expression.
@@ -4956,6 +5055,7 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
 {
 	cgen_eres_t bres;
 	cgtype_t *cgtype;
+	cgtype_pointer_t *ptrtype;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -4963,11 +5063,17 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
 	/* Evaluate expression as lvalue */
 	rc = cgen_expr_lvalue(cgproc, eaddr->bexpr, lblock, &bres);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
-	// XXX This is not the correct type!
-	cgtype = bres.cgtype;
+	/* Construct the type */
+	rc = cgtype_pointer_create(bres.cgtype, &ptrtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Ownership transferred to ptrtype */
 	bres.cgtype = NULL;
+
+	cgtype = &ptrtype->cgtype;
 	cgen_eres_fini(&bres);
 
 	/* Return address as rvalue */
@@ -4975,6 +5081,36 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	return EOK;
+error:
+	cgen_eres_fini(&bres);
+	return rc;
+}
+
+/** Generate code for sizeof expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param esizeof AST sizeof expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_esizeof(cgen_proc_t *cgproc, ast_esizeof_t *esizeof,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+
+	(void)lblock;
+	(void)eres;
+
+	(void)cgen_type_sizeof;
+
+	atok = ast_tree_first_tok(&esizeof->node);
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": This expression type is not implemented.\n");
+	cgproc->cgen->error = true; // TODO
+	return EINVAL;
 }
 
 /** Generate code for cast expression.
@@ -5819,6 +5955,9 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_esizeof:
+		rc = cgen_esizeof(cgproc, (ast_esizeof_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_ecast:
 		rc = cgen_ecast(cgproc, (ast_ecast_t *) expr->ext, lblock,
 		    eres);
@@ -5962,16 +6101,18 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 	}
 
 	/* Check the type */
-	if (res->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)res->cgtype->ext);
-	if (bits == 0) {
+	if (res->cgtype->ntype == cgn_basic) {
+		bits = cgen_basic_type_bits(cgproc->cgen,
+		    (cgtype_basic_t *)res->cgtype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented variable type.\n");
+			cgproc->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+	} else if (res->cgtype->ntype == cgn_pointer) {
+		bits = cgen_pointer_bits;
+	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -6463,6 +6604,56 @@ error:
 	return rc;
 }
 
+/** Convert expression result between two pointer types.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aexpr Expression - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_pointer(cgen_proc_t *cgproc, ast_node_t *aexpr,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	ast_tok_t *tok;
+	comp_tok_t *ctok;
+	cgtype_pointer_t *ptrtype1;
+	cgtype_pointer_t *ptrtype2;
+
+	(void)cgproc;
+	(void)aexpr;
+	(void)expl;
+	(void)lblock;
+
+	assert(ares->cgtype->ntype == cgn_pointer);
+	assert(dtype->ntype == cgn_pointer);
+
+	ptrtype1 = (cgtype_pointer_t *)ares->cgtype->ext;
+	ptrtype2 = (cgtype_pointer_t *)dtype->ext;
+
+	if (!cgtype_ptr_compatible(ptrtype1, ptrtype2) &&
+	    expl != cgen_explicit) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Converting from ");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, " to incompatible pointer type ");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, ".\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Return unchanged */
+	return cgen_eres_clone(ares, cres);
+}
+
 /** Convert expression result to the specified type.
  *
  * @param cgen Code generator for procedure
@@ -6506,6 +6697,14 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		    dtype, cres);
 	}
 
+	/* Source and destination types are pointers */
+	if (ares->cgtype->ntype == cgn_pointer &&
+	    dtype->ntype == cgn_pointer) {
+		/* Return unchanged */
+		return cgen_type_convert_pointer(cgproc, aexpr, ares, dtype,
+		    expl, lblock, cres);
+	}
+
 	if (ares->cgtype->ntype == cgn_basic &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic &&
 	    expl != cgen_explicit) {
@@ -6525,6 +6724,8 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 
 	if (dtype->ntype != cgn_basic ||
 	    ((cgtype_basic_t *)(dtype->ext))->elmtype != cgelm_int) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Converting to type ");
 		(void) cgtype_print(dtype, stderr);
@@ -6537,6 +6738,8 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	if (ares->cgtype->ntype != cgn_basic ||
 	    (((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_int &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_logic)) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Converting from type ");
 		(void) cgtype_print(ares->cgtype, stderr);
@@ -8702,7 +8905,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 
 	return EOK;
 error:
-	cgtype_destroy(stype);
 	ir_proc_destroy(proc);
 	cgen_proc_destroy(cgproc);
 	if (lblock != NULL)
@@ -8863,26 +9065,31 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *btype,
 	pident = NULL;
 	dblock = NULL;
 
-	if (stype->ntype != cgn_basic) {
+	if (stype->ntype == cgn_basic) {
+		bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
+		if (bits == 0) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Unimplemented variable type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		rc = ir_dentry_create_int(bits, initval, &dentry);
+		if (rc != EOK)
+			goto error;
+
+	} else if (stype->ntype == cgn_pointer) {
+		rc = ir_dentry_create_int(16, initval, &dentry);
+		if (rc != EOK)
+			goto error;
+	} else {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Unimplemented variable type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
-
-	bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
-	if (bits == 0) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Unimplemented variable type.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	rc = ir_dentry_create_int(bits, initval, &dentry);
-	if (rc != EOK)
-		goto error;
 
 	rc = ir_dblock_append(var->dblock, dentry);
 	if (rc != EOK)

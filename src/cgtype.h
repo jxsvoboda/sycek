@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -45,5 +45,6 @@ extern int cgtype_print(cgtype_t *, FILE *f);
 extern bool cgtype_is_void(cgtype_t *);
 extern cgtype_int_rank_t cgtype_int_rank(cgtype_t *);
 extern int cgtype_int_construct(bool, cgtype_int_rank_t, cgtype_t **);
+extern bool cgtype_ptr_compatible(cgtype_pointer_t *, cgtype_pointer_t *);
 
 #endif

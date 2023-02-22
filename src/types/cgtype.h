@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -129,4 +129,5 @@ typedef struct {
 	/** Type of the pointer target */
 	cgtype_t *tgtype;
 } cgtype_pointer_t;
+
 #endif
