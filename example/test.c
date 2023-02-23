@@ -407,16 +407,20 @@ int fillscr(void)
 	int i;
 
 	for (i = 0; i < 0x1800; i += 2)
-		*(0x4000 + i) = 0xffff;
+		*(unsigned *)(0x4000 + i) = 0xffff;
 	return 0;
 }
+
+// XXX Add support for declarators in local variables
+int *ptr;
 
 /* Test address operator (&) */
 int addr(void)
 {
-	int ptr;
+	int i;
 
-	ptr = &ptr;
+	i = 1;
+	ptr = &i;
 	return *ptr;
 }
 

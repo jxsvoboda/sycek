@@ -340,6 +340,9 @@ It can detect the following types of problems:
  * unsigned comparison of mixed-sign integers
  * bitwise operation on signed integers
  * conversion may loose significant digits
+ * implicit conversion between incompatible pointer types
+ * implicit conversion from integer to pointer
+ * converting to pointer from integer of different size
 
 Intermediate Representation
 ---------------------------

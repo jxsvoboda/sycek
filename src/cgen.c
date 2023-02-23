@@ -6615,10 +6615,10 @@ static int cgen_type_convert_pointer(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	comp_tok_t *ctok;
 	cgtype_pointer_t *ptrtype1;
 	cgtype_pointer_t *ptrtype2;
+	cgtype_t *cgtype;
+	int rc;
 
 	(void)cgproc;
-	(void)aexpr;
-	(void)expl;
 	(void)lblock;
 
 	assert(ares->cgtype->ntype == cgn_pointer);
@@ -6640,11 +6640,80 @@ static int cgen_type_convert_pointer(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		++cgproc->cgen->warnings;
 	}
 
-	/* Return unchanged */
-	return cgen_eres_clone(ares, cres);
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = ares->varname;
+	cres->valtype = ares->valtype;
+	cres->cgtype = cgtype;
+	cres->valused = ares->valused;
+error:
+	return rc;
 }
 
-/** Convert expression result to the specified type.
+/** Convert expression result from integer to pointer.
+ *
+ * @param cgproc Code generator for procedure
+ * @param aexpr Expression - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, ast_node_t *aexpr,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	ast_tok_t *tok;
+	comp_tok_t *ctok;
+	unsigned bits;
+	cgtype_t *cgtype;
+	int rc;
+
+	(void)lblock;
+
+	assert(ares->cgtype->ntype == cgn_basic);
+	assert(dtype->ntype == cgn_pointer);
+
+	bits = cgen_basic_type_bits(cgproc->cgen,
+	    (cgtype_basic_t *)ares->cgtype->ext);
+
+	if (expl != cgen_explicit) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from integer "
+		    "to pointer.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	if (bits != cgen_pointer_bits) {
+		tok = ast_tree_first_tok(aexpr);
+		ctok = (comp_tok_t *) tok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Converting to pointer from integer "
+		    "of different size.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = ares->varname;
+	cres->valtype = ares->valtype;
+	cres->cgtype = cgtype;
+	cres->valused = ares->valused;
+error:
+	return rc;
+}
+
+/** Convert value expression result to the specified type.
  *
  * @param cgen Code generator for procedure
  * @param aexpr Expression - only used to print diagnostics
@@ -6657,12 +6726,14 @@ static int cgen_type_convert_pointer(cgen_proc_t *cgproc, ast_node_t *aexpr,
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
+
+	assert(ares->valtype == cgen_rvalue);
 
 	if (ares->cgtype == NULL) {
 		tok = ast_tree_first_tok(aexpr);
@@ -6690,8 +6761,14 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	/* Source and destination types are pointers */
 	if (ares->cgtype->ntype == cgn_pointer &&
 	    dtype->ntype == cgn_pointer) {
-		/* Return unchanged */
 		return cgen_type_convert_pointer(cgproc, aexpr, ares, dtype,
+		    expl, lblock, cres);
+	}
+
+	/* Source and destination types are pointersZZZ */
+	if (cgen_type_is_integer(cgproc->cgen, ares->cgtype) &&
+	    dtype->ntype == cgn_pointer) {
+		return cgen_type_convert_int_ptr(cgproc, aexpr, ares, dtype,
 		    expl, lblock, cres);
 	}
 
@@ -6740,6 +6817,44 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	}
 
 	return cgen_eres_clone(ares, cres);
+}
+
+/** Convert expression result to the specified type.
+ *
+ * @param cgen Code generator for procedure
+ * @param aexpr Expression - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t rres;
+	int rc;
+
+	cgen_eres_init(&rres);
+
+	rc = cgen_eres_rvalue(cgproc, ares, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_type_convert_rval(cgproc, aexpr, &rres, dtype, expl, lblock,
+	    cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&rres);
+	return rc;
 }
 
 /** Generate code for a truth test / conditional jump.
