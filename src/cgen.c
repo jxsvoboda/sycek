@@ -8223,7 +8223,8 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	ir_lvar_t *lvar;
 	ir_texpr_t *vtype = NULL;
 	scope_member_t *member;
-	cgtype_t *stype;
+	cgtype_t *stype = NULL;
+	cgtype_t *dtype = NULL;
 	unsigned bits;
 	int rc;
 
@@ -8242,6 +8243,13 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
+		/* Process declarator */
+		rc = cgen_decl(cgproc->cgen, stype, identry->decl,
+		    identry->aslist, &dtype);
+		if (rc != EOK)
+			goto error;
+
+		/* Register assignment */
 		if (identry->regassign != NULL) {
 			tok = (comp_tok_t *) identry->regassign->tasm.data;
 			lexer_dprint_tok(&tok->tok, stderr);
@@ -8251,6 +8259,7 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			goto error;
 		}
 
+		/* Attribute specifier list */
 		if (identry->aslist != NULL) {
 			atok = ast_tree_first_tok(&identry->aslist->node);
 			tok = (comp_tok_t *) atok->data;
@@ -8261,17 +8270,18 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			goto error;
 		}
 
-		/* Check the type */
-		if (stype->ntype != cgn_basic) {
-			fprintf(stderr, "Unimplemented variable type.\n");
-			cgproc->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		bits = cgen_basic_type_bits(cgproc->cgen,
-		    (cgtype_basic_t *)stype->ext);
-		if (bits == 0) {
+		if (dtype->ntype == cgn_basic) {
+			bits = cgen_basic_type_bits(cgproc->cgen,
+			    (cgtype_basic_t *)dtype->ext);
+			if (bits == 0) {
+				fprintf(stderr, "Unimplemented variable type.\n");
+				cgproc->cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+		} else if (dtype->ntype == cgn_pointer) {
+			bits = cgen_pointer_bits;
+		} else {
 			fprintf(stderr, "Unimplemented variable type.\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
@@ -8310,7 +8320,7 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 		/* Insert identifier into current scope */
 		rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok,
-		    stype, vident);
+		    dtype, vident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -8321,6 +8331,9 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 				goto error;
 			}
 		}
+
+		cgtype_destroy(dtype);
+		dtype = NULL;
 
 		rc = ir_texpr_int_create(bits, &vtype);
 		if (rc != EOK)
@@ -8342,6 +8355,7 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	cgtype_destroy(stype);
 	return EOK;
 error:
+	cgtype_destroy(dtype);
 	cgtype_destroy(stype);
 	if (vident != NULL)
 		free(vident);
@@ -8607,17 +8621,18 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 		assert(dtarg != NULL);
 		stype = dtarg->atype;
 
-		/* Check the type */
-		if (stype->ntype != cgn_basic) {
-			fprintf(stderr, "Unimplemented argument type.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		bits = cgen_basic_type_bits(cgen,
-		    (cgtype_basic_t *)stype->ext);
-		if (bits == 0) {
+		if (stype->ntype == cgn_basic) {
+			bits = cgen_basic_type_bits(cgen,
+			    (cgtype_basic_t *)stype->ext);
+			if (bits == 0) {
+				fprintf(stderr, "Unimplemented argument type.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+		} else if (stype->ntype == cgn_pointer) {
+			bits = cgen_pointer_bits;
+		} else {
 			fprintf(stderr, "Unimplemented argument type.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
@@ -8784,7 +8799,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	char *pident = NULL;
 	char *arg_ident = NULL;
 	ast_tok_t *atok;
-	ast_dident_t *dident;
+	ast_tok_t *dident;
 	comp_tok_t *tok;
 	scope_member_t *member;
 	symbol_t *symbol;
@@ -8908,20 +8923,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	while (dtarg != NULL) {
 		stype = dtarg->atype;
 
-		if (arg->decl->ntype != ant_dident) {
-			atok = ast_tree_first_tok(arg->decl);
-			if (atok == NULL)
-				atok = ast_tree_first_tok(&arg->dspecs->node);
-			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Identifier expected.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		dident = (ast_dident_t *) arg->decl->ext;
-		tok = (comp_tok_t *) dident->tident.data;
+		dident = ast_decl_get_ident(arg->decl);
+		tok = (comp_tok_t *) dident->data;
 
 		if (arg->aslist != NULL) {
 			lexer_dprint_tok(&tok->tok, stderr);

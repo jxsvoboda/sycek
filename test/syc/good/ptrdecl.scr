@@ -1,0 +1,15 @@
+mapfile "ptrdecl.map";
+ldbin "ptrdecl.bin", 0x8000;
+
+/* Function gets pointer as first argument and saves to global variable */
+ld HL, @_i;
+call @_funptrdef;
+verify word ptr (@_ip), @_i;
+
+/*
+ * Function copies global variable ip into a local variable, then copies
+ * that into ip2.
+ */
+ld word ptr (@_ip), @_i;
+call @_ptrlocal;
+verify word ptr (@_ip2), @_i;
