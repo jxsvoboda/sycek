@@ -6765,7 +6765,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		    expl, lblock, cres);
 	}
 
-	/* Source and destination types are pointersZZZ */
+	/* Source and destination types are pointers */
 	if (cgen_type_is_integer(cgproc->cgen, ares->cgtype) &&
 	    dtype->ntype == cgn_pointer) {
 		return cgen_type_convert_int_ptr(cgproc, aexpr, ares, dtype,
@@ -7148,16 +7148,18 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 			goto error;
 
 		/* Check the type */
-		if (cgproc->rtype->ntype != cgn_basic) {
-			fprintf(stderr, "Unimplemented return type.\n");
-			cgproc->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		bits = cgen_basic_type_bits(cgproc->cgen,
-		    (cgtype_basic_t *)cgproc->rtype->ext);
-		if (bits == 0) {
+		if (cgproc->rtype->ntype == cgn_basic) {
+			bits = cgen_basic_type_bits(cgproc->cgen,
+			    (cgtype_basic_t *)cgproc->rtype->ext);
+			if (bits == 0) {
+				fprintf(stderr, "Unimplemented return type.\n");
+				cgproc->cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+		} else if (cgproc->rtype->ntype == cgn_pointer) {
+			bits = cgen_pointer_bits;
+		} else {
 			fprintf(stderr, "Unimplemented return type.\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
@@ -8692,21 +8694,24 @@ static int cgen_fun_rtype(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 	stype = dtfunc->rtype;
 
 	/* Check the type */
-	if (stype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented return type.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
+	if (stype->ntype == cgn_basic) {
+		/* Void? */
+		tbasic = (cgtype_basic_t *)stype->ext;
+		if (tbasic->elmtype == cgelm_void)
+			return EOK;
 
-	/* Void? */
-	tbasic = (cgtype_basic_t *)stype->ext;
-	if (tbasic->elmtype == cgelm_void)
-		return EOK;
-
-	bits = cgen_basic_type_bits(cgen,
-	    (cgtype_basic_t *)stype->ext);
-	if (bits == 0) {
+		bits = cgen_basic_type_bits(cgen,
+		    (cgtype_basic_t *)stype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented return type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+	} else if (stype->ntype == cgn_pointer) {
+		/* Pointer */
+		bits = cgen_pointer_bits;
+	} else {
 		fprintf(stderr, "Unimplemented return type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
@@ -8905,7 +8910,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	lblock = NULL;
 
 	/* Get the function declarator */
-	if (idle->decl->ntype != ant_dfun) {
+	dfun = ast_decl_get_dfun(idle->decl);
+	if (dfun == NULL) {
 		atok = ast_tree_first_tok(idle->decl);
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);

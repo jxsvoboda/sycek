@@ -4713,12 +4713,15 @@ bool ast_decl_is_ptrdecln(ast_node_t *decl)
 	}
 }
 
-/** Determine if declarator declares a function.
+/** Extract function declarator.
+ *
+ * If we have a declarator that declares a function, return the
+ * function declarator burried within. Otherwise, return @c NULL.
  *
  * @param decl Declarator
- * @return @c true iff declarator declares a function
+ * @return Function declarator or @c NULL if not declaring a function
  */
-bool ast_decl_is_fundecln(ast_node_t *decl)
+ast_dfun_t *ast_decl_get_dfun(ast_node_t *decl)
 {
 	ast_dparen_t *dparen;
 	ast_dptr_t *dptr;
@@ -4727,23 +4730,37 @@ bool ast_decl_is_fundecln(ast_node_t *decl)
 	switch (decl->ntype) {
 	case ant_dnoident:
 	case ant_dident:
-		return false;
+		return NULL;
 	case ant_dparen:
 		dparen = (ast_dparen_t *) decl->ext;
-		return ast_decl_is_fundecln(dparen->bdecl);
+		return ast_decl_get_dfun(dparen->bdecl);
 	case ant_dptr:
 		dptr = (ast_dptr_t *) decl->ext;
-		return ast_decl_is_fundecln(dptr->bdecl);
+		return ast_decl_get_dfun(dptr->bdecl);
 	case ant_dfun:
 		/* If it's not a pointer to a function, it's a function */
 		dfun = (ast_dfun_t *) decl->ext;
-		return !ast_decl_is_ptrdecln(dfun->bdecl);
+		if (!ast_decl_is_ptrdecln(dfun->bdecl))
+			return dfun;
+		else
+			return NULL;
+		break;
 	case ant_darray:
-		return false; // XXX May need to treat function returning array
+		return NULL; // XXX May need to treat function returning array
 	default:
 		assert(false);
-		return false;
+		return NULL;
 	}
+}
+
+/** Determine if declarator declares a function.
+ *
+ * @param decl Declarator
+ * @return @c true iff declarator declares a function
+ */
+bool ast_decl_is_fundecln(ast_node_t *decl)
+{
+	return ast_decl_get_dfun(decl) != NULL;
 }
 
 /** Determine if declarator declares a variable.

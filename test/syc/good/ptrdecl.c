@@ -27,3 +27,13 @@ void ptrlocal(void)
 	iplocal = ip;
 	ip2 = iplocal;
 }
+
+/* Declaration of function returning pointer */
+int *funrptr_decl(void);
+
+/** Definition of function returning pointer */
+int *funrptr_def(void)
+{
+	/* Return statement returning a pointer */
+	return &i;
+}

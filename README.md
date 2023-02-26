@@ -230,15 +230,20 @@ Specifically, these language features are supported:
  * Most arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
    and integer type conversions, usual arithmetic conversions
+ * Basic support for pointers
 
 These are NOT supported:
 
- * Division and modulus (`/`, `%`)
  * Integer promotion
- * Any other type than integer (pointers, structures, arrays, enumerated types,
-   floating point)
+ * Division and modulus (`/`, `%`)
+ * Pointer arithmetic
+ * Enums, structs, unions, bit fields, arrays, floating point
+ * Character and string literals
  * Variadic functions
  * Ternary operator
+ * Lvalue arguments
+ * Variable-length arrays
+ * Sizeof, alignof
 
 syc only starts after preprocessing stage (i.e. there must not be any
 preprocessor directives in the C source file) and outputs an .asm

@@ -13,3 +13,10 @@ verify word ptr (@_ip), @_i;
 ld word ptr (@_ip), @_i;
 call @_ptrlocal;
 verify word ptr (@_ip2), @_i;
+
+/*
+ * Function copies global variable ip into a local variable, then copies
+ * that into ip2.
+ */
+call @_funrptr_def;
+verify HL, @_i;

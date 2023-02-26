@@ -161,6 +161,7 @@ extern ast_tok_t *ast_decl_get_ident(ast_node_t *);
 extern bool ast_decl_is_ptrdecln(ast_node_t *);
 extern bool ast_decl_is_fundecln(ast_node_t *);
 extern bool ast_decl_is_vardecln(ast_node_t *);
+extern ast_dfun_t *ast_decl_get_dfun(ast_node_t *);
 extern ast_tok_t *ast_gdecln_get_ident(ast_gdecln_t *);
 extern int ast_eint_create(ast_eint_t **);
 extern int ast_echar_create(ast_echar_t **);
