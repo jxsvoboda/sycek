@@ -44,7 +44,7 @@ extern int ir_module_print(ir_module_t *, FILE *);
 extern void ir_module_destroy(ir_module_t *);
 extern int ir_decln_print(ir_decln_t *, FILE *);
 extern const char *ir_decln_ident(ir_decln_t *);
-extern int ir_var_create(const char *, ir_dblock_t *, ir_var_t **);
+extern int ir_var_create(const char *, ir_texpr_t *, ir_dblock_t *, ir_var_t **);
 extern void ir_var_destroy(ir_var_t *);
 extern int ir_var_print(ir_var_t *, FILE *);
 extern int ir_dblock_create(ir_dblock_t **);
@@ -113,6 +113,7 @@ extern ir_oper_t *ir_oper_list_prev(ir_oper_t *);
 extern int ir_texpr_int_create(unsigned, ir_texpr_t **);
 extern int ir_texpr_ptr_create(unsigned, ir_texpr_t **);
 extern int ir_texpr_print(ir_texpr_t *, FILE *);
+extern int ir_texpr_clone(ir_texpr_t *, ir_texpr_t **);
 extern size_t ir_texpr_sizeof(ir_texpr_t *);
 extern void ir_texpr_destroy(ir_texpr_t *);
 

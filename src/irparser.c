@@ -1151,6 +1151,7 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 	ir_lexer_tok_t itok;
 	ir_var_t *var = NULL;
 	ir_dblock_t *dblock = NULL;
+	ir_texpr_t *texpr = NULL;
 	char *ident = NULL;
 	int rc;
 
@@ -1174,6 +1175,16 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 	ident = strdup(itok.text);
 	ir_parser_skip(parser);
 
+	/* ':' */
+
+	rc = ir_parser_match(parser, itt_colon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_parser_process_texpr(parser, &texpr);
+	if (rc != EOK)
+		goto error;
+
 	/* Begin, end */
 
 	rc = ir_parser_match(parser, itt_begin);
@@ -1188,7 +1199,7 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_var_create(ident, dblock, &var);
+	rc = ir_var_create(ident, texpr, dblock, &var);
 	if (rc != EOK)
 		goto error;
 
@@ -1196,6 +1207,7 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 	free(ident);
 	return EOK;
 error:
+	ir_texpr_destroy(texpr);
 	if (ident != NULL)
 		free(ident);
 	if (var != NULL)

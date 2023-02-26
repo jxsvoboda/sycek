@@ -274,6 +274,8 @@ typedef struct {
 	ir_decln_t decln;
 	/** Indentifier */
 	char *ident;
+	/** Variable type */
+	ir_texpr_t *vtype;
 	/** Data block containing variable data */
 	ir_dblock_t *dblock;
 } ir_var_t;

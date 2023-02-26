@@ -347,12 +347,14 @@ const char *ir_decln_ident(ir_decln_t *decln)
 /** Create IR variable.
  *
  * @param ident Identifier (will be copied)
+ * @param vtype Variable type (ownership transferred)
  * @param dblock Data block
  * @param rvar Place to store pointer to new variable
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_var_create(const char *ident, ir_dblock_t *dblock, ir_var_t **rvar)
+int ir_var_create(const char *ident, ir_texpr_t *vtype, ir_dblock_t *dblock,
+    ir_var_t **rvar)
 {
 	ir_var_t *var;
 
@@ -367,6 +369,7 @@ int ir_var_create(const char *ident, ir_dblock_t *dblock, ir_var_t **rvar)
 	}
 
 	assert(dblock != NULL);
+	var->vtype = vtype;
 	var->dblock = dblock;
 	var->decln.dtype = ird_var;
 	var->decln.ext = (void *) var;
@@ -385,11 +388,15 @@ int ir_var_print(ir_var_t *var, FILE *f)
 	int rv;
 	int rc;
 
-	rv = fprintf(f, "\nvar %s\n", var->ident);
+	rv = fprintf(f, "\nvar %s : ", var->ident);
 	if (rv < 0)
 		return EIO;
 
-	rv = fprintf(f, "begin\n");
+	rc = ir_texpr_print(var->vtype, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fprintf(f, "\nbegin\n");
 	if (rv < 0)
 		return EIO;
 
@@ -416,6 +423,7 @@ void ir_var_destroy(ir_var_t *var)
 	if (var->ident != NULL)
 		free(var->ident);
 
+	ir_texpr_destroy(var->vtype);
 	ir_dblock_destroy(var->dblock);
 	free(var);
 }
@@ -1942,6 +1950,50 @@ int ir_texpr_int_create(unsigned width, ir_texpr_t **rtexpr)
 	return EOK;
 }
 
+/** Print IR integer type expression.
+ *
+ * @param irtype IR integer type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_int_print(ir_texpr_t *texpr, FILE *f)
+{
+	int rv;
+
+	assert(texpr->tetype == irt_int);
+
+	rv = fprintf(f, "int.%u", texpr->t.tint.width);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Clone IR integer type expression.
+ *
+ * @param irtype IR integer type expression
+ * @param rcopy Place to store pointer to the copy
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_int_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
+{
+	assert(texpr->tetype == irt_int);
+	return ir_texpr_int_create(texpr->t.tint.width, rcopy);
+}
+
+/** Get size of type described by IR integer type expression in bytes.
+ *
+ * @param irtype IR integer type expression
+ * @return Size in bytes
+ */
+static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_int);
+
+	/* Convert bits to bytes */
+	return (texpr->t.tint.width + 7) / 8;
+}
+
 /** Create IR pointer type expression.
  *
  * @param width Number of bits
@@ -1959,25 +2011,6 @@ int ir_texpr_ptr_create(unsigned width, ir_texpr_t **rtexpr)
 	texpr->tetype = irt_ptr;
 	texpr->t.tptr.width = width;
 	*rtexpr = texpr;
-	return EOK;
-}
-
-/** Print IR integer type expression.
- *
- * @param irtype IR integer type expression
- * @param f Output file
- * @return EOK on success or an error code
- */
-static int ir_texpr_int_print(ir_texpr_t *texpr, FILE *f)
-{
-	int rv;
-
-	assert(texpr->tetype == irt_int);
-
-	rv = fprintf(f, "int.%u", texpr->t.tint.width);
-	if (rv < 0)
-		return EIO;
-
 	return EOK;
 }
 
@@ -2000,6 +2033,31 @@ static int ir_texpr_ptr_print(ir_texpr_t *texpr, FILE *f)
 	return EOK;
 }
 
+/** Clone IR pointer type expression.
+ *
+ * @param irtype IR integer type expression
+ * @param rcopy Place to store pointer to the copy
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_ptr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
+{
+	assert(texpr->tetype == irt_ptr);
+	return ir_texpr_int_create(texpr->t.tptr.width, rcopy);
+}
+
+/** Get size of type described by IR pointer type expression in bytes.
+ *
+ * @param irtype IR integer type expression
+ * @return Size in bytes
+ */
+static size_t ir_texpr_ptr_sizeof(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_ptr);
+
+	/* Convert bits to bytes */
+	return (texpr->t.tptr.width + 7) / 8;
+}
+
 /** Print IR type expression.
  *
  * @param irtype IR type expression
@@ -2019,30 +2077,23 @@ int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
 	return EIO;
 }
 
-/** Get size of type described by IR integer type expression in bytes.
+/** Clone IR type expression.
  *
- * @param irtype IR integer type expression
- * @return Size in bytes
+ * @param irtype IR type expression
+ * @param rcopy Place to store pointer to the copy
+ * @return EOK on success or an error code
  */
-static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
+int ir_texpr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 {
-	assert(texpr->tetype == irt_int);
+	switch (texpr->tetype) {
+	case irt_int:
+		return ir_texpr_int_clone(texpr, rcopy);
+	case irt_ptr:
+		return ir_texpr_ptr_clone(texpr, rcopy);
+	}
 
-	/* Convert bits to bytes */
-	return (texpr->t.tint.width + 7) / 8;
-}
-
-/** Get size of type described by IR pointer type expression in bytes.
- *
- * @param irtype IR integer type expression
- * @return Size in bytes
- */
-static size_t ir_texpr_ptr_sizeof(ir_texpr_t *texpr)
-{
-	assert(texpr->tetype == irt_ptr);
-
-	/* Convert bits to bytes */
-	return (texpr->t.tptr.width + 7) / 8;
+	assert(false);
+	return EIO;
 }
 
 /** Get size of type described by IR type expression in bytes.

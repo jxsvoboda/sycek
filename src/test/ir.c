@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -117,8 +117,15 @@ static int test_ir_module(void)
 static int test_ir_var(void)
 {
 	ir_var_t *var = NULL;
+	ir_texpr_t *texpr = NULL;
 	ir_dblock_t *dblock = NULL;
 	int rc;
+
+	rc = ir_texpr_int_create(16, &texpr);
+	if (rc != EOK)
+		return rc;
+
+	assert(texpr != NULL);
 
 	rc = ir_dblock_create(&dblock);
 	if (rc != EOK)
@@ -126,7 +133,7 @@ static int test_ir_var(void)
 
 	assert(dblock != NULL);
 
-	rc = ir_var_create("@myvar", dblock, &var);
+	rc = ir_var_create("@myvar", texpr, dblock, &var);
 	if (rc != EOK)
 		return rc;
 
@@ -136,6 +143,7 @@ static int test_ir_var(void)
 	if (rc != EOK)
 		return rc;
 
+	ir_texpr_destroy(texpr);
 	ir_var_destroy(var);
 
 	return EOK;

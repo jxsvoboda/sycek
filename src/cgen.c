@@ -8908,8 +8908,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 		goto error;
 	}
 
-	dfun = (ast_dfun_t *)idle->decl->ext;
-
 	/* Arguments */
 	arg = ast_dfun_first(dfun);
 	dtarg = cgtype_func_first(dtfunc);
@@ -9084,12 +9082,12 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln,
 /** Generate code for global variable definition.
  *
  * @param cgen Code generator
- * @param btype Base type (based on declaration specifiers)
+ * @param dtype Variable type
  * @param entry Init-declarator list entry that declares a variable
  * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_vardef(cgen_t *cgen, cgtype_t *btype,
+static int cgen_vardef(cgen_t *cgen, cgtype_t *stype,
     ast_idlist_entry_t *entry, ir_module_t *irmod)
 {
 	ir_var_t *var = NULL;
@@ -9103,18 +9101,13 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *btype,
 	comp_tok_t *tok;
 	char *pident = NULL;
 	int64_t initval;
-	cgtype_t *stype = NULL;
 	cgtype_elmtype_t elmtype;
+	ir_texpr_t *vtype = NULL;
 	unsigned bits;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
-
-	/* Variable type (XXX process declarators) */
-	rc = cgtype_clone(btype, &stype);
-	if (rc != EOK)
-		goto error;
 
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
@@ -9158,12 +9151,17 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *btype,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_var_create(pident, dblock, &var);
+	rc = cgen_cgtype(cgen, stype, &vtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_var_create(pident, vtype, dblock, &var);
 	if (rc != EOK)
 		goto error;
 
 	free(pident);
 	pident = NULL;
+	vtype = NULL;
 	dblock = NULL;
 
 	if (stype->ntype == cgn_basic) {
@@ -9201,14 +9199,13 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *btype,
 	ir_module_append(irmod, &var->decln);
 	var = NULL;
 
-	cgtype_destroy(stype);
 	return EOK;
 error:
 	ir_var_destroy(var);
 	ir_dentry_destroy(dentry);
 	if (pident != NULL)
 		free(pident);
-	cgtype_destroy(stype);
+	ir_texpr_destroy(vtype);
 	return rc;
 }
 
