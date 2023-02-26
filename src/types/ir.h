@@ -240,7 +240,10 @@ typedef struct {
 
 /** IR type type */
 typedef enum {
-	irt_int
+	/** Integer type */
+	irt_int,
+	/** Pointer type */
+	irt_ptr
 } ir_tetype_t;
 
 /** Integer type */
@@ -249,12 +252,19 @@ typedef struct {
 	unsigned width;
 } ir_type_int_t;
 
+/** Pointer type */
+typedef struct {
+	/** Number of bits */
+	unsigned width;
+} ir_type_ptr_t;
+
 /** IR type expression */
 typedef struct {
 	/** Type expression type */
 	ir_tetype_t tetype;
 	union {
 		ir_type_int_t tint;
+		ir_type_ptr_t tptr;
 	} t;
 } ir_texpr_t;
 

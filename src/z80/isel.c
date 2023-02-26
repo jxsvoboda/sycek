@@ -310,10 +310,12 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 	int rc;
 
 	if (irproc->rtype != NULL) {
-		assert(irproc->rtype->tetype == irt_int);
+		assert(irproc->rtype->tetype == irt_int ||
+		    irproc->rtype->tetype == irt_ptr);
 
 		/* Add hidden first argument for returning 64-bit value */
-		if (irproc->rtype->t.tint.width == 64) {
+		if (irproc->rtype->tetype == irt_int &&
+		    irproc->rtype->t.tint.width == 64) {
 			rc = z80_varmap_insert(isproc->varmap, "%.retval", 1);
 			if (rc != EOK)
 				return rc;
@@ -2621,13 +2623,15 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			goto error;
 		}
 
-		if (parg->atype->tetype != irt_int) {
+		if (parg->atype->tetype == irt_int) {
+			bits = parg->atype->t.tint.width;
+		} else if (parg->atype->tetype == irt_ptr) {
+			bits = parg->atype->t.tptr.width;
+		} else {
 			fprintf(stderr, "Unsupported argument type (%d)\n",
 			    parg->atype->tetype);
 			goto error;
 		}
-
-		bits = parg->atype->t.tint.width;
 
 		assert(arg->optype == iro_var);
 		argvar = (ir_oper_var_t *) arg->ext;
@@ -8248,25 +8252,29 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 	fpoff = 4;
 
 	if (irproc->rtype != NULL) {
-		assert(irproc->rtype->tetype == irt_int);
+		assert(irproc->rtype->tetype == irt_int ||
+		    irproc->rtype->tetype == irt_ptr);
 
 		/* Add hidden first argument for returning 64-bit value */
-		if (irproc->rtype->t.tint.width == 64) {
-			rc = z80_isel_proc_arg(isel, "%.retval", 16, &vrno, &fpoff, argloc,
-			    lblock);
+		if (irproc->rtype->tetype == irt_int &&
+		    irproc->rtype->t.tint.width == 64) {
+			rc = z80_isel_proc_arg(isel, "%.retval", 16, &vrno,
+			    &fpoff, argloc, lblock);
 			if (rc != EOK)
 				goto error;
 		}
 	}
 
 	while (arg != NULL) {
-		if (arg->atype->tetype != irt_int) {
+		if (arg->atype->tetype == irt_int) {
+			bits = arg->atype->t.tint.width;
+		} else if (arg->atype->tetype == irt_ptr) {
+			bits = arg->atype->t.tptr.width;
+		} else {
 			fprintf(stderr, "Unsupported argument type (%d)\n",
 			    arg->atype->tetype);
 			goto error;
 		}
-
-		bits = arg->atype->t.tint.width;
 
 		rc = z80_isel_proc_arg(isel, arg->ident, bits, &vrno, &fpoff, argloc, lblock);
 		if (rc != EOK)

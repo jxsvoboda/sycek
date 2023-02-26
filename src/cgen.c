@@ -76,6 +76,7 @@ static void cgen_switch_destroy(cgen_switch_t *);
 static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
+static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 
 enum {
 	cgen_pointer_bits = 16
@@ -8227,7 +8228,6 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	scope_member_t *member;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
-	unsigned bits;
 	int rc;
 
 	(void) lblock;
@@ -8267,24 +8267,6 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			tok = (comp_tok_t *) atok->data;
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
-			cgproc->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		if (dtype->ntype == cgn_basic) {
-			bits = cgen_basic_type_bits(cgproc->cgen,
-			    (cgtype_basic_t *)dtype->ext);
-			if (bits == 0) {
-				fprintf(stderr, "Unimplemented variable type.\n");
-				cgproc->cgen->error = true; // TODO
-				rc = EINVAL;
-				goto error;
-			}
-		} else if (dtype->ntype == cgn_pointer) {
-			bits = cgen_pointer_bits;
-		} else {
-			fprintf(stderr, "Unimplemented variable type.\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -8334,12 +8316,12 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			}
 		}
 
-		cgtype_destroy(dtype);
-		dtype = NULL;
-
-		rc = ir_texpr_int_create(bits, &vtype);
+		rc = cgen_cgtype(cgproc->cgen, dtype, &vtype);
 		if (rc != EOK)
 			goto error;
+
+		cgtype_destroy(dtype);
+		dtype = NULL;
 
 		rc = ir_lvar_create(vident, vtype, &lvar);
 		if (rc != EOK)
@@ -8607,7 +8589,6 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 	cgtype_func_t *dtfunc;
 	cgtype_func_arg_t *dtarg;
 	cgtype_t *stype;
-	unsigned bits;
 	unsigned next_var;
 	int rc;
 	int rv;
@@ -8623,31 +8604,13 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 		assert(dtarg != NULL);
 		stype = dtarg->atype;
 
-		if (stype->ntype == cgn_basic) {
-			bits = cgen_basic_type_bits(cgen,
-			    (cgtype_basic_t *)stype->ext);
-			if (bits == 0) {
-				fprintf(stderr, "Unimplemented argument type.\n");
-				cgen->error = true; // TODO
-				rc = EINVAL;
-				goto error;
-			}
-		} else if (stype->ntype == cgn_pointer) {
-			bits = cgen_pointer_bits;
-		} else {
-			fprintf(stderr, "Unimplemented argument type.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
 		rv = asprintf(&arg_ident, "%%%d", next_var++);
 		if (rv < 0) {
 			rc = ENOMEM;
 			goto error;
 		}
 
-		rc = ir_texpr_int_create(bits, &atype);
+		rc = cgen_cgtype(cgen, stype, &atype);
 		if (rc != EOK)
 			goto error;
 
@@ -8672,6 +8635,57 @@ error:
 	return rc;
 }
 
+/** Generate IR type expression for CG type.
+ *
+ * @param cgen Code generator
+ * @param cgtype CG type
+ * @param rirtexpr Place to store pointer to IR type expression
+ * @return EOK on success or an error code
+ */
+static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
+{
+	cgtype_basic_t *tbasic;
+	unsigned bits;
+	int rc;
+
+	/* Check the type */
+	if (cgtype->ntype == cgn_basic) {
+		/* Void? */
+		tbasic = (cgtype_basic_t *)cgtype->ext;
+		if (tbasic->elmtype == cgelm_void)
+			return EOK;
+
+		bits = cgen_basic_type_bits(cgen,
+		    (cgtype_basic_t *)cgtype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		rc = ir_texpr_int_create(bits, rirtexpr);
+		if (rc != EOK)
+			goto error;
+
+	} else if (cgtype->ntype == cgn_pointer) {
+		/* Pointer */
+
+		rc = ir_texpr_ptr_create(cgen_pointer_bits, rirtexpr);
+		if (rc != EOK)
+			goto error;
+	} else {
+		fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate code for function return type.
  *
  * Add return type to IR procedure based on CG function type.
@@ -8685,40 +8699,13 @@ static int cgen_fun_rtype(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 {
 	cgtype_func_t *dtfunc;
 	cgtype_t *stype;
-	cgtype_basic_t *tbasic;
-	unsigned bits;
 	int rc;
 
 	assert(ftype->ntype == cgn_func);
 	dtfunc = (cgtype_func_t *)ftype->ext;
 	stype = dtfunc->rtype;
 
-	/* Check the type */
-	if (stype->ntype == cgn_basic) {
-		/* Void? */
-		tbasic = (cgtype_basic_t *)stype->ext;
-		if (tbasic->elmtype == cgelm_void)
-			return EOK;
-
-		bits = cgen_basic_type_bits(cgen,
-		    (cgtype_basic_t *)stype->ext);
-		if (bits == 0) {
-			fprintf(stderr, "Unimplemented return type.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-	} else if (stype->ntype == cgn_pointer) {
-		/* Pointer */
-		bits = cgen_pointer_bits;
-	} else {
-		fprintf(stderr, "Unimplemented return type.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	rc = ir_texpr_int_create(bits, &proc->rtype);
+	rc = cgen_cgtype(cgen, stype, &proc->rtype);
 	if (rc != EOK)
 		goto error;
 

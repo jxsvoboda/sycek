@@ -614,14 +614,14 @@ error:
 	return rc;
 }
 
-/** Parse IR type expression.
+/** Parse IR int type expression.
  *
  * @param parser IR parser
  * @param rtexpr Place to store pointer to new type expression
  *
  * @return EOK on success or non-zero error code
  */
-static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
+static int ir_parser_process_int_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 {
 	ir_lexer_tok_t itok;
 	ir_texpr_t *texpr = NULL;
@@ -672,6 +672,92 @@ error:
 	if (texpr != NULL)
 		ir_texpr_destroy(texpr);
 	return rc;
+}
+
+/** Parse IR ptr type expression.
+ *
+ * @param parser IR parser
+ * @param rtexpr Place to store pointer to new type expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_ptr_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
+{
+	ir_lexer_tok_t itok;
+	ir_texpr_t *texpr = NULL;
+	int32_t width;
+	int rc;
+
+	/* 'ptr' keyword */
+
+	rc = ir_parser_match(parser, itt_ptr);
+	if (rc != EOK)
+		goto error;
+
+	/* '.' */
+
+	rc = ir_parser_match(parser, itt_period);
+	if (rc != EOK)
+		goto error;
+
+	/* Width */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_number) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_lexer_number_val(&itok, &width);
+	if (rc != EOK) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " is not a valid number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	ir_parser_skip(parser);
+
+	rc = ir_texpr_ptr_create(width, &texpr);
+	if (rc != EOK)
+		goto error;
+
+	*rtexpr = texpr;
+	return EOK;
+error:
+	if (texpr != NULL)
+		ir_texpr_destroy(texpr);
+	return rc;
+}
+
+/** Parse IR type expression.
+ *
+ * @param parser IR parser
+ * @param rtexpr Place to store pointer to new type expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
+{
+	ir_lexer_toktype_t itt;
+
+	itt = ir_parser_next_ttype(parser);
+
+	switch (itt) {
+	case itt_int:
+		return ir_parser_process_int_texpr(parser, rtexpr);
+	case itt_ptr:
+		return ir_parser_process_ptr_texpr(parser, rtexpr);
+	default:
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected type expression.\n");
+		return EINVAL;
+	}
 }
 
 /** Parse IR procedure declaration.

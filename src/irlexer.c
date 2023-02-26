@@ -623,7 +623,7 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		return ir_lexer_invalid(lexer, tok);
 	case 'c':
 		if (p[1] == 'a' && p[2] == 'l' && p[3] == 'l' &&
-		    !is_idcnt(p[5])) {
+		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_call, 4, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
@@ -727,6 +727,9 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'r' && p[2] == 'o' && p[3] == 'c' &&
 		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_proc, 4, tok);
+		}
+		if (p[1] == 't' && p[2] == 'r' && !is_idcnt(p[3])) {
+			return ir_lexer_keyword(lexer, itt_ptr, 3, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'r':
@@ -943,6 +946,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'or'";
 	case itt_proc:
 		return "'proc'";
+	case itt_ptr:
+		return "'ptr'";
 	case itt_read:
 		return "'read'";
 	case itt_ret:

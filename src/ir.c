@@ -1942,6 +1942,26 @@ int ir_texpr_int_create(unsigned width, ir_texpr_t **rtexpr)
 	return EOK;
 }
 
+/** Create IR pointer type expression.
+ *
+ * @param width Number of bits
+ * @param rtexpr Place to store pointer to new type expression
+ * @return EOK on success or an error code
+ */
+int ir_texpr_ptr_create(unsigned width, ir_texpr_t **rtexpr)
+{
+	ir_texpr_t *texpr;
+
+	texpr = calloc(1, sizeof(ir_texpr_t));
+	if (texpr == NULL)
+		return ENOMEM;
+
+	texpr->tetype = irt_ptr;
+	texpr->t.tptr.width = width;
+	*rtexpr = texpr;
+	return EOK;
+}
+
 /** Print IR integer type expression.
  *
  * @param irtype IR integer type expression
@@ -1961,6 +1981,25 @@ static int ir_texpr_int_print(ir_texpr_t *texpr, FILE *f)
 	return EOK;
 }
 
+/** Print IR pointer type expression.
+ *
+ * @param irtype IR integer type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_ptr_print(ir_texpr_t *texpr, FILE *f)
+{
+	int rv;
+
+	assert(texpr->tetype == irt_ptr);
+
+	rv = fprintf(f, "ptr.%u", texpr->t.tptr.width);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Print IR type expression.
  *
  * @param irtype IR type expression
@@ -1972,6 +2011,8 @@ int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
 	switch (texpr->tetype) {
 	case irt_int:
 		return ir_texpr_int_print(texpr, f);
+	case irt_ptr:
+		return ir_texpr_ptr_print(texpr, f);
 	}
 
 	assert(false);
@@ -1991,6 +2032,19 @@ static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
 	return (texpr->t.tint.width + 7) / 8;
 }
 
+/** Get size of type described by IR pointer type expression in bytes.
+ *
+ * @param irtype IR integer type expression
+ * @return Size in bytes
+ */
+static size_t ir_texpr_ptr_sizeof(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_ptr);
+
+	/* Convert bits to bytes */
+	return (texpr->t.tptr.width + 7) / 8;
+}
+
 /** Get size of type described by IR type expression in bytes.
  *
  * @param irtype IR type expression
@@ -2001,6 +2055,8 @@ size_t ir_texpr_sizeof(ir_texpr_t *texpr)
 	switch (texpr->tetype) {
 	case irt_int:
 		return ir_texpr_int_sizeof(texpr);
+	case irt_ptr:
+		return ir_texpr_ptr_sizeof(texpr);
 	}
 
 	assert(false);
