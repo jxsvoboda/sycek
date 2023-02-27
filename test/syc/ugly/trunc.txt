@@ -1,6 +1,6 @@
-<test/syc/ugly/trunc.c:12:13:id:i>: Warning: Conversion may loose significant digits.
-<test/syc/ugly/trunc.c:17:13:id:l>: Warning: Conversion may loose significant digits.
-<test/syc/ugly/trunc.c:22:13-14:id:ll>: Warning: Conversion may loose significant digits.
-<test/syc/ugly/trunc.c:27:13:id:l>: Warning: Conversion may loose significant digits.
-<test/syc/ugly/trunc.c:32:13-14:id:ll>: Warning: Conversion may loose significant digits.
-<test/syc/ugly/trunc.c:37:13-14:id:ll>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/trunc.c:12:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/trunc.c:17:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/trunc.c:22:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/trunc.c:27:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/trunc.c:32:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/trunc.c:37:11:'='>: Warning: Conversion may loose significant digits.

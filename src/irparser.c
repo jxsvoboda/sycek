@@ -34,6 +34,7 @@
 #include <string.h>
 
 static int ir_parser_process_oper(ir_parser_t *, ir_oper_t **);
+static int ir_parser_process_texpr(ir_parser_t *, ir_texpr_t **);
 
 /** Create IR parser.
  *
@@ -449,6 +450,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_or:
 		instr->itype = iri_or;
 		break;
+	case itt_ptridx:
+		instr->itype = iri_ptridx;
+		break;
 	case itt_read:
 		instr->itype = iri_read;
 		break;
@@ -552,6 +556,16 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	if (itt == itt_comma) {
 		ir_parser_skip(parser);
 		rc = ir_parser_process_oper(parser, &instr->op2);
+		if (rc != EOK)
+			goto error;
+	}
+
+	/* Type operand (optional) */
+
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_comma) {
+		ir_parser_skip(parser);
+		rc = ir_parser_process_texpr(parser, &instr->opt);
 		if (rc != EOK)
 			goto error;
 	}

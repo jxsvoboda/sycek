@@ -67,6 +67,7 @@ static const char *instr_name[] = {
 	[iri_neq] = "neq",
 	[iri_nop] = "nop",
 	[iri_or] = "or",
+	[iri_ptridx] = "ptridx",
 	[iri_read] = "read",
 	[iri_ret] = "ret",
 	[iri_retv] = "retv",
@@ -87,6 +88,7 @@ static bool instr_has_width[] = {
 	[iri_gtu] = true,
 	[iri_gteq] = true,
 	[iri_gteu] = true,
+	[iri_ptridx] = true,
 	[iri_shl] = true,
 	[iri_shra] = true,
 	[iri_shrl] = true,
@@ -1601,6 +1603,16 @@ int ir_instr_print(ir_instr_t *instr, FILE *f)
 			return rc;
 	}
 
+	if (instr->opt != NULL) {
+		rv = fputs(", ", f);
+		if (rv < 0)
+			return EIO;
+
+		rc = ir_texpr_print(instr->opt, f);
+		if (rc != EOK)
+			return rc;
+	}
+
 	rv = fputs(";\n", f);
 	if (rv < 0)
 		return EIO;
@@ -1620,6 +1632,7 @@ void ir_instr_destroy(ir_instr_t *instr)
 	ir_oper_destroy(instr->dest);
 	ir_oper_destroy(instr->op1);
 	ir_oper_destroy(instr->op2);
+	ir_texpr_destroy(instr->opt);
 	free(instr);
 }
 

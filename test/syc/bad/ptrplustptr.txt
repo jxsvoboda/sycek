@@ -1,0 +1,1 @@
+<test/syc/bad/ptrplustptr.c:12:17:'+'>: Cannot add ^int and ^int.

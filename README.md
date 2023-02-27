@@ -236,7 +236,7 @@ These are NOT supported:
 
  * Integer promotion
  * Division and modulus (`/`, `%`)
- * Pointer arithmetic
+ * Pointer difference
  * Enums, structs, unions, bit fields, arrays, floating point
  * Character and string literals
  * Variadic functions
@@ -348,6 +348,7 @@ It can detect the following types of problems:
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * converting to pointer from integer of different size
+ * pointer should be the left operand while indexing
 
 Intermediate Representation
 ---------------------------

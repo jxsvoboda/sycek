@@ -1,0 +1,14 @@
+mapfile "ptridx.map";
+ldbin "ptridx.bin", 0x8000;
+
+/* Pointer + 8-bit index */
+ld word ptr (@_p), 0x4000;
+ld byte ptr (@_cidx), 0x10;
+call @_ptridx_char;
+verify word ptr (@_dp), 0x4020;
+
+/* Pointer + 16-bit index */
+ld word ptr (@_p), 0x4000;
+ld word ptr (@_idx), 0x10;
+call @_ptridx_int;
+verify word ptr (@_dp), 0x4020;

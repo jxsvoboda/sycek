@@ -78,6 +78,8 @@ typedef enum {
 	iri_nop,
 	/** Binary OR */
 	iri_or,
+	/** Index pointer */
+	iri_ptridx,
 	/** Read from memory */
 	iri_read,
 	/** Return */
@@ -164,6 +166,8 @@ typedef struct {
 	ir_oper_t *op1;
 	/** Right operand */
 	ir_oper_t *op2;
+	/** Type operand (third operand) */
+	struct ir_texpr *opt;
 } ir_instr_t;
 
 /** IR labeled block entry */
@@ -259,7 +263,7 @@ typedef struct {
 } ir_type_ptr_t;
 
 /** IR type expression */
-typedef struct {
+typedef struct ir_texpr {
 	/** Type expression type */
 	ir_tetype_t tetype;
 	union {

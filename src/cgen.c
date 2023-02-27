@@ -54,6 +54,8 @@ static int cgen_expr_promoted_rvalue(cgen_proc_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *);
 static int cgen_eres_promoted_rvalue(cgen_proc_t *, cgen_eres_t *,
     ir_lblock_t *, cgen_eres_t *);
+static int cgen_uac(cgen_proc_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
+    cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
 static int cgen_expr2_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
 static int cgen_expr2lr_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
@@ -63,7 +65,7 @@ static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_eres_rvalue(cgen_proc_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_type_convert(cgen_proc_t *, ast_node_t *, cgen_eres_t *,
+static int cgen_type_convert(cgen_proc_t *, comp_tok_t *, cgen_eres_t *,
     cgtype_t *, cgen_expl_t, ir_lblock_t *, cgen_eres_t *);
 static int cgen_truth_cjmp(cgen_proc_t *, ast_node_t *, bool, const char *,
     ir_lblock_t *);
@@ -1913,7 +1915,7 @@ static int cgen_eparen(cgen_proc_t *cgproc, ast_eparen_t *eparen,
 	return cgen_expr(cgproc, eparen->bexpr, lblock, eres);
 }
 
-/** Generate code for addition.
+/** Generate code for addition of integers.
  *
  * @param cgproc Code generator for procedure
  * @param lres Result of evaluating left operand
@@ -1922,19 +1924,33 @@ static int cgen_eparen(cgen_proc_t *cgproc, ast_eparen_t *eparen,
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
-    ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_add_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgtype_t *cgtype = NULL;
+	cgen_uac_flags_t flags;
 	unsigned bits;
 	int rc;
 
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
+
+	/* Perform usual arithmetic conversion */
+	rc = cgen_uac(cgproc, lres, rres, lblock, &res1, &res2, &flags);
+	if (rc != EOK)
+		goto error;
+
+	/* Unsigned addition of mixed-signed numbers is OK */
+	(void)flags;
+
 	/* Check the type */
-	if (lres->cgtype->ntype != cgn_basic) {
+	if (res1.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -1942,7 +1958,7 @@ static int cgen_add(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	}
 
 	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)lres->cgtype->ext);
+	    (cgtype_basic_t *)res1.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -1950,7 +1966,106 @@ static int cgen_add(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 		goto error;
 	}
 
+	rc = cgtype_clone(res1.cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(res1.varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(res2.varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_add;
+	instr->width = bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
+
+	return EOK;
+error:
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	cgtype_destroy(cgtype);
+	return rc;
+}
+
+/** Generate code for addition of pointer and integer.
+ *
+ * @param cgproc Code generator for procedure
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of addition
+ * @return EOK on success or an error code
+ */
+static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t cres;
+	cgtype_t *idxtype = NULL;
+	cgtype_t *cgtype = NULL;
+	ir_texpr_t *elemte = NULL;
+	cgtype_pointer_t *ptrt;
+	int rc;
+
+	cgen_eres_init(&cres);
+
+	rc = cgtype_int_construct(false, cgir_int, &idxtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert index to be same size as pointer */
+	rc = cgen_type_convert(cgproc, optok, rres, idxtype,
+	    cgen_implicit, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(idxtype);
+	idxtype = NULL;
+
+	/* Check the type */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	ptrt = (cgtype_pointer_t *)lres->cgtype->ext;
+
 	rc = cgtype_clone(lres->cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Generate IR type expression for the element type */
+	rc = cgen_cgtype(cgproc->cgen, ptrt->tgtype, &elemte);
 	if (rc != EOK)
 		goto error;
 
@@ -1970,11 +2085,14 @@ static int cgen_add(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = iri_add;
-	instr->width = bits;
+	instr->itype = iri_ptridx;
+	instr->width = cgen_pointer_bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
+	instr->opt = elemte;
+
+	elemte = NULL;
 
 	ir_lblock_append(lblock, NULL, instr);
 
@@ -1982,8 +2100,11 @@ static int cgen_add(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	cgen_eres_fini(&cres);
+
 	return EOK;
 error:
+	cgen_eres_fini(&cres);
 	ir_instr_destroy(instr);
 	if (dest != NULL)
 		ir_oper_destroy(&dest->oper);
@@ -1992,7 +2113,74 @@ error:
 	if (rarg != NULL)
 		ir_oper_destroy(&rarg->oper);
 	cgtype_destroy(cgtype);
+	cgtype_destroy(idxtype);
+	ir_texpr_destroy(elemte);
 	return rc;
+}
+
+/** Generate code for addition.
+ *
+ * @param cgproc Code generator for procedure
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of addition
+ * @return EOK on success or an error code
+ */
+static int cgen_add(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	bool l_int;
+	bool r_int;
+	bool l_ptr;
+	bool r_ptr;
+
+	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
+	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
+
+	/* Integer + integer */
+	if (l_int && r_int)
+		return cgen_add_int(cgproc, lres, rres, lblock, eres);
+
+	l_ptr = lres->cgtype->ntype == cgn_pointer;
+	r_ptr = rres->cgtype->ntype == cgn_pointer;
+
+	/* Pointer + pointer */
+	if (l_ptr && r_ptr) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, ": Cannot add ");
+		(void) cgtype_print(lres->cgtype, stderr);
+		fprintf(stderr, " and ");
+		(void) cgtype_print(rres->cgtype, stderr);
+		fprintf(stderr, ".\n");
+
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	/* Pointer + integer */
+	if (l_ptr && r_int)
+		return cgen_add_ptr_int(cgproc, optok, lres, rres, lblock, eres);
+
+	/* Integer + pointer */
+	if (l_int && r_ptr) {
+		/* Produce a style warning and switch the operands */
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, ": Warning: Pointer should be the left "
+		    "operand while indexing.\n");
+		++cgproc->cgen->warnings;
+		return cgen_add_ptr_int(cgproc, optok, rres, lres, lblock, eres);
+		return EINVAL;
+	}
+
+	fprintf(stderr, "Unimplemented addition of ");
+	(void) cgtype_print(lres->cgtype, stderr);
+	fprintf(stderr, " and ");
+	(void) cgtype_print(rres->cgtype, stderr);
+	fprintf(stderr, ".\n");
+	cgproc->cgen->error = true; // TODO
+	return EINVAL;
 }
 
 /** Generate code for subtraction.
@@ -2593,23 +2781,26 @@ static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
-	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
-	/* Unsigned addition of mixed-signed numbers is OK */
-	(void)flags;
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	ctok = (comp_tok_t *) ebinop->top.data;
 
 	/* Add the two operands */
-	rc = cgen_add(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_add(cgproc, ctok, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4034,6 +4225,7 @@ error:
 static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
 	cgen_eres_t cres;
@@ -4054,8 +4246,10 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Convert expression result to the destination type */
-	rc = cgen_type_convert(cgproc, ebinop->rarg, &rres, lres.cgtype,
+	rc = cgen_type_convert(cgproc, ctok, &rres, lres.cgtype,
 	    cgen_implicit, lblock, &cres);
 	if (rc != EOK)
 		goto error;
@@ -4096,6 +4290,7 @@ error:
 static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -4119,8 +4314,10 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Unsigned addition of mixed-sign integers is OK */
 	(void)flags;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Add the two operands */
-	rc = cgen_add(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_add(cgproc, ctok, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
@@ -4904,12 +5101,15 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		if (rc != EOK)
 			goto error;
 
+		atok = ast_tree_first_tok(earg->arg);
+		tok = (comp_tok_t *)atok->data;
+
 		/*
 		 * If the function has a prototype and the argument is not
 		 * variadic, convert it to its declared type.
 		 * XXX Otherwise it should be simply promoted.
 		 */
-		rc = cgen_type_convert(cgproc, earg->arg, &ares, farg->atype,
+		rc = cgen_type_convert(cgproc, tok, &ares, farg->atype,
 		    cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;
@@ -5126,6 +5326,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
+	comp_tok_t *ctok;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	int rc;
@@ -5147,7 +5348,9 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_type_convert(cgproc, ecast->bexpr, &bres, dtype,
+	ctok = (comp_tok_t *)ecast->tlparen.data;
+
+	rc = cgen_type_convert(cgproc, ctok, &bres, dtype,
 	    cgen_explicit, lblock, eres);
 	if (rc != EOK)
 		goto error;
@@ -6436,21 +6639,21 @@ error:
 /** Convert expression result to void.
  *
  * @param cgproc Code generator for procedure
- * @param aexpr Expression - only used to print diagnostics
+ * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expresson result)
  * @param dtype Destination type
  * @param cres Place to store conversion result
  *
  * @return EOk or an error code
  */
-static int cgen_type_convert_to_void(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert_to_void(cgen_proc_t *cgproc, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_eres_t *cres)
 {
 	cgtype_t *cgtype;
 	int rc;
 
 	(void)cgproc;
-	(void)aexpr;
+	(void)ctok;
 	(void)ares;
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -6468,7 +6671,7 @@ static int cgen_type_convert_to_void(cgen_proc_t *cgproc, ast_node_t *aexpr,
 /** Convert expression result between two integer types.
  *
  * @param cgproc Code generator for procedure
- * @param aexpr Expression - only used to print diagnostics
+ * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expresson result)
  * @param dtype Destination type
  * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
@@ -6478,7 +6681,7 @@ static int cgen_type_convert_to_void(cgen_proc_t *cgproc, ast_node_t *aexpr,
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_integer(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -6491,8 +6694,6 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	cgtype_t *cgtype;
 	unsigned srcw, destw;
 	bool src_signed;
-	ast_tok_t *atok;
-	comp_tok_t *ctok;
 	int rc;
 
 	assert(ares->cgtype->ntype == cgn_basic);
@@ -6533,8 +6734,6 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		itype = iri_trunc;
 
 		if (expl != cgen_explicit) {
-			atok = ast_tree_first_tok(aexpr);
-			ctok = (comp_tok_t *) atok->data;
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Conversion may loose "
 			    "significant digits.\n");
@@ -6598,7 +6797,7 @@ error:
 /** Convert expression result between two pointer types.
  *
  * @param cgproc Code generator for procedure
- * @param aexpr Expression - only used to print diagnostics
+ * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expresson result)
  * @param dtype Destination type
  * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
@@ -6608,12 +6807,10 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_pointer(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert_pointer(cgen_proc_t *cgproc, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
-	ast_tok_t *tok;
-	comp_tok_t *ctok;
 	cgtype_pointer_t *ptrtype1;
 	cgtype_pointer_t *ptrtype2;
 	cgtype_t *cgtype;
@@ -6630,8 +6827,6 @@ static int cgen_type_convert_pointer(cgen_proc_t *cgproc, ast_node_t *aexpr,
 
 	if (!cgtype_ptr_compatible(ptrtype1, ptrtype2) &&
 	    expl != cgen_explicit) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Converting from ");
 		(void) cgtype_print(ares->cgtype, stderr);
@@ -6656,7 +6851,7 @@ error:
 /** Convert expression result from integer to pointer.
  *
  * @param cgproc Code generator for procedure
- * @param aexpr Expression - only used to print diagnostics
+ * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expresson result)
  * @param dtype Destination type
  * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
@@ -6666,12 +6861,10 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
-	ast_tok_t *tok;
-	comp_tok_t *ctok;
 	unsigned bits;
 	cgtype_t *cgtype;
 	int rc;
@@ -6685,8 +6878,6 @@ static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	    (cgtype_basic_t *)ares->cgtype->ext);
 
 	if (expl != cgen_explicit) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Implicit conversion from integer "
 		    "to pointer.\n");
@@ -6694,8 +6885,6 @@ static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	}
 
 	if (bits != cgen_pointer_bits) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Converting to pointer from integer "
 		    "of different size.\n");
@@ -6717,7 +6906,7 @@ error:
 /** Convert value expression result to the specified type.
  *
  * @param cgen Code generator for procedure
- * @param aexpr Expression - only used to print diagnostics
+ * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expresson result)
  * @param dtype Destination type
  * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
@@ -6727,22 +6916,12 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
-	ast_tok_t *tok;
-	comp_tok_t *ctok;
-
 	assert(ares->valtype == cgen_rvalue);
-
-	if (ares->cgtype == NULL) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": NULL type!\n");
-		return cgen_eres_clone(ares, cres);
-	}
+	assert(ares->cgtype != NULL);
 
 	/* Source and destination types are the same basic type */
 	if (ares->cgtype->ntype == cgn_basic &&
@@ -6755,29 +6934,27 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
 
 	/* Destination type is void */
 	if (cgtype_is_void(dtype)) {
-		return cgen_type_convert_to_void(cgproc, aexpr, ares,
+		return cgen_type_convert_to_void(cgproc, ctok, ares,
 		    dtype, cres);
 	}
 
 	/* Source and destination types are pointers */
 	if (ares->cgtype->ntype == cgn_pointer &&
 	    dtype->ntype == cgn_pointer) {
-		return cgen_type_convert_pointer(cgproc, aexpr, ares, dtype,
+		return cgen_type_convert_pointer(cgproc, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 
 	/* Source and destination types are pointers */
 	if (cgen_type_is_integer(cgproc->cgen, ares->cgtype) &&
 	    dtype->ntype == cgn_pointer) {
-		return cgen_type_convert_int_ptr(cgproc, aexpr, ares, dtype,
+		return cgen_type_convert_int_ptr(cgproc, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 
 	if (ares->cgtype->ntype == cgn_basic &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic &&
 	    expl != cgen_explicit) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Truth value used as an integer.\n");
 		++cgproc->cgen->warnings;
@@ -6786,14 +6963,12 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	/* Converting between two integer types */
 	if (cgen_type_is_integer(cgproc->cgen, ares->cgtype) &&
 	    cgen_type_is_integer(cgproc->cgen, dtype)) {
-		return cgen_type_convert_integer(cgproc, aexpr, ares, dtype,
+		return cgen_type_convert_integer(cgproc, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 
 	if (dtype->ntype != cgn_basic ||
 	    ((cgtype_basic_t *)(dtype->ext))->elmtype != cgelm_int) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Converting to type ");
 		(void) cgtype_print(dtype, stderr);
@@ -6806,8 +6981,6 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	if (ares->cgtype->ntype != cgn_basic ||
 	    (((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_int &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_logic)) {
-		tok = ast_tree_first_tok(aexpr);
-		ctok = (comp_tok_t *) tok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Converting from type ");
 		(void) cgtype_print(ares->cgtype, stderr);
@@ -6823,7 +6996,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
 /** Convert expression result to the specified type.
  *
  * @param cgen Code generator for procedure
- * @param aexpr Expression - only used to print diagnostics
+ * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expresson result)
  * @param dtype Destination type
  * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
@@ -6833,7 +7006,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, ast_node_t *aexpr,
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_type_convert(cgen_proc_t *cgproc, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -6846,7 +7019,7 @@ static int cgen_type_convert(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_type_convert_rval(cgproc, aexpr, &rres, dtype, expl, lblock,
+	rc = cgen_type_convert_rval(cgproc, ctok, &rres, dtype, expl, lblock,
 	    cres);
 	if (rc != EOK)
 		goto error;
@@ -7141,9 +7314,11 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 
 	/* Only if we have an argument and return type is not void */
 	if (areturn->arg != NULL && !cgtype_is_void(cgproc->rtype)) {
+		atok = ast_tree_first_tok(areturn->arg);
+		ctok = (comp_tok_t *) atok->data;
 
 		/* Convert to the return type */
-		rc = cgen_type_convert(cgproc, areturn->arg, &ares,
+		rc = cgen_type_convert(cgproc, ctok, &ares,
 		    cgproc->rtype, cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;

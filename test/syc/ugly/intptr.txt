@@ -1,2 +1,2 @@
-<test/syc/ugly/intptr.c:12:14:id:i>: Warning: Implicit conversion from integer to pointer.
-<test/syc/ugly/intptr.c:24:21:id:l>: Warning: Converting to pointer from integer of different size.
+<test/syc/ugly/intptr.c:12:12:'='>: Warning: Implicit conversion from integer to pointer.
+<test/syc/ugly/intptr.c:24:14:'('>: Warning: Converting to pointer from integer of different size.

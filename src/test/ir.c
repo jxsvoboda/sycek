@@ -138,6 +138,7 @@ static int test_ir_var(void)
 		return rc;
 
 	assert(var != NULL);
+	texpr = NULL;
 
 	rc = ir_var_print(var, stdout);
 	if (rc != EOK)

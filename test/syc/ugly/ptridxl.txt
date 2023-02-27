@@ -1,0 +1,1 @@
+<test/syc/ugly/ptridxl.c:15:18:'+'>: Warning: Pointer should be the left operand while indexing.

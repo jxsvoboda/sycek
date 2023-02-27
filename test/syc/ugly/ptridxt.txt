@@ -1,0 +1,2 @@
+<test/syc/ugly/ptridxt.c:15:16:'+'>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/ptridxt.c:21:16:'+'>: Warning: Conversion may loose significant digits.
