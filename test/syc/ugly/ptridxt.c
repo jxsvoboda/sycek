@@ -10,13 +10,13 @@ long long llidx;
 int *dp;
 
 /* Pointer + long index */
-int *ptridx_long(void)
+void ptridx_long(void)
 {
 	dp = p + lidx;
 }
 
 /* Pointer + long long index */
-int *ptridx_longlong(void)
+void ptridx_longlong(void)
 {
 	dp = p + llidx;
 }

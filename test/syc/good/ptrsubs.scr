@@ -1,0 +1,16 @@
+mapfile "ptrsubs.map";
+ldbin "ptrsubs.bin", 0x8000;
+
+/* Pointer + 8-bit index */
+ld word ptr (@_i0), 42;
+ld word ptr (@_p), @_i0;
+ld byte ptr (@_cidx), 0;
+call @_ptrsubs_char;
+verify word ptr (@_i), 42;
+
+/* Pointer + 16-bit index */
+ld word ptr (@_i0), 42;
+ld word ptr (@_p), @_i0;
+ld word ptr (@_idx), 0;
+call @_ptrsubs_int;
+verify word ptr (@_i), 42;

@@ -1,0 +1,1 @@
+<test/syc/bad/intsubsint.c:12:15:'['>: Subscripted object is neither pointer nor array.

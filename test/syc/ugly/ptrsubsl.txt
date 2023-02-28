@@ -1,0 +1,1 @@
+<test/syc/ugly/ptrsubsl.c:15:16:'['>: Warning: Pointer should be the left operand while indexing.

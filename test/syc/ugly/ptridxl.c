@@ -10,7 +10,7 @@ int idx;
 int *dp;
 
 /* Index + pointer */
-int *ptridx_left(void)
+void ptridx_left(void)
 {
 	dp = idx + p;
 }

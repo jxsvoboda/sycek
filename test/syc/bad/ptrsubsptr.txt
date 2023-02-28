@@ -1,0 +1,1 @@
+<test/syc/bad/ptrsubsptr.c:12:15:'['>: Subscript index is not an integer.

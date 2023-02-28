@@ -7,7 +7,7 @@ int *p2;
 int *dp;
 
 /* Pointer + pointer */
-int *ptr_plus_ptr(void)
+void ptr_plus_ptr(void)
 {
 	dp = p1 + p2;
 }

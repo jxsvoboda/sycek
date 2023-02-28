@@ -1,0 +1,2 @@
+<test/syc/ugly/ptrsubst.c:15:14:'['>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/ptrsubst.c:21:14:'['>: Warning: Conversion may loose significant digits.

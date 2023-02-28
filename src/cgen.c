@@ -5185,6 +5185,96 @@ error:
 	return rc;
 }
 
+/** Generate code for index expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eindex AST index expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eindex(cgen_proc_t *cgproc, ast_eindex_t *eindex,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t bres;
+	cgen_eres_t ires;
+	cgen_eres_t sres;
+	comp_tok_t *ctok;
+	cgtype_pointer_t *ptrtype;
+	cgtype_t *cgtype;
+	bool b_ptr;
+	bool i_ptr;
+	bool b_int;
+	bool i_int;
+	int rc;
+
+	cgen_eres_init(&bres);
+	cgen_eres_init(&ires);
+	cgen_eres_init(&sres);
+
+	/* Evaluate base operand */
+	rc = cgen_expr_rvalue(cgproc, eindex->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate index operand */
+	rc = cgen_expr_rvalue(cgproc, eindex->iexpr, lblock, &ires);
+	if (rc != EOK)
+		goto error;
+
+	b_int = cgen_type_is_integer(cgproc->cgen, bres.cgtype);
+	i_int = cgen_type_is_integer(cgproc->cgen, ires.cgtype);
+
+	b_ptr = bres.cgtype->ntype == cgn_pointer;
+	i_ptr = ires.cgtype->ntype == cgn_pointer;
+
+	ctok = (comp_tok_t *) eindex->tlbracket.data;
+
+	if (!b_ptr && !i_ptr) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Subscripted object is neither pointer nor array.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	if ((b_ptr && !i_int) || (i_ptr && !b_int)) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Subscript index is not an integer.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Add the two operands */
+	rc = cgen_add(cgproc, ctok, &bres, &ires, lblock, &sres);
+	if (rc != EOK)
+		goto error;
+
+	assert(sres.cgtype->ntype == cgn_pointer);
+
+	/* Resulting type is the pointer target type */
+	ptrtype = (cgtype_pointer_t *)sres.cgtype->ext;
+	rc = cgtype_clone(ptrtype->tgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Return address as lvalue */
+	eres->varname = sres.varname;
+	eres->valtype = cgen_lvalue;
+	eres->cgtype = cgtype;
+
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ires);
+	cgen_eres_fini(&sres);
+	return EOK;
+error:
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ires);
+	cgen_eres_fini(&sres);
+	return rc;
+}
+
 /** Generate code for dereference expression.
  *
  * @param cgproc Code generator for procedure
@@ -6133,12 +6223,8 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_eindex:
-		atok = ast_tree_first_tok(expr);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+		rc = cgen_eindex(cgproc, (ast_eindex_t *) expr->ext, lblock,
+		    eres);
 		break;
 	case ant_ederef:
 		rc = cgen_ederef(cgproc, (ast_ederef_t *) expr->ext, lblock,

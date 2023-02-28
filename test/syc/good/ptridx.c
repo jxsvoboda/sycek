@@ -8,13 +8,13 @@ int idx;
 int *dp;
 
 /* Pointer + char index */
-int *ptridx_char(void)
+void ptridx_char(void)
 {
 	dp = p + cidx;
 }
 
 /* Pointer + int index */
-int *ptridx_int(void)
+void ptridx_int(void)
 {
 	dp = p + idx;
 }
