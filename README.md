@@ -327,7 +327,7 @@ all the potential programming errors that would be typically reported by
 compilers, lint-like tools, as well as complementing ccheck in the C style
 area.
 
-It can detect the following types of problems:
+It can detect the following types of problems and style issues:
 
  * declaration shadowing a wider-scope declaration
  * gratuitous nested block
@@ -349,6 +349,7 @@ It can detect the following types of problems:
  * implicit conversion from integer to pointer
  * converting to pointer from integer of different size
  * pointer should be the left operand while indexing
+ * type definition in a non-global scope
 
 Intermediate Representation
 ---------------------------

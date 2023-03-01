@@ -79,6 +79,7 @@ static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
+static int cgen_typedef(cgen_t *, cgen_proc_t *, ast_idlist_t *, cgtype_t *);
 
 enum {
 	cgen_pointer_bits = 16
@@ -1132,16 +1133,19 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
+static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
+    ast_sclass_type_t *rsctype, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
 	ast_tok_t *atok;
 	ast_node_t *tspec;
 	ast_tsbasic_t *tsbasic;
+	ast_sclass_type_t sctype;
+	ast_sclass_t *sclass;
 	comp_tok_t *tok;
 	cgtype_elmtype_t elmtype;
-	cgtype_basic_t *btype;
+	cgtype_basic_t *btype = NULL;
 	cgtype_t *stype;
 	int short_cnt;
 	int long_cnt;
@@ -1158,6 +1162,7 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 	long_cnt = 0;
 	signed_cnt = 0;
 	unsigned_cnt = 0;
+	sctype = asc_none;
 
 	dspec = ast_dspecs_first(dspecs);
 	prev = NULL;
@@ -1236,6 +1241,16 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 			}
 
 			tspec = dspec;
+			break;
+		case ant_sclass:
+			/* Storage class specifier */
+			sclass = (ast_sclass_t *)dspec->ext;
+			/*
+			 * Multiple storage classes should have been caught by
+			 * the parser.
+			 */
+			assert(sctype == asc_none);
+			sctype = sclass->sctype;
 			break;
 		default:
 			atok = ast_tree_first_tok(dspec);
@@ -1324,8 +1339,13 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 			break;
 		default:
 			stype = NULL;
-			assert(false);
-			break;
+			atok = ast_tree_first_tok(tspec);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Unimplemented type specifier.\n");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
 		}
 	} else {
 		/* Default to int */
@@ -1357,6 +1377,7 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs, cgtype_t **rstype)
 		stype = &btype->cgtype;
 	}
 
+	*rsctype = sctype;
 	*rstype = stype;
 	return EOK;
 error:
@@ -1418,6 +1439,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	cgtype_basic_t *abasic;
 	ast_aspec_t *aspec;
 	ast_aspec_attr_t *attr;
+	ast_sclass_type_t sctype;
 	bool have_args = false;
 	int rc;
 
@@ -1433,9 +1455,19 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = cgen_dspecs(cgen, arg->dspecs, &stype);
+		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &stype);
 		if (rc != EOK)
 			goto error;
+
+		if (sctype != asc_none) {
+			atok = ast_tree_first_tok(&arg->dspecs->node);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Unimplemented storage class specifier.\n");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
 
 		rc = cgen_decl(cgen, stype, arg->decl, arg->aslist, &atype);
 		if (rc != EOK)
@@ -1889,6 +1921,12 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		rc = cgen_eident_lvar(cgproc, eident, member->m.lvar.vident,
 		    lblock, eres);
 		break;
+	case sm_tdef:
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Expected variable name. '%s' is a type.\n",
+		    ident->tok.text);
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
 	}
 
 	if (rc != EOK)
@@ -5416,17 +5454,29 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
+	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
+	ast_sclass_type_t sctype;
 	int rc;
 
 	cgen_eres_init(&bres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &stype);
+	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &stype);
 	if (rc != EOK)
 		goto error;
+
+	if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&ecast->dspecs->node);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		cgproc->cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
 
 	/* Declarator */
 	rc = cgen_decl(cgproc->cgen, stype, ecast->decl, NULL, &dtype);
@@ -8467,42 +8517,111 @@ error:
 	return rc;
 }
 
-/** Generate code for declaration statement.
+/** Generate code for declaring a local variable.
  *
  * @param cgproc Code generator for procedure
  * @param stdecln AST declaration statement
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
-    ir_lblock_t *lblock)
+static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
+    cgtype_t *dtype, comp_tok_t *ident, ir_lblock_t *lblock)
 {
-	ast_node_t *dspec;
+	char *vident = NULL;
+	ir_lvar_t *lvar;
+	ir_texpr_t *vtype = NULL;
+	int rc;
+
+	(void) lblock;
+
+	if (sctype != asc_none) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		++cgproc->cgen->warnings;
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Generate an IR variable name */
+	rc = cgen_create_loc_var_name(cgproc, ident->tok.text, &vident);
+	if (rc != EOK) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	/* Insert identifier into current scope */
+	rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok,
+	    dtype, vident);
+	if (rc != EOK) {
+		if (rc == EEXIST) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Duplicate identifier '%s'.\n",
+			    ident->tok.text);
+			cgproc->cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
+		goto error;
+	}
+
+	rc = cgen_cgtype(cgproc->cgen, dtype, &vtype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(dtype);
+	dtype = NULL;
+
+	rc = ir_lvar_create(vident, vtype, &lvar);
+	if (rc != EOK)
+		goto error;
+
+	free(vident);
+	vident = NULL;
+	vtype = NULL; /* ownership transferred */
+	ir_proc_append_lvar(cgproc->irproc, lvar);
+
+	return EOK;
+error:
+	cgtype_destroy(dtype);
+	if (vident != NULL)
+		free(vident);
+	if (vtype != NULL)
+		ir_texpr_destroy(vtype);
+	return rc;
+}
+
+/** Generate code for local variable declaration statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stdecln Declaration statement for local variables
+ * @param sctype Storage class type
+ * @param stype Type based on declaration specifiers
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
+    ast_sclass_type_t sctype, cgtype_t *stype, ir_lblock_t *lblock)
+{
 	ast_tok_t *atok;
 	ast_idlist_entry_t *identry;
 	comp_tok_t *tok;
 	ast_tok_t *aident;
 	comp_tok_t *ident;
-	char *vident = NULL;
-	ir_lvar_t *lvar;
-	ir_texpr_t *vtype = NULL;
 	scope_member_t *member;
-	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	int rc;
 
 	(void) lblock;
 
-	dspec = ast_dspecs_first(stdecln->dspecs);
-
-	atok = ast_tree_first_tok(dspec);
-	tok = (comp_tok_t *) atok->data;
-
-	/* Process declaration specifiers */
-
-	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &stype);
-	if (rc != EOK)
+	if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&stdecln->dspecs->node);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		cgproc->cgen->error = true; // XXX
+		rc = EINVAL;
 		goto error;
+	}
 
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
@@ -8549,63 +8668,62 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		member = scope_lookup(cgproc->cur_scope->parent,
 		    ident->tok.text);
 		if (member != NULL) {
-			lexer_dprint_tok(&tok->tok, stderr);
+			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "shadows a wider-scope declaration.\n",
 			    ident->tok.text);
 			++cgproc->cgen->warnings;
 		}
 
-		/* Generate an IR variable name */
-		rc = cgen_create_loc_var_name(cgproc, ident->tok.text, &vident);
-		if (rc != EOK) {
-			rc = ENOMEM;
-			goto error;
-		}
-
-		/* Insert identifier into current scope */
-		rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok,
-		    dtype, vident);
-		if (rc != EOK) {
-			if (rc == EEXIST) {
-				lexer_dprint_tok(&tok->tok, stderr);
-				fprintf(stderr, ": Duplicate identifier '%s'.\n",
-				    ident->tok.text);
-				cgproc->cgen->error = true; // XXX
-				rc = EINVAL;
-				goto error;
-			}
-		}
-
-		rc = cgen_cgtype(cgproc->cgen, dtype, &vtype);
+		/* Local variable */
+		rc = cgen_lvar(cgproc, sctype, dtype, ident, lblock);
 		if (rc != EOK)
 			goto error;
-
-		cgtype_destroy(dtype);
-		dtype = NULL;
-
-		rc = ir_lvar_create(vident, vtype, &lvar);
-		if (rc != EOK)
-			goto error;
-
-		free(vident);
-		vident = NULL;
-		vtype = NULL; /* ownership transferred */
-
-		ir_proc_append_lvar(cgproc->irproc, lvar);
 
 		identry = ast_idlist_next(identry);
+	}
+
+	return EOK;
+error:
+	cgtype_destroy(dtype);
+	return rc;
+}
+
+/** Generate code for declaration statement.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stdecln AST declaration statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
+    ir_lblock_t *lblock)
+{
+	cgtype_t *stype = NULL;
+	ast_sclass_type_t sctype;
+	int rc;
+
+	/* Process declaration specifiers */
+
+	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &stype);
+	if (rc != EOK)
+		goto error;
+
+	if (sctype == asc_typedef) {
+		rc = cgen_typedef(cgproc->cgen, cgproc, stdecln->idlist,
+		    stype);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = cgen_stdecln_lvars(cgproc, stdecln, sctype, stype, lblock);
+		if (rc != EOK)
+			goto error;
 	}
 
 	cgtype_destroy(stype);
 	return EOK;
 error:
-	cgtype_destroy(dtype);
 	cgtype_destroy(stype);
-	if (vident != NULL)
-		free(vident);
-	if (vtype != NULL)
-		ir_texpr_destroy(vtype);
 	return rc;
 }
 
@@ -9212,6 +9330,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 				rc = EINVAL;
 				goto error;
 			}
+			goto error;
 		}
 
 		free(arg_ident);
@@ -9275,6 +9394,87 @@ error:
 		free(arg_ident);
 	if (atype != NULL)
 		ir_texpr_destroy(atype);
+	if (dtype != NULL)
+		cgtype_destroy(dtype);
+	return rc;
+}
+
+/** Generate code for type definition.
+ *
+ * @param cgen Code generator
+ * @param cgproc Code generator for procedure or @c NULL if not in a
+ *               procedure
+ * @param idlist Init-declarator list
+ * @param btype Type derived from declaration specifiers
+ * @return EOK on success or an error code
+ */
+static int cgen_typedef(cgen_t *cgen, cgen_proc_t *cgproc, ast_idlist_t *idlist,
+    cgtype_t *btype)
+{
+	ast_idlist_entry_t *idle;
+	scope_member_t *member;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+	cgtype_t *dtype = NULL;
+	scope_t *scope;
+	int rc;
+
+	/* For all init-declarator list entries */
+	idle = ast_idlist_first(idlist);
+	while (idle != NULL) {
+		/* Process declarator */
+		rc = cgen_decl(cgen, btype, idle->decl, idle->aslist, &dtype);
+		if (rc != EOK)
+			goto error;
+
+		atok = ast_decl_get_ident(idle->decl);
+		ctok = (comp_tok_t *)atok->data;
+
+		/* Determine current scope */
+		if (cgproc != NULL) {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Type definition in a "
+			    " non-global scope.\n");
+			++cgen->warnings;
+
+			/* Check for shadowing a wider-scope identifier */
+			member = scope_lookup(cgproc->cur_scope->parent,
+			    ctok->tok.text);
+			if (member != NULL) {
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Warning: Declaration of '%s' "
+				    "shadows a wider-scope declaration.\n",
+				    ctok->tok.text);
+				++cgen->warnings;
+			}
+			scope = cgproc->cur_scope;
+		} else {
+			scope = cgen->scope;
+		}
+
+		/* Insert typedef into current scope */
+		rc = scope_insert_tdef(scope, &ctok->tok, dtype);
+		if (rc != EOK) {
+			if (rc == EEXIST) {
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Duplicate identifier '%s'.\n",
+				    ctok->tok.text);
+				cgen->error = true; // XXX
+				rc = EINVAL;
+				goto error;
+			}
+
+			goto error;
+		}
+
+		cgtype_destroy(dtype);
+		dtype = NULL;
+
+		idle = ast_idlist_next(idle);
+	}
+
+	return EOK;
+error:
 	if (dtype != NULL)
 		cgtype_destroy(dtype);
 	return rc;
@@ -9482,18 +9682,33 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	ast_idlist_entry_t *entry;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
+	ast_sclass_type_t sctype;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	int rc;
 
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, gdecln->dspecs, &stype);
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
-	if (gdecln->body != NULL) {
+	if (sctype == asc_typedef) {
+		rc = cgen_typedef(cgen, NULL, gdecln->idlist, stype);
+		if (rc != EOK)
+			goto error;
+	} else if (gdecln->body != NULL) {
 		rc = cgen_fundef(cgen, gdecln, stype, irmod);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {
+		if (sctype != asc_none) {
+			atok = ast_tree_first_tok(&gdecln->dspecs->node);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+			++cgen->warnings;
+		}
+
 		/* Possibly variable declarations */
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {

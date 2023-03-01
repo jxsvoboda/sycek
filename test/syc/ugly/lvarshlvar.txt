@@ -1,1 +1,1 @@
-<test/syc/ugly/lvarshlvar.c:11:17-19:'int'>: Warning: Declaration of 'a' shadows a wider-scope declaration.
+<test/syc/ugly/lvarshlvar.c:11:21:id:a>: Warning: Declaration of 'a' shadows a wider-scope declaration.

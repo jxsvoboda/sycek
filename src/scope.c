@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -72,6 +72,8 @@ void scope_destroy(scope_t *scope)
 			break;
 		case sm_lvar:
 			free(member->m.lvar.vident);
+			break;
+		case sm_tdef:
 			break;
 		}
 
@@ -214,6 +216,44 @@ int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
 	member->cgtype = dtype;
 	member->mtype = sm_lvar;
 	member->m.lvar.vident = dvident;
+	member->scope = scope;
+	list_append(&member->lmembers, &scope->members);
+	return EOK;
+}
+
+/** Insert typedef to identifier scope.
+ *
+ * @param scope Scope
+ * @param tident Identifier token
+ * @param cgtype C type to which the typedef expands
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
+ *         identifier is already present in the scope
+ */
+int scope_insert_tdef(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
+{
+	scope_member_t *member;
+	cgtype_t *dtype = NULL;
+	int rc;
+
+	member = scope_lookup_local(scope, tident->text);
+	if (member != NULL) {
+		/* Identifier already exists */
+		return EEXIST;
+	}
+
+	member = calloc(1, sizeof(scope_member_t));
+	if (member == NULL)
+		return ENOMEM;
+
+	rc = cgtype_clone(cgtype, &dtype);
+	if (rc != EOK) {
+		free(member);
+		return ENOMEM;
+	}
+
+	member->tident = tident;
+	member->cgtype = dtype;
+	member->mtype = sm_tdef;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
 	return EOK;

@@ -1,3 +1,3 @@
-<test/syc/ugly/lvarsharg.c:7:9-11:'int'>: Warning: Declaration of 'a' shadows a wider-scope declaration.
+<test/syc/ugly/lvarsharg.c:7:13:id:a>: Warning: Declaration of 'a' shadows a wider-scope declaration.
 <test/syc/ugly/lvarsharg.c:7:13:id:a>: Warning: 'a' is defined, but not used.
 <test/syc/ugly/lvarsharg.c:5:13:id:a>: Warning: 'a' is defined, but not used.

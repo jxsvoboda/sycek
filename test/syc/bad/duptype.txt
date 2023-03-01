@@ -1,0 +1,1 @@
+<test/syc/bad/duptype.c:6:13-15:id:foo>: Duplicate identifier 'foo'.

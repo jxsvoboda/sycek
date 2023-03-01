@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -45,7 +45,9 @@ typedef enum {
 	/** Function argument */
 	sm_arg,
 	/** Local variable */
-	sm_lvar
+	sm_lvar,
+	/** Typedef */
+	sm_tdef
 } scope_member_type_t;
 
 /** Scope member - function argument */

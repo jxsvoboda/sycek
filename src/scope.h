@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -37,6 +37,7 @@ extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
     const char *);
 extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
     const char *);
+extern int scope_insert_tdef(scope_t *, lexer_tok_t *, cgtype_t *);
 extern scope_member_t *scope_first(scope_t *);
 extern scope_member_t *scope_next(scope_member_t *);
 extern scope_member_t *scope_lookup_local(scope_t *, const char *);
