@@ -42,8 +42,8 @@
 #include <symbols.h>
 
 static void cgen_proc_destroy(cgen_proc_t *);
-static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *, ast_aslist_t *,
-    cgtype_t **);
+static int cgen_decl(cgen_t *, scope_t *, cgtype_t *, ast_node_t *,
+    ast_aslist_t *, cgtype_t **);
 static void cgen_expr_check_unused(cgen_proc_t *, ast_node_t *,
     cgen_eres_t *);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -79,7 +79,7 @@ static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
-static int cgen_typedef(cgen_t *, cgen_proc_t *, ast_idlist_t *, cgtype_t *);
+static int cgen_typedef(cgen_t *, scope_t *, ast_idlist_t *, cgtype_t *);
 
 enum {
 	cgen_pointer_bits = 16
@@ -1123,17 +1123,58 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
 	++cgen->warnings;
 }
 
+/** Generate code for identifier type specifier.
+ *
+ * @param cgen Code generator
+ * @param scope Current scope
+ * @param tsident Identifier type specifier
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_tsident(cgen_t *cgen, scope_t *scope, ast_tsident_t *tsident,
+    cgtype_t **rstype)
+{
+	comp_tok_t *ident;
+	scope_member_t *member;
+	int rc;
+
+	printf("tsident\n");
+	(void)cgen;
+	(void)rstype;
+
+	ident = (comp_tok_t *)tsident->tident.data;
+	printf("ident='%s'\n", ident->tok.text);
+
+	/* Check if the type is defined */
+	member = scope_lookup(scope, ident->tok.text);
+	if (member == NULL) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Undefined type name '%s'.\n",
+		    ident->tok.text);
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	/* Resulting type is the same as type of the member */
+	rc = cgtype_clone(member->cgtype, rstype);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 /** Generate code for declaration specifiers.
  *
  * Declaration specifiers declare the base type which is then further modified
  * by the declarator(s).
  *
  * @param cgen Code generator
+ * @param scope Current scope
  * @param dspecs Declaration specifiers
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
+static int cgen_dspecs(cgen_t *cgen, scope_t *scope, ast_dspecs_t *dspecs,
     ast_sclass_type_t *rsctype, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
@@ -1337,6 +1378,12 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
 
 			stype = &btype->cgtype;
 			break;
+		case ant_tsident:
+			rc = cgen_tsident(cgen, scope,
+			    (ast_tsident_t *)tspec->ext, &stype);
+			if (rc != EOK)
+				goto error;
+			break;
 		default:
 			stype = NULL;
 			atok = ast_tree_first_tok(tspec);
@@ -1420,14 +1467,15 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
  * further modified by the declarator and returned as @a *rdtype.
  *
  * @param cgen Code generator
+ * @param scope Current scope
  * @param btype Type derived from declaration specifiers
  * @param dfun Function declarator
  * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
-static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
-    ast_aslist_t *aslist, cgtype_t **rdtype)
+static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
+    ast_dfun_t *dfun, ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_func_t *func = NULL;
 	ast_dfun_arg_t *arg;
@@ -1455,7 +1503,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &stype);
+		rc = cgen_dspecs(cgen, scope, arg->dspecs, &sctype, &stype);
 		if (rc != EOK)
 			goto error;
 
@@ -1469,7 +1517,8 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 			goto error;
 		}
 
-		rc = cgen_decl(cgen, stype, arg->decl, arg->aslist, &atype);
+		rc = cgen_decl(cgen, scope, stype, arg->decl, arg->aslist,
+		    &atype);
 		if (rc != EOK)
 			goto error;
 
@@ -1580,14 +1629,15 @@ error:
  * further modified by the declarator and returned as @a *rdtype.
  *
  * @param cgen Code generator
+ * @param scope Current scope
  * @param btype Type derived from declaration specifiers
  * @param dptr Pointer declarator
  * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
-static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
-    ast_aslist_t *aslist, cgtype_t **rdtype)
+static int cgen_decl_ptr(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
+    ast_dptr_t *dptr, ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_pointer_t *ptrtype;
 	cgtype_t *btype_copy = NULL;
@@ -1604,7 +1654,8 @@ static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_decl(cgen, &ptrtype->cgtype, dptr->bdecl, aslist, rdtype);
+	rc = cgen_decl(cgen, scope, &ptrtype->cgtype, dptr->bdecl, aslist,
+	    rdtype);
 	if (rc != EOK)
 		goto error;
 
@@ -1621,14 +1672,15 @@ error:
  * further modified by the declarator and returned as @a *rdtype.
  *
  * @param cgen Code generator
+ * @param scope Current scope
  * @param stype Type derived from declaration specifiers
  * @param decl Declarator
  * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
-static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
-    ast_aslist_t *aslist, cgtype_t **rdtype)
+static int cgen_decl(cgen_t *cgen, scope_t *scope, cgtype_t *stype,
+    ast_node_t *decl, ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_t *dtype;
 	int rc;
@@ -1640,11 +1692,11 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 		    &dtype);
 		break;
 	case ant_dfun:
-		rc = cgen_decl_fun(cgen, stype, (ast_dfun_t *) decl->ext,
+		rc = cgen_decl_fun(cgen, scope, stype, (ast_dfun_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	case ant_dptr:
-		rc = cgen_decl_ptr(cgen, stype, (ast_dptr_t *) decl->ext,
+		rc = cgen_decl_ptr(cgen, scope, stype, (ast_dptr_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	default:
@@ -5464,7 +5516,8 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	cgen_eres_init(&bres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgproc->cgen, cgproc->cur_scope, ecast->dspecs,
+	    &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
@@ -5479,7 +5532,8 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	}
 
 	/* Declarator */
-	rc = cgen_decl(cgproc->cgen, stype, ecast->decl, NULL, &dtype);
+	rc = cgen_decl(cgproc->cgen, cgproc->cur_scope, stype, ecast->decl,
+	    NULL, &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -8626,8 +8680,8 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
 		/* Process declarator */
-		rc = cgen_decl(cgproc->cgen, stype, identry->decl,
-		    identry->aslist, &dtype);
+		rc = cgen_decl(cgproc->cgen, cgproc->cur_scope, stype,
+		    identry->decl, identry->aslist, &dtype);
 		if (rc != EOK)
 			goto error;
 
@@ -8705,13 +8759,14 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 	/* Process declaration specifiers */
 
-	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgproc->cgen, cgproc->cur_scope, stdecln->dspecs,
+	    &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
 	if (sctype == asc_typedef) {
-		rc = cgen_typedef(cgproc->cgen, cgproc, stdecln->idlist,
-		    stype);
+		rc = cgen_typedef(cgproc->cgen, cgproc->cur_scope,
+		    stdecln->idlist, stype);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -9215,7 +9270,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	assert(ast_idlist_next(idle) == NULL);
 
 	/* Process declarator */
-	rc = cgen_decl(cgen, btype, idle->decl, idle->aslist, &dtype);
+	rc = cgen_decl(cgen, cgen->scope, btype, idle->decl, idle->aslist,
+	    &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -9402,13 +9458,12 @@ error:
 /** Generate code for type definition.
  *
  * @param cgen Code generator
- * @param cgproc Code generator for procedure or @c NULL if not in a
- *               procedure
+ * @param scope Current scope
  * @param idlist Init-declarator list
  * @param btype Type derived from declaration specifiers
  * @return EOK on success or an error code
  */
-static int cgen_typedef(cgen_t *cgen, cgen_proc_t *cgproc, ast_idlist_t *idlist,
+static int cgen_typedef(cgen_t *cgen, scope_t *scope, ast_idlist_t *idlist,
     cgtype_t *btype)
 {
 	ast_idlist_entry_t *idle;
@@ -9416,29 +9471,29 @@ static int cgen_typedef(cgen_t *cgen, cgen_proc_t *cgproc, ast_idlist_t *idlist,
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	cgtype_t *dtype = NULL;
-	scope_t *scope;
 	int rc;
 
 	/* For all init-declarator list entries */
 	idle = ast_idlist_first(idlist);
 	while (idle != NULL) {
 		/* Process declarator */
-		rc = cgen_decl(cgen, btype, idle->decl, idle->aslist, &dtype);
+		rc = cgen_decl(cgen, scope, btype, idle->decl, idle->aslist,
+		    &dtype);
 		if (rc != EOK)
 			goto error;
 
 		atok = ast_decl_get_ident(idle->decl);
 		ctok = (comp_tok_t *)atok->data;
 
-		/* Determine current scope */
-		if (cgproc != NULL) {
+		/* Non-global scope? */
+		if (scope != cgen->scope) {
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Type definition in a "
 			    " non-global scope.\n");
 			++cgen->warnings;
 
 			/* Check for shadowing a wider-scope identifier */
-			member = scope_lookup(cgproc->cur_scope->parent,
+			member = scope_lookup(scope->parent,
 			    ctok->tok.text);
 			if (member != NULL) {
 				lexer_dprint_tok(&ctok->tok, stderr);
@@ -9447,9 +9502,6 @@ static int cgen_typedef(cgen_t *cgen, cgen_proc_t *cgproc, ast_idlist_t *idlist,
 				    ctok->tok.text);
 				++cgen->warnings;
 			}
-			scope = cgproc->cur_scope;
-		} else {
-			scope = cgen->scope;
 		}
 
 		/* Insert typedef into current scope */
@@ -9688,12 +9740,12 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	int rc;
 
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgen, cgen->scope, gdecln->dspecs, &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
 	if (sctype == asc_typedef) {
-		rc = cgen_typedef(cgen, NULL, gdecln->idlist, stype);
+		rc = cgen_typedef(cgen, cgen->scope, gdecln->idlist, stype);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->body != NULL) {
@@ -9713,7 +9765,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
 			/* Process declarator */
-			rc = cgen_decl(cgen, stype, entry->decl,
+			rc = cgen_decl(cgen, cgen->scope, stype, entry->decl,
 			    entry->aslist, &dtype);
 			if (rc != EOK)
 				goto error;
