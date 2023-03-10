@@ -1305,7 +1305,7 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
-	member = scope_lookup_tag(scope, ident->tok.text);
+	member = scope_lookup_tag_local(scope, ident->tok.text);
 	if (member != NULL) {
 		lexer_dprint_tok(member->tident, stderr);
 		fprintf(stderr, ": Redefinition of '%s %s'.\n",
