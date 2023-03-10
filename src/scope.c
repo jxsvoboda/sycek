@@ -30,6 +30,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+static scope_record_elem_t *scope_member_record_first(scope_member_record_t *);
+static scope_record_elem_t *scope_member_record_next(scope_record_elem_t *);
+
 /** Create new identifier scope.
  *
  * @param parent Parent scope
@@ -48,6 +51,128 @@ int scope_create(scope_t *parent, scope_t **rscope)
 	list_initialize(&scope->members);
 	*rscope = scope;
 	return EOK;
+}
+
+/** Append new element to record scope member.
+ *
+ * @param rec Record scope member
+ * @param ident Member identifier
+ * @param cgtype Member CG type
+ * @return EOK on success, EEXIST if member with the same name already
+ *         exists, ENOMEM if out of memory.
+ */
+int scope_member_record_append(scope_member_record_t *rec, const char *ident,
+    cgtype_t *cgtype)
+{
+	scope_record_elem_t *elem;
+	int rc;
+
+	elem = scope_member_record_lookup(rec, ident);
+	if (elem != NULL)
+		return EEXIST;
+
+	elem = calloc(1, sizeof(scope_record_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->record = rec;
+	elem->ident = strdup(ident);
+	if (elem->ident == NULL) {
+		free(elem);
+		return ENOMEM;
+	}
+
+	rc = cgtype_clone(cgtype, &elem->cgtype);
+	if (rc != EOK) {
+		free(elem->ident);
+		free(elem);
+		return ENOMEM;
+	}
+
+	list_append(&elem->lelems, &rec->elems);
+	return EOK;
+}
+
+/** Look up record scope member element by identifier.
+ *
+ * @param rec Record scope member
+ * @param ident Element indentifier
+ * @return Record scope member element or @c NULL if not found
+ */
+scope_record_elem_t *scope_member_record_lookup(scope_member_record_t *rec,
+    const char *ident)
+{
+	scope_record_elem_t *elem;
+
+	elem = scope_member_record_first(rec);
+	while (elem != NULL) {
+		if (strcmp(elem->ident, ident) == 0)
+			return elem;
+
+		elem = scope_member_record_next(elem);
+	}
+
+	return NULL;
+}
+
+/** Return first record scope member element.
+ *
+ * @param rec Record scope member
+ * @return First record scope member element or @c NULL there are none
+ */
+static scope_record_elem_t *scope_member_record_first(
+    scope_member_record_t *rec)
+{
+	link_t *link;
+
+	link = list_first(&rec->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, scope_record_elem_t, lelems);
+}
+
+/** Return next record scope member element.
+ *
+ * @param cur Current record scope member element
+ * @return Next record scope member element or @c NULL if @cur was the last
+ */
+static scope_record_elem_t *scope_member_record_next(scope_record_elem_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lelems, &cur->record->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, scope_record_elem_t, lelems);
+}
+
+/** Destroy record scope member element.
+ *
+ * @param elem Record scope member element
+ */
+static void scope_record_elem_destroy(scope_record_elem_t *elem)
+{
+	list_remove(&elem->lelems);
+	free(elem->ident);
+	cgtype_destroy(elem->cgtype);
+	free(elem);
+}
+
+/** Destroy record scope member.
+ *
+ * @param smrecord Record scope member
+ */
+static void scope_member_record_destroy(scope_member_record_t *smrecord)
+{
+	scope_record_elem_t *elem;
+
+	elem = scope_member_record_first(smrecord);
+	while (elem != NULL) {
+		scope_record_elem_destroy(elem);
+		elem = scope_member_record_first(smrecord);
+	}
 }
 
 /** Destroy identifier scope.
@@ -74,6 +199,9 @@ void scope_destroy(scope_t *scope)
 			free(member->m.lvar.vident);
 			break;
 		case sm_tdef:
+			break;
+		case sm_record:
+			scope_member_record_destroy(&member->m.record);
 			break;
 		}
 
@@ -259,6 +387,52 @@ int scope_insert_tdef(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
 	return EOK;
 }
 
+/** Insert record to identifier scope.
+ *
+ * @param scope Scope
+ * @param tident Tag identifier token
+ * @param srtype Scope record type (struct or union)
+ * @param rmember Place to store pointer to new member or @c NULL if not
+ *                interested.
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
+ *         identifier is already present in the scope
+ */
+int scope_insert_record(scope_t *scope, lexer_tok_t *tident,
+    scope_rec_type_t srtype, scope_member_t **rmember)
+{
+	scope_member_t *member;
+	cgtype_record_t *rtype = NULL;
+	int rc;
+
+	member = scope_lookup_tag_local(scope, tident->text);
+	if (member != NULL) {
+		/* Identifier already exists */
+		return EEXIST;
+	}
+
+	member = calloc(1, sizeof(scope_member_t));
+	if (member == NULL)
+		return ENOMEM;
+
+	rc = cgtype_record_create(member, &rtype);
+	if (rc != EOK) {
+		free(member);
+		return ENOMEM;
+	}
+
+	member->tident = tident;
+	member->cgtype = &rtype->cgtype;
+	member->mtype = sm_record;
+	member->m.record.srtype = srtype;
+	list_initialize(&member->m.record.elems);
+	member->scope = scope;
+	list_append(&member->lmembers, &scope->members);
+
+	if (rmember != NULL)
+		*rmember = member;
+	return EOK;
+}
+
 /** Get first (local) scope member.
  *
  * @param scope Scope
@@ -303,7 +477,30 @@ scope_member_t *scope_lookup_local(scope_t *scope, const char *ident)
 
 	member = scope_first(scope);
 	while (member != NULL) {
-		if (strcmp(member->tident->text, ident) == 0)
+		if (strcmp(member->tident->text, ident) == 0 &&
+		    member->mtype != sm_record)
+			return member;
+
+		member = scope_next(member);
+	}
+
+	return NULL;
+}
+
+/** Look up tag identifier in a scope (but not in the ancestor scopes).
+ *
+ * @param scope Scope
+ * @param ident Tag identifier
+ * @return Member or @c NULL if identifier is not found
+ */
+scope_member_t *scope_lookup_tag_local(scope_t *scope, const char *ident)
+{
+	scope_member_t *member;
+
+	member = scope_first(scope);
+	while (member != NULL) {
+		if (strcmp(member->tident->text, ident) == 0 &&
+		    member->mtype == sm_record)
 			return member;
 
 		member = scope_next(member);
@@ -330,6 +527,30 @@ scope_member_t *scope_lookup(scope_t *scope, const char *ident)
 		return NULL;
 
 	member = scope_lookup(scope->parent, ident);
+	if (member != NULL)
+		return member;
+
+	return NULL;
+}
+
+/** Look up tag identifier in a scope (and in the ancestor scopes).
+ *
+ * @param scope Scope
+ * @param ident Tag identifier
+ * @return Member or @c NULL if identifier is not found
+ */
+scope_member_t *scope_lookup_tag(scope_t *scope, const char *ident)
+{
+	scope_member_t *member;
+
+	member = scope_lookup_tag_local(scope, ident);
+	if (member != NULL)
+		return member;
+
+	if (scope->parent == NULL)
+		return NULL;
+
+	member = scope_lookup_tag(scope->parent, ident);
 	if (member != NULL)
 		return member;
 

@@ -231,6 +231,7 @@ Specifically, these language features are supported:
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
    and integer type conversions, usual arithmetic conversions
  * Basic support for pointers
+ * Typedefs
 
 These are NOT supported:
 

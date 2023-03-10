@@ -44,6 +44,7 @@
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, scope_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
+static int cgen_sqlist(cgen_t *, scope_t *, ast_sqlist_t *, cgtype_t **);
 static void cgen_expr_check_unused(cgen_proc_t *, ast_node_t *,
     cgen_eres_t *);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -219,6 +220,13 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 		return 0;
 	case cgn_pointer:
 		return cgen_pointer_bits / 8;
+	case cgn_record:
+		/*
+		 * XXX We might want to delegate calculation of record
+		 * size to the backend.
+		 */
+		assert(false);
+		return 0;
 	}
 
 	assert(false);
@@ -1138,12 +1146,7 @@ static int cgen_tsident(cgen_t *cgen, scope_t *scope, ast_tsident_t *tsident,
 	scope_member_t *member;
 	int rc;
 
-	printf("tsident\n");
-	(void)cgen;
-	(void)rstype;
-
 	ident = (comp_tok_t *)tsident->tident.data;
-	printf("ident='%s'\n", ident->tok.text);
 
 	/* Check if the type is defined */
 	member = scope_lookup(scope, ident->tok.text);
@@ -1163,6 +1166,470 @@ static int cgen_tsident(cgen_t *cgen, scope_t *scope, ast_tsident_t *tsident,
 	return EOK;
 }
 
+/** Generate code for record type specifier element.
+ *
+ * In outher words, one field of a struct or union definition.
+ *
+ * @param cgen Code generator
+ * @param scope Current scope
+ * @param elem Record type specifier element
+ * @param member Scope member (that is a record)
+ * @return EOK on success or an error code
+ */
+static int cgen_tsrecord_elem(cgen_t *cgen, scope_t *scope,
+    ast_tsrecord_elem_t *elem, scope_member_t *member)
+{
+	ast_dlist_entry_t *dlentry;
+	cgtype_t *stype = NULL;
+	cgtype_t *dtype = NULL;
+	ast_tok_t *aident;
+	comp_tok_t *ident;
+	comp_tok_t *ctok;
+	int rc;
+
+	(void)member;
+
+	/* When compiling we should not get a macro declaration */
+	assert(elem->mdecln == NULL);
+
+	rc = cgen_sqlist(cgen, scope, elem->sqlist, &stype);
+	if (rc != EOK)
+		goto error;
+
+	dlentry = ast_dlist_first(elem->dlist);
+	while (dlentry != NULL) {
+		rc = cgen_decl(cgen, scope, stype, dlentry->decl,
+		    dlentry->aslist, &dtype);
+		if (rc != EOK)
+			goto error;
+
+		aident = ast_decl_get_ident(dlentry->decl);
+		ident = (comp_tok_t *) aident->data;
+
+		if (dlentry->have_bitwidth) {
+			ctok = (comp_tok_t *)dlentry->tcolon.data;
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Unimplemented bit field.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		assert(member->mtype == sm_record);
+
+		rc = scope_member_record_append(&member->m.record,
+		    ident->tok.text, dtype);
+		if (rc == EEXIST) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Duplicate record member '%s'.\n",
+			    ident->tok.text);
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+		if (rc != EOK)
+			goto error;
+
+		cgtype_destroy(dtype);
+		dtype = NULL;
+
+		dlentry = ast_dlist_next(dlentry);
+	}
+
+	cgtype_destroy(stype);
+	return EOK;
+error:
+	cgtype_destroy(stype);
+	cgtype_destroy(dtype);
+	return rc;
+}
+
+/** Generate code for record type specifier.
+ *
+ * @param cgen Code generator
+ * @param scope Current scope
+ * @param tsrecord Record type specifier
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
+    cgtype_t **rstype)
+{
+	comp_tok_t *ident;
+	scope_member_t *member;
+	ast_tok_t *tok;
+	comp_tok_t *ctok;
+	cgtype_basic_t *btype;
+	const char *rtype;
+	scope_rec_type_t srtype;
+	ast_tsrecord_elem_t *elem;
+	int rc;
+
+	(void)scope;
+	(void)rstype;
+
+	if (tsrecord->rtype == ar_struct) {
+		rtype = "struct";
+		srtype = sr_struct;
+	} else {
+		rtype = "union";
+		srtype = sr_union;
+	}
+
+	if (tsrecord->aslist1 != NULL) {
+		tok = ast_tree_first_tok(&tsrecord->aslist1->node);
+		ctok = (comp_tok_t *)tok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented attribute specifier "
+		    "in this context.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	if (tsrecord->have_ident)
+		ident = (comp_tok_t *)tsrecord->tident.data;
+
+	if (!tsrecord->have_ident) {
+		ctok = (comp_tok_t *)tsrecord->tsu.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented anonymous struct/union.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	if (!tsrecord->have_def) {
+		ctok = (comp_tok_t *)tsrecord->tsu.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented struct/union usage.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	member = scope_lookup_tag(scope, ident->tok.text);
+	if (member != NULL) {
+		lexer_dprint_tok(member->tident, stderr);
+		fprintf(stderr, ": Redefinition of '%s %s'.\n",
+		    rtype, member->tident->text);
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	if (tsrecord->aslist2 != NULL) {
+		tok = ast_tree_first_tok(&tsrecord->aslist2->node);
+		ctok = (comp_tok_t *)tok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented attribute specifier "
+		    "in this context.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	/* Insert new record definition */
+	rc = scope_insert_record(scope, &ident->tok, srtype, &member);
+	if (rc != EOK)
+		return EINVAL;
+
+	elem = ast_tsrecord_first(tsrecord);
+	while (elem != NULL) {
+		rc = cgen_tsrecord_elem(cgen, scope, elem, member);
+		elem = ast_tsrecord_next(elem);
+	}
+
+	/* Resulting type is the same as type of the member */
+	rc = cgtype_basic_create(cgelm_int, &btype);
+	if (rc != EOK)
+		return rc;
+
+	*rstype = &btype->cgtype;
+	return EOK;
+}
+
+/** Initialize code generator for declaration speciers.
+ *
+ * This structure holds state for processing declaration specifiers
+ * or specifier-qualifier list.
+ *
+ * @param cgen Code generator
+ * @param cgds Code generator for declaration specifiers
+ */
+static void cgen_dspec_init(cgen_t *cgen, cgen_dspec_t *cgds)
+{
+	cgds->cgen = cgen;
+
+	/* There should be exactly one type specifier. Track it in tspec. */
+	cgds->tspec = NULL;
+	cgds->short_cnt = 0;
+	cgds->long_cnt = 0;
+	cgds->signed_cnt = 0;
+	cgds->unsigned_cnt = 0;
+	cgds->sctype = asc_none;
+}
+
+/** Generate code for declaratio specifier / specifier-qualifier.
+ *
+ * Declaration specifiers declare the base type which is then further modified
+ * by the declarator(s).
+ *
+ * @param cgds Code generator for declaration specifier
+ * @param dspec Declaration specifier
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
+{
+	ast_tok_t *atok;
+	ast_tsbasic_t *tsbasic;
+	ast_sclass_t *sclass;
+	comp_tok_t *tok;
+
+	switch (dspec->ntype) {
+	case ant_tsbasic:
+		tsbasic = (ast_tsbasic_t *) dspec->ext;
+		switch (tsbasic->btstype) {
+		case abts_short:
+			if (cgds->short_cnt > 0) {
+				cgen_error_multiple_short(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			if (cgds->long_cnt > 0) {
+				cgen_error_short_long(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			++cgds->short_cnt;
+			break;
+		case abts_long:
+			if (cgds->long_cnt > 1) {
+				cgen_error_many_long(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			if (cgds->short_cnt > 0) {
+				cgen_error_short_long(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			++cgds->long_cnt;
+			break;
+		case abts_signed:
+			if (cgds->signed_cnt > 0) {
+				cgen_error_multiple_signed(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			if (cgds->unsigned_cnt > 0) {
+				cgen_error_signed_unsigned(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			++cgds->signed_cnt;
+			break;
+		case abts_unsigned:
+			if (cgds->unsigned_cnt > 0) {
+				cgen_error_multiple_unsigned(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			if (cgds->signed_cnt > 0) {
+				cgen_error_signed_unsigned(cgds->cgen, tsbasic);
+				return EINVAL;
+			}
+			++cgds->unsigned_cnt;
+			break;
+		default:
+			if (cgds->tspec != NULL) {
+				/* More than one type specifier */
+				cgen_error_multiple_tspecs(cgds->cgen, cgds->tspec,
+				    dspec);
+				return EINVAL;
+			}
+
+			cgds->tspec = dspec;
+			break;
+		}
+		break;
+	case ant_tsident:
+	case ant_tsatomic:
+	case ant_tsrecord:
+	case ant_tsenum:
+		if (cgds->tspec != NULL) {
+			/* More than one type specifier */
+			cgen_error_multiple_tspecs(cgds->cgen, cgds->tspec, dspec);
+			return EINVAL;
+		}
+
+		cgds->tspec = dspec;
+		break;
+	case ant_sclass:
+		/* Storage class specifier */
+		sclass = (ast_sclass_t *)dspec->ext;
+		/*
+		 * Multiple storage classes should have been caught by
+		 * the parser.
+		 */
+		assert(cgds->sctype == asc_none);
+		cgds->sctype = sclass->sctype;
+		break;
+	default:
+		atok = ast_tree_first_tok(dspec);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Unimplemented declaration specifier.\n");
+		++cgds->cgen->warnings;
+		break;
+	}
+
+	return EOK;
+}
+
+/** Finish up generating code for declaration specifiers / specifier-qualifier
+ * list.
+ *
+ * @param cgds Code generator for declaration specifiers
+ * @param scope Current scope
+ * @param rsctype Place to store storage class type
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_dspec_finish(cgen_dspec_t *cgds, scope_t *scope,
+    ast_sclass_type_t *rsctype, cgtype_t **rstype)
+{
+	cgen_t *cgen = cgds->cgen;
+	ast_tok_t *atok;
+	ast_tsbasic_t *tsbasic;
+	comp_tok_t *tok;
+	cgtype_elmtype_t elmtype;
+	cgtype_basic_t *btype = NULL;
+	cgtype_t *stype;
+	int rc;
+
+	if (cgds->tspec != NULL) {
+		/* Process type specifier */
+		switch (cgds->tspec->ntype) {
+		case ant_tsbasic:
+			tsbasic = (ast_tsbasic_t *) cgds->tspec->ext;
+			switch (tsbasic->btstype) {
+			case abts_char:
+				if (cgds->unsigned_cnt > 0)
+					elmtype = cgelm_uchar;
+				else
+					elmtype = cgelm_char;
+
+				if (cgds->short_cnt > 0) {
+					cgen_error_short_char(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (cgds->long_cnt > 0) {
+					cgen_error_long_char(cgen, tsbasic);
+					return EINVAL;
+				}
+				break;
+			case abts_int:
+				elmtype = cgelm_int;
+				break;
+			case abts_void:
+				elmtype = cgelm_void;
+				break;
+			default:
+				cgen_warn_tspec_not_impl(cgen, cgds->tspec);
+				elmtype = cgelm_int;
+				break;
+			}
+
+			if (elmtype == cgelm_int) {
+				if (cgds->unsigned_cnt > 0) {
+					if (cgds->long_cnt > 1)
+						elmtype = cgelm_ulonglong;
+					else if (cgds->long_cnt > 0)
+						elmtype = cgelm_ulong;
+					else if (cgds->short_cnt > 0)
+						elmtype = cgelm_ushort;
+					else
+						elmtype = cgelm_uint;
+				} else {
+					if (cgds->long_cnt > 1)
+						elmtype = cgelm_longlong;
+					else if (cgds->long_cnt > 0)
+						elmtype = cgelm_long;
+					else if (cgds->short_cnt > 0)
+						elmtype = cgelm_short;
+					else
+						elmtype = cgelm_int;
+				}
+
+				/*
+				 * Style: If there is any other specifier
+				 * than int (signed, unsigned, short, long),
+				 * then int is superfluous.
+				 */
+				if (cgds->long_cnt > 0 || cgds->short_cnt > 0 ||
+				    cgds->signed_cnt > 0 || cgds->unsigned_cnt > 0) {
+					cgen_warn_int_superfluous(cgen,
+					    tsbasic);
+				}
+			}
+
+			rc = cgtype_basic_create(elmtype, &btype);
+			if (rc != EOK)
+				goto error;
+
+			stype = &btype->cgtype;
+			break;
+		case ant_tsident:
+			rc = cgen_tsident(cgen, scope,
+			    (ast_tsident_t *)cgds->tspec->ext, &stype);
+			if (rc != EOK)
+				goto error;
+			break;
+		case ant_tsrecord:
+			rc = cgen_tsrecord(cgen, scope,
+			    (ast_tsrecord_t *)cgds->tspec->ext, &stype);
+			if (rc != EOK)
+				goto error;
+			break;
+		default:
+			stype = NULL;
+			atok = ast_tree_first_tok(cgds->tspec);
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Unimplemented type specifier.\n");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
+	} else {
+		/* Default to int */
+
+		if (cgds->unsigned_cnt > 0) {
+			if (cgds->long_cnt > 1)
+				elmtype = cgelm_ulonglong;
+			else if (cgds->long_cnt > 0)
+				elmtype = cgelm_ulong;
+			else if (cgds->short_cnt > 0)
+				elmtype = cgelm_ushort;
+			else
+				elmtype = cgelm_uint;
+		} else {
+			if (cgds->long_cnt > 1)
+				elmtype = cgelm_longlong;
+			else if (cgds->long_cnt > 0)
+				elmtype = cgelm_long;
+			else if (cgds->short_cnt > 0)
+				elmtype = cgelm_short;
+			else
+				elmtype = cgelm_int;
+		}
+
+		rc = cgtype_basic_create(elmtype, &btype);
+		if (rc != EOK)
+			goto error;
+
+		stype = &btype->cgtype;
+	}
+
+	*rsctype = cgds->sctype;
+	*rstype = stype;
+	return EOK;
+error:
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
 /** Generate code for declaration specifiers.
  *
  * Declaration specifiers declare the base type which is then further modified
@@ -1179,31 +1646,11 @@ static int cgen_dspecs(cgen_t *cgen, scope_t *scope, ast_dspecs_t *dspecs,
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
-	ast_tok_t *atok;
-	ast_node_t *tspec;
-	ast_tsbasic_t *tsbasic;
-	ast_sclass_type_t sctype;
-	ast_sclass_t *sclass;
-	comp_tok_t *tok;
-	cgtype_elmtype_t elmtype;
-	cgtype_basic_t *btype = NULL;
-	cgtype_t *stype;
-	int short_cnt;
-	int long_cnt;
-	int signed_cnt;
-	int unsigned_cnt;
+	cgen_dspec_t cgds;
 	int rc;
 
-	(void) cgen;
-	(void) rstype;
-
-	/* There should be exactly one type specifier. Track it in tspec. */
-	tspec = NULL;
-	short_cnt = 0;
-	long_cnt = 0;
-	signed_cnt = 0;
-	unsigned_cnt = 0;
-	sctype = asc_none;
+	/* Initialize dspec tracking structure. */
+	cgen_dspec_init(cgen, &cgds);
 
 	dspec = ast_dspecs_first(dspecs);
 	prev = NULL;
@@ -1212,225 +1659,60 @@ static int cgen_dspecs(cgen_t *cgen, scope_t *scope, ast_dspecs_t *dspecs,
 		if (prev != NULL)
 			cgen_dspec_check_order(cgen, prev, dspec);
 
-		switch (dspec->ntype) {
-		case ant_tsbasic:
-			tsbasic = (ast_tsbasic_t *) dspec->ext;
-			switch (tsbasic->btstype) {
-			case abts_short:
-				if (short_cnt > 0) {
-					cgen_error_multiple_short(cgen, tsbasic);
-					return EINVAL;
-				}
-				if (long_cnt > 0) {
-					cgen_error_short_long(cgen, tsbasic);
-					return EINVAL;
-				}
-				++short_cnt;
-				break;
-			case abts_long:
-				if (long_cnt > 1) {
-					cgen_error_many_long(cgen, tsbasic);
-					return EINVAL;
-				}
-				if (short_cnt > 0) {
-					cgen_error_short_long(cgen, tsbasic);
-					return EINVAL;
-				}
-				++long_cnt;
-				break;
-			case abts_signed:
-				if (signed_cnt > 0) {
-					cgen_error_multiple_signed(cgen, tsbasic);
-					return EINVAL;
-				}
-				if (unsigned_cnt > 0) {
-					cgen_error_signed_unsigned(cgen, tsbasic);
-					return EINVAL;
-				}
-				++signed_cnt;
-				break;
-			case abts_unsigned:
-				if (unsigned_cnt > 0) {
-					cgen_error_multiple_unsigned(cgen, tsbasic);
-					return EINVAL;
-				}
-				if (signed_cnt > 0) {
-					cgen_error_signed_unsigned(cgen, tsbasic);
-					return EINVAL;
-				}
-				++unsigned_cnt;
-				break;
-			default:
-				if (tspec != NULL) {
-					/* More than one type specifier */
-					cgen_error_multiple_tspecs(cgen, tspec, dspec);
-					return EINVAL;
-				}
-
-				tspec = dspec;
-				break;
-			}
-			break;
-		case ant_tsident:
-		case ant_tsatomic:
-		case ant_tsrecord:
-		case ant_tsenum:
-			if (tspec != NULL) {
-				/* More than one type specifier */
-				cgen_error_multiple_tspecs(cgen, tspec, dspec);
-				return EINVAL;
-			}
-
-			tspec = dspec;
-			break;
-		case ant_sclass:
-			/* Storage class specifier */
-			sclass = (ast_sclass_t *)dspec->ext;
-			/*
-			 * Multiple storage classes should have been caught by
-			 * the parser.
-			 */
-			assert(sctype == asc_none);
-			sctype = sclass->sctype;
-			break;
-		default:
-			atok = ast_tree_first_tok(dspec);
-			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Unimplemented declaration specifier.\n");
-			++cgen->warnings;
-			break;
-		}
+		/* Process declaration specifier */
+		rc = cgen_dspec(&cgds, dspec);
+		if (rc != EOK)
+			return rc;
 
 		prev = dspec;
 		dspec = ast_dspecs_next(dspec);
 	}
 
-	if (tspec != NULL) {
-		/* Process type specifier */
-		switch (tspec->ntype) {
-		case ant_tsbasic:
-			tsbasic = (ast_tsbasic_t *) tspec->ext;
-			switch (tsbasic->btstype) {
-			case abts_char:
-				if (unsigned_cnt > 0)
-					elmtype = cgelm_uchar;
-				else
-					elmtype = cgelm_char;
+	return cgen_dspec_finish(&cgds, scope, rsctype, rstype);
+}
 
-				if (short_cnt > 0) {
-					cgen_error_short_char(cgen, tsbasic);
-					return EINVAL;
-				}
-				if (long_cnt > 0) {
-					cgen_error_long_char(cgen, tsbasic);
-					return EINVAL;
-				}
-				break;
-			case abts_int:
-				elmtype = cgelm_int;
-				break;
-			case abts_void:
-				elmtype = cgelm_void;
-				break;
-			default:
-				cgen_warn_tspec_not_impl(cgen, tspec);
-				elmtype = cgelm_int;
-				break;
-			}
+/** Generate code for specifier-qualifier list.
+ *
+ * @param cgen Code generator
+ * @param scope Current scope
+ * @param sqlist Specifier-qualifier list
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_sqlist(cgen_t *cgen, scope_t *scope, ast_sqlist_t *sqlist,
+    cgtype_t **rstype)
+{
+	ast_node_t *dspec;
+	ast_node_t *prev;
+	ast_sclass_type_t sctype;
+	cgen_dspec_t cgds;
+	int rc;
 
-			if (elmtype == cgelm_int) {
-				if (unsigned_cnt > 0) {
-					if (long_cnt > 1)
-						elmtype = cgelm_ulonglong;
-					else if (long_cnt > 0)
-						elmtype = cgelm_ulong;
-					else if (short_cnt > 0)
-						elmtype = cgelm_ushort;
-					else
-						elmtype = cgelm_uint;
-				} else {
-					if (long_cnt > 1)
-						elmtype = cgelm_longlong;
-					else if (long_cnt > 0)
-						elmtype = cgelm_long;
-					else if (short_cnt > 0)
-						elmtype = cgelm_short;
-					else
-						elmtype = cgelm_int;
-				}
+	/* Initialize dspec tracking structure. */
+	cgen_dspec_init(cgen, &cgds);
 
-				/*
-				 * Style: If there is any other specifier
-				 * than int (signed, unsigned, short, long),
-				 * then int is superfluous.
-				 */
-				if (long_cnt > 0 || short_cnt > 0 ||
-				    signed_cnt > 0 || unsigned_cnt > 0) {
-					cgen_warn_int_superfluous(cgen,
-					    tsbasic);
-				}
-			}
+	dspec = ast_sqlist_first(sqlist);
+	prev = NULL;
+	while (dspec != NULL) {
+		/* Coding style requires specifiers to be in a certain order. */
+		if (prev != NULL)
+			cgen_dspec_check_order(cgen, prev, dspec);
 
-			rc = cgtype_basic_create(elmtype, &btype);
-			if (rc != EOK)
-				goto error;
-
-			stype = &btype->cgtype;
-			break;
-		case ant_tsident:
-			rc = cgen_tsident(cgen, scope,
-			    (ast_tsident_t *)tspec->ext, &stype);
-			if (rc != EOK)
-				goto error;
-			break;
-		default:
-			stype = NULL;
-			atok = ast_tree_first_tok(tspec);
-			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Unimplemented type specifier.\n");
-			cgen->error = true; // XXX
-			rc = EINVAL;
-			goto error;
-		}
-	} else {
-		/* Default to int */
-
-		if (unsigned_cnt > 0) {
-			if (long_cnt > 1)
-				elmtype = cgelm_ulonglong;
-			else if (long_cnt > 0)
-				elmtype = cgelm_ulong;
-			else if (short_cnt > 0)
-				elmtype = cgelm_ushort;
-			else
-				elmtype = cgelm_uint;
-		} else {
-			if (long_cnt > 1)
-				elmtype = cgelm_longlong;
-			else if (long_cnt > 0)
-				elmtype = cgelm_long;
-			else if (short_cnt > 0)
-				elmtype = cgelm_short;
-			else
-				elmtype = cgelm_int;
-		}
-
-		rc = cgtype_basic_create(elmtype, &btype);
+		/* Process specifier-qualifier list entry */
+		rc = cgen_dspec(&cgds, dspec);
 		if (rc != EOK)
-			goto error;
+			return rc;
 
-		stype = &btype->cgtype;
+		prev = dspec;
+		dspec = ast_sqlist_next(dspec);
 	}
 
-	*rsctype = sctype;
-	*rstype = stype;
+	rc = cgen_dspec_finish(&cgds, scope, &sctype, rstype);
+	if (rc != EOK)
+		return rc;
+
+	assert(sctype == asc_none);
 	return EOK;
-error:
-	if (btype != NULL)
-		cgtype_destroy(&btype->cgtype);
-	return rc;
 }
 
 /** Generate code for identifier declarator.
@@ -1441,17 +1723,30 @@ error:
  * @param cgen Code generator
  * @param stype Type derived from declaration specifiers
  * @param dident Identifier declarator
+ * @param aslist Attribute specifier list or @c NULL
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
 static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
-    cgtype_t **rdtype)
+    ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_t *dtype;
+	ast_tok_t *tok;
+	comp_tok_t *ctok;
 	int rc;
 
 	(void)cgen;
 	(void)dident;
+
+	if (aslist != NULL) {
+		tok = ast_tree_first_tok(&aslist->node);
+		ctok = (comp_tok_t *)tok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented attribute specifier "
+		    "in this context.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
 
 	rc = cgtype_clone(stype, &dtype);
 	if (rc != EOK)
@@ -1600,6 +1895,12 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 
 					/* User service routine */
 					func->cconv = cgcc_usr;
+				} else {
+					lexer_dprint_tok(&tok->tok, stderr);
+					fprintf(stderr, ": Unknown attribute '%s'.\n",
+					    tok->tok.text);
+					cgen->error = true; // XXX
+					return EINVAL;
 				}
 
 				attr = ast_aspec_next(attr);
@@ -1689,7 +1990,7 @@ static int cgen_decl(cgen_t *cgen, scope_t *scope, cgtype_t *stype,
 	case ant_dident:
 	case ant_dnoident:
 		rc = cgen_decl_ident(cgen, stype, (ast_dident_t *) decl->ext,
-		    &dtype);
+		    aslist, &dtype);
 		break;
 	case ant_dfun:
 		rc = cgen_decl_fun(cgen, scope, stype, (ast_dfun_t *) decl->ext,
@@ -1972,6 +2273,14 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	case sm_lvar:
 		rc = cgen_eident_lvar(cgproc, eident, member->m.lvar.vident,
 		    lblock, eres);
+		break;
+	case sm_record:
+		/*
+		 * Should not happen - call to scope lookup above cannot
+		 * match a record tag.
+		 */
+		assert(false);
+		return EINVAL;
 		break;
 	case sm_tdef:
 		lexer_dprint_tok(&ident->tok, stderr);

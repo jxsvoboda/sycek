@@ -28,6 +28,7 @@
 #define TYPES_CGEN_H
 
 #include <stdbool.h>
+#include <types/ast.h>
 #include <types/cgtype.h>
 
 /** Code generator */
@@ -71,6 +72,30 @@ typedef struct {
 	/** Goto labels */
 	struct labels *labels;
 } cgen_proc_t;
+
+/** Code generator for declaration specifies / specifier-qualifier list.
+ *
+ * A specifier-qualifier list is a subset of declaration-specifiers,
+ * namely it cannot contain function-specifier ('inline') and it
+ * cannot contain a storage class. Otherwise they are processed
+ * in the same way.
+ */
+typedef struct {
+	/** Containing code generator */
+	cgen_t *cgen;
+	/** Type specifier (there should be exactly one) */
+	ast_node_t *tspec;
+	/** Number of 'short' specifiers */
+	int short_cnt;
+	/** Number of 'long' specifiers */
+	int long_cnt;
+	/** Number of 'signed' specifiers */
+	int signed_cnt;
+	/** Number of 'unsigned' specifiers */
+	int unsigned_cnt;
+	/** Storage class type */
+	ast_sclass_type_t sctype;
+} cgen_dspec_t;
 
 /** Value type.
  *

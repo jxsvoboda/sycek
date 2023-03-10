@@ -1,0 +1,1 @@
+<test/syc/bad/unionredef.c:5:7-9:id:foo>: Redefinition of 'union foo'.

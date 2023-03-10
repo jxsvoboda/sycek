@@ -31,6 +31,7 @@
 #include <cgtype.h>
 #include <charcls.h>
 #include <merrno.h>
+#include <scope.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -458,6 +459,86 @@ static void cgtype_pointer_destroy(cgtype_pointer_t *pointer)
 	free(pointer);
 }
 
+/** Create record type.
+ *
+ * @param member Scope member containing record definition
+ * @param rrecord Place to store pointer to new record type
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgtype_record_create(scope_member_t *member, cgtype_record_t **rrecord)
+{
+	cgtype_record_t *record;
+
+	record = calloc(1, sizeof(cgtype_record_t));
+	if (record == NULL)
+		return ENOMEM;
+
+	record->cgtype.ntype = cgn_record;
+	record->cgtype.ext = record;
+	record->member = member;
+	*rrecord = record;
+	return EOK;
+}
+
+/** Print record type.
+ *
+ * @param record Record type
+ * @param f Output stream
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int cgtype_record_print(cgtype_record_t *record, FILE *f)
+{
+	int rv;
+	const char *rtype = NULL;
+
+	assert(record->member->mtype == sm_record);
+
+	switch (record->member->m.record.srtype) {
+	case sr_struct:
+		rtype = "struct";
+		break;
+	case sr_union:
+		rtype = "union";
+		break;
+	}
+
+	rv = fprintf(f, "%s %s", rtype, record->member->tident->text);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Clone record type.
+ *
+ * @param orig Original record type
+ * @param rcopy Place to store pointer to copy
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgtype_record_clone(cgtype_record_t *orig, cgtype_t **rcopy)
+{
+	cgtype_record_t *copy = NULL;
+	int rc;
+
+	rc = cgtype_record_create(orig->member, &copy);
+	if (rc != EOK)
+		return rc;
+
+	*rcopy = &copy->cgtype;
+	return EOK;
+}
+
+/** Destroy record type.
+ *
+ * @param record Record type
+ */
+static void cgtype_record_destroy(cgtype_record_t *record)
+{
+	free(record);
+}
+
 /** Deep clone of code generator type.
  *
  * It's easier to deep clone types than to manage sharing nodes. Let's
@@ -481,6 +562,9 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 		return cgtype_func_clone((cgtype_func_t *) orig->ext, rcopy);
 	case cgn_pointer:
 		return cgtype_pointer_clone((cgtype_pointer_t *) orig->ext,
+		    rcopy);
+	case cgn_record:
+		return cgtype_record_clone((cgtype_record_t *) orig->ext,
 		    rcopy);
 	}
 
@@ -507,6 +591,9 @@ void cgtype_destroy(cgtype_t *cgtype)
 	case cgn_pointer:
 		cgtype_pointer_destroy((cgtype_pointer_t *) cgtype->ext);
 		break;
+	case cgn_record:
+		cgtype_record_destroy((cgtype_record_t *) cgtype->ext);
+		break;
 	}
 }
 
@@ -527,6 +614,8 @@ int cgtype_print(cgtype_t *cgtype, FILE *f)
 	case cgn_pointer:
 		return cgtype_pointer_print((cgtype_pointer_t *) cgtype->ext,
 		    f);
+	case cgn_record:
+		return cgtype_record_print((cgtype_record_t *) cgtype->ext, f);
 	}
 
 	assert(false);
@@ -661,6 +750,9 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 	case cgn_func:
 		assert(false);
 		return false;
+	case cgn_record:
+		return ((cgtype_record_t *)sptr->tgtype->ext)->member ==
+		    ((cgtype_record_t *)dptr->tgtype->ext)->member;
 	}
 	return true;
 }

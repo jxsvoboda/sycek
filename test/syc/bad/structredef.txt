@@ -1,0 +1,1 @@
+<test/syc/bad/structredef.c:5:8-10:id:foo>: Redefinition of 'struct foo'.

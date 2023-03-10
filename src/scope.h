@@ -38,9 +38,17 @@ extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
 extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
     const char *);
 extern int scope_insert_tdef(scope_t *, lexer_tok_t *, cgtype_t *);
+extern int scope_insert_record(scope_t *, lexer_tok_t *, scope_rec_type_t,
+    scope_member_t **);
+extern int scope_member_record_append(scope_member_record_t *, const char *,
+    cgtype_t *);
+extern scope_record_elem_t *scope_member_record_lookup(scope_member_record_t *,
+    const char *);
 extern scope_member_t *scope_first(scope_t *);
 extern scope_member_t *scope_next(scope_member_t *);
 extern scope_member_t *scope_lookup_local(scope_t *, const char *);
+extern scope_member_t *scope_lookup_tag_local(scope_t *, const char *);
 extern scope_member_t *scope_lookup(scope_t *, const char *);
+extern scope_member_t *scope_lookup_tag(scope_t *, const char *);
 
 #endif

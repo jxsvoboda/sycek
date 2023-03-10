@@ -47,8 +47,30 @@ typedef enum {
 	/** Local variable */
 	sm_lvar,
 	/** Typedef */
-	sm_tdef
+	sm_tdef,
+	/** Record definition */
+	sm_record
 } scope_member_type_t;
+
+/** Scope record type */
+typedef enum {
+	/** Struct */
+	sr_struct,
+	/** Union */
+	sr_union
+} scope_rec_type_t;
+
+/** Scope record element */
+typedef struct {
+	/** Containing scope member record */
+	struct scope_member_record *record;
+	/** Link to @c record->elems */
+	link_t lelems;
+	/** Member identifier */
+	char *ident;
+	/** Member type */
+	struct cgtype *cgtype;
+} scope_record_elem_t;
 
 /** Scope member - function argument */
 typedef struct {
@@ -62,8 +84,16 @@ typedef struct {
 	char *vident;
 } scope_member_lvar_t;
 
+/** Scope member - record definition */
+typedef struct scope_member_record {
+	/** Scope record type */
+	scope_rec_type_t srtype;
+	/** Scope record elements (of scope_record_elem_t) */
+	list_t elems;
+} scope_member_record_t;
+
 /** Scope member */
-typedef struct {
+typedef struct scope_member {
 	/** Containing scope */
 	scope_t *scope;
 	/** Link to scope_t.members */
@@ -79,6 +109,7 @@ typedef struct {
 	union {
 		scope_member_arg_t arg;
 		scope_member_lvar_t lvar;
+		scope_member_record_t record;
 	} m;
 } scope_member_t;
 

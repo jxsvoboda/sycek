@@ -36,7 +36,9 @@ typedef enum {
 	/** Function type */
 	cgn_func,
 	/** Pointer type */
-	cgn_pointer
+	cgn_pointer,
+	/** Record type */
+	cgn_record
 } cgtype_ntype_t;
 
 /** Elementary types */
@@ -129,5 +131,13 @@ typedef struct {
 	/** Type of the pointer target */
 	cgtype_t *tgtype;
 } cgtype_pointer_t;
+
+/** Record type */
+typedef struct {
+	/** Base type object */
+	cgtype_t cgtype;
+	/** Record scope member containing the definition */
+	struct scope_member *member;
+} cgtype_record_t;
 
 #endif
