@@ -6,9 +6,12 @@
 
 int main(void)
 {
-	int i;
+	unsigned *sp;
+	unsigned i;
 
-	for (i = 0; i < 0x1800; i += 2)
-		*(unsigned *)(0x4000 + i) = 0xffff;
+	sp = (unsigned *)0x4000;
+
+	for (i = 0; i < 0xc00u; ++i)
+		sp[i] = 0xffff;
 	return 0;
 }

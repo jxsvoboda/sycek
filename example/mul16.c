@@ -14,9 +14,9 @@
 
 int mul(int a, int b)
 {
-	int i, j;
+	unsigned i, j;
 	int s;
-	int cnt;
+	unsigned char cnt;
 
 	/* Need to copy arguments since they are not lvalues yet */
 	i = a;
@@ -42,12 +42,12 @@ int mulintr(int a, int b)
 int ga = 10;
 int gb = 20;
 
-int gmul(void)
+int gmul(void) __attribute__((usr))
 {
 	return mul(ga, gb);
 }
 
-int gmulintr(void)
+int gmulintr(void)  __attribute__((usr))
 {
 	return mulintr(ga, gb);
 }
