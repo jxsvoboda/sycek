@@ -43,6 +43,8 @@ typedef struct {
 	struct scope *scope;
 	/** Module symbols */
 	struct symbols *symbols;
+	/** Count nesting of record type specifiers (struct/union defs) */
+	unsigned tsrec_cnt;
 } cgen_t;
 
 /** Code generator for procedure */

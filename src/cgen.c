@@ -1305,6 +1305,29 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
+	if (tsrecord->have_def && scope->parent != NULL) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Definition of '%s %s' in a non-global "
+		    "scope.\n", rtype, ident->tok.text);
+		++cgen->warnings;
+
+		member = scope_lookup_tag(scope->parent, ident->tok.text);
+		if (member != NULL) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Definition of '%s %s' shadows "
+			    "a wider-scope struct/union definition.\n", rtype,
+			    ident->tok.text);
+			++cgen->warnings;
+		}
+	}
+
+	if (tsrecord->have_def && cgen->tsrec_cnt > 0) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Definition of '%s %s' inside another "
+		    "struct/union definition.\n", rtype, ident->tok.text);
+		++cgen->warnings;
+	}
+
 	member = scope_lookup_tag_local(scope, ident->tok.text);
 	if (member != NULL) {
 		lexer_dprint_tok(member->tident, stderr);
@@ -1329,11 +1352,20 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 	if (rc != EOK)
 		return EINVAL;
 
+	++cgen->tsrec_cnt;
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
 		rc = cgen_tsrecord_elem(cgen, scope, elem, member);
+		if (rc != EOK)  {
+			assert(cgen->tsrec_cnt > 0);
+			--cgen->tsrec_cnt;
+			return rc;
+		}
+
 		elem = ast_tsrecord_next(elem);
 	}
+	assert(cgen->tsrec_cnt > 0);
+	--cgen->tsrec_cnt;
 
 	/* Resulting type is the same as type of the member */
 	rc = cgtype_basic_create(cgelm_int, &btype);

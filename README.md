@@ -340,8 +340,9 @@ It can detect the following types of problems and style issues:
  * computed expression value is not used
  * specifically, ignoring return value of a function (TODO:
    this can be supressed on a per-function basis)
- * unused variable
+ * unused local variable
  * unused goto label
+ * unused local struct/union tag
  * constant should be long (or long long)
  * unsigned comparison of mixed-sign integers
  * bitwise operation on signed integers
@@ -351,6 +352,9 @@ It can detect the following types of problems and style issues:
  * converting to pointer from integer of different size
  * pointer should be the left operand while indexing
  * type definition in a non-global scope
+ * definition of struct/union shadows a wider-scope struct/union definition
+ * definition of struct/union in non-global scope
+ * definition of struct/union inside another struct/union definition
 
 Intermediate Representation
 ---------------------------

@@ -1,0 +1,3 @@
+<test/syc/ugly/structng.c:7:16-18:id:foo>: Definition of 'struct foo' in a non-global scope.
+<test/syc/ugly/structng.c:7:16-18:id:foo>: Warning: 'foo' is defined, but not used.
+<test/syc/ugly/structng.c:9:11:id:f>: Warning: 'f' is defined, but not used.

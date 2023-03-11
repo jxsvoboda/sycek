@@ -1,0 +1,4 @@
+<test/syc/ugly/structsh.c:11:16-18:id:foo>: Definition of 'struct foo' in a non-global scope.
+<test/syc/ugly/structsh.c:11:16-18:id:foo>: Definition of 'struct foo' shadows a wider-scope struct/union definition.
+<test/syc/ugly/structsh.c:11:16-18:id:foo>: Warning: 'foo' is defined, but not used.
+<test/syc/ugly/structsh.c:13:11:id:g>: Warning: 'g' is defined, but not used.
