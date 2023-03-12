@@ -5021,38 +5021,43 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ctok;
-	cgen_eres_t lres;
-	cgen_eres_t ares;
-	cgen_eres_t bres;
+	cgen_eres_t laddr;
+	cgen_eres_t lval;
+	cgen_eres_t rres;
 	cgen_eres_t ores;
 	cgtype_t *cgtype;
-	cgen_uac_flags_t flags;
 	const char *resvn;
 	int rc;
 
-	cgen_eres_init(&lres);
-	cgen_eres_init(&ares);
-	cgen_eres_init(&bres);
+	cgen_eres_init(&laddr);
+	cgen_eres_init(&lval);
+	cgen_eres_init(&rres);
 	cgen_eres_init(&ores);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres, &flags);
+	/* Address of left hand expresson */
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &laddr);
 	if (rc != EOK)
 		goto error;
 
-	/* Unsigned subtraction of mixed-sign integers is OK */
-	(void)flags;
+	/* Value of left hand expresson */
+	rc = cgen_eres_rvalue(cgproc, &laddr, lblock, &lval);
+	if (rc != EOK)
+		goto error;
+
+	/* Value of right hand expresson */
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
 
 	ctok = (comp_tok_t *) ebinop->top.data;
 
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, ctok, &ares, &bres, lblock, &ores);
+	rc = cgen_sub(cgproc, ctok, &lval, &rres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgproc, &laddr, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -5062,9 +5067,9 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
-	cgen_eres_fini(&lres);
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&bres);
+	cgen_eres_fini(&laddr);
+	cgen_eres_fini(&lval);
+	cgen_eres_fini(&rres);
 	cgen_eres_fini(&ores);
 
 	eres->varname = resvn;
@@ -5073,9 +5078,9 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	eres->valused = true;
 	return EOK;
 error:
-	cgen_eres_fini(&lres);
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&bres);
+	cgen_eres_fini(&laddr);
+	cgen_eres_fini(&lval);
+	cgen_eres_fini(&rres);
 	cgen_eres_fini(&ores);
 	return rc;
 }

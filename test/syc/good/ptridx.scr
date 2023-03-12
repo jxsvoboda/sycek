@@ -19,6 +19,12 @@ ld byte ptr (@_cidx), 0x10;
 call @_ptridx_mchar;
 verify word ptr (@_dp), 0x3fe0;
 
+/* Pointer -= 8-bit index */
+ld word ptr (@_dp), 0x4000;
+ld byte ptr (@_cidx), 0x10;
+call @_ptrdec_char;
+verify word ptr (@_dp), 0x3fe0;
+
 /* Pointer + 16-bit index */
 ld word ptr (@_p), 0x4000;
 ld word ptr (@_idx), 0x10;
@@ -35,4 +41,10 @@ verify word ptr (@_dp), 0x4020;
 ld word ptr (@_p), 0x4000;
 ld word ptr (@_idx), 0x10;
 call @_ptridx_mint;
+verify word ptr (@_dp), 0x3fe0;
+
+/* Pointer -= 16-bit index */
+ld word ptr (@_dp), 0x4000;
+ld word ptr (@_idx), 0x10;
+call @_ptrdec_int;
 verify word ptr (@_dp), 0x3fe0;
