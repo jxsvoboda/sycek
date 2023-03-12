@@ -45,6 +45,8 @@ static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, scope_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
 static int cgen_sqlist(cgen_t *, scope_t *, ast_sqlist_t *, cgtype_t **);
+static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
+    ir_lblock_t *, cgen_eres_t *);
 static void cgen_expr_check_unused(cgen_proc_t *, ast_node_t *,
     cgen_eres_t *);
 static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
@@ -2056,11 +2058,7 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *lit;
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_imm_t *imm = NULL;
 	int64_t val;
-	cgtype_basic_t *btype = NULL;
 	cgtype_elmtype_t elmtype;
 	int rc;
 
@@ -2070,46 +2068,10 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 		lexer_dprint_tok(&lit->tok, stderr);
 		fprintf(stderr, ": Invalid integer literal.\n");
 		cgproc->cgen->error = true; // TODO
-		goto error;
+		return rc;
 	}
 
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_imm_create(val, &imm);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgtype_basic_create(elmtype, &btype);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_imm;
-	instr->width = cgen_basic_type_bits(cgproc->cgen, btype);
-	instr->dest = &dest->oper;
-	instr->op1 = &imm->oper;
-	instr->op2 = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-
-	eres->varname = dest->varname;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = &btype->cgtype;
-	return EOK;
-error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (imm != NULL)
-		ir_oper_destroy(&imm->oper);
-	if (btype != NULL)
-		cgtype_destroy(&btype->cgtype);
-	return rc;
+	return cgen_const_int(cgproc, elmtype, val, lblock, eres);
 }
 
 /** Generate code for identifier expression referencing global symbol.
@@ -2344,6 +2306,63 @@ static int cgen_eparen(cgen_proc_t *cgproc, ast_eparen_t *eparen,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	return cgen_expr(cgproc, eparen->bexpr, lblock, eres);
+}
+
+/** Generate code to return integer constant.
+ *
+ * @param cgproc Code generator for procedure
+ * @param elmtype Elementary type
+ * @param val Value
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
+    int64_t val, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_imm_t *imm = NULL;
+	cgtype_basic_t *btype = NULL;
+	int rc;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(val, &imm);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(elmtype, &btype);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgen_basic_type_bits(cgproc->cgen, btype);
+	instr->dest = &dest->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
 }
 
 /** Generate code for addition of integers.
@@ -6480,157 +6499,67 @@ error:
 static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *baddr = NULL;
-	ir_oper_var_t *bval = NULL;
-	ir_oper_imm_t *imm = NULL;
-	ir_oper_var_t *adj = NULL;
-	ir_oper_var_t *res = NULL;
-	cgen_eres_t bres;
-	unsigned bits;
+	comp_tok_t *ctok;
+	cgen_eres_t baddr;
+	cgen_eres_t bval;
+	cgen_eres_t adj;
+	cgen_eres_t ares;
 	cgtype_t *cgtype;
-	char *bvalvn;
-	char *adjvn;
-	char *resvn;
+	const char *resvn;
 	int rc;
 
-	cgen_eres_init(&bres);
+	cgen_eres_init(&baddr);
+	cgen_eres_init(&bval);
+	cgen_eres_init(&adj);
+	cgen_eres_init(&ares);
 
 	/* Evaluate base expression as lvalue */
 
-	rc = cgen_expr_lvalue(cgproc, epreadj->bexpr, lblock, &bres);
+	rc = cgen_expr_lvalue(cgproc, epreadj->bexpr, lblock, &baddr);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (bres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
+	/* Get the value */
+
+	rc = cgen_eres_rvalue(cgproc, &baddr, lblock, &bval);
+	if (rc != EOK)
 		goto error;
+
+	/* Adjustment value */
+	rc = cgen_const_int(cgproc, cgelm_int, 1, lblock, &adj);
+	if (rc != EOK)
+		goto error;
+
+	ctok = (comp_tok_t *) epreadj->tadj.data;
+
+	if (epreadj->adj == aat_inc) {
+		/* Add the two operands */
+		rc = cgen_add(cgproc, ctok, &bval, &adj, lblock, &ares);
+		if (rc != EOK)
+			goto error;
+	} else {
+		/* Subtract the two operands */
+		rc = cgen_sub(cgproc, ctok, &bval, &adj, lblock, &ares);
+		if (rc != EOK)
+			goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)bres.cgtype->ext);
-	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	/* read %bval, %bres */
-
-	rc = ir_instr_create(&instr);
+	/* Store the updated value */
+	rc = cgen_store(cgproc, &baddr, &ares, lblock);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &bval);
-	if (rc != EOK)
-		goto error;
+	/* Salvage type from ares */
+	cgtype = ares.cgtype;
+	ares.cgtype = NULL;
 
-	rc = ir_oper_var_create(bres.varname, &baddr);
-	if (rc != EOK)
-		goto error;
+	resvn = ares.varname;
+	ares.varname = NULL;
 
-	instr->itype = iri_read;
-	instr->width = bits;
-	instr->dest = &bval->oper;
-	instr->op1 = &baddr->oper;
-	instr->op2 = NULL;
-	bvalvn = bval->varname;
-	bval = NULL;
-	baddr = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* imm %adj, 1 */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_create_new_lvar_oper(cgproc, &adj);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_imm_create(1, &imm);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_imm;
-	instr->width = bits;
-	instr->dest = &adj->oper;
-	instr->op1 = &imm->oper;
-	instr->op2 = NULL;
-	adjvn = adj->varname;
-	adj = NULL;
-	imm = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* add/sub %res, %bval, %adj */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_create_new_lvar_oper(cgproc, &res);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(bvalvn, &bval);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(adjvn, &adj);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = epreadj->adj == aat_inc ? iri_add : iri_sub;
-	instr->width = bits;
-	instr->dest = &res->oper;
-	instr->op1 = &bval->oper;
-	instr->op2 = &adj->oper;
-	resvn = res->varname;
-	res = NULL;
-	bval = NULL;
-	adj = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* write nil, %baddr, %res */
-
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(bres.varname, &baddr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(resvn, &res);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_write;
-	instr->width = bits;
-	instr->dest = NULL;
-	instr->op1 = &baddr->oper;
-	instr->op2 = &res->oper;
-	baddr = NULL;
-	res = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	/* Salvage type from bres */
-	cgtype = bres.cgtype;
-	bres.cgtype = NULL;
-	cgen_eres_fini(&bres);
+	cgen_eres_fini(&baddr);
+	cgen_eres_fini(&bval);
+	cgen_eres_fini(&adj);
+	cgen_eres_fini(&ares);
 
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
@@ -6638,18 +6567,10 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	eres->valused = true;
 	return EOK;
 error:
-	ir_instr_destroy(instr);
-	if (baddr != NULL)
-		ir_oper_destroy(&baddr->oper);
-	if (bval != NULL)
-		ir_oper_destroy(&bval->oper);
-	if (imm != NULL)
-		ir_oper_destroy(&imm->oper);
-	if (adj != NULL)
-		ir_oper_destroy(&adj->oper);
-	if (res != NULL)
-		ir_oper_destroy(&res->oper);
-	cgen_eres_fini(&bres);
+	cgen_eres_fini(&baddr);
+	cgen_eres_fini(&bval);
+	cgen_eres_fini(&adj);
+	cgen_eres_fini(&ares);
 	return rc;
 }
 
@@ -7481,7 +7402,7 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	if (destw == srcw) {
 		/* No conversion needed */
 		cres->varname = ares->varname;
-		cres->valtype = cgen_rvalue;
+		cres->valtype = ares->valtype;
 		cres->cgtype = cgtype;
 		cres->valused = true;
 
