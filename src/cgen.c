@@ -2614,7 +2614,7 @@ static int cgen_add(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
 	return EINVAL;
 }
 
-/** Generate code for subtraction.
+/** Generate code for subtraction of integers.
  *
  * @param cgproc Code generator for procedure
  * @param lres Result of evaluating left operand
@@ -2623,19 +2623,33 @@ static int cgen_add(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
  * @param eres Place to store result of subtraction
  * @return EOK on success or an error code
  */
-static int cgen_sub(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_sub_int(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgtype_t *cgtype = NULL;
+	cgen_uac_flags_t flags;
 	unsigned bits;
 	int rc;
 
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
+
+	/* Perform usual arithmetic conversion */
+	rc = cgen_uac(cgproc, lres, rres, lblock, &res1, &res2, &flags);
+	if (rc != EOK)
+		goto error;
+
+	/* Unsigned subtraction of mixed-signed numbers is OK */
+	(void)flags;
+
 	/* Check the type */
-	if (lres->cgtype->ntype != cgn_basic) {
+	if (res1.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -2643,7 +2657,7 @@ static int cgen_sub(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	}
 
 	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)lres->cgtype->ext);
+	    (cgtype_basic_t *)res1.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -2651,7 +2665,7 @@ static int cgen_sub(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 		goto error;
 	}
 
-	rc = cgtype_clone(lres->cgtype, &cgtype);
+	rc = cgtype_clone(res1.cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
@@ -2663,11 +2677,11 @@ static int cgen_sub(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres->varname, &larg);
+	rc = ir_oper_var_create(res1.varname, &larg);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(rres->varname, &rarg);
+	rc = ir_oper_var_create(res2.varname, &rarg);
 	if (rc != EOK)
 		goto error;
 
@@ -2683,8 +2697,13 @@ static int cgen_sub(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
+
 	return EOK;
 error:
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	ir_instr_destroy(instr);
 	if (dest != NULL)
 		ir_oper_destroy(&dest->oper);
@@ -2694,6 +2713,207 @@ error:
 		ir_oper_destroy(&rarg->oper);
 	cgtype_destroy(cgtype);
 	return rc;
+}
+
+/** Generate code for subtraction of pointer and integer.
+ *
+ * @param cgproc Code generator for procedure
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of addition
+ * @return EOK on success or an error code
+ */
+static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *tmp = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *carg = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	char *tmpname;
+	cgen_eres_t cres;
+	cgtype_t *idxtype = NULL;
+	cgtype_t *cgtype = NULL;
+	ir_texpr_t *elemte = NULL;
+	cgtype_pointer_t *ptrt;
+	int rc;
+
+	cgen_eres_init(&cres);
+
+	rc = cgtype_int_construct(false, cgir_int, &idxtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert index to be same size as pointer */
+	rc = cgen_type_convert(cgproc, optok, rres, idxtype,
+	    cgen_implicit, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(idxtype);
+	idxtype = NULL;
+
+	/* Check the type */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	ptrt = (cgtype_pointer_t *)lres->cgtype->ext;
+
+	rc = cgtype_clone(lres->cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Generate IR type expression for the element type */
+	rc = cgen_cgtype(cgproc->cgen, ptrt->tgtype, &elemte);
+	if (rc != EOK)
+		goto error;
+
+	/* neg %<tmp>, %<cres> */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &tmp);
+	if (rc != EOK)
+		goto error;
+
+	tmpname = tmp->varname;
+
+	rc = ir_oper_var_create(cres.varname, &carg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_neg;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &tmp->oper;
+	instr->op1 = &carg->oper;
+	instr->op2 = NULL;
+
+	carg = NULL;
+	tmp = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* ptridx %<dest>, %<tmp> */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(tmpname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_ptridx;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+	instr->opt = elemte;
+
+	elemte = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+
+	cgen_eres_fini(&cres);
+
+	return EOK;
+error:
+	cgen_eres_fini(&cres);
+	ir_instr_destroy(instr);
+	if (carg != NULL)
+		ir_oper_destroy(&carg->oper);
+	if (tmp != NULL)
+		ir_oper_destroy(&tmp->oper);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	cgtype_destroy(cgtype);
+	cgtype_destroy(idxtype);
+	ir_texpr_destroy(elemte);
+	return rc;
+}
+
+/** Generate code for subtraction.
+ *
+ * @param cgproc Code generator for procedure
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of subtraction
+ * @return EOK on success or an error code
+ */
+static int cgen_sub(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	bool l_int;
+	bool r_int;
+	bool l_ptr;
+	bool r_ptr;
+
+	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
+	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
+
+	/* Integer - integer */
+	if (l_int && r_int)
+		return cgen_sub_int(cgproc, lres, rres, lblock, eres);
+
+	l_ptr = lres->cgtype->ntype == cgn_pointer;
+	r_ptr = rres->cgtype->ntype == cgn_pointer;
+
+	/* Pointer - pointer */
+	if (l_ptr && r_ptr) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, ": Unimplemented pointer subtraction.\n");
+
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	/* Pointer - integer */
+	if (l_ptr && r_int)
+		return cgen_sub_ptr_int(cgproc, optok, lres, rres, lblock, eres);
+
+	/* Integer - pointer */
+	if (l_int && r_ptr) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, ": Invalid subtraction of ");
+		(void) cgtype_print(lres->cgtype, stderr);
+		fprintf(stderr, " and ");
+		(void) cgtype_print(rres->cgtype, stderr);
+		fprintf(stderr, ".\n");
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	fprintf(stderr, "Unimplemented subtraction of ");
+	(void) cgtype_print(lres->cgtype, stderr);
+	fprintf(stderr, " and ");
+	(void) cgtype_print(rres->cgtype, stderr);
+	fprintf(stderr, ".\n");
+	cgproc->cgen->error = true; // TODO
+	return EINVAL;
 }
 
 /** Generate code for multiplication.
@@ -3258,23 +3478,26 @@ static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
-	cgen_uac_flags_t flags;
+	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
-	/* Unsigned subtraction of mixed-sign numbers is OK */
-	(void)flags;
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	ctok = (comp_tok_t *) ebinop->top.data;
 
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_sub(cgproc, ctok, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4792,6 +5015,7 @@ error:
 static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -4815,8 +5039,10 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Unsigned subtraction of mixed-sign integers is OK */
 	(void)flags;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_sub(cgproc, ctok, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 

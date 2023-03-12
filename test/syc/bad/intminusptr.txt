@@ -1,0 +1,1 @@
+<test/syc/bad/intminusptr.c:12:16:'-'>: Invalid subtraction of int and ^int.
