@@ -43,6 +43,12 @@ void ptr_preinc(void)
 	dp = ++p;
 }
 
+/* Pointer post-increment */
+void ptr_postinc(void)
+{
+	dp = p++;
+}
+
 /* Pointer += int index */
 void ptrinc_int(void)
 {
@@ -65,4 +71,10 @@ void ptrdec_int(void)
 void ptr_predec(void)
 {
 	dp = --p;
+}
+
+/* Pointer post-decrement */
+void ptr_postdec(void)
+{
+	dp = p--;
 }

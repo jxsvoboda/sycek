@@ -43,6 +43,12 @@ call @_ptr_preinc;
 verify word ptr (@_p), 0x4002;
 verify word ptr (@_dp), 0x4002;
 
+/* Pointer post-increment */
+ld word ptr (@_p), 0x4000;
+call @_ptr_postinc;
+verify word ptr (@_p), 0x4002;
+verify word ptr (@_dp), 0x4000;
+
 /* Pointer - 16-bit index */
 ld word ptr (@_p), 0x4000;
 ld word ptr (@_idx), 0x10;
@@ -60,3 +66,9 @@ ld word ptr (@_p), 0x4000;
 call @_ptr_predec;
 verify word ptr (@_p), 0x3ffe;
 verify word ptr (@_dp), 0x3ffe;
+
+/* Pointer post-decrement */
+ld word ptr (@_p), 0x4000;
+call @_ptr_postdec;
+verify word ptr (@_p), 0x3ffe;
+verify word ptr (@_dp), 0x4000;
