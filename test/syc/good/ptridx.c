@@ -13,6 +13,12 @@ void ptridx_char(void)
 	dp = p + cidx;
 }
 
+/* Pointer += char index */
+void ptrinc_char(void)
+{
+	dp += cidx;
+}
+
 /* Pointer - char index */
 void ptridx_mchar(void)
 {
@@ -23,6 +29,12 @@ void ptridx_mchar(void)
 void ptridx_int(void)
 {
 	dp = p + idx;
+}
+
+/* Pointer += int index */
+void ptrinc_int(void)
+{
+	dp += idx;
 }
 
 /* Pointer - int index */
