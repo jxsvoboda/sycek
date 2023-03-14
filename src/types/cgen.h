@@ -41,10 +41,14 @@ typedef struct {
 	int warnings;
 	/** Module scope */
 	struct scope *scope;
+	/** Current (innermost) scope */
+	struct scope *cur_scope;
 	/** Module symbols */
 	struct symbols *symbols;
 	/** Count nesting of record type specifiers (struct/union defs) */
 	unsigned tsrec_cnt;
+	/** Count nesting of argument lists */
+	unsigned arglist_cnt;
 } cgen_t;
 
 /** Code generator for procedure */
@@ -57,14 +61,10 @@ typedef struct {
 	cgtype_t *rtype;
 	/** Next local variable number to allocate */
 	unsigned next_var;
-	/** Next label number to allocate */
-	unsigned next_label;
 	/** Argument scope for this procedure */
 	struct scope *arg_scope;
-	/** Procedure scope */
-	struct scope *proc_scope;
-	/** Current (innermost) scope */
-	struct scope *cur_scope;
+	/** Next label number to allocate */
+	unsigned next_label;
 	/** Current (innermost) loop */
 	struct cgen_loop *cur_loop;
 	/** Current (innermost) switch */

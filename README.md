@@ -330,11 +330,11 @@ area.
 
 It can detect the following types of problems and style issues:
 
- * declaration shadowing a wider-scope declaration
+ * declaration of '...' shadows a wider-scope declaration
  * gratuitous nested block
  * out of order declaration specifiers (such as `int long unsigned`,
    `int typedef`, `volatile restrict const`).
- * using truth value as an integer
+ * truth value used as an integer
  * using anything but `_Bool` or a thruth value where a truth value is
    expected
  * computed expression value is not used
@@ -355,6 +355,8 @@ It can detect the following types of problems and style issues:
  * definition of struct/union shadows a wider-scope struct/union definition
  * definition of struct/union in non-global scope
  * definition of struct/union inside another struct/union definition
+ * definition of struct/union inside parameter list will not be visible
+   outside of function declaration/definition
 
 Intermediate Representation
 ---------------------------

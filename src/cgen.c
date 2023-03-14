@@ -42,9 +42,9 @@
 #include <symbols.h>
 
 static void cgen_proc_destroy(cgen_proc_t *);
-static int cgen_decl(cgen_t *, scope_t *, cgtype_t *, ast_node_t *,
+static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
-static int cgen_sqlist(cgen_t *, scope_t *, ast_sqlist_t *, cgtype_t **);
+static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
 static void cgen_expr_check_unused(cgen_proc_t *, ast_node_t *,
@@ -82,7 +82,7 @@ static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
-static int cgen_typedef(cgen_t *, scope_t *, ast_idlist_t *, cgtype_t *);
+static int cgen_typedef(cgen_t *, ast_idlist_t *, cgtype_t *);
 
 enum {
 	cgen_pointer_bits = 16
@@ -609,6 +609,7 @@ int cgen_create(cgen_t **rcgen)
 		return ENOMEM;
 	}
 
+	cgen->cur_scope = cgen->scope;
 	cgen->error = false;
 	cgen->warnings = 0;
 	*rcgen = cgen;
@@ -638,23 +639,10 @@ static int cgen_proc_create(cgen_t *cgen, ir_proc_t *irproc,
 		goto error;
 	}
 
-	/* Function's top-level scope is inside the argument scope */
-	rc = scope_create(cgproc->arg_scope, &cgproc->proc_scope);
-	if (rc != EOK) {
-		rc = ENOMEM;
-		goto error;
-	}
-
 	/* Track the procedure's labels */
 	rc = labels_create(&cgproc->labels);
 	if (rc != EOK)
 		goto error;
-
-	/*
-	 * The member cur_scope tracks the current scope as we descend into
-	 * and ascend out of nested blocks.
-	 */
-	cgproc->cur_scope = cgproc->proc_scope;
 
 	cgproc->cgen = cgen;
 	cgproc->irproc = irproc;
@@ -663,6 +651,7 @@ static int cgen_proc_create(cgen_t *cgen, ir_proc_t *irproc,
 	*rcgproc = cgproc;
 	return EOK;
 error:
+	scope_destroy(cgproc->arg_scope);
 	cgen_proc_destroy(cgproc);
 	return rc;
 }
@@ -677,7 +666,6 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 		return;
 
 	labels_destroy(cgproc->labels);
-	scope_destroy(cgproc->proc_scope);
 	scope_destroy(cgproc->arg_scope);
 	cgtype_destroy(cgproc->rtype);
 	free(cgproc);
@@ -1136,12 +1124,11 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
 /** Generate code for identifier type specifier.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param tsident Identifier type specifier
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_tsident(cgen_t *cgen, scope_t *scope, ast_tsident_t *tsident,
+static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
     cgtype_t **rstype)
 {
 	comp_tok_t *ident;
@@ -1151,7 +1138,7 @@ static int cgen_tsident(cgen_t *cgen, scope_t *scope, ast_tsident_t *tsident,
 	ident = (comp_tok_t *)tsident->tident.data;
 
 	/* Check if the type is defined */
-	member = scope_lookup(scope, ident->tok.text);
+	member = scope_lookup(cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Undefined type name '%s'.\n",
@@ -1173,13 +1160,12 @@ static int cgen_tsident(cgen_t *cgen, scope_t *scope, ast_tsident_t *tsident,
  * In outher words, one field of a struct or union definition.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param elem Record type specifier element
  * @param member Scope member (that is a record)
  * @return EOK on success or an error code
  */
-static int cgen_tsrecord_elem(cgen_t *cgen, scope_t *scope,
-    ast_tsrecord_elem_t *elem, scope_member_t *member)
+static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
+    scope_member_t *member)
 {
 	ast_dlist_entry_t *dlentry;
 	cgtype_t *stype = NULL;
@@ -1194,13 +1180,13 @@ static int cgen_tsrecord_elem(cgen_t *cgen, scope_t *scope,
 	/* When compiling we should not get a macro declaration */
 	assert(elem->mdecln == NULL);
 
-	rc = cgen_sqlist(cgen, scope, elem->sqlist, &stype);
+	rc = cgen_sqlist(cgen, elem->sqlist, &stype);
 	if (rc != EOK)
 		goto error;
 
 	dlentry = ast_dlist_first(elem->dlist);
 	while (dlentry != NULL) {
-		rc = cgen_decl(cgen, scope, stype, dlentry->decl,
+		rc = cgen_decl(cgen, stype, dlentry->decl,
 		    dlentry->aslist, &dtype);
 		if (rc != EOK)
 			goto error;
@@ -1249,12 +1235,11 @@ error:
 /** Generate code for record type specifier.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param tsrecord Record type specifier
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
+static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
     cgtype_t **rstype)
 {
 	comp_tok_t *ident;
@@ -1266,9 +1251,6 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 	scope_rec_type_t srtype;
 	ast_tsrecord_elem_t *elem;
 	int rc;
-
-	(void)scope;
-	(void)rstype;
 
 	if (tsrecord->rtype == ar_struct) {
 		rtype = "struct";
@@ -1307,13 +1289,14 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
-	if (tsrecord->have_def && scope->parent != NULL) {
+	if (tsrecord->have_def && cgen->cur_scope->parent != NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Definition of '%s %s' in a non-global "
 		    "scope.\n", rtype, ident->tok.text);
 		++cgen->warnings;
 
-		member = scope_lookup_tag(scope->parent, ident->tok.text);
+		member = scope_lookup_tag(cgen->cur_scope->parent,
+		    ident->tok.text);
 		if (member != NULL) {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Definition of '%s %s' shadows "
@@ -1330,7 +1313,15 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 		++cgen->warnings;
 	}
 
-	member = scope_lookup_tag_local(scope, ident->tok.text);
+	if (tsrecord->have_def && cgen->arglist_cnt > 0) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Definition of '%s %s' inside parameter "
+		    "list will not be visible outside of function "
+		    "declaration/definition.\n", rtype, ident->tok.text);
+		++cgen->warnings;
+	}
+
+	member = scope_lookup_tag_local(cgen->cur_scope, ident->tok.text);
 	if (member != NULL) {
 		lexer_dprint_tok(member->tident, stderr);
 		fprintf(stderr, ": Redefinition of '%s %s'.\n",
@@ -1350,14 +1341,14 @@ static int cgen_tsrecord(cgen_t *cgen, scope_t *scope, ast_tsrecord_t *tsrecord,
 	}
 
 	/* Insert new record definition */
-	rc = scope_insert_record(scope, &ident->tok, srtype, &member);
+	rc = scope_insert_record(cgen->cur_scope, &ident->tok, srtype, &member);
 	if (rc != EOK)
 		return EINVAL;
 
 	++cgen->tsrec_cnt;
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = cgen_tsrecord_elem(cgen, scope, elem, member);
+		rc = cgen_tsrecord_elem(cgen, elem, member);
 		if (rc != EOK)  {
 			assert(cgen->tsrec_cnt > 0);
 			--cgen->tsrec_cnt;
@@ -1514,13 +1505,12 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
  * list.
  *
  * @param cgds Code generator for declaration specifiers
- * @param scope Current scope
  * @param rsctype Place to store storage class type
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_dspec_finish(cgen_dspec_t *cgds, scope_t *scope,
-    ast_sclass_type_t *rsctype, cgtype_t **rstype)
+static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
+    cgtype_t **rstype)
 {
 	cgen_t *cgen = cgds->cgen;
 	ast_tok_t *atok;
@@ -1604,13 +1594,13 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, scope_t *scope,
 			stype = &btype->cgtype;
 			break;
 		case ant_tsident:
-			rc = cgen_tsident(cgen, scope,
+			rc = cgen_tsident(cgen,
 			    (ast_tsident_t *)cgds->tspec->ext, &stype);
 			if (rc != EOK)
 				goto error;
 			break;
 		case ant_tsrecord:
-			rc = cgen_tsrecord(cgen, scope,
+			rc = cgen_tsrecord(cgen,
 			    (ast_tsrecord_t *)cgds->tspec->ext, &stype);
 			if (rc != EOK)
 				goto error;
@@ -1670,12 +1660,11 @@ error:
  * by the declarator(s).
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param dspecs Declaration specifiers
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_dspecs(cgen_t *cgen, scope_t *scope, ast_dspecs_t *dspecs,
+static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
     ast_sclass_type_t *rsctype, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
@@ -1702,19 +1691,17 @@ static int cgen_dspecs(cgen_t *cgen, scope_t *scope, ast_dspecs_t *dspecs,
 		dspec = ast_dspecs_next(dspec);
 	}
 
-	return cgen_dspec_finish(&cgds, scope, rsctype, rstype);
+	return cgen_dspec_finish(&cgds, rsctype, rstype);
 }
 
 /** Generate code for specifier-qualifier list.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param sqlist Specifier-qualifier list
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_sqlist(cgen_t *cgen, scope_t *scope, ast_sqlist_t *sqlist,
-    cgtype_t **rstype)
+static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
@@ -1741,7 +1728,7 @@ static int cgen_sqlist(cgen_t *cgen, scope_t *scope, ast_sqlist_t *sqlist,
 		dspec = ast_sqlist_next(dspec);
 	}
 
-	rc = cgen_dspec_finish(&cgds, scope, &sctype, rstype);
+	rc = cgen_dspec_finish(&cgds, &sctype, rstype);
 	if (rc != EOK)
 		return rc;
 
@@ -1796,17 +1783,18 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
  * further modified by the declarator and returned as @a *rdtype.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param btype Type derived from declaration specifiers
  * @param dfun Function declarator
  * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
-static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
-    ast_dfun_t *dfun, ast_aslist_t *aslist, cgtype_t **rdtype)
+static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
+    ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_func_t *func = NULL;
+	scope_t *arg_scope = NULL;
+	scope_t *prev_scope = NULL;
 	ast_dfun_arg_t *arg;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
@@ -1830,11 +1818,24 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 
 	btype_copy = NULL; /* ownership transferred */
 
+	rc = scope_create(cgen->cur_scope, &arg_scope);
+	if (rc != EOK) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	prev_scope = cgen->cur_scope;
+	cgen->cur_scope = arg_scope;
+
+	++cgen->arglist_cnt;
+
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = cgen_dspecs(cgen, scope, arg->dspecs, &sctype, &stype);
-		if (rc != EOK)
+		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &stype);
+		if (rc != EOK) {
+			--cgen->arglist_cnt;
 			goto error;
+		}
 
 		if (sctype != asc_none) {
 			atok = ast_tree_first_tok(&arg->dspecs->node);
@@ -1843,13 +1844,16 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 			fprintf(stderr, ": Unimplemented storage class specifier.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
+			--cgen->arglist_cnt;
 			goto error;
 		}
 
-		rc = cgen_decl(cgen, scope, stype, arg->decl, arg->aslist,
+		rc = cgen_decl(cgen, stype, arg->decl, arg->aslist,
 		    &atype);
-		if (rc != EOK)
+		if (rc != EOK) {
+			--cgen->arglist_cnt;
 			goto error;
+		}
 
 		/* Check for 'void' being the only parameter */
 		if (stype->ntype == cgn_basic) {
@@ -1864,6 +1868,7 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 					fprintf(stderr, ": 'void' must be the only parameter.\n");
 					cgen->error = true; // XXX
 					rc = EINVAL;
+					--cgen->arglist_cnt;
 					goto error;
 				}
 
@@ -1882,12 +1887,15 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
+			--cgen->arglist_cnt;
 			goto error;
 		}
 
 		rc = cgtype_func_append_arg(func, atype);
-		if (rc != EOK)
+		if (rc != EOK) {
+			--cgen->arglist_cnt;
 			goto error;
+		}
 
 		have_args = true;
 
@@ -1898,6 +1906,8 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 
 		arg = ast_dfun_next(arg);
 	}
+
+	--cgen->arglist_cnt;
 
 	/* Function attributes */
 	if (aslist != NULL) {
@@ -1944,9 +1954,17 @@ static int cgen_decl_fun(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 		}
 	}
 
+	cgen->cur_scope = prev_scope;
+	scope_destroy(arg_scope);
+
 	*rdtype = &func->cgtype;
 	return EOK;
 error:
+	if (prev_scope != NULL) {
+		cgen->cur_scope = prev_scope;
+		scope_destroy(arg_scope);
+	}
+
 	if (stype != NULL)
 		cgtype_destroy(stype);
 	if (atype != NULL)
@@ -1964,15 +1982,14 @@ error:
  * further modified by the declarator and returned as @a *rdtype.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param btype Type derived from declaration specifiers
  * @param dptr Pointer declarator
  * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
-static int cgen_decl_ptr(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
-    ast_dptr_t *dptr, ast_aslist_t *aslist, cgtype_t **rdtype)
+static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
+    ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_pointer_t *ptrtype;
 	cgtype_t *btype_copy = NULL;
@@ -1989,7 +2006,7 @@ static int cgen_decl_ptr(cgen_t *cgen, scope_t *scope, cgtype_t *btype,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_decl(cgen, scope, &ptrtype->cgtype, dptr->bdecl, aslist,
+	rc = cgen_decl(cgen, &ptrtype->cgtype, dptr->bdecl, aslist,
 	    rdtype);
 	if (rc != EOK)
 		goto error;
@@ -2007,15 +2024,14 @@ error:
  * further modified by the declarator and returned as @a *rdtype.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param stype Type derived from declaration specifiers
  * @param decl Declarator
  * @param aslist Attribute specifier list
  * @param rdtype Place to store pointer to the declared type
  * @return EOK on success or an error code
  */
-static int cgen_decl(cgen_t *cgen, scope_t *scope, cgtype_t *stype,
-    ast_node_t *decl, ast_aslist_t *aslist, cgtype_t **rdtype)
+static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
+    ast_aslist_t *aslist, cgtype_t **rdtype)
 {
 	cgtype_t *dtype;
 	int rc;
@@ -2027,11 +2043,11 @@ static int cgen_decl(cgen_t *cgen, scope_t *scope, cgtype_t *stype,
 		    aslist, &dtype);
 		break;
 	case ant_dfun:
-		rc = cgen_decl_fun(cgen, scope, stype, (ast_dfun_t *) decl->ext,
+		rc = cgen_decl_fun(cgen, stype, (ast_dfun_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	case ant_dptr:
-		rc = cgen_decl_ptr(cgen, scope, stype, (ast_dptr_t *) decl->ext,
+		rc = cgen_decl_ptr(cgen, stype, (ast_dptr_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	default:
@@ -2242,7 +2258,7 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	ident = (comp_tok_t *) eident->tident.data;
 
 	/* Check if the identifier is declared */
-	member = scope_lookup(cgproc->cur_scope, ident->tok.text);
+	member = scope_lookup(cgproc->cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Undeclared identifier '%s'.\n",
@@ -5713,7 +5729,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ident = (comp_tok_t *) eident->tident.data;
 
 	/* Check if the identifier is declared */
-	member = scope_lookup(cgproc->cgen->scope, ident->tok.text);
+	member = scope_lookup(cgproc->cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Undeclared identifier '%s'.\n",
@@ -6112,8 +6128,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	cgen_eres_init(&bres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, cgproc->cur_scope, ecast->dspecs,
-	    &sctype, &stype);
+	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
@@ -6128,8 +6143,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	}
 
 	/* Declarator */
-	rc = cgen_decl(cgproc->cgen, cgproc->cur_scope, stype, ecast->decl,
-	    NULL, &dtype);
+	rc = cgen_decl(cgproc->cgen, stype, ecast->decl, NULL, &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -9000,7 +9014,7 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	}
 
 	/* Insert identifier into current scope */
-	rc = scope_insert_lvar(cgproc->cur_scope, &ident->tok,
+	rc = scope_insert_lvar(cgproc->cgen->cur_scope, &ident->tok,
 	    dtype, vident);
 	if (rc != EOK) {
 		if (rc == EEXIST) {
@@ -9076,8 +9090,8 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
 		/* Process declarator */
-		rc = cgen_decl(cgproc->cgen, cgproc->cur_scope, stype,
-		    identry->decl, identry->aslist, &dtype);
+		rc = cgen_decl(cgproc->cgen, stype, identry->decl,
+		    identry->aslist, &dtype);
 		if (rc != EOK)
 			goto error;
 
@@ -9115,7 +9129,7 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		ident = (comp_tok_t *) aident->data;
 
 		/* Check for shadowing a wider-scope identifier */
-		member = scope_lookup(cgproc->cur_scope->parent,
+		member = scope_lookup(cgproc->cgen->cur_scope->parent,
 		    ident->tok.text);
 		if (member != NULL) {
 			lexer_dprint_tok(&ident->tok, stderr);
@@ -9155,14 +9169,12 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 	/* Process declaration specifiers */
 
-	rc = cgen_dspecs(cgproc->cgen, cgproc->cur_scope, stdecln->dspecs,
-	    &sctype, &stype);
+	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
 	if (sctype == asc_typedef) {
-		rc = cgen_typedef(cgproc->cgen, cgproc->cur_scope,
-		    stdecln->idlist, stype);
+		rc = cgen_typedef(cgproc->cgen, stdecln->idlist, stype);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -9312,14 +9324,14 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 	scope_t *block_scope = NULL;
 	int rc;
 
-	rc = scope_create(cgproc->cur_scope, &block_scope);
+	rc = scope_create(cgproc->cgen->cur_scope, &block_scope);
 	if (rc != EOK) {
 		rc = ENOMEM;
 		goto error;
 	}
 
 	/* Enter block scope */
-	cgproc->cur_scope = block_scope;
+	cgproc->cgen->cur_scope = block_scope;
 
 	stmt = ast_block_first(block);
 	while (stmt != NULL) {
@@ -9334,13 +9346,13 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 	cgen_check_scope_unused(cgproc, block_scope);
 
 	/* Leave block scope */
-	cgproc->cur_scope = block_scope->parent;
+	cgproc->cgen->cur_scope = block_scope->parent;
 	scope_destroy(block_scope);
 	return EOK;
 error:
 	if (block_scope != NULL) {
 		/* Leave block scope */
-		cgproc->cur_scope = block_scope->parent;
+		cgproc->cgen->cur_scope = block_scope->parent;
 		scope_destroy(block_scope);
 	}
 
@@ -9631,6 +9643,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	cgtype_func_arg_t *dtarg;
 	ast_aspec_t *aspec;
 	ast_aspec_attr_t *attr;
+	scope_t *prev_scope = NULL;
 	int rc;
 	int rv;
 
@@ -9666,8 +9679,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	assert(ast_idlist_next(idle) == NULL);
 
 	/* Process declarator */
-	rc = cgen_decl(cgen, cgen->scope, btype, idle->decl, idle->aslist,
-	    &dtype);
+	rc = cgen_decl(cgen, btype, idle->decl, idle->aslist, &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -9802,6 +9814,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	if (rc != EOK)
 		goto error;
 
+	/* Enter argument scope */
+	prev_scope = cgen->cur_scope;
+	cgen->cur_scope = cgproc->arg_scope;
+
 	if (gdecln->body != NULL) {
 		rc = cgen_block(cgproc, gdecln->body, proc->lblock);
 		if (rc != EOK)
@@ -9824,7 +9840,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 
 	/* Check for defined, but unused, identifiers */
 	cgen_check_scope_unused(cgproc, cgproc->arg_scope);
-	cgen_check_scope_unused(cgproc, cgproc->proc_scope);
+
+	/* Leave argument scope */
+	cgen->cur_scope = prev_scope;
+	prev_scope = NULL;
 
 	/* Check for used, but not defined and defined, but not used labels */
 	rc = cgen_check_labels(cgproc, cgproc->labels);
@@ -9836,6 +9855,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 
 	return EOK;
 error:
+	if (prev_scope != NULL)
+		cgen->cur_scope = prev_scope;
+
 	ir_proc_destroy(proc);
 	cgen_proc_destroy(cgproc);
 	if (lblock != NULL)
@@ -9854,13 +9876,11 @@ error:
 /** Generate code for type definition.
  *
  * @param cgen Code generator
- * @param scope Current scope
  * @param idlist Init-declarator list
  * @param btype Type derived from declaration specifiers
  * @return EOK on success or an error code
  */
-static int cgen_typedef(cgen_t *cgen, scope_t *scope, ast_idlist_t *idlist,
-    cgtype_t *btype)
+static int cgen_typedef(cgen_t *cgen, ast_idlist_t *idlist, cgtype_t *btype)
 {
 	ast_idlist_entry_t *idle;
 	scope_member_t *member;
@@ -9873,7 +9893,7 @@ static int cgen_typedef(cgen_t *cgen, scope_t *scope, ast_idlist_t *idlist,
 	idle = ast_idlist_first(idlist);
 	while (idle != NULL) {
 		/* Process declarator */
-		rc = cgen_decl(cgen, scope, btype, idle->decl, idle->aslist,
+		rc = cgen_decl(cgen, btype, idle->decl, idle->aslist,
 		    &dtype);
 		if (rc != EOK)
 			goto error;
@@ -9882,14 +9902,14 @@ static int cgen_typedef(cgen_t *cgen, scope_t *scope, ast_idlist_t *idlist,
 		ctok = (comp_tok_t *)atok->data;
 
 		/* Non-global scope? */
-		if (scope != cgen->scope) {
+		if (cgen->cur_scope->parent != NULL) {
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Type definition in a "
 			    " non-global scope.\n");
 			++cgen->warnings;
 
 			/* Check for shadowing a wider-scope identifier */
-			member = scope_lookup(scope->parent,
+			member = scope_lookup(cgen->cur_scope->parent,
 			    ctok->tok.text);
 			if (member != NULL) {
 				lexer_dprint_tok(&ctok->tok, stderr);
@@ -9901,7 +9921,7 @@ static int cgen_typedef(cgen_t *cgen, scope_t *scope, ast_idlist_t *idlist,
 		}
 
 		/* Insert typedef into current scope */
-		rc = scope_insert_tdef(scope, &ctok->tok, dtype);
+		rc = scope_insert_tdef(cgen->cur_scope, &ctok->tok, dtype);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&ctok->tok, stderr);
@@ -10136,12 +10156,12 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	int rc;
 
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, cgen->scope, gdecln->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &stype);
 	if (rc != EOK)
 		goto error;
 
 	if (sctype == asc_typedef) {
-		rc = cgen_typedef(cgen, cgen->scope, gdecln->idlist, stype);
+		rc = cgen_typedef(cgen, gdecln->idlist, stype);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->body != NULL) {
@@ -10161,8 +10181,8 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
 			/* Process declarator */
-			rc = cgen_decl(cgen, cgen->scope, stype, entry->decl,
-			    entry->aslist, &dtype);
+			rc = cgen_decl(cgen, stype, entry->decl, entry->aslist,
+			    &dtype);
 			if (rc != EOK)
 				goto error;
 
