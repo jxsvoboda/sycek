@@ -1,5 +1,5 @@
 /*
- * Duplicate argument identifier
+ * Duplicate argument identifier (function definition)
  */
 
 int foo(int a, int a)

@@ -1,0 +1,1 @@
+<test/syc/bad/dupargdecl.c:5:20:id:a>: Duplicate argument identifier 'a'.

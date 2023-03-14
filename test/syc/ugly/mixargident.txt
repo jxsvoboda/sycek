@@ -1,0 +1,2 @@
+<test/syc/ugly/mixargident.c:5:7:'('>: Mixing arguments with and without an identifier.
+<test/syc/ugly/mixargident.c:6:7:'('>: Mixing arguments with and without an identifier.

@@ -1806,6 +1806,10 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	ast_aspec_attr_t *attr;
 	ast_sclass_type_t sctype;
 	bool have_args = false;
+	ast_tok_t *aident;
+	comp_tok_t *ident;
+	bool arg_with_ident;
+	bool arg_without_ident;
 	int rc;
 
 	rc = cgtype_clone(btype, &btype_copy);
@@ -1828,6 +1832,8 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	cgen->cur_scope = arg_scope;
 
 	++cgen->arglist_cnt;
+	arg_with_ident = false;
+	arg_without_ident = false;
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
@@ -1853,6 +1859,28 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		if (rc != EOK) {
 			--cgen->arglist_cnt;
 			goto error;
+		}
+
+		aident = ast_decl_get_ident(arg->decl);
+		if (aident != NULL) {
+			ident = (comp_tok_t *) aident->data;
+			arg_with_ident = true;
+
+			/* Insert identifier into argument scope */
+			rc = scope_insert_arg(arg_scope, &ident->tok,
+			    stype, "dummy");
+			if (rc != EOK) {
+				if (rc == EEXIST) {
+					lexer_dprint_tok(&ident->tok, stderr);
+					fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
+					    ident->tok.text);
+					cgen->error = true; // XXX
+					rc = EINVAL;
+					goto error;
+				}
+			}
+		} else {
+			arg_without_ident = true;
 		}
 
 		/* Check for 'void' being the only parameter */
@@ -1908,6 +1936,15 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	}
 
 	--cgen->arglist_cnt;
+
+	/* Either all arguments should have identifiers, or none */
+	if (arg_with_ident && arg_without_ident) {
+		tok = (comp_tok_t *) dfun->tlparen.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Mixing arguments with and without an "
+		    "identifier.\n");
+		++cgen->warnings;
+	}
 
 	/* Function attributes */
 	if (aslist != NULL) {

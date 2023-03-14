@@ -357,6 +357,7 @@ It can detect the following types of problems and style issues:
  * definition of struct/union inside another struct/union definition
  * definition of struct/union inside parameter list will not be visible
    outside of function declaration/definition
+ * mixing arguments with and without an identifier
 
 Intermediate Representation
 ---------------------------
