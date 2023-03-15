@@ -1,0 +1,1 @@
+<test/syc/bad/argident.c:5:8-10:'int'>: Argument identifier missing.

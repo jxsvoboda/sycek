@@ -9795,6 +9795,17 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 		stype = dtarg->atype;
 
 		dident = ast_decl_get_ident(arg->decl);
+		if (dident == NULL) {
+			atok = ast_tree_first_tok(&arg->dspecs->node);
+
+			tok = (comp_tok_t *) atok->data;
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Argument identifier missing.\n");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
+
 		tok = (comp_tok_t *) dident->data;
 
 		if (arg->aslist != NULL) {
