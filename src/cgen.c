@@ -1390,7 +1390,7 @@ static void cgen_dspec_init(cgen_t *cgen, cgen_dspec_t *cgds)
 	cgds->sctype = asc_none;
 }
 
-/** Generate code for declaratio specifier / specifier-qualifier.
+/** Generate code for declaration specifier / specifier-qualifier.
  *
  * Declaration specifiers declare the base type which is then further modified
  * by the declarator(s).
@@ -1506,11 +1506,12 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
  *
  * @param cgds Code generator for declaration specifiers
  * @param rsctype Place to store storage class type
+ * @param rdefines Place to store @c true iff a struct/union is defined
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
-    cgtype_t **rstype)
+    bool *rdefines, cgtype_t **rstype)
 {
 	cgen_t *cgen = cgds->cgen;
 	ast_tok_t *atok;
@@ -1519,6 +1520,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	cgtype_elmtype_t elmtype;
 	cgtype_basic_t *btype = NULL;
 	cgtype_t *stype;
+	bool defines = false;
 	int rc;
 
 	if (cgds->tspec != NULL) {
@@ -1604,6 +1606,12 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 			    (ast_tsrecord_t *)cgds->tspec->ext, &stype);
 			if (rc != EOK)
 				goto error;
+
+			/*
+			 * Allow struct/union declaration or definition
+			 * without declaring an instance.
+			 */
+			defines = true;
 			break;
 		default:
 			stype = NULL;
@@ -1646,6 +1654,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	}
 
 	*rsctype = cgds->sctype;
+	*rdefines = defines;
 	*rstype = stype;
 	return EOK;
 error:
@@ -1661,11 +1670,13 @@ error:
  *
  * @param cgen Code generator
  * @param dspecs Declaration specifiers
+ * @param rsctype Place to store storage class
+ * @param rdefines Place to store @c true iff a structure/union is defined
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
-    ast_sclass_type_t *rsctype, cgtype_t **rstype)
+    ast_sclass_type_t *rsctype, bool *rdefines, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
@@ -1691,7 +1702,7 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
 		dspec = ast_dspecs_next(dspec);
 	}
 
-	return cgen_dspec_finish(&cgds, rsctype, rstype);
+	return cgen_dspec_finish(&cgds, rsctype, rdefines, rstype);
 }
 
 /** Generate code for specifier-qualifier list.
@@ -1707,6 +1718,7 @@ static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 	ast_node_t *prev;
 	ast_sclass_type_t sctype;
 	cgen_dspec_t cgds;
+	bool defines;
 	int rc;
 
 	/* Initialize dspec tracking structure. */
@@ -1728,10 +1740,11 @@ static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 		dspec = ast_sqlist_next(dspec);
 	}
 
-	rc = cgen_dspec_finish(&cgds, &sctype, rstype);
+	rc = cgen_dspec_finish(&cgds, &sctype, &defines, rstype);
 	if (rc != EOK)
 		return rc;
 
+	(void)defines;
 	assert(sctype == asc_none);
 	return EOK;
 }
@@ -1810,6 +1823,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	comp_tok_t *ident;
 	bool arg_with_ident;
 	bool arg_without_ident;
+	bool defines;
 	int rc;
 
 	rc = cgtype_clone(btype, &btype_copy);
@@ -1837,11 +1851,13 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &stype);
+		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &defines, &stype);
 		if (rc != EOK) {
 			--cgen->arglist_cnt;
 			goto error;
 		}
+
+		(void)defines;
 
 		if (sctype != asc_none) {
 			atok = ast_tree_first_tok(&arg->dspecs->node);
@@ -6160,14 +6176,17 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	ast_sclass_type_t sctype;
+	bool defines;
 	int rc;
 
 	cgen_eres_init(&bres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &defines, &stype);
 	if (rc != EOK)
 		goto error;
+
+	(void)defines;
 
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
@@ -9202,13 +9221,17 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 {
 	cgtype_t *stype = NULL;
 	ast_sclass_type_t sctype;
+	bool defines;
 	int rc;
 
 	/* Process declaration specifiers */
 
-	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &defines,
+	    &stype);
 	if (rc != EOK)
 		goto error;
+
+	(void)defines;
 
 	if (sctype == asc_typedef) {
 		rc = cgen_typedef(cgproc->cgen, stdecln->idlist, stype);
@@ -10199,12 +10222,13 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	ast_sclass_type_t sctype;
+	bool defines;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	int rc;
 
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &stype);
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &defines, &stype);
 	if (rc != EOK)
 		goto error;
 
@@ -10240,6 +10264,14 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 				    irmod);
 				if (rc != EOK)
 					goto error;
+			} else if (entry->decl->ntype == ant_dnoident) {
+				if (!defines) {
+					atok = ast_tree_first_tok(&gdecln->dspecs->node);
+					tok = (comp_tok_t *) atok->data;
+					lexer_dprint_tok(&tok->tok, stderr);
+					fprintf(stderr, ": Warning: Useless type in empty declaration.\n");
+					++cgen->warnings;
+				}
 			} else {
 				/* Assuming it's a function declaration */
 				rc = cgen_fundecl(cgen, dtype, gdecln, irmod);

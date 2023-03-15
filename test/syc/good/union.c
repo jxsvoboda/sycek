@@ -1,14 +1,14 @@
 /*
- * struct
+ * union
  */
 
 /* Verify that tag names and normal identifiers do not collide */
 int foo;
-struct foo {
+union foo {
 	int x;
 } f;
 
-/* Define a struct without an instance */
-struct bar {
+/* Define an union without an instance */
+union bar {
 	char a;
 };
