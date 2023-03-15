@@ -1,1 +1,2 @@
 <test/syc/ugly/uselesstempty.c:5:1-3:'int'>: Warning: Useless type in empty declaration.
+<test/syc/ugly/uselesstempty.c:7:1-6:'struct'>: Warning: Useless type in empty declaration.

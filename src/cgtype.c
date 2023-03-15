@@ -494,11 +494,11 @@ static int cgtype_record_print(cgtype_record_t *record, FILE *f)
 
 	assert(record->member->mtype == sm_record);
 
-	switch (record->member->m.record.srtype) {
-	case sr_struct:
+	switch (record->member->m.record.record->rtype) {
+	case cgr_struct:
 		rtype = "struct";
 		break;
-	case sr_union:
+	case cgr_union:
 		rtype = "union";
 		break;
 	}

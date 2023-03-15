@@ -12,3 +12,13 @@ union foo {
 union bar {
 	char a;
 };
+
+/* Define anonymous structure with an instance */
+union {
+	long l;
+} g;
+
+/* Typedef to anonymous union */
+typedef struct {
+	int b;
+} foo_t;

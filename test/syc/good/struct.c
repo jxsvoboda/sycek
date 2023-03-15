@@ -12,3 +12,13 @@ struct foo {
 struct bar {
 	char a;
 };
+
+/* Define anonymous structure with an instance */
+struct {
+	long l;
+} g;
+
+/* Typedef to anonymous structure */
+typedef struct {
+	int b;
+} foo_t;

@@ -21,31 +21,54 @@
  */
 
 /*
- * Identifier scope
+ * Code generator record definitions
  */
 
-#ifndef SCOPE_H
-#define SCOPE_H
+#ifndef TYPES_CGREC_H
+#define TYPES_CGREC_H
 
-#include <types/cgrec.h>
-#include <types/cgtype.h>
-#include <types/scope.h>
+#include <adt/list.h>
 
-extern int scope_create(scope_t *, scope_t **);
-extern void scope_destroy(scope_t *);
-extern int scope_insert_gsym(scope_t *, lexer_tok_t *, cgtype_t *);
-extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
-    const char *);
-extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
-    const char *);
-extern int scope_insert_tdef(scope_t *, lexer_tok_t *, cgtype_t *);
-extern int scope_insert_record(scope_t *, lexer_tok_t *, cgen_record_t *,
-    scope_member_t **);
-extern scope_member_t *scope_first(scope_t *);
-extern scope_member_t *scope_next(scope_member_t *);
-extern scope_member_t *scope_lookup_local(scope_t *, const char *);
-extern scope_member_t *scope_lookup_tag_local(scope_t *, const char *);
-extern scope_member_t *scope_lookup(scope_t *, const char *);
-extern scope_member_t *scope_lookup_tag(scope_t *, const char *);
+/** Record type */
+typedef enum {
+	/** Struct */
+	cgr_struct,
+	/** Union */
+	cgr_union
+} cgen_rec_type_t;
+
+/** Record element */
+typedef struct {
+	/** Containing record definition */
+	struct cgen_record *record;
+	/** Link to @c record->elems */
+	link_t lelems;
+	/** Member identifier */
+	char *ident;
+	/** Member type */
+	struct cgtype *cgtype;
+} cgen_rec_elem_t;
+
+/** Record definition */
+typedef struct cgen_record {
+	/** Containing records structure */
+	struct cgen_records *records;
+	/** Link to @c records->records */
+	link_t lrecords;
+	/** Record type */
+	cgen_rec_type_t rtype;
+	/** C identifier */
+	char *cident;
+	/** IR identifier */
+	char *irident;
+	/** Record elements (of cgen_rec_elem_t) */
+	list_t elems;
+} cgen_record_t;
+
+/** Record definitions */
+typedef struct cgen_records {
+	/** Record definitions (of cgen_record_t) */
+	list_t records;
+} cgen_records_t;
 
 #endif

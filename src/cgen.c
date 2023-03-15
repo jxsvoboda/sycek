@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <ast.h>
+#include <cgrec.h>
 #include <charcls.h>
 #include <comp.h>
 #include <cgen.h>
@@ -609,6 +610,13 @@ int cgen_create(cgen_t **rcgen)
 		return ENOMEM;
 	}
 
+	rc = cgen_records_create(&cgen->records);
+	if (rc != EOK) {
+		scope_destroy(cgen->scope);
+		free(cgen);
+		return ENOMEM;
+	}
+
 	cgen->cur_scope = cgen->scope;
 	cgen->error = false;
 	cgen->warnings = 0;
@@ -1161,11 +1169,11 @@ static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
  *
  * @param cgen Code generator
  * @param elem Record type specifier element
- * @param member Scope member (that is a record)
+ * @param record Record definition
  * @return EOK on success or an error code
  */
 static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
-    scope_member_t *member)
+    cgen_record_t *record)
 {
 	ast_dlist_entry_t *dlentry;
 	cgtype_t *stype = NULL;
@@ -1174,8 +1182,6 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 	comp_tok_t *ident;
 	comp_tok_t *ctok;
 	int rc;
-
-	(void)member;
 
 	/* When compiling we should not get a macro declaration */
 	assert(elem->mdecln == NULL);
@@ -1203,10 +1209,7 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 			goto error;
 		}
 
-		assert(member->mtype == sm_record);
-
-		rc = scope_member_record_append(&member->m.record,
-		    ident->tok.text, dtype);
+		rc = cgen_record_append(record, ident->tok.text, dtype);
 		if (rc == EEXIST) {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Duplicate record member '%s'.\n",
@@ -1236,28 +1239,32 @@ error:
  *
  * @param cgen Code generator
  * @param tsrecord Record type specifier
+ * @param rdefines Place to store @c true iff record type specifier
+ *                 defines or declares a non-anonymous structure
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
-    cgtype_t **rstype)
+    bool *rdefines, cgtype_t **rstype)
 {
-	comp_tok_t *ident;
+	comp_tok_t *ident_tok;
+	const char *ident;
 	scope_member_t *member;
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
 	cgtype_basic_t *btype;
 	const char *rtype;
-	scope_rec_type_t srtype;
+	cgen_rec_type_t cgrtype;
 	ast_tsrecord_elem_t *elem;
+	cgen_record_t *record;
 	int rc;
 
 	if (tsrecord->rtype == ar_struct) {
 		rtype = "struct";
-		srtype = sr_struct;
+		cgrtype = cgr_struct;
 	} else {
 		rtype = "union";
-		srtype = sr_union;
+		cgrtype = cgr_union;
 	}
 
 	if (tsrecord->aslist1 != NULL) {
@@ -1270,15 +1277,13 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
-	if (tsrecord->have_ident)
-		ident = (comp_tok_t *)tsrecord->tident.data;
-
-	if (!tsrecord->have_ident) {
-		ctok = (comp_tok_t *)tsrecord->tsu.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented anonymous struct/union.\n");
-		cgen->error = true; // TODO
-		return EINVAL;
+	if (tsrecord->have_ident) {
+		ident_tok = (comp_tok_t *)tsrecord->tident.data;
+		ident = ident_tok->tok.text;
+	} else {
+		/* Point to 'struct/union' keyword if no identifier */
+		ident_tok = (comp_tok_t *)tsrecord->tsu.data;
+		ident = "<anonymous>";
 	}
 
 	if (!tsrecord->have_def) {
@@ -1290,42 +1295,42 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	}
 
 	if (tsrecord->have_def && cgen->cur_scope->parent != NULL) {
-		lexer_dprint_tok(&ident->tok, stderr);
+		lexer_dprint_tok(&ident_tok->tok, stderr);
 		fprintf(stderr, ": Definition of '%s %s' in a non-global "
-		    "scope.\n", rtype, ident->tok.text);
+		    "scope.\n", rtype, ident);
 		++cgen->warnings;
 
 		member = scope_lookup_tag(cgen->cur_scope->parent,
-		    ident->tok.text);
+		    ident);
 		if (member != NULL) {
-			lexer_dprint_tok(&ident->tok, stderr);
+			lexer_dprint_tok(&ident_tok->tok, stderr);
 			fprintf(stderr, ": Definition of '%s %s' shadows "
 			    "a wider-scope struct/union definition.\n", rtype,
-			    ident->tok.text);
+			    ident);
 			++cgen->warnings;
 		}
 	}
 
 	if (tsrecord->have_def && cgen->tsrec_cnt > 0) {
-		lexer_dprint_tok(&ident->tok, stderr);
+		lexer_dprint_tok(&ident_tok->tok, stderr);
 		fprintf(stderr, ": Definition of '%s %s' inside another "
-		    "struct/union definition.\n", rtype, ident->tok.text);
+		    "struct/union definition.\n", rtype, ident);
 		++cgen->warnings;
 	}
 
 	if (tsrecord->have_def && cgen->arglist_cnt > 0) {
-		lexer_dprint_tok(&ident->tok, stderr);
+		lexer_dprint_tok(&ident_tok->tok, stderr);
 		fprintf(stderr, ": Definition of '%s %s' inside parameter "
 		    "list will not be visible outside of function "
-		    "declaration/definition.\n", rtype, ident->tok.text);
+		    "declaration/definition.\n", rtype, ident);
 		++cgen->warnings;
 	}
 
-	member = scope_lookup_tag_local(cgen->cur_scope, ident->tok.text);
+	member = scope_lookup_tag_local(cgen->cur_scope, ident);
 	if (member != NULL) {
 		lexer_dprint_tok(member->tident, stderr);
 		fprintf(stderr, ": Redefinition of '%s %s'.\n",
-		    rtype, member->tident->text);
+		    rtype, member->tident->text);//XXXX
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -1340,15 +1345,24 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
-	/* Insert new record definition */
-	rc = scope_insert_record(cgen->cur_scope, &ident->tok, srtype, &member);
+	/* Create new record definition */
+	rc = cgen_record_create(cgen->records, cgrtype,
+	    tsrecord->have_ident ? ident : NULL, "@s.TBD", &record);
 	if (rc != EOK)
-		return EINVAL;
+		return rc;
+
+	if (tsrecord->have_ident) {
+		/* Insert new record definition */
+		rc = scope_insert_record(cgen->cur_scope, &ident_tok->tok,
+		    record, &member);
+		if (rc != EOK)
+			return EINVAL;
+	}
 
 	++cgen->tsrec_cnt;
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = cgen_tsrecord_elem(cgen, elem, member);
+		rc = cgen_tsrecord_elem(cgen, elem, record);
 		if (rc != EOK)  {
 			assert(cgen->tsrec_cnt > 0);
 			--cgen->tsrec_cnt;
@@ -1365,6 +1379,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	if (rc != EOK)
 		return rc;
 
+	*rdefines = tsrecord->have_ident;
 	*rstype = &btype->cgtype;
 	return EOK;
 }
@@ -1603,15 +1618,9 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 			break;
 		case ant_tsrecord:
 			rc = cgen_tsrecord(cgen,
-			    (ast_tsrecord_t *)cgds->tspec->ext, &stype);
+			    (ast_tsrecord_t *)cgds->tspec->ext, &defines, &stype);
 			if (rc != EOK)
 				goto error;
-
-			/*
-			 * Allow struct/union declaration or definition
-			 * without declaring an instance.
-			 */
-			defines = true;
 			break;
 		default:
 			stype = NULL;
@@ -10456,6 +10465,7 @@ void cgen_destroy(cgen_t *cgen)
 		return;
 
 	scope_destroy(cgen->scope);
+	cgen_records_destroy(cgen->records);
 	free(cgen);
 }
 

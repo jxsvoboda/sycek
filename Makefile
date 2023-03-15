@@ -56,6 +56,7 @@ sources_ccheck_common = \
 sources_syc_common = \
     $(sources_common) \
     src/cgen.c \
+    src/cgrec.c \
     src/cgtype.c \
     src/comp.c \
     src/ir.c \

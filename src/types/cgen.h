@@ -45,6 +45,8 @@ typedef struct {
 	struct scope *cur_scope;
 	/** Module symbols */
 	struct symbols *symbols;
+	/** Record definitions */
+	struct cgen_records *records;
 	/** Count nesting of record type specifiers (struct/union defs) */
 	unsigned tsrec_cnt;
 	/** Count nesting of argument lists */

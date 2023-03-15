@@ -21,31 +21,26 @@
  */
 
 /*
- * Identifier scope
+ * Code generator record definitions
  */
 
-#ifndef SCOPE_H
-#define SCOPE_H
+#ifndef CGREC_H
+#define CGREC_H
 
 #include <types/cgrec.h>
 #include <types/cgtype.h>
-#include <types/scope.h>
 
-extern int scope_create(scope_t *, scope_t **);
-extern void scope_destroy(scope_t *);
-extern int scope_insert_gsym(scope_t *, lexer_tok_t *, cgtype_t *);
-extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
+extern int cgen_records_create(cgen_records_t **);
+extern void cgen_records_destroy(cgen_records_t *);
+extern int cgen_record_create(cgen_records_t *, cgen_rec_type_t, const char *,
+    const char *, cgen_record_t **);
+extern cgen_record_t *cgen_records_find(cgen_records_t *, const char *);
+extern cgen_record_t *cgen_records_first(cgen_records_t *);
+extern cgen_record_t *cgen_records_next(cgen_record_t *);
+extern void cgen_record_destroy(cgen_record_t *);
+extern int cgen_record_append(cgen_record_t *, const char *,
+    cgtype_t *);
+extern cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *,
     const char *);
-extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
-    const char *);
-extern int scope_insert_tdef(scope_t *, lexer_tok_t *, cgtype_t *);
-extern int scope_insert_record(scope_t *, lexer_tok_t *, cgen_record_t *,
-    scope_member_t **);
-extern scope_member_t *scope_first(scope_t *);
-extern scope_member_t *scope_next(scope_member_t *);
-extern scope_member_t *scope_lookup_local(scope_t *, const char *);
-extern scope_member_t *scope_lookup_tag_local(scope_t *, const char *);
-extern scope_member_t *scope_lookup(scope_t *, const char *);
-extern scope_member_t *scope_lookup_tag(scope_t *, const char *);
 
 #endif
