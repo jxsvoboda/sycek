@@ -293,6 +293,9 @@ static void ir_decln_destroy(ir_decln_t *decln)
 	case ird_proc:
 		ir_proc_destroy((ir_proc_t *) decln->ext);
 		break;
+	case ird_record:
+		ir_record_destroy((ir_record_t *) decln->ext);
+		break;
 	}
 }
 
@@ -316,6 +319,9 @@ int ir_decln_print(ir_decln_t *decln, FILE *f)
 		break;
 	case ird_proc:
 		rc = ir_proc_print((ir_proc_t *) decln->ext, f);
+		break;
+	case ird_record:
+		rc = ir_record_print((ir_record_t *) decln->ext, f);
 		break;
 	}
 
@@ -341,6 +347,8 @@ const char *ir_decln_ident(ir_decln_t *decln)
 		return ((ir_var_t *)decln->ext)->ident;
 	case ird_proc:
 		return ((ir_proc_t *)decln->ext)->ident;
+	case ird_record:
+		return ((ir_record_t *)decln->ext)->ident;
 	}
 
 	return NULL;
@@ -714,6 +722,234 @@ ir_dblock_entry_t *ir_dblock_prev(ir_dblock_entry_t *cur)
 		return NULL;
 
 	return list_get_instance(link, ir_dblock_entry_t, lentries);
+}
+
+/** Create IR record definition.
+ *
+ * @param ident Identifier (will be copied)
+ * @pram rtype Record type (struct/union)
+ * @param rrecord Place to store pointer to new record
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_record_create(const char *ident, ir_record_type_t rtype,
+    ir_record_t **rrecord)
+{
+	ir_record_t *record;
+
+	record = calloc(1, sizeof(ir_record_t));
+	if (record == NULL)
+		return ENOMEM;
+
+	record->ident = strdup(ident);
+	if (record->ident == NULL) {
+		free(record);
+		return ENOMEM;
+	}
+
+	record->decln.dtype = ird_record;
+	record->decln.ext = (void *) record;
+	record->rtype = rtype;
+	list_initialize(&record->elems);
+	*rrecord = record;
+	return EOK;
+}
+
+/** Print IR record.
+ *
+ * @param record IR record
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_record_print(ir_record_t *record, FILE *f)
+{
+	int rv;
+	ir_record_elem_t *elem;
+	int rc;
+
+	rv = fprintf(f, "\n%s %s\nbegin\n", record->rtype == irrt_struct ?
+	    "record" : "union", record->ident);
+	if (rv < 0)
+		return EIO;
+
+	elem = ir_record_first(record);
+	while (elem != NULL) {
+		rc = ir_record_elem_print(elem, f);
+		if (rc != EOK)
+			return EIO;
+
+		elem = ir_record_next(elem);
+	}
+
+	rv = fprintf(f, "end");
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print IR record element.
+ *
+ * @param elem IR record element
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int ir_record_elem_print(ir_record_elem_t *elem, FILE *f)
+{
+	int rv;
+	int rc;
+
+	rv = fprintf(f, "\t%s : ", elem->ident);
+	if (rv < 0)
+		return EIO;
+
+	rc = ir_texpr_print(elem->etype, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs(";\n", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy IR record.
+ *
+ * @param record IR record or @c NULL
+ */
+void ir_record_destroy(ir_record_t *record)
+{
+	ir_record_elem_t *elem;
+
+	if (record == NULL)
+		return;
+
+	if (record->ident != NULL)
+		free(record->ident);
+
+	elem = ir_record_first(record);
+	while (elem != NULL) {
+		ir_record_elem_destroy(elem);
+		elem = ir_record_first(record);
+	}
+
+	free(record);
+}
+
+/** Get first element in IR record.
+ *
+ * @param record IR data block
+ * @return First entry or @c NULL if there is none
+ */
+ir_record_elem_t *ir_record_first(ir_record_t *record)
+{
+	link_t *link;
+
+	link = list_first(&record->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_record_elem_t, lelems);
+}
+
+/** Get next entry in IR data block.
+ *
+ * @param cur Current entry
+ * @return Next entry or @c NULL if there is none
+ */
+ir_record_elem_t *ir_record_next(ir_record_elem_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lelems, &cur->record->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_record_elem_t, lelems);
+}
+
+/** Get last entry in IR data block.
+ *
+ * @param record IR data block
+ * @return Last entry or @c NULL if there is none
+ */
+ir_record_elem_t *ir_record_last(ir_record_t *record)
+{
+	link_t *link;
+
+	link = list_last(&record->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_record_elem_t, lelems);
+}
+
+/** Get previous entry in IR data block.
+ *
+ * @param cur Current entry
+ * @return Previous entry or @c NULL if there is none
+ */
+ir_record_elem_t *ir_record_prev(ir_record_elem_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->lelems, &cur->record->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, ir_record_elem_t, lelems);
+}
+
+/** Append element to IR record.
+ *
+ * @param record IR record
+ * @param ident Element identifier
+ * @param etype Element type
+ * @param relem Place to store IR record element if interested or @c NULL
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ir_record_append(ir_record_t *record, const char *ident, ir_texpr_t *etype,
+    ir_record_elem_t **relem)
+{
+	ir_record_elem_t *elem;
+	int rc;
+
+	elem = calloc(1, sizeof(ir_record_elem_t));
+	if (elem == NULL)
+		return ENOMEM;
+
+	elem->ident = strdup(ident);
+	if (elem->ident == NULL) {
+		free(elem);
+		return ENOMEM;
+	}
+
+	rc = ir_texpr_clone(etype, &elem->etype);
+	if (rc != EOK) {
+		free(elem->ident);
+		free(elem);
+		return ENOMEM;
+	}
+
+	elem->record = record;
+	list_append(&elem->lelems, &record->elems);
+	if (relem != NULL)
+		*relem = elem;
+	return EOK;
+}
+
+/** Destroy IR record element.
+ *
+ * @param elem Record element
+ */
+void ir_record_elem_destroy(ir_record_elem_t *elem)
+{
+	list_remove(&elem->lelems);
+	free(elem->ident);
+	ir_texpr_destroy(elem->etype);
+	free(elem);
 }
 
 /** Create IR procedure.

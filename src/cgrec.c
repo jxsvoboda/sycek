@@ -26,6 +26,7 @@
 
 #include <cgrec.h>
 #include <cgtype.h>
+#include <ir.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,12 +78,12 @@ void cgen_records_destroy(cgen_records_t *records)
  * @param records Records list
  * @param rtype Record type (struct or union)
  * @param cident C identifier or @c NULL if anonymous
- * @param irident IR identifier
+ * @param irrec IR record
  * @param rrecord Place to store pointer to new record definition
  * @return EOK on success or an error code
  */
 int cgen_record_create(cgen_records_t *records, cgen_rec_type_t rtype,
-    const char *cident, const char *irident, cgen_record_t **rrecord)
+    const char *cident, ir_record_t *irrec, cgen_record_t **rrecord)
 {
 	cgen_record_t *record;
 
@@ -98,9 +99,7 @@ int cgen_record_create(cgen_records_t *records, cgen_rec_type_t rtype,
 			goto error;
 	}
 
-	record->irident = strdup(irident);
-	if (record->irident == NULL)
-		goto error;
+	record->irrecord = irrec;
 
 	list_initialize(&record->elems);
 
@@ -111,8 +110,6 @@ int cgen_record_create(cgen_records_t *records, cgen_rec_type_t rtype,
 error:
 	if (record->cident != NULL)
 		free(record->cident);
-	if (record->irident != NULL)
-		free(record->irident);
 	free(record);
 	return ENOMEM;
 }
@@ -157,8 +154,6 @@ void cgen_record_destroy(cgen_record_t *record)
 
 	if (record->cident != NULL)
 		free(record->cident);
-	if (record->irident != NULL)
-		free(record->irident);
 	free(record);
 }
 

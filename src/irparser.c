@@ -1029,6 +1029,122 @@ error:
 	return rc;
 }
 
+/** Parse IR record type declaration.
+ *
+ * @param parser IR parser
+ * @param rrecord Place to store pointer to new record
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_record(ir_parser_t *parser, ir_record_t **rrecord)
+{
+	ir_lexer_toktype_t itt;
+	ir_lexer_tok_t itok;
+	ir_record_t *record = NULL;
+	ir_record_elem_t *elem;
+	char *ident = NULL;
+	ir_texpr_t *texpr = NULL;
+	ir_record_type_t rtype;
+	int rc;
+
+	/* record/union keyword */
+	itt = ir_parser_next_ttype(parser);
+	if (itt == itt_record) {
+		rtype = irrt_struct;
+	} else {
+		assert(itt == itt_union);
+		rtype = irrt_union;
+	}
+
+	ir_parser_skip(parser);
+
+	/* Identifier */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_ident) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected indentifier.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_record_create(itok.text, rtype, &record);
+	if (rc != EOK)
+		goto error;
+
+	ir_parser_skip(parser);
+
+	/* Begin, end */
+
+	rc = ir_parser_match(parser, itt_begin);
+	if (rc != EOK)
+		goto error;
+
+	itt = ir_parser_next_ttype(parser);
+	while (itt != itt_end) {
+		ir_parser_read_next_tok(parser, &itok);
+		if (itok.ttype != itt_ident) {
+			fprintf(stderr, "Error: ");
+			ir_parser_dprint_next_tok(parser, stderr);
+			fprintf(stderr, " unexpected, expected indentifier.\n");
+			rc = EINVAL;
+			goto error;
+		}
+
+		/* itok.text is only valid until we skip the token */
+		ident = strdup(itok.text);
+		if (ident == NULL) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		ir_parser_skip(parser);
+
+		/* ':' */
+
+		rc = ir_parser_match(parser, itt_colon);
+		if (rc != EOK)
+			goto error;
+
+		/* Type */
+
+		rc = ir_parser_process_texpr(parser, &texpr);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_record_append(record, ident, texpr, &elem);
+		if (rc != EOK)
+			goto error;
+
+		free(ident);
+		ident = NULL;
+		ir_texpr_destroy(texpr);
+		texpr = NULL;
+
+		/* ';' */
+
+		rc = ir_parser_match(parser, itt_scolon);
+		if (rc != EOK)
+			goto error;
+
+		itt = ir_parser_next_ttype(parser);
+	}
+
+	ir_parser_skip(parser);
+
+	*rrecord = record;
+	return EOK;
+error:
+	if (record != NULL)
+		ir_record_destroy(record);
+	if (ident != NULL)
+		free(ident);
+	if (texpr != NULL)
+		ir_texpr_destroy(texpr);
+	return rc;
+}
+
 /** Parse IR data entry.
  *
  * @param parser IR parser
@@ -1242,6 +1358,7 @@ static int ir_parser_process_decln(ir_parser_t *parser, ir_decln_t **rdecln)
 {
 	ir_lexer_toktype_t itt;
 	ir_proc_t *proc;
+	ir_record_t *record;
 	ir_var_t *var;
 	ir_decln_t *decln;
 	int rc;
@@ -1253,6 +1370,13 @@ static int ir_parser_process_decln(ir_parser_t *parser, ir_decln_t **rdecln)
 		if (rc != EOK)
 			goto error;
 		decln = &proc->decln;
+		break;
+	case itt_record:
+	case itt_union:
+		rc = ir_parser_process_record(parser, &record);
+		if (rc != EOK)
+			goto error;
+		decln = &record->decln;
 		break;
 	case itt_var:
 		rc = ir_parser_process_var(parser, &var);

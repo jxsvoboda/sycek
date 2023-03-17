@@ -51,6 +51,10 @@ typedef struct {
 	unsigned tsrec_cnt;
 	/** Count nesting of argument lists */
 	unsigned arglist_cnt;
+	/** Anonymous tag counter */
+	unsigned anon_tag_cnt;
+	/** Output IR module */
+	struct ir_module *irmod;
 } cgen_t;
 
 /** Code generator for procedure */

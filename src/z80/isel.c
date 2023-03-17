@@ -8637,6 +8637,22 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 	return rc;
 }
 
+/** Select instructions code for record type.
+ *
+ * @param isel Instruction selector
+ * @param irrec IR record
+ * @param icmod Z80 IC module to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int z80_isel_record(z80_isel_t *isel, ir_record_t *irrec,
+    z80ic_module_t *icmod)
+{
+	(void)isel;
+	(void)irrec;
+	(void)icmod;
+	return EOK;
+}
+
 /** Select instructions code for declaration.
  *
  * @param isel Instruction selector
@@ -8655,6 +8671,9 @@ static int z80_isel_decln(z80_isel_t *isel, ir_decln_t *decln,
 		break;
 	case ird_proc:
 		rc = z80_isel_proc(isel, (ir_proc_t *) decln->ext, icmod);
+		break;
+	case ird_record:
+		rc = z80_isel_record(isel, (ir_record_t *) decln->ext, icmod);
 		break;
 	default:
 		assert(false);

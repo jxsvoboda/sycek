@@ -29,11 +29,12 @@
 
 #include <types/cgrec.h>
 #include <types/cgtype.h>
+#include <types/ir.h>
 
 extern int cgen_records_create(cgen_records_t **);
 extern void cgen_records_destroy(cgen_records_t *);
 extern int cgen_record_create(cgen_records_t *, cgen_rec_type_t, const char *,
-    const char *, cgen_record_t **);
+    ir_record_t *, cgen_record_t **);
 extern cgen_record_t *cgen_records_find(cgen_records_t *, const char *);
 extern cgen_record_t *cgen_records_first(cgen_records_t *);
 extern cgen_record_t *cgen_records_next(cgen_record_t *);

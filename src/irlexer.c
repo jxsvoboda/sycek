@@ -741,6 +741,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_read, 4, tok);
 		}
+		if (p[1] == 'e' && p[2] == 'c' && p[3] == 'o' &&
+		    p[4] == 'r' && p[5] == 'd' && !is_idcnt(p[6])) {
+			return ir_lexer_keyword(lexer, itt_record, 6, tok);
+		}
 		if (p[1] == 'e' && p[2] == 't' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_ret, 3, tok);
 		}
@@ -773,6 +777,12 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		if (p[1] == 'r' && p[2] == 'u' && p[3] == 'n' &&
 		    p[4] == 'c' && !is_idcnt(p[5])) {
 			return ir_lexer_keyword(lexer, itt_trunc, 5, tok);
+		}
+		return ir_lexer_invalid(lexer, tok);
+	case 'u':
+		if (p[1] == 'n' && p[2] == 'i' && p[3] == 'o' &&
+		    p[4] == 'n' && !is_idcnt(p[5])) {
+			return ir_lexer_keyword(lexer, itt_union, 5, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'v':
@@ -956,6 +966,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'ptridx'";
 	case itt_read:
 		return "'read'";
+	case itt_record:
+		return "'record'";
 	case itt_ret:
 		return "'ret'";
 	case itt_retv:
@@ -972,6 +984,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'sub'";
 	case itt_trunc:
 		return "'trunc'";
+	case itt_union:
+		return "'union'";
 	case itt_var:
 		return "'var'";
 	case itt_varptr:

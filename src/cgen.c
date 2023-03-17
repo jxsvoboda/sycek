@@ -1181,7 +1181,10 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	comp_tok_t *ctok;
+	ir_texpr_t *irtype = NULL;
+	char *irident;
 	int rc;
+	int rv;
 
 	/* When compiling we should not get a macro declaration */
 	assert(elem->mdecln == NULL);
@@ -1221,6 +1224,26 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 		if (rc != EOK)
 			goto error;
 
+		rc = cgen_cgtype(cgen, dtype, &irtype);
+		if (rc != EOK)
+			goto error;
+
+		rv = asprintf(&irident, "@%s", ident->tok.text);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		rc = ir_record_append(record->irrecord, irident,
+		    irtype, NULL);
+		if (rc != EOK)
+			goto error;
+
+		free(irident);
+		irident = NULL;
+		ir_texpr_destroy(irtype);
+		irtype = NULL;
+
 		cgtype_destroy(dtype);
 		dtype = NULL;
 
@@ -1230,6 +1253,7 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 	cgtype_destroy(stype);
 	return EOK;
 error:
+	ir_texpr_destroy(irtype);
 	cgtype_destroy(stype);
 	cgtype_destroy(dtype);
 	return rc;
@@ -1254,16 +1278,24 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	comp_tok_t *ctok;
 	cgtype_basic_t *btype;
 	const char *rtype;
+	ir_record_type_t irrtype;
 	cgen_rec_type_t cgrtype;
 	ast_tsrecord_elem_t *elem;
 	cgen_record_t *record;
+	ir_record_t *irrecord;
+	ir_decln_t *decln;
+	char *irident = NULL;
+	unsigned seqno;
 	int rc;
+	int rv;
 
 	if (tsrecord->rtype == ar_struct) {
 		rtype = "struct";
+		irrtype = irrt_struct;
 		cgrtype = cgr_struct;
 	} else {
 		rtype = "union";
+		irrtype = irrt_union;
 		cgrtype = cgr_union;
 	}
 
@@ -1328,9 +1360,9 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 
 	member = scope_lookup_tag_local(cgen->cur_scope, ident);
 	if (member != NULL) {
-		lexer_dprint_tok(member->tident, stderr);
-		fprintf(stderr, ": Redefinition of '%s %s'.\n",
-		    rtype, member->tident->text);//XXXX
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Redefinition of tag '%s'.\n",
+		    member->tident->text);
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -1345,11 +1377,58 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
+	if (tsrecord->have_ident) {
+		/* Construct IR identifier */
+		rv = asprintf(&irident, "@@%s", ident);
+		if (rv < 0)
+			return ENOMEM;
+
+		/*
+		 * Since multiple structs/unions with the same name could
+		 * be defined in different scopes, check for conflict.
+		 * If found, try numbered version with increasing numbers.
+		 *
+		 * Don't bother with efficiency, this is not something
+		 * that should happen a lot - we warn against doing it,
+		 * afterall.
+		 */
+
+		seqno = 0;
+		rc = ir_module_find(cgen->irmod, irident, &decln);
+		while (rc == EOK) {
+			free(irident);
+
+			/* Construct IR identifier with number */
+			++seqno;
+			rv = asprintf(&irident, "@@%s.%d", ident, seqno);
+			if (rv < 0)
+				return ENOMEM;
+
+			rc = ir_module_find(cgen->irmod, irident, &decln);
+		}
+	} else {
+		++cgen->anon_tag_cnt;
+		rv = asprintf(&irident, "@@%d", cgen->anon_tag_cnt);
+		if (rv < 0)
+			return ENOMEM;
+	}
+
+	rc = ir_record_create(irident, irrtype, &irrecord);
+	if (rc != EOK) {
+		free(irident);
+		return rc;
+	}
+
 	/* Create new record definition */
 	rc = cgen_record_create(cgen->records, cgrtype,
-	    tsrecord->have_ident ? ident : NULL, "@s.TBD", &record);
-	if (rc != EOK)
+	    tsrecord->have_ident ? ident : NULL, irrecord, &record);
+	if (rc != EOK) {
+		free(irident);
 		return rc;
+	}
+
+	free(irident);
+	irident = NULL;
 
 	if (tsrecord->have_ident) {
 		/* Insert new record definition */
@@ -1366,13 +1445,15 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		if (rc != EOK)  {
 			assert(cgen->tsrec_cnt > 0);
 			--cgen->tsrec_cnt;
-			return rc;
+			return EINVAL;
 		}
 
 		elem = ast_tsrecord_next(elem);
 	}
 	assert(cgen->tsrec_cnt > 0);
 	--cgen->tsrec_cnt;
+
+	ir_module_append(cgen->irmod, &irrecord->decln);
 
 	/* Resulting type is the same as type of the member */
 	rc = cgtype_basic_create(cgelm_int, &btype);
@@ -9684,11 +9765,9 @@ static int cgen_fundef_attr(cgen_proc_t *cgproc, ast_aspec_attr_t *attr)
  * @param cgen Code generator
  * @param gdecln Global declaration that is a function definition
  * @param btype Type derived from declaration specifiers
- * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
-    ir_module_t *irmod)
+static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 {
 	ir_proc_t *proc = NULL;
 	ir_lblock_t *lblock = NULL;
@@ -9915,7 +9994,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype,
 	cgtype_destroy(dtype);
 	dtype = NULL;
 
-	ir_module_append(irmod, &proc->decln);
+	ir_module_append(cgen->irmod, &proc->decln);
 	proc = NULL;
 
 	/* Check for defined, but unused, identifiers */
@@ -10033,18 +10112,14 @@ error:
  * @param cgen Code generator
  * @param ftype Function type
  * @param gdecln Global declaration that is a function definition
- * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln,
-    ir_module_t *irmod)
+static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 {
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	symbol_t *symbol;
 	int rc;
-
-	(void) irmod;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
@@ -10093,11 +10168,9 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln,
  * @param cgen Code generator
  * @param dtype Variable type
  * @param entry Init-declarator list entry that declares a variable
- * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_vardef(cgen_t *cgen, cgtype_t *stype,
-    ast_idlist_entry_t *entry, ir_module_t *irmod)
+static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 {
 	ir_var_t *var = NULL;
 	ir_dblock_t *dblock = NULL;
@@ -10205,7 +10278,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype,
 
 	dentry = NULL;
 
-	ir_module_append(irmod, &var->decln);
+	ir_module_append(cgen->irmod, &var->decln);
 	var = NULL;
 
 	return EOK;
@@ -10222,10 +10295,9 @@ error:
  *
  * @param cgen Code generator
  * @param gdecln Global declaration
- * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
+static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 {
 	ast_idlist_entry_t *entry;
 	cgtype_t *stype = NULL;
@@ -10246,7 +10318,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->body != NULL) {
-		rc = cgen_fundef(cgen, gdecln, stype, irmod);
+		rc = cgen_fundef(cgen, gdecln, stype);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {
@@ -10269,8 +10341,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 
 			if (ast_decl_is_vardecln(entry->decl)) {
 				/* Variable declaration */
-				rc = cgen_vardef(cgen, dtype, entry,
-				    irmod);
+				rc = cgen_vardef(cgen, dtype, entry);
 				if (rc != EOK)
 					goto error;
 			} else if (entry->decl->ntype == ant_dnoident) {
@@ -10283,7 +10354,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln, ir_module_t *irmod)
 				}
 			} else {
 				/* Assuming it's a function declaration */
-				rc = cgen_fundecl(cgen, dtype, gdecln, irmod);
+				rc = cgen_fundecl(cgen, dtype, gdecln);
 				if (rc != EOK)
 					goto error;
 			}
@@ -10311,11 +10382,9 @@ error:
  *
  * @param cgen Code generator
  * @param decln Global (macro, extern) declaration
- * @param irmod IR module to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
-    ir_module_t *irmod)
+static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln)
 {
 	ast_tok_t *atok;
 	comp_tok_t *tok;
@@ -10323,7 +10392,7 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
 
 	switch (decln->ntype) {
 	case ant_gdecln:
-		rc = cgen_gdecln(cgen, (ast_gdecln_t *) decln->ext, irmod);
+		rc = cgen_gdecln(cgen, (ast_gdecln_t *) decln->ext);
 		break;
 	case ant_gmdecln:
 		assert(false); // XXX
@@ -10351,11 +10420,9 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln,
  *
  * @param cgen Code generator
  * @param symbols Symbol directory
- * @param irmod IR module where to add the declarations
  * @return EOK on success or an error code
  */
-static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
-    ir_module_t *irmod)
+static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 {
 	int rc;
 	ir_proc_t *proc = NULL;
@@ -10398,7 +10465,7 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols,
 				ir_proc_append_attr(proc, irattr);
 			}
 
-			ir_module_append(irmod, &proc->decln);
+			ir_module_append(cgen->irmod, &proc->decln);
 			proc = NULL;
 		}
 
@@ -10425,9 +10492,9 @@ error:
 int cgen_module(cgen_t *cgen, ast_module_t *astmod, symbols_t *symbols,
     ir_module_t **rirmod)
 {
-	ir_module_t *irmod;
 	int rc;
 	ast_node_t *decln;
+	ir_module_t *irmod = NULL;
 
 	cgen->symbols = symbols;
 
@@ -10435,16 +10502,18 @@ int cgen_module(cgen_t *cgen, ast_module_t *astmod, symbols_t *symbols,
 	if (rc != EOK)
 		return rc;
 
+	cgen->irmod = irmod;
+
 	decln = ast_module_first(astmod);
 	while (decln != NULL) {
-		rc = cgen_global_decln(cgen, decln, irmod);
+		rc = cgen_global_decln(cgen, decln);
 		if (rc != EOK)
 			goto error;
 
 		decln = ast_module_next(decln);
 	}
 
-	rc = cgen_module_symdecls(cgen, symbols, irmod);
+	rc = cgen_module_symdecls(cgen, symbols);
 	if (rc != EOK)
 		goto error;
 

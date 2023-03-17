@@ -59,6 +59,17 @@ extern int ir_dentry_create_int(unsigned, int64_t, ir_dentry_t **);
 extern int ir_dentry_create_uint(unsigned, uint64_t, ir_dentry_t **);
 extern int ir_dentry_print(ir_dentry_t *, FILE *);
 extern void ir_dentry_destroy(ir_dentry_t *);
+extern int ir_record_create(const char *, ir_record_type_t, ir_record_t **);
+extern void ir_record_destroy(ir_record_t *);
+extern int ir_record_print(ir_record_t *, FILE *);
+extern int ir_record_elem_print(ir_record_elem_t *, FILE *);
+extern ir_record_elem_t *ir_record_first(ir_record_t *);
+extern ir_record_elem_t *ir_record_next(ir_record_elem_t *);
+extern ir_record_elem_t *ir_record_last(ir_record_t *);
+extern ir_record_elem_t *ir_record_prev(ir_record_elem_t *);
+extern int ir_record_append(ir_record_t *, const char *, ir_texpr_t *,
+    ir_record_elem_t **);
+extern void ir_record_elem_destroy(ir_record_elem_t *);
 extern int ir_proc_create(const char *, ir_proc_flags_t, ir_lblock_t *,
     ir_proc_t **);
 extern void ir_proc_append_arg(ir_proc_t *, ir_proc_arg_t *);

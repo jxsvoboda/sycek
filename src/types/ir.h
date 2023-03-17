@@ -227,7 +227,9 @@ typedef enum {
 	/** Variable declaration */
 	ird_var,
 	/** Procedure declaration */
-	ird_proc
+	ird_proc,
+	/** Record type declaration */
+	ird_record
 } ir_decln_type_t;
 
 /** IR declaration */
@@ -283,6 +285,38 @@ typedef struct {
 	/** Data block containing variable data */
 	ir_dblock_t *dblock;
 } ir_var_t;
+
+/** IR record type element */
+typedef struct {
+	/** Containing IR record */
+	struct ir_record *record;
+	/** Link to @c record->elems */
+	link_t lelems;
+	/** Identifier */
+	char *ident;
+	/** Element type */
+	ir_texpr_t *etype;
+} ir_record_elem_t;
+
+/** IR record type (struct/union) */
+typedef enum {
+	/** Struct */
+	irrt_struct,
+	/** Union */
+	irrt_union
+} ir_record_type_t;
+
+/** IR record type definition */
+typedef struct ir_record {
+	/** Base object */
+	ir_decln_t decln;
+	/** Record type */
+	ir_record_type_t rtype;
+	/** Indentifier */
+	char *ident;
+	/** Elements (of ir_record_elem_t) */
+	list_t elems;
+} ir_record_t;
 
 /** IR argument in procedure definition */
 typedef struct {
