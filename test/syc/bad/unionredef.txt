@@ -1,1 +1,1 @@
-<test/syc/bad/unionredef.c:10:7-9:id:foo>: Redefinition of tag 'foo'.
+<test/syc/bad/unionredef.c:10:7-9:id:foo>: Redefinition of 'foo'.

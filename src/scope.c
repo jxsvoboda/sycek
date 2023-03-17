@@ -265,6 +265,7 @@ int scope_insert_tdef(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
  *
  * @param scope Scope
  * @param tident Tag identifier token
+ * @param srtype Scope record type
  * @param record Record definition
  * @param rmember Place to store pointer to new member or @c NULL if not
  *                interested.
@@ -272,7 +273,7 @@ int scope_insert_tdef(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
  *         identifier is already present in the scope
  */
 int scope_insert_record(scope_t *scope, lexer_tok_t *tident,
-    cgen_record_t *record, scope_member_t **rmember)
+    scope_rec_type_t srtype, cgen_record_t *record, scope_member_t **rmember)
 {
 	scope_member_t *member;
 	cgtype_record_t *rtype = NULL;
@@ -297,6 +298,7 @@ int scope_insert_record(scope_t *scope, lexer_tok_t *tident,
 	member->tident = tident;
 	member->cgtype = &rtype->cgtype;
 	member->mtype = sm_record;
+	member->m.record.srtype = srtype;
 	member->m.record.record = record;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);

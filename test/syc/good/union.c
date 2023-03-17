@@ -2,23 +2,38 @@
  * union
  */
 
+
+/* Declare a union without an instance */
+union foo;
+
 /* Verify that tag names and normal identifiers do not collide */
 int foo;
+
+/* Instantiate a union that will be defined later */
+struct foo f;
+
+/* Define a previously declared union, with an instance */
 union foo {
 	int x;
-} f;
+} g;
 
-/* Define an union without an instance */
+/* Define a union without an instance */
 union bar {
 	char a;
 };
 
-/* Define anonymous structure with an instance */
+/* Define anonymous union with an instance */
 union {
 	long l;
-} g;
+} h;
 
 /* Typedef to anonymous union */
-typedef struct {
+typedef union {
 	int b;
 } foo_t;
+
+/* Union defined in global scope can be used in local scope */
+void fun(void) {
+	union foo i;
+	(void)i;
+}

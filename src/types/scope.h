@@ -76,10 +76,20 @@ typedef struct {
 	char *vident;
 } scope_member_lvar_t;
 
+/** Scope record type */
+typedef enum {
+	/** Struct */
+	sr_struct,
+	/** Union */
+	sr_union
+} scope_rec_type_t;
+
 /** Scope member - record definition */
 typedef struct scope_member_record {
 	/** Record definition */
 	struct cgen_record *record;
+	/** Scope record type */
+	scope_rec_type_t srtype;
 	/** Scope record elements (of scope_record_elem_t) */
 	list_t elems;
 } scope_member_record_t;

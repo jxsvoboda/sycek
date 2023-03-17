@@ -1274,11 +1274,13 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	comp_tok_t *ident_tok;
 	const char *ident;
 	scope_member_t *member;
+	scope_member_t *dmember;
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
 	cgtype_basic_t *btype;
 	const char *rtype;
 	ir_record_type_t irrtype;
+	scope_rec_type_t srtype;
 	cgen_rec_type_t cgrtype;
 	ast_tsrecord_elem_t *elem;
 	cgen_record_t *record;
@@ -1293,10 +1295,12 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		rtype = "struct";
 		irrtype = irrt_struct;
 		cgrtype = cgr_struct;
+		srtype = sr_struct;
 	} else {
 		rtype = "union";
 		irrtype = irrt_union;
 		cgrtype = cgr_union;
+		srtype = sr_union;
 	}
 
 	if (tsrecord->aslist1 != NULL) {
@@ -1316,14 +1320,6 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		/* Point to 'struct/union' keyword if no identifier */
 		ident_tok = (comp_tok_t *)tsrecord->tsu.data;
 		ident = "<anonymous>";
-	}
-
-	if (!tsrecord->have_def) {
-		ctok = (comp_tok_t *)tsrecord->tsu.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented struct/union usage.\n");
-		cgen->error = true; // TODO
-		return EINVAL;
 	}
 
 	if (tsrecord->have_def && cgen->cur_scope->parent != NULL) {
@@ -1358,10 +1354,30 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		++cgen->warnings;
 	}
 
+	/* Look for previous definition in current scope */
 	member = scope_lookup_tag_local(cgen->cur_scope, ident);
-	if (member != NULL) {
+
+	/* If already exists, but as a different kind of tag */
+	if (member != NULL && (member->mtype != sm_record ||
+	    member->m.record.srtype != srtype)) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Redefinition of tag '%s'.\n",
+		fprintf(stderr, ": Redefinition of '%s' as a different kind of tag.\n",
+		    member->tident->text);
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	/* Look for a usable previous declaration */
+	dmember = scope_lookup_tag(cgen->cur_scope, ident);
+	if (dmember != NULL && (dmember->mtype != sm_record ||
+	    dmember->m.record.srtype != srtype))
+		dmember = NULL;
+
+	/* If already exists, is defined and we are defining */
+	if (member != NULL && member->m.record.record != NULL &&
+	    tsrecord->have_def) {
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Redefinition of '%s'.\n",
 		    member->tident->text);
 		cgen->error = true; // TODO
 		return EINVAL;
@@ -1377,63 +1393,73 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
-	if (tsrecord->have_ident) {
-		/* Construct IR identifier */
-		rv = asprintf(&irident, "@@%s", ident);
-		if (rv < 0)
-			return ENOMEM;
-
-		/*
-		 * Since multiple structs/unions with the same name could
-		 * be defined in different scopes, check for conflict.
-		 * If found, try numbered version with increasing numbers.
-		 *
-		 * Don't bother with efficiency, this is not something
-		 * that should happen a lot - we warn against doing it,
-		 * afterall.
-		 */
-
-		seqno = 0;
-		rc = ir_module_find(cgen->irmod, irident, &decln);
-		while (rc == EOK) {
-			free(irident);
-
-			/* Construct IR identifier with number */
-			++seqno;
-			rv = asprintf(&irident, "@@%s.%d", ident, seqno);
+	if (tsrecord->have_def) {
+		if (tsrecord->have_ident) {
+			/* Construct IR identifier */
+			rv = asprintf(&irident, "@@%s", ident);
 			if (rv < 0)
 				return ENOMEM;
 
+			/*
+			 * Since multiple structs/unions with the same name could
+			 * be defined in different scopes, check for conflict.
+			 * If found, try numbered version with increasing numbers.
+			 *
+			 * Don't bother with efficiency, this is not something
+			 * that should happen a lot - we warn against doing it,
+			 * afterall.
+			 */
+
+			seqno = 0;
 			rc = ir_module_find(cgen->irmod, irident, &decln);
+			while (rc == EOK) {
+				free(irident);
+
+				/* Construct IR identifier with number */
+				++seqno;
+				rv = asprintf(&irident, "@@%s.%d", ident, seqno);
+				if (rv < 0)
+					return ENOMEM;
+
+				rc = ir_module_find(cgen->irmod, irident, &decln);
+			}
+		} else {
+			++cgen->anon_tag_cnt;
+			rv = asprintf(&irident, "@@%d", cgen->anon_tag_cnt);
+			if (rv < 0)
+				return ENOMEM;
+		}
+
+		/* Create IR definition */
+		rc = ir_record_create(irident, irrtype, &irrecord);
+		if (rc != EOK) {
+			free(irident);
+			return rc;
+		}
+
+		/* Create new record definition */
+		rc = cgen_record_create(cgen->records, cgrtype,
+		    tsrecord->have_ident ? ident : NULL, irrecord, &record);
+		if (rc != EOK) {
+			free(irident);
+			return rc;
 		}
 	} else {
-		++cgen->anon_tag_cnt;
-		rv = asprintf(&irident, "@@%d", cgen->anon_tag_cnt);
-		if (rv < 0)
-			return ENOMEM;
-	}
-
-	rc = ir_record_create(irident, irrtype, &irrecord);
-	if (rc != EOK) {
-		free(irident);
-		return rc;
-	}
-
-	/* Create new record definition */
-	rc = cgen_record_create(cgen->records, cgrtype,
-	    tsrecord->have_ident ? ident : NULL, irrecord, &record);
-	if (rc != EOK) {
-		free(irident);
-		return rc;
+		/* Just a declaration */
+		record = NULL;
 	}
 
 	free(irident);
 	irident = NULL;
 
-	if (tsrecord->have_ident) {
+	/* If defining and non-anonymous */
+	if (tsrecord->have_ident && tsrecord->have_def) {
+		/* Fill in previous declaration in the current scope */
+		if (member != NULL)
+			member->m.record.record = record;
 		/* Insert new record definition */
 		rc = scope_insert_record(cgen->cur_scope, &ident_tok->tok,
-		    record, &member);
+		    srtype, record, &dmember);
 		if (rc != EOK)
 			return EINVAL;
 	}
@@ -1453,7 +1479,11 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	assert(cgen->tsrec_cnt > 0);
 	--cgen->tsrec_cnt;
 
-	ir_module_append(cgen->irmod, &irrecord->decln);
+	if (tsrecord->have_def)
+		ir_module_append(cgen->irmod, &irrecord->decln);
+
+	/* Use usable declaration for the resulting type */
+	(void)dmember;
 
 	/* Resulting type is the same as type of the member */
 	rc = cgtype_basic_create(cgelm_int, &btype);
