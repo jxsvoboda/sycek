@@ -28,10 +28,10 @@
  */
 
 #include <assert.h>
+#include <cgrec.h>
 #include <cgtype.h>
 #include <charcls.h>
 #include <merrno.h>
-#include <scope.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -461,11 +461,11 @@ static void cgtype_pointer_destroy(cgtype_pointer_t *pointer)
 
 /** Create record type.
  *
- * @param member Scope member containing record definition
+ * @param cgrec Code generator record definition
  * @param rrecord Place to store pointer to new record type
  * @return EOK on success, ENOMEM if out of memory
  */
-int cgtype_record_create(scope_member_t *member, cgtype_record_t **rrecord)
+int cgtype_record_create(cgen_record_t *cgrec, cgtype_record_t **rrecord)
 {
 	cgtype_record_t *record;
 
@@ -475,7 +475,7 @@ int cgtype_record_create(scope_member_t *member, cgtype_record_t **rrecord)
 
 	record->cgtype.ntype = cgn_record;
 	record->cgtype.ext = record;
-	record->member = member;
+	record->record = cgrec;
 	*rrecord = record;
 	return EOK;
 }
@@ -492,9 +492,7 @@ static int cgtype_record_print(cgtype_record_t *record, FILE *f)
 	int rv;
 	const char *rtype = NULL;
 
-	assert(record->member->mtype == sm_record);
-
-	switch (record->member->m.record.record->rtype) {
+	switch (record->record->rtype) {
 	case cgr_struct:
 		rtype = "struct";
 		break;
@@ -503,7 +501,7 @@ static int cgtype_record_print(cgtype_record_t *record, FILE *f)
 		break;
 	}
 
-	rv = fprintf(f, "%s %s", rtype, record->member->tident->text);
+	rv = fprintf(f, "%s %s", rtype, record->record->cident);
 	if (rv < 0)
 		return EIO;
 
@@ -522,7 +520,7 @@ static int cgtype_record_clone(cgtype_record_t *orig, cgtype_t **rcopy)
 	cgtype_record_t *copy = NULL;
 	int rc;
 
-	rc = cgtype_record_create(orig->member, &copy);
+	rc = cgtype_record_create(orig->record, &copy);
 	if (rc != EOK)
 		return rc;
 
@@ -751,8 +749,8 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 		assert(false);
 		return false;
 	case cgn_record:
-		return ((cgtype_record_t *)sptr->tgtype->ext)->member ==
-		    ((cgtype_record_t *)dptr->tgtype->ext)->member;
+		return ((cgtype_record_t *)sptr->tgtype->ext)->record ==
+		    ((cgtype_record_t *)dptr->tgtype->ext)->record;
 	}
 	return true;
 }

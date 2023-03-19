@@ -31,8 +31,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static cgen_rec_elem_t *cgen_record_first(cgen_record_t *);
-static cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *);
 static void cgen_rec_elem_destroy(cgen_rec_elem_t *);
 
 /** Create code generator records list.
@@ -256,7 +254,7 @@ cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *record,
  * @param rec Record definition
  * @return First record element or @c NULL there are none
  */
-static cgen_rec_elem_t *cgen_record_first(cgen_record_t *record)
+cgen_rec_elem_t *cgen_record_first(cgen_record_t *record)
 {
 	link_t *link;
 
@@ -272,7 +270,7 @@ static cgen_rec_elem_t *cgen_record_first(cgen_record_t *record)
  * @param cur Current record element
  * @return Next record element or @c NULL if @cur was the last
  */
-static cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *cur)
+cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *cur)
 {
 	link_t *link;
 

@@ -123,6 +123,7 @@ extern ir_oper_t *ir_oper_list_last(ir_oper_list_t *);
 extern ir_oper_t *ir_oper_list_prev(ir_oper_t *);
 extern int ir_texpr_int_create(unsigned, ir_texpr_t **);
 extern int ir_texpr_ptr_create(unsigned, ir_texpr_t **);
+extern int ir_texpr_ident_create(const char *, ir_texpr_t **);
 extern int ir_texpr_print(ir_texpr_t *, FILE *);
 extern int ir_texpr_clone(ir_texpr_t *, ir_texpr_t **);
 extern size_t ir_texpr_sizeof(ir_texpr_t *);

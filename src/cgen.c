@@ -1277,7 +1277,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	scope_member_t *dmember;
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
-	cgtype_basic_t *btype;
+	cgtype_record_t *rectype;
 	const char *rtype;
 	ir_record_type_t irrtype;
 	scope_rec_type_t srtype;
@@ -1446,7 +1446,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		}
 	} else {
 		/* Just a declaration */
-		record = NULL;
+		record = dmember->m.record.record;
 	}
 
 	free(irident);
@@ -1482,16 +1482,13 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	if (tsrecord->have_def)
 		ir_module_append(cgen->irmod, &irrecord->decln);
 
-	/* Use usable declaration for the resulting type */
-	(void)dmember;
-
-	/* Resulting type is the same as type of the member */
-	rc = cgtype_basic_create(cgelm_int, &btype);
+	/* Record type */
+	rc = cgtype_record_create(record, &rectype);
 	if (rc != EOK)
 		return rc;
 
 	*rdefines = tsrecord->have_ident;
-	*rstype = &btype->cgtype;
+	*rstype = &rectype->cgtype;
 	return EOK;
 }
 
@@ -9667,6 +9664,7 @@ error:
 static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 {
 	cgtype_basic_t *tbasic;
+	cgtype_record_t *trecord;
 	unsigned bits;
 	int rc;
 
@@ -9694,6 +9692,14 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 		/* Pointer */
 
 		rc = ir_texpr_ptr_create(cgen_pointer_bits, rirtexpr);
+		if (rc != EOK)
+			goto error;
+	} else if (cgtype->ntype == cgn_record) {
+		/* Record */
+		trecord = (cgtype_record_t *)cgtype->ext;
+
+		rc = ir_texpr_ident_create(trecord->record->irrecord->ident,
+		    rirtexpr);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -10193,10 +10199,80 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 	return EOK;
 }
 
+/** Generate data entries for initializing a CG type.
+ *
+ * @param cgen Code generator
+ * @param stype Variable type
+ * @param dblock Data block to which data should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock)
+{
+	ir_dentry_t *dentry = NULL;
+	ir_texpr_t *vtype = NULL;
+	cgtype_record_t *cgrec;
+	cgen_rec_elem_t *elem;
+	unsigned bits;
+	int rc;
+
+	if (stype->ntype == cgn_basic) {
+		bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
+		if (bits == 0) {
+			fprintf(stderr, "Unimplemented variable type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		rc = ir_dentry_create_int(bits, 0, &dentry);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_dblock_append(dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+
+	} else if (stype->ntype == cgn_pointer) {
+		rc = ir_dentry_create_int(16, 0, &dentry);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_dblock_append(dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+
+	} else if (stype->ntype == cgn_record) {
+		cgrec = (cgtype_record_t *)stype->ext;
+		elem = cgen_record_first(cgrec->record);
+		while (elem != NULL) {
+			rc = cgen_init_dentries(cgen, elem->cgtype, dblock);
+			if (rc != EOK)
+				goto error;
+
+			elem = cgen_record_next(elem);
+		}
+	} else {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
+	ir_texpr_destroy(vtype);
+	return rc;
+}
+
 /** Generate code for global variable definition.
  *
  * @param cgen Code generator
- * @param dtype Variable type
+ * @param stype Variable type
  * @param entry Init-declarator list entry that declares a variable
  * @return EOK on success or an error code
  */
@@ -10290,23 +10366,34 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		if (rc != EOK)
 			goto error;
 
+		rc = ir_dblock_append(var->dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+
 	} else if (stype->ntype == cgn_pointer) {
 		rc = ir_dentry_create_int(16, initval, &dentry);
 		if (rc != EOK)
 			goto error;
+
+		rc = ir_dblock_append(var->dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+
+	} else if (stype->ntype == cgn_record) {
+		rc = cgen_init_dentries(cgen, stype, var->dblock);
+		if (rc != EOK)
+			goto error;
 	} else {
 		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Unimplemented variable type.\n");
+		fprintf(stderr, ": YYYUnimplemented variable type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
-
-	rc = ir_dblock_append(var->dblock, dentry);
-	if (rc != EOK)
-		goto error;
-
-	dentry = NULL;
 
 	ir_module_append(cgen->irmod, &var->decln);
 	var = NULL;

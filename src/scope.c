@@ -289,7 +289,7 @@ int scope_insert_record(scope_t *scope, lexer_tok_t *tident,
 	if (member == NULL)
 		return ENOMEM;
 
-	rc = cgtype_record_create(member, &rtype);
+	rc = cgtype_record_create(record, &rtype);
 	if (rc != EOK) {
 		free(member);
 		return ENOMEM;

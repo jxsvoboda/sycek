@@ -136,8 +136,8 @@ typedef struct {
 typedef struct {
 	/** Base type object */
 	cgtype_t cgtype;
-	/** Record scope member containing the definition */
-	struct scope_member *member;
+	/** Code generator record definition */
+	struct cgen_record *record;
 } cgtype_record_t;
 
 #endif

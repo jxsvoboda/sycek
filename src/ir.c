@@ -2201,7 +2201,7 @@ int ir_texpr_int_create(unsigned width, ir_texpr_t **rtexpr)
 
 /** Print IR integer type expression.
  *
- * @param irtype IR integer type expression
+ * @param texpr IR integer type expression
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -2220,7 +2220,7 @@ static int ir_texpr_int_print(ir_texpr_t *texpr, FILE *f)
 
 /** Clone IR integer type expression.
  *
- * @param irtype IR integer type expression
+ * @param texpr IR integer type expression
  * @param rcopy Place to store pointer to the copy
  * @return EOK on success or an error code
  */
@@ -2232,7 +2232,7 @@ static int ir_texpr_int_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 
 /** Get size of type described by IR integer type expression in bytes.
  *
- * @param irtype IR integer type expression
+ * @param texpr IR integer type expression
  * @return Size in bytes
  */
 static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
@@ -2241,6 +2241,16 @@ static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
 
 	/* Convert bits to bytes */
 	return (texpr->t.tint.width + 7) / 8;
+}
+
+/** Destroy integer type expression.
+ *
+ * @param texpr Integer type expression
+ */
+static void ir_texpr_int_destroy(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_int);
+	free(texpr);
 }
 
 /** Create IR pointer type expression.
@@ -2265,7 +2275,7 @@ int ir_texpr_ptr_create(unsigned width, ir_texpr_t **rtexpr)
 
 /** Print IR pointer type expression.
  *
- * @param irtype IR integer type expression
+ * @param texpr IR pointer type expression
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -2284,7 +2294,7 @@ static int ir_texpr_ptr_print(ir_texpr_t *texpr, FILE *f)
 
 /** Clone IR pointer type expression.
  *
- * @param irtype IR integer type expression
+ * @param texpr IR pointer type expression
  * @param rcopy Place to store pointer to the copy
  * @return EOK on success or an error code
  */
@@ -2296,7 +2306,7 @@ static int ir_texpr_ptr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 
 /** Get size of type described by IR pointer type expression in bytes.
  *
- * @param irtype IR integer type expression
+ * @param texpr IR pointer type expression
  * @return Size in bytes
  */
 static size_t ir_texpr_ptr_sizeof(ir_texpr_t *texpr)
@@ -2307,9 +2317,104 @@ static size_t ir_texpr_ptr_sizeof(ir_texpr_t *texpr)
 	return (texpr->t.tptr.width + 7) / 8;
 }
 
+/** Destroy pointer type expression.
+ *
+ * @param texpr Pointer type expression
+ */
+static void ir_texpr_ptr_destroy(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_ptr);
+	free(texpr);
+}
+
+/** Create IR identifer type expression.
+ *
+ * @param ident Identifier
+ * @param rtexpr Place to store pointer to new type expression
+ * @return EOK on success or an error code
+ */
+int ir_texpr_ident_create(const char *ident, ir_texpr_t **rtexpr)
+{
+	ir_texpr_t *texpr;
+	char *dident;
+
+	texpr = calloc(1, sizeof(ir_texpr_t));
+	if (texpr == NULL)
+		return ENOMEM;
+
+	dident = strdup(ident);
+	if (dident == NULL) {
+		free(texpr);
+		return ENOMEM;
+	}
+
+	texpr->tetype = irt_ident;
+	texpr->t.tident.ident = dident;
+
+	*rtexpr = texpr;
+	return EOK;
+}
+
+/** Print IR identifier type expression.
+ *
+ * @param texpr IR identifier type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_ident_print(ir_texpr_t *texpr, FILE *f)
+{
+	int rv;
+
+	assert(texpr->tetype == irt_ident);
+
+	rv = fputs(texpr->t.tident.ident, f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Clone IR identifier type expression.
+ *
+ * @param texpr IR identifier type expression
+ * @param rcopy Place to store pointer to the copy
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_ident_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
+{
+	assert(texpr->tetype == irt_ident);
+	return ir_texpr_ident_create(texpr->t.tident.ident, rcopy);
+}
+
+/** Get size of type described by IR identifier type expression in bytes.
+ *
+ * @param texpr IR identifier type expression
+ * @return Size in bytes
+ */
+static size_t ir_texpr_ident_sizeof(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_ident);
+
+	fprintf(stderr, "Cannot determine ident type size without knowing the definition\n");
+	abort();
+
+	return 0;
+}
+
+/** Destroy identifier type expression.
+ *
+ * @param texpr Identifier type expression
+ */
+static void ir_texpr_ident_destroy(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_ident);
+	free(texpr->t.tident.ident);
+	free(texpr);
+}
+
 /** Print IR type expression.
  *
- * @param irtype IR type expression
+ * @param texpr IR type expression
  * @param f Output file
  * @return EOK on success or an error code
  */
@@ -2320,6 +2425,8 @@ int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
 		return ir_texpr_int_print(texpr, f);
 	case irt_ptr:
 		return ir_texpr_ptr_print(texpr, f);
+	case irt_ident:
+		return ir_texpr_ident_print(texpr, f);
 	}
 
 	assert(false);
@@ -2328,7 +2435,7 @@ int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
 
 /** Clone IR type expression.
  *
- * @param irtype IR type expression
+ * @param texpr IR type expression
  * @param rcopy Place to store pointer to the copy
  * @return EOK on success or an error code
  */
@@ -2339,6 +2446,8 @@ int ir_texpr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 		return ir_texpr_int_clone(texpr, rcopy);
 	case irt_ptr:
 		return ir_texpr_ptr_clone(texpr, rcopy);
+	case irt_ident:
+		return ir_texpr_ident_clone(texpr, rcopy);
 	}
 
 	assert(false);
@@ -2347,7 +2456,7 @@ int ir_texpr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 
 /** Get size of type described by IR type expression in bytes.
  *
- * @param irtype IR type expression
+ * @param texpr IR type expression
  * @return Size in bytes
  */
 size_t ir_texpr_sizeof(ir_texpr_t *texpr)
@@ -2357,6 +2466,8 @@ size_t ir_texpr_sizeof(ir_texpr_t *texpr)
 		return ir_texpr_int_sizeof(texpr);
 	case irt_ptr:
 		return ir_texpr_ptr_sizeof(texpr);
+	case irt_ident:
+		return ir_texpr_ident_sizeof(texpr);
 	}
 
 	assert(false);
@@ -2371,5 +2482,16 @@ void ir_texpr_destroy(ir_texpr_t *texpr)
 {
 	if (texpr == NULL)
 		return;
-	free(texpr);
+
+	switch (texpr->tetype) {
+	case irt_int:
+		ir_texpr_int_destroy(texpr);
+		break;
+	case irt_ptr:
+		ir_texpr_ptr_destroy(texpr);
+		break;
+	case irt_ident:
+		ir_texpr_ident_destroy(texpr);
+		break;
+	}
 }

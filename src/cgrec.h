@@ -41,6 +41,8 @@ extern cgen_record_t *cgen_records_next(cgen_record_t *);
 extern void cgen_record_destroy(cgen_record_t *);
 extern int cgen_record_append(cgen_record_t *, const char *,
     cgtype_t *);
+extern cgen_rec_elem_t *cgen_record_first(cgen_record_t *);
+extern cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *);
 extern cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *,
     const char *);
 
