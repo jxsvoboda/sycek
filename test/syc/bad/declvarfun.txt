@@ -1,0 +1,1 @@
+<test/syc/bad/declvarfun.c:7:6-8:id:foo>: 'foo' already declared as a different type of symbol.

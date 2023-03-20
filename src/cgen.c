@@ -10012,6 +10012,14 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 			cgen->error = true; // XXX
 			return EINVAL;
 		}
+
+		if ((symbol->flags & sf_defined) != 0) {
+			/* Already defined */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Redefinition of '%s'.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
 	}
 
 	/* Mark the symbol as defined */
@@ -10440,7 +10448,7 @@ error:
 	return rc;
 }
 
-/** Generate code for global variable definition.
+/** Generate code for global variable declaration or definition.
  *
  * @param cgen Code generator
  * @param stype Variable type
@@ -10463,10 +10471,38 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	cgtype_elmtype_t elmtype;
 	ir_texpr_t *vtype = NULL;
 	unsigned bits;
+	symbol_t *symbol;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
+
+	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
+	if (symbol == NULL) {
+		rc = symbols_insert(cgen->symbols, st_var, ident);
+		if (rc != EOK)
+			goto error;
+
+		symbol = symbols_lookup(cgen->symbols, ident->tok.text);
+		assert(symbol != NULL);
+	} else {
+		if (symbol->stype != st_var) {
+			/* Already declared as a different type of symbol */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": '%s' already declared as a "
+			    "different type of symbol.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
+
+		if ((symbol->flags & sf_defined) != 0 && entry->init != NULL) {
+			/* Already defined */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Redefinition of '%s'.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
+	}
 
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
@@ -10474,6 +10510,9 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		goto error;
 
 	if (entry->init != NULL) {
+		/* Mark the symbol as defined */
+		symbol->flags |= sf_defined;
+
 		if (entry->init->ntype != ant_eint) {
 			atok = ast_tree_first_tok(entry->init);
 			tok = (comp_tok_t *) atok->data;
@@ -10721,7 +10760,7 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
-		if ((symbol->flags & sf_defined) == 0) {
+		if ((symbol->flags & sf_defined) == 0 && symbol->stype == st_fun) {
 			rc = cgen_gprefix(symbol->ident->tok.text, &pident);
 			if (rc != EOK)
 				goto error;

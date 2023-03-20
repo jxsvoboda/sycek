@@ -1,0 +1,1 @@
+<test/syc/bad/redeffun.c:9:6-8:id:foo>: Redefinition of 'foo'.
