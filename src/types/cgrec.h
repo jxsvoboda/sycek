@@ -28,6 +28,7 @@
 #define TYPES_CGREC_H
 
 #include <adt/list.h>
+#include <stdbool.h>
 
 /** Record type */
 typedef enum {
@@ -59,8 +60,12 @@ typedef struct cgen_record {
 	cgen_rec_type_t rtype;
 	/** C identifier */
 	char *cident;
+	/** IR identifier */
+	char *irident;
 	/** IR record */
 	struct ir_record *irrecord;
+	/** @c true iff record is in process of being defined */
+	bool defining;
 	/** Record elements (of cgen_rec_elem_t) */
 	list_t elems;
 } cgen_record_t;

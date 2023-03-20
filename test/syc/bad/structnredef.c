@@ -1,5 +1,5 @@
 /*
- * Redefinition of 'struct foo'
+ * Nested redefinition of 'struct foo'
  */
 
 struct foo {

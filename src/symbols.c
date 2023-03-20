@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -63,7 +63,6 @@ void symbols_destroy(symbols_t *symbols)
 	while (symbol != NULL) {
 		list_remove(&symbol->lsyms);
 		cgtype_destroy(symbol->cgtype);
-		free(symbol->ident);
 		free(symbol);
 		symbol = symbols_first(symbols);
 	}
@@ -75,16 +74,15 @@ void symbols_destroy(symbols_t *symbols)
  *
  * @param symbols Symbol index
  * @param stype Symbol type
- * @param ident Identifier
+ * @param tok Identifier token that declared or defined symbol
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         symbol is already present
  */
-int symbols_insert(symbols_t *symbols, symbol_type_t stype, const char *ident)
+int symbols_insert(symbols_t *symbols, symbol_type_t stype, comp_tok_t *tok)
 {
 	symbol_t *symbol;
-	char *dident;
 
-	symbol = symbols_lookup(symbols, ident);
+	symbol = symbols_lookup(symbols, tok->tok.text);
 	if (symbol != NULL) {
 		/* Identifier already exists */
 		return EEXIST;
@@ -94,13 +92,7 @@ int symbols_insert(symbols_t *symbols, symbol_type_t stype, const char *ident)
 	if (symbol == NULL)
 		return ENOMEM;
 
-	dident = strdup(ident);
-	if (dident == NULL) {
-		free(symbol);
-		return ENOMEM;
-	}
-
-	symbol->ident = dident;
+	symbol->ident = tok;
 	symbol->stype = stype;
 	symbol->symbols = symbols;
 	list_append(&symbol->lsyms, &symbols->syms);
@@ -151,7 +143,7 @@ symbol_t *symbols_lookup(symbols_t *symbols, const char *ident)
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
-		if (strcmp(symbol->ident, ident) == 0)
+		if (strcmp(symbol->ident->tok.text, ident) == 0)
 			return symbol;
 
 		symbol = symbols_next(symbol);

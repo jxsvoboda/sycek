@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -37,7 +37,7 @@
 #include <types/z80/z80ic.h>
 
 /** Compiler token */
-typedef struct {
+typedef struct comp_tok {
 	/** Containing compiler module */
 	struct comp_module *mod;
 	/** Link in list of tokens */

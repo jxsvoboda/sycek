@@ -2230,19 +2230,6 @@ static int ir_texpr_int_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 	return ir_texpr_int_create(texpr->t.tint.width, rcopy);
 }
 
-/** Get size of type described by IR integer type expression in bytes.
- *
- * @param texpr IR integer type expression
- * @return Size in bytes
- */
-static size_t ir_texpr_int_sizeof(ir_texpr_t *texpr)
-{
-	assert(texpr->tetype == irt_int);
-
-	/* Convert bits to bytes */
-	return (texpr->t.tint.width + 7) / 8;
-}
-
 /** Destroy integer type expression.
  *
  * @param texpr Integer type expression
@@ -2302,19 +2289,6 @@ static int ir_texpr_ptr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 {
 	assert(texpr->tetype == irt_ptr);
 	return ir_texpr_int_create(texpr->t.tptr.width, rcopy);
-}
-
-/** Get size of type described by IR pointer type expression in bytes.
- *
- * @param texpr IR pointer type expression
- * @return Size in bytes
- */
-static size_t ir_texpr_ptr_sizeof(ir_texpr_t *texpr)
-{
-	assert(texpr->tetype == irt_ptr);
-
-	/* Convert bits to bytes */
-	return (texpr->t.tptr.width + 7) / 8;
 }
 
 /** Destroy pointer type expression.
@@ -2386,21 +2360,6 @@ static int ir_texpr_ident_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 	return ir_texpr_ident_create(texpr->t.tident.ident, rcopy);
 }
 
-/** Get size of type described by IR identifier type expression in bytes.
- *
- * @param texpr IR identifier type expression
- * @return Size in bytes
- */
-static size_t ir_texpr_ident_sizeof(ir_texpr_t *texpr)
-{
-	assert(texpr->tetype == irt_ident);
-
-	fprintf(stderr, "Cannot determine ident type size without knowing the definition\n");
-	abort();
-
-	return 0;
-}
-
 /** Destroy identifier type expression.
  *
  * @param texpr Identifier type expression
@@ -2452,26 +2411,6 @@ int ir_texpr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 
 	assert(false);
 	return EIO;
-}
-
-/** Get size of type described by IR type expression in bytes.
- *
- * @param texpr IR type expression
- * @return Size in bytes
- */
-size_t ir_texpr_sizeof(ir_texpr_t *texpr)
-{
-	switch (texpr->tetype) {
-	case irt_int:
-		return ir_texpr_int_sizeof(texpr);
-	case irt_ptr:
-		return ir_texpr_ptr_sizeof(texpr);
-	case irt_ident:
-		return ir_texpr_ident_sizeof(texpr);
-	}
-
-	assert(false);
-	return 0;
 }
 
 /** Destroy type expression.

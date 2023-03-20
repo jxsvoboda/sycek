@@ -1,0 +1,1 @@
+<test/syc/bad/incomrecmbr.c:8:20:id:f> : Record member has incomplete type.

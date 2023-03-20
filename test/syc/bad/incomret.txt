@@ -1,0 +1,1 @@
+<test/syc/bad/incomret.c:5:12:id:f> : Function returns incomplete type 'struct foo'.

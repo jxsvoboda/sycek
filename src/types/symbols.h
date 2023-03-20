@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2023 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -59,8 +59,8 @@ typedef struct symbol {
 	symbols_t *symbols;
 	/** Link to symbols_t.syms */
 	link_t lsyms;
-	/** Identifier */
-	char *ident;
+	/** Identifier token */
+	struct comp_tok *ident;
 	/** Symbol type */
 	symbol_type_t stype;
 	/** Symbol flags */

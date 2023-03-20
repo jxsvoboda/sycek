@@ -36,6 +36,8 @@
 #include <z80/varmap.h>
 #include <z80/z80ic.h>
 
+static int z80_isel_texpr_sizeof(z80_isel_t *, ir_texpr_t *, size_t *);
+
 /** Mangle global identifier.
  *
  * @param irident IR global identifier
@@ -190,6 +192,105 @@ static void z80_isel_reg_part_off(unsigned byte, unsigned nbytes,
 	}
 }
 
+/** Get size of type described by IR integer type expression in bytes.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR integer type expression
+ * @param rsize Place to store size in bytes
+ */
+static void z80_isel_texpr_int_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
+    size_t *rsize)
+{
+	assert(texpr->tetype == irt_int);
+	(void)isel;
+
+	/* Convert bits to bytes */
+	*rsize = (texpr->t.tint.width + 7) / 8;
+}
+
+/** Get size of type described by IR pointer type expression in bytes.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR pointer type expression
+ * @param rsize Place to store size in bytes
+ */
+static void z80_isel_texpr_ptr_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
+    size_t *rsize)
+{
+	assert(texpr->tetype == irt_ptr);
+	(void)isel;
+
+	/* Convert bits to bytes */
+	*rsize = (texpr->t.tptr.width + 7) / 8;
+}
+
+/** Get size of type described by IR identifier type expression in bytes.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR identifier type expression
+ * @param rsize Place to store size in bytes
+ * @return EOK on success or an error code
+ */
+static int z80_isel_texpr_ident_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
+    size_t *rsize)
+{
+	ir_decln_t *decln;
+	ir_record_t *record;
+	ir_record_elem_t *elem;
+	size_t esize;
+	size_t recsize;
+	int rc;
+
+	assert(texpr->tetype == irt_ident);
+
+	rc = ir_module_find(isel->irmodule, texpr->t.tident.ident, &decln);
+	if (rc != EOK)
+		return ENOENT;
+
+	if (decln->dtype != ird_record)
+		return EINVAL;
+
+	record = (ir_record_t *)decln->ext;
+	elem = ir_record_first(record);
+	recsize = 0;
+	while (elem != NULL) {
+		rc = z80_isel_texpr_sizeof(isel, elem->etype, &esize);
+		if (rc != EOK)
+			return rc;
+
+		recsize += esize;
+		elem = ir_record_next(elem);
+	}
+
+	*rsize = recsize;
+	return EOK;
+}
+
+/** Get size of type described by IR type expression in bytes.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR type expression
+ * @param rsize Place to store size in bytes
+ * @return EOK on success or an error code
+ */
+static int z80_isel_texpr_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
+    size_t *rsize)
+{
+	switch (texpr->tetype) {
+	case irt_int:
+		z80_isel_texpr_int_sizeof(isel, texpr, rsize);
+		return EOK;
+	case irt_ptr:
+		z80_isel_texpr_ptr_sizeof(isel, texpr, rsize);
+		return EOK;
+	case irt_ident:
+		return z80_isel_texpr_ident_sizeof(isel, texpr, rsize);
+	}
+
+	assert(false);
+	return 0;
+}
+
 /** Determine size of return value from call instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -305,7 +406,7 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 {
 	ir_proc_arg_t *arg;
 	ir_lblock_entry_t *entry;
-	unsigned bytes;
+	size_t bytes;
 	unsigned vregs;
 	int rc;
 
@@ -325,7 +426,10 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 	arg = ir_proc_first_arg(irproc);
 	while (arg != NULL) {
 		/* Number of bytes / virtual registers occupied */
-		bytes = ir_texpr_sizeof(arg->atype);
+		rc = z80_isel_texpr_sizeof(isproc->isel, arg->atype, &bytes);
+		if (rc != EOK)
+			return rc;
+
 		vregs = bytes >= 2 ? bytes / 2 : 1;
 
 		rc = z80_varmap_insert(isproc->varmap, arg->ident, vregs);
@@ -7227,7 +7331,7 @@ static int z80_isel_ptridx(z80_isel_proc_t *isproc, const char *label,
 	unsigned destvr;
 	unsigned vr1, vr2;
 	unsigned offvr;
-	uint16_t elemsz;
+	size_t elemsz;
 	int rc;
 
 	assert(irinstr->itype == iri_ptridx);
@@ -7239,7 +7343,9 @@ static int z80_isel_ptridx(z80_isel_proc_t *isproc, const char *label,
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
-	elemsz = ir_texpr_sizeof(irinstr->opt);
+	rc = z80_isel_texpr_sizeof(isproc->isel, irinstr->opt, &elemsz);
+	if (rc != EOK)
+		return rc;
 
 	offvr = z80_isel_get_new_vregnos(isproc, 2);
 
@@ -8429,7 +8535,9 @@ static int z80_isel_proc_lvars(z80_isel_t *isel, ir_proc_t *irproc,
 		if (rc != EOK)
 			goto error;
 
-		size = ir_texpr_sizeof(lvar->vtype);
+		rc = z80_isel_texpr_sizeof(isel, lvar->vtype, &size);
+		if (rc != EOK)
+			goto error;
 
 		rc = z80ic_lvar_create(icident, icproc->lvar_sz, &icvar);
 		if (rc != EOK)

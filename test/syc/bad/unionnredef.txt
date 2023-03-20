@@ -1,0 +1,2 @@
+<test/syc/bad/unionnredef.c:6:15-17:id:foo>: Definition of 'union foo' inside another struct/union definition.
+<test/syc/bad/unionnredef.c:6:15-17:id:foo>: Nested redefinition of 'foo'.

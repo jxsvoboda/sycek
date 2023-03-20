@@ -10,7 +10,7 @@ union foo;
 int foo;
 
 /* Instantiate a union that will be defined later */
-struct foo f;
+union foo f;
 
 /* Define a previously declared union, with an instance */
 union foo {

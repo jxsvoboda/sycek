@@ -1,0 +1,1 @@
+<test/syc/bad/structdredef.c:10:7-9:id:foo>: Redefinition of 'foo' as a different kind of tag.

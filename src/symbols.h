@@ -27,11 +27,12 @@
 #ifndef SYMBOLS_H
 #define SYMBOLS_H
 
+#include <types/comp.h>
 #include <types/symbols.h>
 
 extern int symbols_create(symbols_t **);
 extern void symbols_destroy(symbols_t *);
-extern int symbols_insert(symbols_t *, symbol_type_t, const char *);
+extern int symbols_insert(symbols_t *, symbol_type_t, comp_tok_t *);
 extern symbol_t *symbols_first(symbols_t *);
 extern symbol_t *symbols_next(symbol_t *);
 extern symbol_t *symbols_lookup(symbols_t *, const char *);

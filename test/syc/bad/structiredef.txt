@@ -1,2 +1,0 @@
-<test/syc/bad/structiredef.c:8:16-18:id:foo>: Definition of 'struct foo' inside another struct/union definition.
-<test/syc/bad/structiredef.c:8:16-18:id:foo>: Redefinition of 'foo'.

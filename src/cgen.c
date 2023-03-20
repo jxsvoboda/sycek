@@ -205,6 +205,48 @@ static bool cgen_type_is_integer(cgen_t *cgen, cgtype_t *cgtype)
 	}
 }
 
+/** Determine if record is defined (or just declared).
+ *
+ * @param record Record definition
+ * @return @c true iff record is defined
+ */
+static bool cgen_record_is_defined(cgen_record_t *record)
+{
+	return record->irrecord != NULL;
+}
+
+/** Determine if type is complete.
+ *
+ * Structs, unions and arrays may be incomplete. In that case their size,
+ * members, are not known.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is incomplete
+ */
+static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_record_t *trecord;
+
+	(void)cgen;
+
+	switch (cgtype->ntype) {
+	case cgn_basic:
+		return false;
+	case cgn_pointer:
+		return false;
+	case cgn_record:
+		trecord = (cgtype_record_t *)cgtype->ext;
+		return cgen_record_is_defined(trecord->record) == false;
+	case cgn_func:
+		assert(false);
+		return false;
+	}
+
+	assert(false);
+	return false;
+}
+
 /** Return the size of a type in bytes.
  *
  * @param cgen Code generator
@@ -1129,6 +1171,53 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
 	++cgen->warnings;
 }
 
+/** Generate code for record definition.
+ *
+ * @param cgen Code generator
+ * @param record Record definition
+ * @return EOK on success or an error code
+ */
+static int cgen_record(cgen_t *cgen, cgen_record_t *record)
+{
+	ir_texpr_t *irtype = NULL;
+	cgen_rec_elem_t *elem;
+	char *irident = NULL;
+	int rc;
+	int rv;
+
+	elem = cgen_record_first(record);
+	while (elem != NULL) {
+		rc = cgen_cgtype(cgen, elem->cgtype, &irtype);
+		if (rc != EOK)
+			goto error;
+
+		rv = asprintf(&irident, "@%s", elem->ident);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		rc = ir_record_append(record->irrecord, irident,
+		    irtype, NULL);
+		if (rc != EOK)
+			goto error;
+
+		free(irident);
+		irident = NULL;
+		ir_texpr_destroy(irtype);
+		irtype = NULL;
+
+		elem = cgen_record_next(elem);
+	}
+
+	return EOK;
+error:
+	ir_texpr_destroy(irtype);
+	if (irident != NULL)
+		free(irident);
+	return rc;
+}
+
 /** Generate code for identifier type specifier.
  *
  * @param cgen Code generator
@@ -1224,6 +1313,15 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 		if (rc != EOK)
 			goto error;
 
+		/* Check type for completeness */
+		if (cgen_type_is_incomplete(cgen, dtype)) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, " : Record member has incomplete type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
 		rc = cgen_cgtype(cgen, dtype, &irtype);
 		if (rc != EOK)
 			goto error;
@@ -1233,11 +1331,6 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 			rc = ENOMEM;
 			goto error;
 		}
-
-		rc = ir_record_append(record->irrecord, irident,
-		    irtype, NULL);
-		if (rc != EOK)
-			goto error;
 
 		free(irident);
 		irident = NULL;
@@ -1283,8 +1376,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	scope_rec_type_t srtype;
 	cgen_rec_type_t cgrtype;
 	ast_tsrecord_elem_t *elem;
-	cgen_record_t *record;
-	ir_record_t *irrecord;
+	cgen_record_t *record = NULL;
+	ir_record_t *irrecord = NULL;
 	ir_decln_t *decln;
 	char *irident = NULL;
 	unsigned seqno;
@@ -1374,7 +1467,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		dmember = NULL;
 
 	/* If already exists, is defined and we are defining */
-	if (member != NULL && member->m.record.record != NULL &&
+	if (member != NULL && cgen_record_is_defined(member->m.record.record) &&
 	    tsrecord->have_def) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
 		fprintf(stderr, ": Redefinition of '%s'.\n",
@@ -1393,7 +1486,18 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		return EINVAL;
 	}
 
-	if (tsrecord->have_def) {
+	if (dmember != NULL) {
+		/* Already declared */
+		record = dmember->m.record.record;
+		irrecord = record->irrecord;
+	}
+
+	/*
+	 * We only create a new scope member and cgen_record either if there
+	 * is no previous declaration or if we're shadowing a wider-scope
+	 * declaration while by a new defininiton.
+	 */
+	if (dmember == NULL || (member == NULL && tsrecord->have_def)) {
 		if (tsrecord->have_ident) {
 			/* Construct IR identifier */
 			rv = asprintf(&irident, "@@%s", ident);
@@ -1430,38 +1534,40 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 				return ENOMEM;
 		}
 
-		/* Create IR definition */
-		rc = ir_record_create(irident, irrtype, &irrecord);
-		if (rc != EOK) {
-			free(irident);
-			return rc;
-		}
-
 		/* Create new record definition */
 		rc = cgen_record_create(cgen->records, cgrtype,
-		    tsrecord->have_ident ? ident : NULL, irrecord, &record);
+		    tsrecord->have_ident ? ident : NULL, irident, irrecord,
+		    &record);
 		if (rc != EOK) {
 			free(irident);
 			return rc;
 		}
-	} else {
-		/* Just a declaration */
-		record = dmember->m.record.record;
+
+		free(irident);
+		irident = NULL;
+
+		if (dmember != NULL)
+			dmember->m.record.record = record;
+
+		if (tsrecord->have_ident) {
+			/* Insert new record scope member */
+			rc = scope_insert_record(cgen->cur_scope, &ident_tok->tok,
+			    srtype, record, &dmember);
+			if (rc != EOK)
+				return EINVAL;
+		}
 	}
 
-	free(irident);
-	irident = NULL;
-
-	/* If defining and non-anonymous */
-	if (tsrecord->have_ident && tsrecord->have_def) {
-		/* Fill in previous declaration in the current scope */
-		if (member != NULL)
-			member->m.record.record = record;
-		/* Insert new record definition */
-		rc = scope_insert_record(cgen->cur_scope, &ident_tok->tok,
-		    srtype, record, &dmember);
-		if (rc != EOK)
+	/* Catch nested redefinitions */
+	if (tsrecord->have_def) {
+		if (tsrecord->have_def && record->defining) {
+			lexer_dprint_tok(&ident_tok->tok, stderr);
+			fprintf(stderr, ": Nested redefinition of '%s'.\n",
+			    record->cident);
+			cgen->error = true; // TODO
 			return EINVAL;
+		}
+		record->defining = true;
 	}
 
 	++cgen->tsrec_cnt;
@@ -1471,6 +1577,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		if (rc != EOK)  {
 			assert(cgen->tsrec_cnt > 0);
 			--cgen->tsrec_cnt;
+			if (tsrecord->have_def)
+				record->defining = false;
 			return EINVAL;
 		}
 
@@ -1480,7 +1588,22 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	--cgen->tsrec_cnt;
 
 	if (tsrecord->have_def)
+		record->defining = false;
+
+	if (tsrecord->have_def) {
+		/* Create IR definition */
+		rc = ir_record_create(record->irident, irrtype, &irrecord);
+		if (rc != EOK)
+			return rc;
+
+		record->irrecord = irrecord;
+
+		rc = cgen_record(cgen, record);
+		if (rc != EOK)
+			return rc;
+
 		ir_module_append(cgen->irmod, &irrecord->decln);
+	}
 
 	/* Record type */
 	rc = cgtype_record_create(record, &rectype);
@@ -2700,6 +2823,15 @@ static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
+	/* Check type for completeness */
+	if (cgen_type_is_incomplete(cgproc->cgen, ptrt->tgtype)) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, " : Indexing pointer to incomplete type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Generate IR type expression for the element type */
 	rc = cgen_cgtype(cgproc->cgen, ptrt->tgtype, &elemte);
 	if (rc != EOK)
@@ -2970,6 +3102,15 @@ static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 	rc = cgtype_clone(lres->cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
+
+	/* Check type for completeness */
+	if (cgen_type_is_incomplete(cgproc->cgen, ptrt->tgtype)) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, " : Indexing pointer to incomplete type.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	/* Generate IR type expression for the element type */
 	rc = cgen_cgtype(cgproc->cgen, ptrt->tgtype, &elemte);
@@ -7705,12 +7846,6 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		return cgen_eres_clone(ares, cres);
 	}
 
-	/* Destination type is void */
-	if (cgtype_is_void(dtype)) {
-		return cgen_type_convert_to_void(cgproc, ctok, ares,
-		    dtype, cres);
-	}
-
 	/* Source and destination types are pointers */
 	if (ares->cgtype->ntype == cgn_pointer &&
 	    dtype->ntype == cgn_pointer) {
@@ -7787,6 +7922,12 @@ static int cgen_type_convert(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	int rc;
 
 	cgen_eres_init(&rres);
+
+	/* Destination type is void */
+	if (cgtype_is_void(dtype)) {
+		return cgen_type_convert_to_void(cgproc, ctok, ares,
+		    dtype, cres);
+	}
 
 	rc = cgen_eres_rvalue(cgproc, ares, lblock, &rres);
 	if (rc != EOK)
@@ -9596,11 +9737,13 @@ error:
  * Add arguments to IR procedure based on CG function type.
  *
  * @param cgen Code generator
+ * @param ident Function identifier token
  * @param ftype Function type
  * @param irproc IR procedure to which the arguments should be appended
  * @return EOK on success or an error code
  */
-static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
+static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
+    ir_proc_t *proc)
 {
 	ir_proc_arg_t *iarg;
 	ir_texpr_t *atype = NULL;
@@ -9609,6 +9752,7 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 	cgtype_func_arg_t *dtarg;
 	cgtype_t *stype;
 	unsigned next_var;
+	unsigned argidx;
 	int rc;
 	int rv;
 
@@ -9619,6 +9763,7 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 
 	/* Arguments */
 	dtarg = cgtype_func_first(dtfunc);
+	argidx = 1;
 	while (dtarg != NULL) {
 		assert(dtarg != NULL);
 		stype = dtarg->atype;
@@ -9626,6 +9771,16 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 		rv = asprintf(&arg_ident, "%%%d", next_var++);
 		if (rv < 0) {
 			rc = ENOMEM;
+			goto error;
+		}
+
+		/* Check type for completeness */
+		if (cgen_type_is_incomplete(cgen, stype)) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, " : Argument %u has incomplete type.\n",
+			    argidx);
+			cgen->error = true; // TODO
+			rc = EINVAL;
 			goto error;
 		}
 
@@ -9642,6 +9797,7 @@ static int cgen_fun_args(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
 		atype = NULL; /* ownership transferred */
 
 		ir_proc_append_arg(proc, iarg);
+		++argidx;
 		dtarg = cgtype_func_next(dtarg);
 	}
 
@@ -9659,7 +9815,8 @@ error:
  * @param cgen Code generator
  * @param cgtype CG type
  * @param rirtexpr Place to store pointer to IR type expression
- * @return EOK on success or an error code
+ * @return EOK on success, EINVAL if cgtype is an incomplete type,
+ *         ENOMEM if out of memory.
  */
 static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 {
@@ -9697,8 +9854,10 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 	} else if (cgtype->ntype == cgn_record) {
 		/* Record */
 		trecord = (cgtype_record_t *)cgtype->ext;
+		if (trecord->record == NULL)
+			return EINVAL;
 
-		rc = ir_texpr_ident_create(trecord->record->irrecord->ident,
+		rc = ir_texpr_ident_create(trecord->record->irident,
 		    rirtexpr);
 		if (rc != EOK)
 			goto error;
@@ -9723,7 +9882,8 @@ error:
  * @param irproc IR procedure to which the return type should be added
  * @return EOK on success or an error code
  */
-static int cgen_fun_rtype(cgen_t *cgen, cgtype_t *ftype, ir_proc_t *proc)
+static int cgen_fun_rtype(cgen_t *cgen, cgtype_t *ftype,
+    ir_proc_t *proc)
 {
 	cgtype_func_t *dtfunc;
 	cgtype_t *stype;
@@ -9837,7 +9997,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	/* If the function is not declared yet, create a symbol */
 	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
 	if (symbol == NULL) {
-		rc = symbols_insert(cgen->symbols, st_fun, ident->tok.text);
+		rc = symbols_insert(cgen->symbols, st_fun, ident);
 		if (rc != EOK)
 			goto error;
 
@@ -10000,9 +10160,20 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	}
 
 	/* Generate IR procedure arguments */
-	rc = cgen_fun_args(cgproc->cgen, dtype, proc);
+	rc = cgen_fun_args(cgproc->cgen, ident, dtype, proc);
 	if (rc != EOK)
 		goto error;
+
+	/* Check return type for completeness */
+	if (cgen_type_is_incomplete(cgen, dtfunc->rtype)) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, " : Function returns incomplete type '");
+		cgtype_print(dtfunc->rtype, stderr);
+		fprintf(stderr, "'.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	/* Generate IR return type */
 	rc = cgen_fun_rtype(cgen, dtype, proc);
@@ -10170,7 +10341,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 	/* The function can already be declared or even defined */
 	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
 	if (symbol == NULL) {
-		rc = symbols_insert(cgen->symbols, st_fun, ident->tok.text);
+		rc = symbols_insert(cgen->symbols, st_fun, ident);
 		if (rc != EOK)
 			return rc;
 
@@ -10389,7 +10560,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			goto error;
 	} else {
 		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": YYYUnimplemented variable type.\n");
+		fprintf(stderr, ": Unimplemented variable type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -10551,7 +10722,7 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
 		if ((symbol->flags & sf_defined) == 0) {
-			rc = cgen_gprefix(symbol->ident, &pident);
+			rc = cgen_gprefix(symbol->ident->tok.text, &pident);
 			if (rc != EOK)
 				goto error;
 
@@ -10562,7 +10733,8 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 			free(pident);
 			pident = NULL;
 
-			rc = cgen_fun_args(cgen, symbol->cgtype, proc);
+			rc = cgen_fun_args(cgen, symbol->ident, symbol->cgtype,
+			    proc);
 			if (rc != EOK)
 				goto error;
 
