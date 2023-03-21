@@ -199,4 +199,18 @@ typedef enum {
 	cguac_mix2u = 0x1
 } cgen_uac_flags_t;
 
+/** Record declaration flags */
+typedef enum {
+	/** No flags */
+	cgrd_none = 0,
+	/** This is a struct/union definition */
+	cgrd_def = 0x1,
+	/** The struct/union has a tag identifer */
+	cgrd_ident = 0x2,
+	/** The struct/union was already declared before */
+	cgrd_prevdecl = 0x4,
+	/** The struct/union was already defined beore */
+	cgrd_prevdef = 0x8
+} cgen_rd_flags_t;
+
 #endif

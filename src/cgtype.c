@@ -491,6 +491,7 @@ static int cgtype_record_print(cgtype_record_t *record, FILE *f)
 {
 	int rv;
 	const char *rtype = NULL;
+	const char *cident;
 
 	switch (record->record->rtype) {
 	case cgr_struct:
@@ -501,7 +502,12 @@ static int cgtype_record_print(cgtype_record_t *record, FILE *f)
 		break;
 	}
 
-	rv = fprintf(f, "%s %s", rtype, record->record->cident);
+	if (record->record->cident != NULL)
+		cident = record->record->cident;
+	else
+		cident = "<anonymous>";
+
+	rv = fprintf(f, "%s %s", rtype, cident);
 	if (rv < 0)
 		return EIO;
 

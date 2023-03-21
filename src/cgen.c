@@ -1356,13 +1356,12 @@ error:
  *
  * @param cgen Code generator
  * @param tsrecord Record type specifier
- * @param rdefines Place to store @c true iff record type specifier
- *                 defines or declares a non-anonymous structure
+ * @param rflags Place to store flags
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
-    bool *rdefines, cgtype_t **rstype)
+    cgen_rd_flags_t *rflags, cgtype_t **rstype)
 {
 	comp_tok_t *ident_tok;
 	const char *ident;
@@ -1379,10 +1378,13 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	cgen_record_t *record = NULL;
 	ir_record_t *irrecord = NULL;
 	ir_decln_t *decln;
+	cgen_rd_flags_t flags;
 	char *irident = NULL;
 	unsigned seqno;
 	int rc;
 	int rv;
+
+	flags = cgrd_none;
 
 	if (tsrecord->rtype == ar_struct) {
 		rtype = "struct";
@@ -1466,14 +1468,18 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	    dmember->m.record.srtype != srtype))
 		dmember = NULL;
 
-	/* If already exists, is defined and we are defining */
-	if (member != NULL && cgen_record_is_defined(member->m.record.record) &&
-	    tsrecord->have_def) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Redefinition of '%s'.\n",
-		    member->tident->text);
-		cgen->error = true; // TODO
-		return EINVAL;
+	/* If already exists, is defined */
+	if (member != NULL && cgen_record_is_defined(member->m.record.record)) {
+		/* Record was previously defined */
+		flags |= cgrd_prevdef;
+
+		if (tsrecord->have_def) {
+			lexer_dprint_tok(&ident_tok->tok, stderr);
+			fprintf(stderr, ": Redefinition of '%s'.\n",
+			    member->tident->text);
+			cgen->error = true; // TODO
+			return EINVAL;
+		}
 	}
 
 	if (tsrecord->aslist2 != NULL) {
@@ -1490,6 +1496,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		/* Already declared */
 		record = dmember->m.record.record;
 		irrecord = record->irrecord;
+		flags |= cgrd_prevdecl;
 	}
 
 	/*
@@ -1610,7 +1617,12 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	if (rc != EOK)
 		return rc;
 
-	*rdefines = tsrecord->have_ident;
+	if (tsrecord->have_ident)
+		flags |= cgrd_ident;
+	if (tsrecord->have_def)
+		flags |= cgrd_def;
+
+	*rflags = flags;
 	*rstype = &rectype->cgtype;
 	return EOK;
 }
@@ -1752,12 +1764,12 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
  *
  * @param cgds Code generator for declaration specifiers
  * @param rsctype Place to store storage class type
- * @param rdefines Place to store @c true iff a struct/union is defined
+ * @param rflags Place to store recordd declaration flags
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
-    bool *rdefines, cgtype_t **rstype)
+    cgen_rd_flags_t *rflags, cgtype_t **rstype)
 {
 	cgen_t *cgen = cgds->cgen;
 	ast_tok_t *atok;
@@ -1766,7 +1778,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	cgtype_elmtype_t elmtype;
 	cgtype_basic_t *btype = NULL;
 	cgtype_t *stype;
-	bool defines = false;
+	cgen_rd_flags_t flags = cgrd_none;
 	int rc;
 
 	if (cgds->tspec != NULL) {
@@ -1849,7 +1861,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 			break;
 		case ant_tsrecord:
 			rc = cgen_tsrecord(cgen,
-			    (ast_tsrecord_t *)cgds->tspec->ext, &defines, &stype);
+			    (ast_tsrecord_t *)cgds->tspec->ext, &flags, &stype);
 			if (rc != EOK)
 				goto error;
 			break;
@@ -1894,7 +1906,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	}
 
 	*rsctype = cgds->sctype;
-	*rdefines = defines;
+	*rflags = flags;
 	*rstype = stype;
 	return EOK;
 error:
@@ -1911,12 +1923,12 @@ error:
  * @param cgen Code generator
  * @param dspecs Declaration specifiers
  * @param rsctype Place to store storage class
- * @param rdefines Place to store @c true iff a structure/union is defined
+ * @param rflags Place to store record declaration flags
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
-    ast_sclass_type_t *rsctype, bool *rdefines, cgtype_t **rstype)
+    ast_sclass_type_t *rsctype, cgen_rd_flags_t *rflags, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
@@ -1942,7 +1954,7 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
 		dspec = ast_dspecs_next(dspec);
 	}
 
-	return cgen_dspec_finish(&cgds, rsctype, rdefines, rstype);
+	return cgen_dspec_finish(&cgds, rsctype, rflags, rstype);
 }
 
 /** Generate code for specifier-qualifier list.
@@ -1958,7 +1970,7 @@ static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 	ast_node_t *prev;
 	ast_sclass_type_t sctype;
 	cgen_dspec_t cgds;
-	bool defines;
+	cgen_rd_flags_t flags;
 	int rc;
 
 	/* Initialize dspec tracking structure. */
@@ -1980,11 +1992,12 @@ static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 		dspec = ast_sqlist_next(dspec);
 	}
 
-	rc = cgen_dspec_finish(&cgds, &sctype, &defines, rstype);
+	rc = cgen_dspec_finish(&cgds, &sctype, &flags, rstype);
 	if (rc != EOK)
 		return rc;
 
-	(void)defines;
+	(void)flags;
+
 	assert(sctype == asc_none);
 	return EOK;
 }
@@ -2063,7 +2076,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	comp_tok_t *ident;
 	bool arg_with_ident;
 	bool arg_without_ident;
-	bool defines;
+	cgen_rd_flags_t flags;
 	int rc;
 
 	rc = cgtype_clone(btype, &btype_copy);
@@ -2091,13 +2104,13 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &defines, &stype);
+		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &flags, &stype);
 		if (rc != EOK) {
 			--cgen->arglist_cnt;
 			goto error;
 		}
 
-		(void)defines;
+		(void)flags;
 
 		if (sctype != asc_none) {
 			atok = ast_tree_first_tok(&arg->dspecs->node);
@@ -6434,17 +6447,23 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	ast_sclass_type_t sctype;
-	bool defines;
+	cgen_rd_flags_t flags;
 	int rc;
 
 	cgen_eres_init(&bres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &defines, &stype);
+	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &flags, &stype);
 	if (rc != EOK)
 		goto error;
 
-	(void)defines;
+	if ((flags & cgrd_def) != 0) {
+		atok = ast_tree_first_tok(&ecast->dspecs->node);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Struct/union definition inside a cast.\n");
+		++cgproc->cgen->warnings;
+	}
 
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
@@ -9479,17 +9498,17 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 {
 	cgtype_t *stype = NULL;
 	ast_sclass_type_t sctype;
-	bool defines;
+	cgen_rd_flags_t flags;
 	int rc;
 
 	/* Process declaration specifiers */
 
-	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &defines,
+	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &flags,
 	    &stype);
 	if (rc != EOK)
 		goto error;
 
-	(void)defines;
+	(void)flags;
 
 	if (sctype == asc_typedef) {
 		rc = cgen_typedef(cgproc->cgen, stdecln->idlist, stype);
@@ -10660,13 +10679,13 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	ast_sclass_type_t sctype;
-	bool defines;
+	cgen_rd_flags_t flags;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	int rc;
 
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &defines, &stype);
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &flags, &stype);
 	if (rc != EOK)
 		goto error;
 
@@ -10702,7 +10721,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 				if (rc != EOK)
 					goto error;
 			} else if (entry->decl->ntype == ant_dnoident) {
-				if (!defines) {
+				if ((flags & cgrd_ident) == 0) {
 					atok = ast_tree_first_tok(&gdecln->dspecs->node);
 					tok = (comp_tok_t *) atok->data;
 					lexer_dprint_tok(&tok->tok, stderr);
