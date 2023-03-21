@@ -10036,9 +10036,11 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 		goto error;
 
 	/* Copy type to symbol */
-	rc = cgtype_clone(dtype, &symbol->cgtype);
-	if (rc != EOK)
-		goto error;
+	if (symbol->cgtype == NULL) {
+		rc = cgtype_clone(dtype, &symbol->cgtype);
+		if (rc != EOK)
+			goto error;
+	}
 
 	assert(dtype->ntype == cgn_func);
 	dtfunc = (cgtype_func_t *)dtype->ext;
@@ -10504,6 +10506,11 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		}
 	}
 
+	/* Copy type to symbol */
+	rc = cgtype_clone(stype, &symbol->cgtype);
+	if (rc != EOK)
+		goto error;
+
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
 	if (rc == ENOMEM)
@@ -10536,35 +10543,64 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		}
 
 		// XXX Convert from elmtype to stype
-	} else {
-		/* Initialize with zero (TODO: uninitialized?) */
-		initval = 0;
-	}
 
-	rc = cgen_gprefix(ident->tok.text, &pident);
-	if (rc != EOK)
-		goto error;
+		rc = cgen_gprefix(ident->tok.text, &pident);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_dblock_create(&dblock);
-	if (rc != EOK)
-		goto error;
+		rc = ir_dblock_create(&dblock);
+		if (rc != EOK)
+			goto error;
 
-	rc = cgen_cgtype(cgen, stype, &vtype);
-	if (rc != EOK)
-		goto error;
+		rc = cgen_cgtype(cgen, stype, &vtype);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_var_create(pident, vtype, dblock, &var);
-	if (rc != EOK)
-		goto error;
+		rc = ir_var_create(pident, vtype, dblock, &var);
+		if (rc != EOK)
+			goto error;
 
-	free(pident);
-	pident = NULL;
-	vtype = NULL;
-	dblock = NULL;
+		free(pident);
+		pident = NULL;
+		vtype = NULL;
+		dblock = NULL;
 
-	if (stype->ntype == cgn_basic) {
-		bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
-		if (bits == 0) {
+		if (stype->ntype == cgn_basic) {
+			bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
+			if (bits == 0) {
+				lexer_dprint_tok(&ident->tok, stderr);
+				fprintf(stderr, ": Unimplemented variable type.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+
+			rc = ir_dentry_create_int(bits, initval, &dentry);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_dblock_append(var->dblock, dentry);
+			if (rc != EOK)
+				goto error;
+
+			dentry = NULL;
+
+		} else if (stype->ntype == cgn_pointer) {
+			rc = ir_dentry_create_int(16, initval, &dentry);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_dblock_append(var->dblock, dentry);
+			if (rc != EOK)
+				goto error;
+
+			dentry = NULL;
+
+		} else if (stype->ntype == cgn_record) {
+			rc = cgen_init_dentries(cgen, stype, var->dblock);
+			if (rc != EOK)
+				goto error;
+		} else {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Unimplemented variable type.\n");
 			cgen->error = true; // TODO
@@ -10572,41 +10608,9 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			goto error;
 		}
 
-		rc = ir_dentry_create_int(bits, initval, &dentry);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_dblock_append(var->dblock, dentry);
-		if (rc != EOK)
-			goto error;
-
-		dentry = NULL;
-
-	} else if (stype->ntype == cgn_pointer) {
-		rc = ir_dentry_create_int(16, initval, &dentry);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_dblock_append(var->dblock, dentry);
-		if (rc != EOK)
-			goto error;
-
-		dentry = NULL;
-
-	} else if (stype->ntype == cgn_record) {
-		rc = cgen_init_dentries(cgen, stype, var->dblock);
-		if (rc != EOK)
-			goto error;
-	} else {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Unimplemented variable type.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
+		ir_module_append(cgen->irmod, &var->decln);
+		var = NULL;
 	}
-
-	ir_module_append(cgen->irmod, &var->decln);
-	var = NULL;
 
 	return EOK;
 error:
@@ -10743,7 +10747,162 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln)
 	return rc;
 }
 
-/** Generate symbol declarations for a module.
+/** Generate definition from function symbol declaration.
+ *
+ * @param cgen Code generator
+ * @param ident Identifier torken
+ * @param cgtype Function type
+ * @return EOK on success or an error code
+ */
+static int cgen_module_symdecl_fun(cgen_t *cgen, comp_tok_t *ident,
+    cgtype_t *cgtype)
+{
+	int rc;
+	ir_proc_t *proc = NULL;
+	char *pident = NULL;
+	ir_proc_attr_t *irattr;
+	cgtype_func_t *cgfunc;
+
+	rc = cgen_gprefix(ident->tok.text, &pident);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_proc_create(pident, irp_extern, NULL, &proc);
+	if (rc != EOK)
+		goto error;
+
+	free(pident);
+	pident = NULL;
+
+	rc = cgen_fun_args(cgen, ident, cgtype, proc);
+	if (rc != EOK)
+		goto error;
+
+	/* Generate IR return type */
+	rc = cgen_fun_rtype(cgen, cgtype, proc);
+	if (rc != EOK)
+		goto error;
+
+	assert(cgtype->ntype == cgn_func);
+	cgfunc = (cgtype_func_t *)cgtype->ext;
+
+	if (cgfunc->cconv == cgcc_usr) {
+		rc = ir_proc_attr_create("@usr", &irattr);
+		if (rc != EOK)
+			return rc;
+
+		ir_proc_append_attr(proc, irattr);
+	}
+
+	ir_module_append(cgen->irmod, &proc->decln);
+	proc = NULL;
+
+	return EOK;
+error:
+	if (pident != NULL)
+		free(pident);
+	if (proc != NULL)
+		ir_proc_destroy(proc);
+	return rc;
+}
+
+/** Generate definition from variable symbol declaration.
+ *
+ * @param cgen Code generator
+ * @param ident Identifier torken
+ * @param cgtype Variable
+ * @return EOK on success or an error code
+ */
+static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
+    cgtype_t *cgtype)
+{
+	int rc;
+	ir_proc_t *proc = NULL;
+	char *pident = NULL;
+	ir_dblock_t *dblock = NULL;
+	ir_dentry_t *dentry = NULL;
+	ir_texpr_t *vtype = NULL;
+	ir_var_t *var = NULL;
+	unsigned bits;
+
+	rc = cgen_gprefix(ident->tok.text, &pident);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_create(&dblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_cgtype(cgen, cgtype, &vtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_var_create(pident, vtype, dblock, &var);
+	if (rc != EOK)
+		goto error;
+
+	free(pident);
+	pident = NULL;
+	vtype = NULL;
+	dblock = NULL;
+
+	if (cgtype->ntype == cgn_basic) {
+		bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)cgtype->ext);
+
+		if (bits == 0) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Unimplemented variable type.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		rc = ir_dentry_create_int(bits, 0, &dentry);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_dblock_append(var->dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+
+	} else if (cgtype->ntype == cgn_pointer) {
+		rc = ir_dentry_create_int(16, 0, &dentry);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_dblock_append(var->dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+
+	} else if (cgtype->ntype == cgn_record) {
+		rc = cgen_init_dentries(cgen, cgtype, var->dblock);
+		if (rc != EOK)
+			goto error;
+	} else {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Unimplemented variable type.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	ir_module_append(cgen->irmod, &var->decln);
+	var = NULL;
+
+	return EOK;
+error:
+	if (pident != NULL)
+		free(pident);
+	if (proc != NULL)
+		ir_proc_destroy(proc);
+	return rc;
+}
+
+/** Generate definitions from symbol declarations for a module.
  *
  * @param cgen Code generator
  * @param symbols Symbol directory
@@ -10752,49 +10911,27 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln)
 static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 {
 	int rc;
-	ir_proc_t *proc = NULL;
 	symbol_t *symbol;
-	char *pident = NULL;
-	ir_proc_attr_t *irattr;
-	cgtype_func_t *cgfunc;
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
-		if ((symbol->flags & sf_defined) == 0 && symbol->stype == st_fun) {
-			rc = cgen_gprefix(symbol->ident->tok.text, &pident);
-			if (rc != EOK)
-				goto error;
-
-			rc = ir_proc_create(pident, irp_extern, NULL, &proc);
-			if (rc != EOK)
-				goto error;
-
-			free(pident);
-			pident = NULL;
-
-			rc = cgen_fun_args(cgen, symbol->ident, symbol->cgtype,
-			    proc);
-			if (rc != EOK)
-				goto error;
-
-			/* Generate IR return type */
-			rc = cgen_fun_rtype(cgen, symbol->cgtype, proc);
-			if (rc != EOK)
-				goto error;
-
-			assert(symbol->cgtype->ntype == cgn_func);
-			cgfunc = (cgtype_func_t *)symbol->cgtype->ext;
-
-			if (cgfunc->cconv == cgcc_usr) {
-				rc = ir_proc_attr_create("@usr", &irattr);
+		if ((symbol->flags & sf_defined) == 0) {
+			switch (symbol->stype) {
+			case st_fun:
+				rc = cgen_module_symdecl_fun(cgen, symbol->ident,
+				    symbol->cgtype);
 				if (rc != EOK)
-					return rc;
-
-				ir_proc_append_attr(proc, irattr);
+					goto error;
+				break;
+			case st_var:
+				rc = cgen_module_symdecl_var(cgen, symbol->ident,
+				    symbol->cgtype);
+				if (rc != EOK)
+					goto error;
+				break;
+			case st_type:
+				break;
 			}
-
-			ir_module_append(cgen->irmod, &proc->decln);
-			proc = NULL;
 		}
 
 		symbol = symbols_next(symbol);
@@ -10802,10 +10939,6 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 
 	return EOK;
 error:
-	if (pident != NULL)
-		free(pident);
-	if (proc != NULL)
-		ir_proc_destroy(proc);
 	return rc;
 }
 
