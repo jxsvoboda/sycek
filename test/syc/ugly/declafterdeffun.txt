@@ -1,0 +1,1 @@
+<test/syc/ugly/declafterdeffun.c:9:6:id:f>: Warning: Declaration of 'f' follows definition.

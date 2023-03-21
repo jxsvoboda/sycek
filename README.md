@@ -359,6 +359,8 @@ It can detect the following types of problems and style issues:
    outside of function declaration/definition
  * mixing arguments with and without an identifier
  * useless type in empty declaration
+ * multiple declaration of function/variable
+ * declaration of function/variable follows definition
 
 Intermediate Representation
 ---------------------------

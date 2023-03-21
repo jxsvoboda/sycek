@@ -10375,6 +10375,18 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 			cgen->error = true; // XXX
 			return EINVAL;
 		}
+
+		if ((symbol->flags & sf_defined) != 0) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Declaration of '%s' follows definition.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		} else {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Multiple declaration of '%s'.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		}
 	}
 
 	return EOK;
@@ -10504,12 +10516,26 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			cgen->error = true; // XXX
 			return EINVAL;
 		}
+
+		if ((symbol->flags & sf_defined) != 0) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Declaration of '%s' follows definition.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		} else {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Multiple declaration of '%s'.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		}
 	}
 
 	/* Copy type to symbol */
-	rc = cgtype_clone(stype, &symbol->cgtype);
-	if (rc != EOK)
-		goto error;
+	if (symbol->cgtype == NULL) {
+		rc = cgtype_clone(stype, &symbol->cgtype);
+		if (rc != EOK)
+			goto error;
+	}
 
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
