@@ -1,0 +1,1 @@
+<test/syc/bad/confldeclvar.c:6:6:id:a>: Conflicting type 'long' for 'a', previously declared as 'int'.

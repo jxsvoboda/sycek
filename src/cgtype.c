@@ -132,6 +132,31 @@ static int cgtype_basic_clone(cgtype_basic_t *orig, cgtype_t **rcopy)
 	return EOK;
 }
 
+/** Compose basic types.
+ *
+ * @param a First basic type
+ * @param b Second basic type
+ * @param rcomp Place to store pointer to composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+static int cgtype_basic_compose(cgtype_basic_t *a, cgtype_basic_t *b,
+    cgtype_t **rcomp)
+{
+	cgtype_basic_t *comp = NULL;
+	int rc;
+
+	if (a->elmtype != b->elmtype)
+		return EINVAL;
+
+	rc = cgtype_basic_create(a->elmtype, &comp);
+	if (rc != EOK)
+		return rc;
+
+	*rcomp = &comp->cgtype;
+	return EOK;
+}
+
 /** Destroy basic type.
  *
  * @param pointer Pointer type
@@ -271,6 +296,78 @@ error:
 		cgtype_destroy(rtcopy);
 	if (copy != NULL)
 		cgtype_destroy(&copy->cgtype);
+	if (catype != NULL)
+		cgtype_destroy(catype);
+	return rc;
+}
+
+/** Compose function types.
+ *
+ * @param a First function type
+ * @param b Second function type
+ * @param rcomp Place to store pointer to composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+static int cgtype_func_compose(cgtype_func_t *a, cgtype_func_t *b,
+    cgtype_t **rcomp)
+{
+	cgtype_func_t *comp = NULL;
+	cgtype_t *rtcomp = NULL;
+	cgtype_t *catype = NULL;
+	cgtype_func_arg_t *aarg, *barg;
+	int rc;
+
+	rc = cgtype_compose(a->rtype, b->rtype, &rtcomp);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_func_create(rtcomp, &comp);
+	if (rc != EOK)
+		goto error;
+
+	rtcomp = NULL; /* ownership transferred */
+
+	/* Compose argument types */
+
+	aarg = cgtype_func_first(a);
+	barg = cgtype_func_first(b);
+	while (aarg != NULL && barg != NULL) {
+		rc = cgtype_compose(aarg->atype, barg->atype, &catype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgtype_func_append_arg(comp, catype);
+		if (rc != EOK)
+			goto error;
+
+		catype = NULL; /* ownership transferred */
+
+		aarg = cgtype_func_next(aarg);
+		barg = cgtype_func_next(barg);
+	}
+
+	/* One type has more arguments? */
+	if (aarg != NULL || barg != NULL) {
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Mismatched calling conventions? */
+	if (a->cconv != b->cconv) {
+		rc = EINVAL;
+		goto error;
+	}
+
+	comp->cconv = a->cconv;
+	*rcomp = &comp->cgtype;
+	return EOK;
+
+error:
+	if (rtcomp != NULL)
+		cgtype_destroy(rtcomp);
+	if (comp != NULL)
+		cgtype_destroy(&comp->cgtype);
 	if (catype != NULL)
 		cgtype_destroy(catype);
 	return rc;
@@ -449,6 +546,35 @@ static int cgtype_pointer_clone(cgtype_pointer_t *orig, cgtype_t **rcopy)
 	return EOK;
 }
 
+/** Compose pointer types.
+ *
+ * @param a First pointer type
+ * @param b Second pointer type
+ * @param rcomp Place to store pointer to composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+static int cgtype_pointer_compose(cgtype_pointer_t *a, cgtype_pointer_t *b,
+    cgtype_t **rcomp)
+{
+	cgtype_pointer_t *comp = NULL;
+	cgtype_t *tgcomp = NULL;
+	int rc;
+
+	rc = cgtype_compose(a->tgtype, b->tgtype, &tgcomp);
+	if (rc != EOK)
+		return rc;
+
+	rc = cgtype_pointer_create(tgcomp, &comp);
+	if (rc != EOK) {
+		cgtype_destroy(tgcomp);
+		return rc;
+	}
+
+	*rcomp = &comp->cgtype;
+	return EOK;
+}
+
 /** Destroy pointer type.
  *
  * @param pointer Pointer type
@@ -534,6 +660,31 @@ static int cgtype_record_clone(cgtype_record_t *orig, cgtype_t **rcopy)
 	return EOK;
 }
 
+/** Compose record types.
+ *
+ * @param a First record type
+ * @param b Second record type
+ * @param rcomp Place to store pointer to composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+static int cgtype_record_compose(cgtype_record_t *a, cgtype_record_t *b,
+    cgtype_t **rcomp)
+{
+	cgtype_record_t *comp = NULL;
+	int rc;
+
+	if (a->record != b->record)
+		return EINVAL;
+
+	rc = cgtype_record_create(a->record, &comp);
+	if (rc != EOK)
+		return rc;
+
+	*rcomp = &comp->cgtype;
+	return EOK;
+}
+
 /** Destroy record type.
  *
  * @param record Record type
@@ -570,6 +721,41 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 	case cgn_record:
 		return cgtype_record_clone((cgtype_record_t *) orig->ext,
 		    rcopy);
+	}
+
+	assert(false);
+	return EINVAL;
+}
+
+/** Construct composite type.
+ *
+ * Composite type is created by combining the elements of two compatible
+ * types to produce the most specified type.
+ *
+ * @param a First type
+ * @param b Second type
+ * @param rcomp Place to store pointer to new, composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
+{
+	if (a->ntype != b->ntype)
+		return EINVAL;
+
+	switch (a->ntype) {
+	case cgn_basic:
+		return cgtype_basic_compose((cgtype_basic_t *) a->ext,
+		    (cgtype_basic_t *) b->ext, rcomp);
+	case cgn_func:
+		return cgtype_func_compose((cgtype_func_t *) a->ext,
+		    (cgtype_func_t *) b->ext, rcomp);
+	case cgn_pointer:
+		return cgtype_pointer_compose((cgtype_pointer_t *) a->ext,
+		    (cgtype_pointer_t *) b->ext, rcomp);
+	case cgn_record:
+		return cgtype_record_compose((cgtype_record_t *) a->ext,
+		    (cgtype_record_t *) b->ext, rcomp);
 	}
 
 	assert(false);

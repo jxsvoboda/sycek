@@ -10002,6 +10002,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	symbol_t *symbol;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
+	cgtype_t *ctype = NULL;
 	cgtype_func_t *dtfunc;
 	cgtype_func_arg_t *dtarg;
 	ast_aspec_t *aspec;
@@ -10054,18 +10055,40 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	if (rc != EOK)
 		goto error;
 
-	/* Copy type to symbol */
 	if (symbol->cgtype == NULL) {
-		rc = cgtype_clone(dtype, &symbol->cgtype);
+		rc = cgtype_clone(dtype, &ctype);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = cgtype_compose(symbol->cgtype, dtype, &ctype);
+		if (rc == EINVAL) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Conflicting type '");
+			cgtype_print(dtype, stderr);
+			fprintf(stderr, "' for '%s', previously "
+			    "declared as '", ident->tok.text);
+			cgtype_print(symbol->cgtype, stderr);
+			fprintf(stderr, "'.\n");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
 		if (rc != EOK)
 			goto error;
 	}
 
-	assert(dtype->ntype == cgn_func);
-	dtfunc = (cgtype_func_t *)dtype->ext;
+	/* Copy type to symbol */
+	if (symbol->cgtype == NULL) {
+		rc = cgtype_clone(ctype, &symbol->cgtype);
+		if (rc != EOK)
+			goto error;
+	}
+
+	assert(ctype->ntype == cgn_func);
+	dtfunc = (cgtype_func_t *)ctype->ext;
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok, dtype);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, ctype);
 	if (rc == ENOMEM)
 		goto error;
 
@@ -10189,7 +10212,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	}
 
 	/* Generate IR procedure arguments */
-	rc = cgen_fun_args(cgproc->cgen, ident, dtype, proc);
+	rc = cgen_fun_args(cgproc->cgen, ident, ctype, proc);
 	if (rc != EOK)
 		goto error;
 
@@ -10205,7 +10228,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	}
 
 	/* Generate IR return type */
-	rc = cgen_fun_rtype(cgen, dtype, proc);
+	rc = cgen_fun_rtype(cgen, ctype, proc);
 	if (rc != EOK)
 		goto error;
 
@@ -10229,6 +10252,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 
 	cgtype_destroy(dtype);
 	dtype = NULL;
+	cgtype_destroy(ctype);
+	ctype = NULL;
 
 	ir_module_append(cgen->irmod, &proc->decln);
 	proc = NULL;
@@ -10265,6 +10290,8 @@ error:
 		ir_texpr_destroy(atype);
 	if (dtype != NULL)
 		cgtype_destroy(dtype);
+	if (ctype != NULL)
+		cgtype_destroy(ctype);
 	return rc;
 }
 
@@ -10355,6 +10382,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	symbol_t *symbol;
+	cgtype_t *ctype = NULL;
 	int rc;
 
 	aident = ast_gdecln_get_ident(gdecln);
@@ -10394,6 +10422,25 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 			cgen->error = true; // XXX
 			return EINVAL;
 		}
+
+		/* Create composite type */
+		rc = cgtype_compose(symbol->cgtype, ftype, &ctype);
+		if (rc == EINVAL) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Conflicting type '");
+			cgtype_print(ftype, stderr);
+			fprintf(stderr, "' for '%s', previously "
+			    "declared as '", ident->tok.text);
+			cgtype_print(symbol->cgtype, stderr);
+			fprintf(stderr, "'.\n");
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
+		if (rc != EOK)
+			return rc;
+
+		cgtype_destroy(symbol->cgtype);
+		symbol->cgtype = ctype;
 
 		if ((symbol->flags & sf_defined) != 0) {
 			lexer_dprint_tok(&ident->tok, stderr);
@@ -10506,6 +10553,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	unsigned bits;
 	symbol_t *symbol;
 	scope_member_t *member;
+	cgtype_t *ctype;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
@@ -10519,6 +10567,10 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 
 		symbol = symbols_lookup(cgen->symbols, ident->tok.text);
 		assert(symbol != NULL);
+
+		rc = cgtype_clone(stype, &ctype);
+		if (rc != EOK)
+			goto error;
 	} else {
 		if (symbol->stype != st_var) {
 			/* Already declared as a different type of symbol */
@@ -10526,15 +10578,33 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			fprintf(stderr, ": '%s' already declared as a "
 			    "different type of symbol.\n", ident->tok.text);
 			cgen->error = true; // XXX
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
+
+		rc = cgtype_compose(symbol->cgtype, stype, &ctype);
+		if (rc == EINVAL) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Conflicting type '");
+			cgtype_print(stype, stderr);
+			fprintf(stderr, "' for '%s', previously "
+			    "declared as '", ident->tok.text);
+			cgtype_print(symbol->cgtype, stderr);
+			fprintf(stderr, "'.\n");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
+		if (rc != EOK)
+			goto error;
 
 		if ((symbol->flags & sf_defined) != 0 && entry->init != NULL) {
 			/* Already defined */
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Redefinition of '%s'.\n", ident->tok.text);
 			cgen->error = true; // XXX
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
 
 		if ((symbol->flags & sf_defined) != 0) {
@@ -10670,8 +10740,10 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		var = NULL;
 	}
 
+	cgtype_destroy(ctype);
 	return EOK;
 error:
+	cgtype_destroy(ctype);
 	ir_var_destroy(var);
 	ir_dentry_destroy(dentry);
 	if (pident != NULL)

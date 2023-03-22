@@ -1,0 +1,1 @@
+<test/syc/bad/confldeffun.c:6:6:id:f>: Conflicting type 'long()' for 'f', previously declared as 'int()'.
