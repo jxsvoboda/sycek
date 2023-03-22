@@ -10541,7 +10541,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			fprintf(stderr, ": Warning: Declaration of '%s' follows definition.\n",
 			    ident->tok.text);
 			++cgen->warnings;
-		} else {
+		} else if (entry->init == NULL) {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
 			    ident->tok.text);
