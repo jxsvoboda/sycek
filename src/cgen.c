@@ -10505,6 +10505,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	ir_texpr_t *vtype = NULL;
 	unsigned bits;
 	symbol_t *symbol;
+	scope_member_t *member;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
@@ -10546,6 +10547,18 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
 			    ident->tok.text);
 			++cgen->warnings;
+		} else {
+			/* Symbol should be member of module scope */
+			member = scope_lookup(cgen->cur_scope, ident->tok.text);
+			assert(member != NULL);
+
+			if (!member->used) {
+				lexer_dprint_tok(&ident->tok, stderr);
+				fprintf(stderr, ": Warning: Variable '%s' not "
+				    "used since forward declaration.\n",
+				    ident->tok.text);
+				++cgen->warnings;
+			}
 		}
 	}
 

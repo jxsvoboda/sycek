@@ -1,0 +1,1 @@
+<test/syc/ugly/varnotusedfwd.c:6:5:id:a>: Warning: Variable 'a' not used since forward declaration.

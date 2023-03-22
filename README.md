@@ -362,6 +362,7 @@ It can detect the following types of problems and style issues:
  * useless type in empty declaration
  * multiple declarations of function/variable/struct/union
  * declaration of function/variable/struct/union follows definition
+ * variable not used since forward declaration
 
 Intermediate Representation
 ---------------------------
