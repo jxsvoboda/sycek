@@ -1,1 +1,1 @@
-<test/syc/ugly/muldeclfun.c:6:6:id:f>: Warning: Multiple declaration of 'f'.
+<test/syc/ugly/muldeclfun.c:6:6:id:f>: Warning: Multiple declarations of 'f'.

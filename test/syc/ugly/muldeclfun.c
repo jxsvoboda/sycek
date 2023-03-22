@@ -1,5 +1,5 @@
 /*
- * Multiple declaration of 'f'
+ * Multiple declarations of 'f'
  */
 
 void f(void);

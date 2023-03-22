@@ -1,0 +1,1 @@
+<test/syc/ugly/declafterdefstruct.c:9:1-6:'struct'>: Warning: Declaration of 'struct s' follows definition.

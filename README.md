@@ -360,8 +360,8 @@ It can detect the following types of problems and style issues:
  * struct/union definition inside a cast
  * mixing arguments with and without an identifier
  * useless type in empty declaration
- * multiple declaration of function/variable
- * declaration of function/variable follows definition
+ * multiple declarations of function/variable/struct/union
+ * declaration of function/variable/struct/union follows definition
 
 Intermediate Representation
 ---------------------------

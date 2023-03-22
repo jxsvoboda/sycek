@@ -1,0 +1,1 @@
+<test/syc/ugly/muldeclstruct.c:6:1-6:'struct'>: Warning: Multiple declarations of 'struct s'.

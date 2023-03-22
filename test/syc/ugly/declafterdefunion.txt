@@ -1,0 +1,1 @@
+<test/syc/ugly/declafterdefunion.c:9:1-5:'union'>: Warning: Declaration of 'union u' follows definition.

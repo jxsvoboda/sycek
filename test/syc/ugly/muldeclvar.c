@@ -1,5 +1,5 @@
 /*
- * Multiple declaration of 'a'
+ * Multiple declarations of 'a'
  */
 
 int a;

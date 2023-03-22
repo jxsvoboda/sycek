@@ -1,0 +1,1 @@
+<test/syc/ugly/muldeclunion.c:6:1-5:'union'>: Warning: Multiple declarations of 'union u'.

@@ -10402,7 +10402,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 			++cgen->warnings;
 		} else {
 			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Multiple declaration of '%s'.\n",
+			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
 			    ident->tok.text);
 			++cgen->warnings;
 		}
@@ -10543,7 +10543,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			++cgen->warnings;
 		} else {
 			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Multiple declaration of '%s'.\n",
+			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
 			    ident->tok.text);
 			++cgen->warnings;
 		}
@@ -10727,6 +10727,26 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 					lexer_dprint_tok(&tok->tok, stderr);
 					fprintf(stderr, ": Warning: Useless type in empty declaration.\n");
 					++cgen->warnings;
+				}
+				if ((flags & cgrd_def) == 0) {
+					/* This is a pure struct/union declaration */
+					if ((flags & cgrd_prevdef) != 0) {
+						atok = ast_tree_first_tok(&gdecln->dspecs->node);
+						tok = (comp_tok_t *) atok->data;
+						lexer_dprint_tok(&tok->tok, stderr);
+						fprintf(stderr, ": Warning: Declaration of '");
+						cgtype_print(stype, stderr);
+						fprintf(stderr, "' follows definition.\n");
+						++cgen->warnings;
+					} else if ((flags & cgrd_prevdecl) != 0) {
+						atok = ast_tree_first_tok(&gdecln->dspecs->node);
+						tok = (comp_tok_t *) atok->data;
+						lexer_dprint_tok(&tok->tok, stderr);
+						fprintf(stderr, ": Warning: Multiple declarations of '");
+						cgtype_print(stype, stderr);
+						fprintf(stderr, "'.\n");
+						++cgen->warnings;
+					}
 				}
 			} else {
 				/* Assuming it's a function declaration */
