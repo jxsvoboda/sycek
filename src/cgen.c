@@ -2862,7 +2862,7 @@ static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(rres->varname, &rarg);
+	rc = ir_oper_var_create(cres.varname, &rarg);
 	if (rc != EOK)
 		goto error;
 
