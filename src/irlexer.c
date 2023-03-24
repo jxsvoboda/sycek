@@ -741,6 +741,11 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_read, 4, tok);
 		}
+		if (p[1] == 'e' && p[2] == 'c' && p[3] == 'c' &&
+		    p[4] == 'o' && p[5] == 'p' && p[6] == 'y' &&
+		    !is_idcnt(p[7])) {
+			return ir_lexer_keyword(lexer, itt_reccopy, 7, tok);
+		}
 		if (p[1] == 'e' && p[2] == 'c' && p[3] == 'o' &&
 		    p[4] == 'r' && p[5] == 'd' && !is_idcnt(p[6])) {
 			return ir_lexer_keyword(lexer, itt_record, 6, tok);
@@ -966,6 +971,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'ptridx'";
 	case itt_read:
 		return "'read'";
+	case itt_reccopy:
+		return "'reccopy'";
 	case itt_record:
 		return "'record'";
 	case itt_ret:

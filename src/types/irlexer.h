@@ -86,6 +86,7 @@ typedef enum {
 	itt_ptr,
 	itt_ptridx,
 	itt_read,
+	itt_reccopy,
 	itt_record,
 	itt_ret,
 	itt_retv,

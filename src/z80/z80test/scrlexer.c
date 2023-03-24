@@ -656,6 +656,8 @@ int scr_lexer_get_tok(scr_lexer_t *lexer, scr_lexer_tok_t *tok)
 		return scr_lexer_onechar(lexer, stt_lparen, tok);
 	case ')':
 		return scr_lexer_onechar(lexer, stt_rparen, tok);
+	case '+':
+		return scr_lexer_onechar(lexer, stt_plus, tok);
 	case ',':
 		return scr_lexer_onechar(lexer, stt_comma, tok);
 	case '.':
@@ -872,6 +874,8 @@ const char *scr_lexer_str_ttype(scr_lexer_toktype_t ttype)
 		return "';'";
 	case stt_period:
 		return "'.'";
+	case stt_plus:
+		return "'+'";
 	case stt_A:
 		return "'A'";
 	case stt_AF:

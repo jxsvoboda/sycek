@@ -37,7 +37,7 @@ enum {
 	scr_lexer_buf_low_watermark = 16
 };
 
-/** IR token type */
+/** Script token type */
 typedef enum {
 	stt_space,
 	stt_tab,
@@ -51,6 +51,7 @@ typedef enum {
 	stt_colon,
 	stt_scolon,
 	stt_period,
+	stt_plus,
 
 	stt_A,
 	stt_AF,

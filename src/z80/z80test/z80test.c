@@ -295,10 +295,16 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	}
 
 	if (have_ident) {
-		*eval = sval;
-		return 0;
+		script_read_next_tok(script, &tok);
+		if (tok.ttype != stt_plus) {
+			*eval = sval;
+			return 0;
+		}
+
+		script_skip(script);
 	}
 
+	script_read_next_tok(script, &tok);
 	rc = scr_lexer_number_val(&tok, &oval);
 	if (rc != 0) {
 		fprintf(stderr, "Error: ");

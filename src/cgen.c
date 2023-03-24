@@ -5161,6 +5161,64 @@ error:
 	return rc;
 }
 
+/** Generate code for storing a record (in an assignment expression).
+ *
+ * @param cgproc Code generator for procedure
+ * @param ares Address expression result
+ * @param vres Value expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_store_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
+    cgen_eres_t *vres, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	ir_texpr_t *recte = NULL;
+	int rc;
+
+	(void)cgproc;
+
+	assert(vres->cgtype->ntype == cgn_record);
+
+	/* Generate IR type expression for the record type */
+	rc = cgen_cgtype(cgproc->cgen, vres->cgtype, &recte);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(vres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_reccopy;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+	instr->opt = recte;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	return EOK;
+error:
+	ir_texpr_destroy(recte);
+	ir_instr_destroy(instr);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
 /** Generate code for storing a value (in an assignment expression).
  *
  * @param cgproc Code generator for procedure
@@ -5190,6 +5248,8 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 		}
 	} else if (vres->cgtype->ntype == cgn_pointer) {
 		bits = cgen_pointer_bits;
+	} else if (vres->cgtype->ntype == cgn_record) {
+		return cgen_store_record(cgproc, ares, vres, lblock);
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -7214,14 +7274,18 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 	unsigned bits;
 	int rc;
 
-	/* Check if we already have an rvalue */
-	if (res->valtype == cgen_rvalue) {
+	/*
+	 * If we already have an rvalue or we have a record or array type,
+	 * which are always handled via a pointer, then we don't need
+	 * to do anything.
+	 */
+	if (res->valtype == cgen_rvalue || res->cgtype->ntype == cgn_record) {
 		rc = cgtype_clone(res->cgtype, &cgtype);
 		if (rc != EOK)
 			goto error;
 
 		eres->varname = res->varname;
-		eres->valtype = res->valtype;
+		eres->valtype = cgen_rvalue;
 		eres->cgtype = cgtype;
 		eres->valused = res->valused;
 		return EOK;
@@ -7781,6 +7845,57 @@ error:
 	return rc;
 }
 
+/** Convert expression result between two record types.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_record(cgen_proc_t *cgproc, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgtype_record_t *rtype1;
+	cgtype_record_t *rtype2;
+	cgtype_t *cgtype;
+	int rc;
+
+	(void)cgproc;
+	(void)lblock;
+
+	assert(ares->cgtype->ntype == cgn_record);
+	assert(dtype->ntype == cgn_record);
+
+	rtype1 = (cgtype_record_t *)ares->cgtype->ext;
+	rtype2 = (cgtype_record_t *)dtype->ext;
+
+	if (rtype1->record != rtype2->record) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Converting from '");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, "' to incompatible struct/union type '");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, "'.\n");
+		cgproc->cgen->error = true; // TODO
+	}
+
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = ares->varname;
+	cres->valtype = ares->valtype;
+	cres->cgtype = cgtype;
+	cres->valused = ares->valused;
+error:
+	return rc;
+}
+
 /** Convert expression result from integer to pointer.
  *
  * @param cgproc Code generator for procedure
@@ -7870,6 +7985,13 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	    dtype->ntype == cgn_pointer) {
 		return cgen_type_convert_pointer(cgproc, ctok, ares, dtype,
 		    expl, lblock, cres);
+	}
+
+	/* Source and destination types are record types */
+	if (ares->cgtype->ntype == cgn_record &&
+	    dtype->ntype == cgn_record) {
+		return cgen_type_convert_record(cgproc, ctok, ares, dtype,
+		    lblock, cres);
 	}
 
 	/* Source and destination types are pointers */

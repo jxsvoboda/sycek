@@ -82,6 +82,8 @@ typedef enum {
 	iri_ptridx,
 	/** Read from memory */
 	iri_read,
+	/** Copy record */
+	iri_reccopy,
 	/** Return */
 	iri_ret,
 	/** Return value */

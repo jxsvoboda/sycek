@@ -456,6 +456,9 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 	case itt_read:
 		instr->itype = iri_read;
 		break;
+	case itt_reccopy:
+		instr->itype = iri_reccopy;
+		break;
 	case itt_ret:
 		instr->itype = iri_ret;
 		break;
@@ -748,6 +751,34 @@ error:
 	return rc;
 }
 
+/** Parse IR ident type expression.
+ *
+ * @param parser IR parser
+ * @param rtexpr Place to store pointer to new type expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_ident_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
+{
+	ir_lexer_tok_t itok;
+	ir_texpr_t *texpr = NULL;
+	int rc;
+
+	/* Identifier */
+
+	ir_parser_read_next_tok(parser, &itok);
+	assert(itok.ttype == itt_ident);
+
+	rc = ir_texpr_ident_create(itok.text, &texpr);
+	if (rc != EOK)
+		return rc;
+
+	ir_parser_skip(parser);
+
+	*rtexpr = texpr;
+	return EOK;
+}
+
 /** Parse IR type expression.
  *
  * @param parser IR parser
@@ -766,6 +797,8 @@ static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 		return ir_parser_process_int_texpr(parser, rtexpr);
 	case itt_ptr:
 		return ir_parser_process_ptr_texpr(parser, rtexpr);
+	case itt_ident:
+		return ir_parser_process_ident_texpr(parser, rtexpr);
 	default:
 		fprintf(stderr, "Error: ");
 		ir_parser_dprint_next_tok(parser, stderr);

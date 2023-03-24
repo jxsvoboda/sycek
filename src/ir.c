@@ -69,6 +69,7 @@ static const char *instr_name[] = {
 	[iri_or] = "or",
 	[iri_ptridx] = "ptridx",
 	[iri_read] = "read",
+	[iri_reccopy] = "reccopy",
 	[iri_ret] = "ret",
 	[iri_retv] = "retv",
 	[iri_sgnext] = "sgnext",

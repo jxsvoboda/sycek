@@ -1333,6 +1333,16 @@ typedef struct {
 	int8_t disp;
 } z80ic_ld_vr_iixd_t;
 
+/** Z80 IC load virtual register from indirect virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register */
+	z80ic_oper_vr_t *dest;
+	/** Source indirect virtual register pair */
+	z80ic_oper_vrr_t *isrc;
+} z80ic_ld_vr_ivrr_t;
+
 /** Z80 IC load (HL) from virtual register */
 typedef struct {
 	/** Base object */
@@ -1340,6 +1350,16 @@ typedef struct {
 	/** Source virtual register */
 	z80ic_oper_vr_t *src;
 } z80ic_ld_ihl_vr_t;
+
+/** Z80 IC load indirect virtual register pair from virtual register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination indirect virtual register pair */
+	z80ic_oper_vrr_t *idest;
+	/** Source virtual register pair */
+	z80ic_oper_vr_t *src;
+} z80ic_ld_ivrr_vr_t;
 
 /** Z80 IC load virtual register pair from virtual register pair */
 typedef struct {
