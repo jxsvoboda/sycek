@@ -231,18 +231,23 @@ Specifically, these language features are supported:
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
    and integer type conversions, usual arithmetic conversions
  * Basic support for pointers
- * Typedefs
+ * Typedef
+ * Struct, union
 
 These are NOT supported:
 
+ * Enum
+ * Arrays
+ * Bit fields
+ * Floating point
  * Integer promotion
  * Division and modulus (`/`, `%`)
  * Pointer difference
- * Enums, structs, unions, bit fields, arrays, floating point
  * Character and string literals
  * Variadic functions
  * Ternary operator
  * Lvalue arguments
+ * Passing or returning struct/union by value
  * Variable-length arrays
  * Sizeof, alignof
 

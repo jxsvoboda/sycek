@@ -1,0 +1,1 @@
+<test/syc/bad/memberrect.c:9:10:'.'>: '.' requires a struct or union.

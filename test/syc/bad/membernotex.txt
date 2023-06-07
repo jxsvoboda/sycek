@@ -1,0 +1,1 @@
+<test/syc/bad/membernotex.c:14:10:'.'>: Record type struct s has no member named 'z'.

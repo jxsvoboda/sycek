@@ -1,0 +1,14 @@
+mapfile "indmember.map";
+ldbin "indmember.bin", 0x8000;
+
+/* struct */
+ld word ptr (@_f), 0x00000000;
+ld word ptr (@_f + 2), 0x00000000;
+call @_set_f;
+verify word ptr (@_f), 0x0001;
+verify word ptr (@_f + 2), 0x0002;
+
+/* union */
+ld word ptr (@_g), 0x00000000;
+call @_set_g;
+verify word ptr (@_g), 0x0002;

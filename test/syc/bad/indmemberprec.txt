@@ -1,0 +1,1 @@
+<test/syc/bad/indmemberprec.c:12:10-11:'->'>: '->' requires a pointer to a struct or union.
