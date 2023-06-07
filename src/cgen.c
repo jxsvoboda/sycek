@@ -6563,6 +6563,133 @@ error:
 	return rc;
 }
 
+/** Generate code for member expression.
+ *
+ * @param cgproc Code generator for procedure
+ * @param emember AST member expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t bres;
+	comp_tok_t *ctok;
+	comp_tok_t *mtok;
+	cgtype_t *btype;
+	cgtype_record_t *rtype;
+	cgtype_t *mtype;
+	cgen_record_t *record;
+	cgen_rec_elem_t *elem;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	char *irident = NULL;
+	ir_texpr_t *recte = NULL;
+	int rc;
+	int rv;
+
+	cgen_eres_init(&bres);
+
+	/* Evaluate expression */
+	rc = cgen_expr(cgproc, emember->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	btype = bres.cgtype;
+	if (btype->ntype != cgn_record) {
+		ctok = (comp_tok_t *)emember->tperiod.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Member access used with non-record type.\n");
+		cgproc->cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	rtype = (cgtype_record_t *)btype->ext;
+	record = rtype->record;
+
+	mtok = (comp_tok_t *)emember->tmember.data;
+
+	elem = cgen_record_elem_find(record, mtok->tok.text);
+	if (elem == NULL) {
+		ctok = (comp_tok_t *)emember->tperiod.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Record type ");
+		(void) cgtype_print(btype, stderr);
+		fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
+		cgproc->cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	rv = asprintf(&irident, "@%s", mtok->tok.text);
+	if (rv < 0) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	/* Generate IR type expression for the record type */
+	rc = cgen_cgtype(cgproc->cgen, btype, &recte);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(bres.varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(irident, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_recmbr;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+	instr->opt = recte;
+	recte = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	rc = cgtype_clone(elem->cgtype, &mtype);
+	if (rc != EOK)
+		return rc;
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_lvalue;
+	eres->cgtype = mtype;
+	eres->valused = true;
+
+	cgen_eres_fini(&bres);
+	free(irident);
+	return EOK;
+error:
+	if (irident != NULL)
+		free(irident);
+	ir_texpr_destroy(recte);
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+
+	cgen_eres_fini(&bres);
+	return rc;
+}
+
 /** Generate code for unary sign expression.
  *
  * @param cgproc Code generator for procedure
@@ -7150,7 +7277,17 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_ecliteral:
+		atok = ast_tree_first_tok(expr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": This expression type is not implemented.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		break;
 	case ant_emember:
+		rc = cgen_emember(cgproc, (ast_emember_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_eindmember:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;

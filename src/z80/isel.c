@@ -291,6 +291,63 @@ static int z80_isel_texpr_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 	return 0;
 }
 
+/** Get record member offset.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR identifier type expression (record)
+ * @param member Member identifier
+ * @param rsize Place to store offset in bytes
+ * @return EOK on success or an error code
+ */
+static int z80_isel_recmbr_off(z80_isel_t *isel, ir_texpr_t *texpr,
+    const char *member, uint16_t *roff)
+{
+	ir_decln_t *decln;
+	ir_record_t *record;
+	ir_record_elem_t *elem;
+	size_t esize;
+	size_t off;
+	int rc;
+
+	assert(texpr->tetype == irt_ident);
+
+	rc = ir_module_find(isel->irmodule, texpr->t.tident.ident, &decln);
+	if (rc != EOK)
+		return ENOENT;
+
+	if (decln->dtype != ird_record)
+		return EINVAL;
+
+	record = (ir_record_t *)decln->ext;
+
+	if (record->rtype == irrt_union) {
+		/* For unions, offset of any member is zero */
+		*roff = 0;
+		return EOK;
+	}
+
+	/* Structure */
+
+	elem = ir_record_first(record);
+	off = 0;
+	while (elem != NULL) {
+		if (strcmp(member, elem->ident) == 0) {
+			*roff = (uint16_t)off;
+			return EOK;
+		}
+
+		rc = z80_isel_texpr_sizeof(isel, elem->etype, &esize);
+		if (rc != EOK)
+			return rc;
+
+		off += esize;
+		elem = ir_record_next(elem);
+	}
+
+	/* Member not found */
+	return ENOENT;
+}
+
 /** Determine size of return value from call instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -903,6 +960,8 @@ static int z80_isel_vrr_const(z80_isel_proc_t *isproc, unsigned destvr,
 		rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
 		if (rc != EOK)
 			goto error;
+
+		ldimm8 = NULL;
 	} else {
 		for (word = 0; word < bytes / 2; word++) {
 			/* ld vrr, NN */
@@ -928,6 +987,8 @@ static int z80_isel_vrr_const(z80_isel_proc_t *isproc, unsigned destvr,
 			rc = z80ic_lblock_append(lblock, NULL, &ldimm->instr);
 			if (rc != EOK)
 				goto error;
+
+			ldimm = NULL;
 		}
 	}
 
@@ -7714,6 +7775,210 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR recmbr instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR recmbr instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_recmbr(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	ir_oper_var_t *opvar;
+	z80ic_ld_r_vr_t *ldrvr = NULL;
+	z80ic_ld_vr_r_t *ldvrr = NULL;
+	z80ic_add_a_n_t *addaimm8 = NULL;
+	z80ic_adc_a_n_t *adcaimm8 = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	unsigned srcvr;
+	unsigned destvr;
+	size_t elemsz;
+	uint16_t off;
+	int rc;
+
+	(void)label;
+
+	assert(irinstr->itype == iri_recmbr);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+	assert(irinstr->opt != NULL);
+
+	opvar = (ir_oper_var_t *) irinstr->op2->ext;
+
+	off = 0x0;
+	rc = z80_isel_recmbr_off(isproc->isel, irinstr->opt, opvar->varname,
+	    &off);
+	if (rc != EOK) {
+		fprintf(stderr, "Error determning offset of member '%s' in "
+		    "record '", opvar->varname);
+		(void) ir_texpr_print(irinstr->opt, stderr);
+		fprintf(stderr, "'.\n");
+		return rc;
+	}
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	srcvr = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	rc = z80_isel_texpr_sizeof(isproc->isel, irinstr->opt, &elemsz);
+	if (rc != EOK)
+		return rc;
+
+	/* ld A, srcvr.L */
+
+	rc = z80ic_ld_r_vr_create(&ldrvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(srcvr, z80ic_vrp_r16l, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldrvr->dest = reg;
+	ldrvr->src = vr;
+	reg = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldrvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldrvr = NULL;
+
+	/* add A, LO(off) */
+
+	rc = z80ic_add_a_n_create(&addaimm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(off & 0xff, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	addaimm8->imm8 = imm8;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &addaimm8->instr);
+	if (rc != EOK)
+		goto error;
+
+	addaimm8 = NULL;
+
+	/* ld destvr.L, A */
+
+	rc = z80ic_ld_vr_r_create(&ldvrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16l, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr->dest = vr;
+	ldvrr->src = reg;
+	reg = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr = NULL;
+
+	/* ld A, srcvr.H */
+
+	rc = z80ic_ld_r_vr_create(&ldrvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(srcvr, z80ic_vrp_r16h, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldrvr->dest = reg;
+	ldrvr->src = vr;
+	reg = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldrvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldrvr = NULL;
+
+	/* adc A, LO(off) */
+
+	rc = z80ic_adc_a_n_create(&adcaimm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(off >> 8, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	adcaimm8->imm8 = imm8;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &adcaimm8->instr);
+	if (rc != EOK)
+		goto error;
+
+	adcaimm8 = NULL;
+
+	/* ld destvr.H, A */
+
+	rc = z80ic_ld_vr_r_create(&ldvrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(destvr, z80ic_vrp_r16h, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr->dest = vr;
+	ldvrr->src = reg;
+	reg = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr = NULL;
+
+	return EOK;
+error:
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (addaimm8 != NULL)
+		z80ic_instr_destroy(&addaimm8->instr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_imm8_destroy(imm8);
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR ptridx instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -8439,6 +8704,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_read(isproc, label, irinstr, lblock);
 	case iri_reccopy:
 		return z80_isel_reccopy(isproc, label, irinstr, lblock);
+	case iri_recmbr:
+		return z80_isel_recmbr(isproc, label, irinstr, lblock);
 	case iri_ret:
 		return z80_isel_ret(isproc, label, irinstr, lblock);
 	case iri_retv:

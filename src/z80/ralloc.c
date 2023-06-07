@@ -600,6 +600,91 @@ error:
 
 	return rc;
 }
+
+/** Allocate registers for Z80 add 8-bit immediate to A instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vradd Add instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_add_a_n(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_add_a_n_t *vradd, z80ic_lblock_t *lblock)
+{
+	z80ic_add_a_n_t *add = NULL;
+	z80ic_oper_imm8_t *imm = NULL;
+	int rc;
+
+	(void) raproc;
+
+	/* add A, n */
+
+	rc = z80ic_add_a_n_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(vradd->imm8->imm8, &imm);
+	if (rc != EOK)
+		goto error;
+
+	add->imm8 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &add->instr);
+	if (rc != EOK)
+		goto error;
+
+	add = NULL;
+	return EOK;
+error:
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	z80ic_oper_imm8_destroy(imm);
+	return rc;
+}
+
+/** Allocate registers for Z80 add 8-bit immediate to A with carry instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vradd Add instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_adc_a_n(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_adc_a_n_t *vradd, z80ic_lblock_t *lblock)
+{
+	z80ic_adc_a_n_t *add = NULL;
+	z80ic_oper_imm8_t *imm = NULL;
+	int rc;
+
+	(void) raproc;
+
+	/* adc A, n */
+
+	rc = z80ic_adc_a_n_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(vradd->imm8->imm8, &imm);
+	if (rc != EOK)
+		goto error;
+
+	add->imm8 = imm;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &add->instr);
+	if (rc != EOK)
+		goto error;
+
+	add = NULL;
+	return EOK;
+error:
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	z80ic_oper_imm8_destroy(imm);
+	return rc;
+}
+
 /** Allocate registers for Z80 subtract 8-bit immediate instruction.
  *
  * @param raproc Register allocator for procedure
@@ -2618,6 +2703,12 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_r_n:
 		return z80_ralloc_ld_r_n(raproc, label,
 		    (z80ic_ld_r_n_t *) vrinstr->ext, lblock);
+	case z80i_add_a_n:
+		return z80_ralloc_add_a_n(raproc, label,
+		    (z80ic_add_a_n_t *) vrinstr->ext, lblock);
+	case z80i_adc_a_n:
+		return z80_ralloc_adc_a_n(raproc, label,
+		    (z80ic_adc_a_n_t *) vrinstr->ext, lblock);
 	case z80i_sub_n:
 		return z80_ralloc_sub_n(raproc, label,
 		    (z80ic_sub_n_t *) vrinstr->ext, lblock);

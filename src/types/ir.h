@@ -84,6 +84,8 @@ typedef enum {
 	iri_read,
 	/** Copy record */
 	iri_reccopy,
+	/** Record member */
+	iri_recmbr,
 	/** Return */
 	iri_ret,
 	/** Return value */

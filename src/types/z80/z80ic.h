@@ -1059,6 +1059,14 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
 
+/** Z80 IC add 8-bit immediate to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_add_a_n_t;
+
 /** Z80 IC add (IX+d) to A */
 typedef struct {
 	/** Base object */
@@ -1066,6 +1074,14 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_add_a_iixd_t;
+
+/** Z80 IC add 8-bit immediate to A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_adc_a_n_t;
 
 /** Z80 IC add (IX+d) to A with carry */
 typedef struct {

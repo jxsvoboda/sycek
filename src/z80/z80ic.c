@@ -1256,7 +1256,7 @@ int z80ic_ld_r_n_create(z80ic_ld_r_n_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+/** Print Z80 IC load 8-bit register from 8-bit immediate instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -1285,7 +1285,7 @@ static int z80ic_ld_r_n_print(z80ic_ld_r_n_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy Z80 IC load 16-bit dd register from 16-bit immediate instruction.
+/** Destroy Z80 IC load 8-bit register from 8-bit immediate instruction.
  *
  * @param instr Instruction
  */
@@ -1900,6 +1900,55 @@ static void z80ic_pop_ix_destroy(z80ic_pop_ix_t *instr)
 	(void) instr;
 }
 
+/** Create Z80 IC add 8-bit immediate to A instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_add_a_n_create(z80ic_add_a_n_t **rinstr)
+{
+	z80ic_add_a_n_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_add_a_n_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_add_a_n;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add 8-bit immediate to A instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_add_a_n_print(z80ic_add_a_n_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("add A, ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm8_print(instr->imm8, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC add 8-bit immediate to A instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_add_a_n_destroy(z80ic_add_a_n_t *instr)
+{
+	z80ic_oper_imm8_destroy(instr->imm8);
+}
+
 /** Create Z80 IC add (IX+d) to A instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -1942,6 +1991,55 @@ static int z80ic_add_a_iixd_print(z80ic_add_a_iixd_t *instr, FILE *f)
 static void z80ic_add_a_iixd_destroy(z80ic_add_a_iixd_t *instr)
 {
 	(void) instr;
+}
+
+/** Create Z80 IC add 8-bit immediate to A instruction with carry.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_adc_a_n_create(z80ic_adc_a_n_t **rinstr)
+{
+	z80ic_adc_a_n_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_adc_a_n_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_adc_a_n;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC add 8-bit immediate to A instruction with carry.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_adc_a_n_print(z80ic_adc_a_n_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("adc A, ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm8_print(instr->imm8, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC add 8-bit immediate to A instruction with carry.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_adc_a_n_destroy(z80ic_adc_a_n_t *instr)
+{
+	z80ic_oper_imm8_destroy(instr->imm8);
 }
 
 /** Create Z80 IC add (IX+d) to A instruction with carry.
@@ -5213,8 +5311,14 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_pop_ix:
 		rc = z80ic_pop_ix_print((z80ic_pop_ix_t *) instr->ext, f);
 		break;
+	case z80i_add_a_n:
+		rc = z80ic_add_a_n_print((z80ic_add_a_n_t *) instr->ext, f);
+		break;
 	case z80i_add_a_iixd:
 		rc = z80ic_add_a_iixd_print((z80ic_add_a_iixd_t *) instr->ext, f);
+		break;
+	case z80i_adc_a_n:
+		rc = z80ic_adc_a_n_print((z80ic_adc_a_n_t *) instr->ext, f);
 		break;
 	case z80i_adc_a_iixd:
 		rc = z80ic_adc_a_iixd_print((z80ic_adc_a_iixd_t *) instr->ext, f);
@@ -5488,8 +5592,14 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_add_hl_ss:
 		z80ic_add_hl_ss_destroy((z80ic_add_hl_ss_t *) instr->ext);
 		break;
+	case z80i_add_a_n:
+		z80ic_add_a_n_destroy((z80ic_add_a_n_t *) instr->ext);
+		break;
 	case z80i_add_a_iixd:
 		z80ic_add_a_iixd_destroy((z80ic_add_a_iixd_t *) instr->ext);
+		break;
+	case z80i_adc_a_n:
+		z80ic_adc_a_n_destroy((z80ic_adc_a_n_t *) instr->ext);
 		break;
 	case z80i_adc_a_iixd:
 		z80ic_adc_a_iixd_destroy((z80ic_adc_a_iixd_t *) instr->ext);
