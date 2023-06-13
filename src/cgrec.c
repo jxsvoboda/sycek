@@ -291,9 +291,9 @@ cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *cur)
 	return list_get_instance(link, cgen_rec_elem_t, lelems);
 }
 
-/** Destroy record scope member element.
+/** Destroy record element.
  *
- * @param elem Record scope member element
+ * @param elem Record element
  */
 static void cgen_rec_elem_destroy(cgen_rec_elem_t *elem)
 {

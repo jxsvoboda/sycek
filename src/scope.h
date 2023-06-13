@@ -27,6 +27,7 @@
 #ifndef SCOPE_H
 #define SCOPE_H
 
+#include <types/cgenum.h>
 #include <types/cgrec.h>
 #include <types/cgtype.h>
 #include <types/scope.h>
@@ -41,6 +42,10 @@ extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
 extern int scope_insert_tdef(scope_t *, lexer_tok_t *, cgtype_t *);
 extern int scope_insert_record(scope_t *, lexer_tok_t *, scope_rec_type_t,
     cgen_record_t *, scope_member_t **);
+extern int scope_insert_enum(scope_t *, lexer_tok_t *, cgen_enum_t *,
+    scope_member_t **);
+extern int scope_insert_eelem(scope_t *, lexer_tok_t *, cgen_enum_elem_t *,
+    scope_member_t **);
 extern scope_member_t *scope_first(scope_t *);
 extern scope_member_t *scope_next(scope_member_t *);
 extern scope_member_t *scope_lookup_local(scope_t *, const char *);

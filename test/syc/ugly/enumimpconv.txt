@@ -1,0 +1,1 @@
+<test/syc/ugly/enumimpconv.c:14:11:'='>: Warning: Implicit conversion from 'enum f' to different enum type 'enum e'.

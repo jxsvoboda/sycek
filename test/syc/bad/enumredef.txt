@@ -1,0 +1,1 @@
+<test/syc/bad/enumredef.c:9:6:id:e>: Redefinition of 'e'.

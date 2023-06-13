@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <ast.h>
+#include <cgenum.h>
 #include <cgrec.h>
 #include <charcls.h>
 #include <comp.h>
@@ -86,7 +87,8 @@ static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 static int cgen_typedef(cgen_t *, ast_idlist_t *, cgtype_t *);
 
 enum {
-	cgen_pointer_bits = 16
+	cgen_pointer_bits = 16,
+	cgen_enum_bits = 16
 };
 
 /** Return the bit width of an arithmetic type.
@@ -215,6 +217,16 @@ static bool cgen_record_is_defined(cgen_record_t *record)
 	return record->irrecord != NULL;
 }
 
+/** Determine if enum is defined (or just declared).
+ *
+ * @param cgenum Enum definition
+ * @return @c true iff enum is defined
+ */
+static bool cgen_enum_is_defined(cgen_enum_t *cgenum)
+{
+	return cgenum->defined;
+}
+
 /** Determine if type is complete.
  *
  * Structs, unions and arrays may be incomplete. In that case their size,
@@ -227,6 +239,7 @@ static bool cgen_record_is_defined(cgen_record_t *record)
 static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 {
 	cgtype_record_t *trecord;
+	cgtype_enum_t *tenum;
 
 	(void)cgen;
 
@@ -238,6 +251,9 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 	case cgn_record:
 		trecord = (cgtype_record_t *)cgtype->ext;
 		return cgen_record_is_defined(trecord->record) == false;
+	case cgn_enum:
+		tenum = (cgtype_enum_t *)cgtype->ext;
+		return cgen_enum_is_defined(tenum->cgenum) == false;
 	case cgn_func:
 		assert(false);
 		return false;
@@ -272,6 +288,8 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 		 */
 		assert(false);
 		return 0;
+	case cgn_enum:
+		return cgen_enum_bits;
 	}
 
 	assert(false);
@@ -654,6 +672,14 @@ int cgen_create(cgen_t **rcgen)
 
 	rc = cgen_records_create(&cgen->records);
 	if (rc != EOK) {
+		scope_destroy(cgen->scope);
+		free(cgen);
+		return ENOMEM;
+	}
+
+	rc = cgen_enums_create(&cgen->enums);
+	if (rc != EOK) {
+		cgen_records_destroy(cgen->records);
 		scope_destroy(cgen->scope);
 		free(cgen);
 		return ENOMEM;
@@ -1428,7 +1454,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		if (member != NULL) {
 			lexer_dprint_tok(&ident_tok->tok, stderr);
 			fprintf(stderr, ": Definition of '%s %s' shadows "
-			    "a wider-scope struct/union definition.\n", rtype,
+			    "a wider-scope struct, union or enum definition.\n", rtype,
 			    ident);
 			++cgen->warnings;
 		}
@@ -1502,7 +1528,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	/*
 	 * We only create a new scope member and cgen_record either if there
 	 * is no previous declaration or if we're shadowing a wider-scope
-	 * declaration while by a new defininiton.
+	 * declaration by a new defininiton.
 	 */
 	if (dmember == NULL || (member == NULL && tsrecord->have_def)) {
 		if (tsrecord->have_ident) {
@@ -1624,6 +1650,232 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 
 	*rflags = flags;
 	*rstype = &rectype->cgtype;
+	return EOK;
+}
+
+/** Generate code for enum type specifier element.
+ *
+ * In outher words, one field of a struct or union definition.
+ *
+ * @param cgen Code generator
+ * @param elem Enum type specifier element
+ * @param cgenum Enum definition
+ * @return EOK on success or an error code
+ */
+static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
+    cgen_enum_t *cgenum)
+{
+	cgtype_t *stype = NULL;
+	cgen_enum_elem_t *eelem;
+	comp_tok_t *ident;
+	comp_tok_t *ctok;
+	scope_member_t *smember;
+	int rc;
+
+	ident = (comp_tok_t *) elem->tident.data;
+
+	if (elem->init != NULL) {
+		ctok = (comp_tok_t *)elem->tequals.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented enum initializer.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = cgen_enum_append(cgenum, ident->tok.text, 42, &eelem);
+	if (rc == EEXIST) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Duplicate enum member '%s'.\n",
+		    ident->tok.text);
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+	if (rc != EOK)
+		goto error;
+
+	/* Insert identifier into current scope */
+	rc = scope_insert_eelem(cgen->cur_scope, &ident->tok, eelem,
+	    &smember);
+	if (rc != EOK) {
+		if (rc == EEXIST) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Duplicate identifier '%s'.\n",
+			    ident->tok.text);
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
+		goto error;
+	}
+
+	cgtype_destroy(stype);
+	return EOK;
+error:
+	cgtype_destroy(stype);
+	return rc;
+}
+
+/** Generate code for enum type specifier.
+ *
+ * @param cgen Code generator
+ * @param tsenum Enum type specifier
+ * @param rflags Place to store flags
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
+    cgen_rd_flags_t *rflags, cgtype_t **rstype)
+{
+	comp_tok_t *ident_tok;
+	const char *ident;
+	scope_member_t *member;
+	scope_member_t *dmember;
+	cgtype_enum_t *etype;
+	ast_tsenum_elem_t *elem;
+	cgen_enum_t *cgenum = NULL;
+	cgen_rd_flags_t flags;
+	int rc;
+
+	flags = cgrd_none;
+
+	if (tsenum->have_ident) {
+		ident_tok = (comp_tok_t *)tsenum->tident.data;
+		ident = ident_tok->tok.text;
+	} else {
+		/* Point to 'enum' keyword if no identifier */
+		ident_tok = (comp_tok_t *)tsenum->tenum.data;
+		ident = "<anonymous>";
+	}
+
+	if (tsenum->have_def && cgen->cur_scope->parent != NULL) {
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Definition of 'enum %s' in a non-global "
+		    "scope.\n", ident);
+		++cgen->warnings;
+
+		member = scope_lookup_tag(cgen->cur_scope->parent,
+		    ident);
+		if (member != NULL) {
+			lexer_dprint_tok(&ident_tok->tok, stderr);
+			fprintf(stderr, ": Definition of 'enum %s' shadows "
+			    "a wider-scope struct, union or enum definition.\n",
+			    ident);
+			++cgen->warnings;
+		}
+	}
+
+	if (tsenum->have_def && cgen->tsrec_cnt > 0) {
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Definition of 'enum %s' inside "
+		    "struct or union definition.\n", ident);
+		++cgen->warnings;
+	}
+
+	if (tsenum->have_def && cgen->arglist_cnt > 0) {
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Definition of 'enum %s' inside parameter "
+		    "list will not be visible outside of function "
+		    "declaration/definition.\n", ident);
+		++cgen->warnings;
+	}
+
+	/* Look for previous definition in current scope */
+	member = scope_lookup_tag_local(cgen->cur_scope, ident);
+
+	/* If already exists, but as a different kind of tag */
+	if (member != NULL && member->mtype != sm_enum) {
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Redefinition of '%s' as a different kind of tag.\n",
+		    member->tident->text);
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	/* Look for a usable previous declaration */
+	dmember = scope_lookup_tag(cgen->cur_scope, ident);
+	if (dmember != NULL && dmember->mtype != sm_enum)
+		dmember = NULL;
+
+	/* If already exists, is defined */
+	if (member != NULL && cgen_enum_is_defined(member->m.menum.cgenum)) {
+		/* Enum was previously defined */
+		flags |= cgrd_prevdef;
+
+		if (tsenum->have_def) {
+			lexer_dprint_tok(&ident_tok->tok, stderr);
+			fprintf(stderr, ": Redefinition of '%s'.\n",
+			    member->tident->text);
+			cgen->error = true; // TODO
+			return EINVAL;
+		}
+	}
+
+	if (dmember != NULL) {
+		/* Already declared */
+		cgenum = dmember->m.menum.cgenum;
+		flags |= cgrd_prevdecl;
+	}
+
+	/*
+	 * We only create a new scope member and cgen_enum either if there
+	 * is no previous declaration or if we're shadowing a wider-scope
+	 * declaration by a new defininiton.
+	 */
+	if (dmember == NULL || (member == NULL && tsenum->have_def)) {
+
+		/* Create new enum definition */
+		rc = cgen_enum_create(cgen->enums, tsenum->have_ident ?
+		    ident : NULL, &cgenum);
+		if (rc != EOK)
+			return rc;
+
+		if (dmember != NULL)
+			dmember->m.menum.cgenum = cgenum;
+
+		if (tsenum->have_ident) {
+			/* Insert new enum scope member */
+			rc = scope_insert_enum(cgen->cur_scope, &ident_tok->tok,
+			    cgenum, &dmember);
+			if (rc != EOK)
+				return EINVAL;
+		}
+	}
+
+	elem = ast_tsenum_first(tsenum);
+	if (tsenum->have_def && elem == NULL) {
+		/* No elements */
+		lexer_dprint_tok(&ident_tok->tok, stderr);
+		fprintf(stderr, ": Enum '%s' is empty.\n", ident);
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
+	while (elem != NULL) {
+		rc = cgen_tsenum_elem(cgen, elem, cgenum);
+		if (rc != EOK)
+			return EINVAL;
+
+		elem = ast_tsenum_next(elem);
+	}
+
+	/* Enum type */
+	rc = cgtype_enum_create(cgenum, &etype);
+	if (rc != EOK)
+		return rc;
+
+	if (tsenum->have_def)
+		cgenum->defined = true;
+
+	/* Enum always declares useful identifiers */
+	flags |= cgrd_ident;
+
+	if (tsenum->have_def)
+		flags |= cgrd_def;
+
+	*rflags = flags;
+	*rstype = &etype->cgtype;
 	return EOK;
 }
 
@@ -1862,6 +2114,12 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 		case ant_tsrecord:
 			rc = cgen_tsrecord(cgen,
 			    (ast_tsrecord_t *)cgds->tspec->ext, &flags, &stype);
+			if (rc != EOK)
+				goto error;
+			break;
+		case ant_tsenum:
+			rc = cgen_tsenum(cgen,
+			    (ast_tsenum_t *)cgds->tspec->ext, &flags, &stype);
 			if (rc != EOK)
 				goto error;
 			break;
@@ -2490,7 +2748,6 @@ static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,
  * @param cgproc Code generator for procedure
  * @param eident AST identifier expression
  * @param vident Identifier of IR variable holding the local variable
- * @param idx Argument index
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  *
@@ -2545,6 +2802,59 @@ error:
 	return rc;
 }
 
+/** Generate code for identifier expression referencing enum element.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eident AST identifier expression
+ * @param eelem Enum element
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_eident_eelem(cgen_proc_t *cgproc, ast_eident_t *eident,
+    cgen_enum_elem_t *eelem, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_imm_t *imm = NULL;
+	int rc;
+
+	(void)eident;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(eelem->value, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgen_enum_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = NULL;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	return rc;
+}
+
 /** Generate code for identifier expression.
  *
  * @param cgproc Code generator for procedure
@@ -2591,12 +2901,16 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		    lblock, eres);
 		break;
 	case sm_record:
+	case sm_enum:
 		/*
 		 * Should not happen - call to scope lookup above cannot
-		 * match a record tag.
+		 * match a record or enum tag.
 		 */
 		assert(false);
 		return EINVAL;
+	case sm_eelem:
+		rc = cgen_eident_eelem(cgproc, eident, member->m.eelem.eelem,
+		    lblock, eres);
 		break;
 	case sm_tdef:
 		lexer_dprint_tok(&ident->tok, stderr);
@@ -5250,6 +5564,8 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 		bits = cgen_pointer_bits;
 	} else if (vres->cgtype->ntype == cgn_record) {
 		return cgen_store_record(cgproc, ares, vres, lblock);
+	} else if (vres->cgtype->ntype == cgn_enum) {
+		bits = cgen_enum_bits;
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -7575,6 +7891,8 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 		}
 	} else if (res->cgtype->ntype == cgn_pointer) {
 		bits = cgen_pointer_bits;
+	} else if (res->cgtype->ntype == cgn_enum) {
+		bits = cgen_enum_bits;
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -8168,6 +8486,59 @@ error:
 	return rc;
 }
 
+/** Convert expression result between two enum types.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expresson result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype,  cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgtype_enum_t *etype1;
+	cgtype_enum_t *etype2;
+	cgtype_t *cgtype;
+	int rc;
+
+	(void)cgproc;
+	(void)lblock;
+
+	assert(ares->cgtype->ntype == cgn_enum);
+	assert(dtype->ntype == cgn_enum);
+
+	etype1 = (cgtype_enum_t *)ares->cgtype->ext;
+	etype2 = (cgtype_enum_t *)dtype->ext;
+
+	if (etype1->cgenum != etype2->cgenum && expl != cgen_explicit) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, "' to different enum type '");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, "'.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = ares->varname;
+	cres->valtype = ares->valtype;
+	cres->cgtype = cgtype;
+	cres->valused = ares->valused;
+error:
+	return rc;
+}
+
 /** Convert expression result from integer to pointer.
  *
  * @param cgproc Code generator for procedure
@@ -8263,6 +8634,13 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	if (ares->cgtype->ntype == cgn_record &&
 	    dtype->ntype == cgn_record) {
 		return cgen_type_convert_record(cgproc, ctok, ares, dtype,
+		    lblock, cres);
+	}
+
+	/* Source and destination types are enum types */
+	if (ares->cgtype->ntype == cgn_enum &&
+	    dtype->ntype == cgn_enum) {
+		return cgen_type_convert_enum(cgproc, ctok, ares, dtype, expl,
 		    lblock, cres);
 	}
 
@@ -10274,6 +10652,10 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 		    rirtexpr);
 		if (rc != EOK)
 			goto error;
+	} else if (cgtype->ntype == cgn_enum) {
+		rc = ir_texpr_int_create(cgen_enum_bits, rirtexpr);
+		if (rc != EOK)
+			goto error;
 	} else {
 		fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
 		cgen->error = true; // TODO
@@ -10908,6 +11290,16 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock
 
 			elem = cgen_record_next(elem);
 		}
+	} else if (stype->ntype == cgn_enum) {
+		rc = ir_dentry_create_int(16, 0, &dentry);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_dblock_append(dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgen->error = true; // TODO
@@ -11422,13 +11814,14 @@ static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
 
 		dentry = NULL;
 
-	} else if (cgtype->ntype == cgn_record) {
+	} else if (cgtype->ntype == cgn_record ||
+	    cgtype->ntype == cgn_enum) {
 		rc = cgen_init_dentries(cgen, cgtype, var->dblock);
 		if (rc != EOK)
 			goto error;
 	} else {
 		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Unimplemented variable type.\n");
+		fprintf(stderr, ": UUUUnimplemented variable type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;

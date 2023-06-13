@@ -233,10 +233,10 @@ Specifically, these language features are supported:
  * Basic support for pointers
  * Typedef
  * Struct, union
+ * Enum (WIP)
 
 These are NOT supported:
 
- * Enum
  * Arrays
  * Bit fields
  * Floating point
@@ -354,6 +354,7 @@ It can detect the following types of problems and style issues:
  * conversion may loose significant digits
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
+ * implicit conversion between enum types
  * converting to pointer from integer of different size
  * pointer should be the left operand while indexing
  * type definition in a non-global scope

@@ -38,7 +38,9 @@ typedef enum {
 	/** Pointer type */
 	cgn_pointer,
 	/** Record type */
-	cgn_record
+	cgn_record,
+	/** Enum type */
+	cgn_enum
 } cgtype_ntype_t;
 
 /** Elementary types */
@@ -139,5 +141,13 @@ typedef struct {
 	/** Code generator record definition */
 	struct cgen_record *record;
 } cgtype_record_t;
+
+/** Enum type */
+typedef struct {
+	/** Base type object */
+	cgtype_t cgtype;
+	/** Code generator enum definition */
+	struct cgen_enum *cgenum;
+} cgtype_enum_t;
 
 #endif

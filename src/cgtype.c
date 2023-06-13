@@ -694,6 +694,105 @@ static void cgtype_record_destroy(cgtype_record_t *record)
 	free(record);
 }
 
+/** Create enum type.
+ *
+ * @param cgenum Code generator enum definition
+ * @param renum Place to store pointer to new enum type
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgtype_enum_create(cgen_enum_t *cgenum, cgtype_enum_t **renum)
+{
+	cgtype_enum_t *tenum;
+
+	tenum = calloc(1, sizeof(cgtype_enum_t));
+	if (tenum == NULL)
+		return ENOMEM;
+
+	tenum->cgtype.ntype = cgn_enum;
+	tenum->cgtype.ext = tenum;
+	tenum->cgenum = cgenum;
+	*renum = tenum;
+	return EOK;
+}
+
+/** Print enum type.
+ *
+ * @param tenum Enum type
+ * @param f Output stream
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int cgtype_enum_print(cgtype_enum_t *tenum, FILE *f)
+{
+	int rv;
+	const char *cident;
+
+	if (tenum->cgenum->cident != NULL)
+		cident = tenum->cgenum->cident;
+	else
+		cident = "<anonymous>";
+
+	rv = fprintf(f, "enum %s", cident);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Clone enum type.
+ *
+ * @param orig Original enum type
+ * @param rcopy Place to store pointer to copy
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgtype_enum_clone(cgtype_enum_t *orig, cgtype_t **rcopy)
+{
+	cgtype_enum_t *copy = NULL;
+	int rc;
+
+	rc = cgtype_enum_create(orig->cgenum, &copy);
+	if (rc != EOK)
+		return rc;
+
+	*rcopy = &copy->cgtype;
+	return EOK;
+}
+
+/** Compose enum types.
+ *
+ * @param a First enum type
+ * @param b Second enum type
+ * @param rcomp Place to store pointer to composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+static int cgtype_enum_compose(cgtype_enum_t *a, cgtype_enum_t *b,
+    cgtype_t **rcomp)
+{
+	cgtype_enum_t *comp = NULL;
+	int rc;
+
+	if (a->cgenum != b->cgenum)
+		return EINVAL;
+
+	rc = cgtype_enum_create(a->cgenum, &comp);
+	if (rc != EOK)
+		return rc;
+
+	*rcomp = &comp->cgtype;
+	return EOK;
+}
+
+/** Destroy enum type.
+ *
+ * @param tenum Enum type
+ */
+static void cgtype_enum_destroy(cgtype_enum_t *tenum)
+{
+	free(tenum);
+}
+
 /** Deep clone of code generator type.
  *
  * It's easier to deep clone types than to manage sharing nodes. Let's
@@ -720,6 +819,9 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 		    rcopy);
 	case cgn_record:
 		return cgtype_record_clone((cgtype_record_t *) orig->ext,
+		    rcopy);
+	case cgn_enum:
+		return cgtype_enum_clone((cgtype_enum_t *) orig->ext,
 		    rcopy);
 	}
 
@@ -756,6 +858,9 @@ int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 	case cgn_record:
 		return cgtype_record_compose((cgtype_record_t *) a->ext,
 		    (cgtype_record_t *) b->ext, rcomp);
+	case cgn_enum:
+		return cgtype_enum_compose((cgtype_enum_t *) a->ext,
+		    (cgtype_enum_t *) b->ext, rcomp);
 	}
 
 	assert(false);
@@ -784,6 +889,9 @@ void cgtype_destroy(cgtype_t *cgtype)
 	case cgn_record:
 		cgtype_record_destroy((cgtype_record_t *) cgtype->ext);
 		break;
+	case cgn_enum:
+		cgtype_enum_destroy((cgtype_enum_t *) cgtype->ext);
+		break;
 	}
 }
 
@@ -806,6 +914,8 @@ int cgtype_print(cgtype_t *cgtype, FILE *f)
 		    f);
 	case cgn_record:
 		return cgtype_record_print((cgtype_record_t *) cgtype->ext, f);
+	case cgn_enum:
+		return cgtype_enum_print((cgtype_enum_t *) cgtype->ext, f);
 	}
 
 	assert(false);
@@ -943,6 +1053,9 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 	case cgn_record:
 		return ((cgtype_record_t *)sptr->tgtype->ext)->record ==
 		    ((cgtype_record_t *)dptr->tgtype->ext)->record;
+	case cgn_enum:
+		return ((cgtype_enum_t *)sptr->tgtype->ext)->cgenum ==
+		    ((cgtype_enum_t *)dptr->tgtype->ext)->cgenum;
 	}
 	return true;
 }

@@ -47,6 +47,8 @@ typedef struct {
 	struct symbols *symbols;
 	/** Record definitions */
 	struct cgen_records *records;
+	/** Enum definitions */
+	struct cgen_enums *enums;
 	/** Count nesting of record type specifiers (struct/union defs) */
 	unsigned tsrec_cnt;
 	/** Count nesting of argument lists */

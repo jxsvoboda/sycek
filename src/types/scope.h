@@ -49,20 +49,12 @@ typedef enum {
 	/** Typedef */
 	sm_tdef,
 	/** Record definition */
-	sm_record
+	sm_record,
+	/** Enum definition */
+	sm_enum,
+	/** Enum element */
+	sm_eelem
 } scope_member_type_t;
-
-/** Scope record element */
-typedef struct {
-	/** Containing scope member record */
-	struct scope_member_record *record;
-	/** Link to @c record->elems */
-	link_t lelems;
-	/** Member identifier */
-	char *ident;
-	/** Member type */
-	struct cgtype *cgtype;
-} scope_record_elem_t;
 
 /** Scope member - function argument */
 typedef struct {
@@ -90,9 +82,19 @@ typedef struct scope_member_record {
 	struct cgen_record *record;
 	/** Scope record type */
 	scope_rec_type_t srtype;
-	/** Scope record elements (of scope_record_elem_t) */
-	list_t elems;
 } scope_member_record_t;
+
+/** Scope member - enum definition */
+typedef struct scope_member_enum {
+	/** Enum definition */
+	struct cgen_enum *cgenum;
+} scope_member_enum_t;
+
+/** Scope member - enum element */
+typedef struct scope_member_eelem {
+	/** Enum element */
+	struct cgen_enum_elem *eelem;
+} scope_member_eelem_t;
 
 /** Scope member */
 typedef struct scope_member {
@@ -112,6 +114,8 @@ typedef struct scope_member {
 		scope_member_arg_t arg;
 		scope_member_lvar_t lvar;
 		scope_member_record_t record;
+		scope_member_enum_t menum;
+		scope_member_eelem_t eelem;
 	} m;
 } scope_member_t;
 

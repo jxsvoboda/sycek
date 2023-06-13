@@ -1,0 +1,1 @@
+<test/syc/bad/enumdupi.c:8:9-10:id:e1>: Duplicate identifier 'e1'.

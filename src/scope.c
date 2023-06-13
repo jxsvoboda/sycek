@@ -77,6 +77,10 @@ void scope_destroy(scope_t *scope)
 			break;
 		case sm_record:
 			break;
+		case sm_enum:
+			break;
+		case sm_eelem:
+			break;
 		}
 
 		cgtype_destroy(member->cgtype);
@@ -308,6 +312,96 @@ int scope_insert_record(scope_t *scope, lexer_tok_t *tident,
 	return EOK;
 }
 
+/** Insert enum to identifier scope.
+ *
+ * @param scope Scope
+ * @param tident Tag identifier token
+ * @param enum Enum definition
+ * @param rmember Place to store pointer to new member or @c NULL if not
+ *                interested.
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
+ *         identifier is already present in the scope
+ */
+int scope_insert_enum(scope_t *scope, lexer_tok_t *tident,
+    cgen_enum_t *cgenum, scope_member_t **rmember)
+{
+	scope_member_t *member;
+	cgtype_enum_t *etype = NULL;
+	int rc;
+
+	member = scope_lookup_tag_local(scope, tident->text);
+	if (member != NULL) {
+		/* Identifier already exists */
+		return EEXIST;
+	}
+
+	member = calloc(1, sizeof(scope_member_t));
+	if (member == NULL)
+		return ENOMEM;
+
+	rc = cgtype_enum_create(cgenum, &etype);
+	if (rc != EOK) {
+		free(member);
+		return ENOMEM;
+	}
+
+	member->tident = tident;
+	member->cgtype = &etype->cgtype;
+	member->mtype = sm_enum;
+	member->m.menum.cgenum = cgenum;
+	member->scope = scope;
+	list_append(&member->lmembers, &scope->members);
+
+	if (rmember != NULL)
+		*rmember = member;
+	return EOK;
+}
+
+/** Insert enum elem to identifier scope.
+ *
+ * @param scope Scope
+ * @param tident Tag identifier token
+ * @param eelem Enum element
+ * @param rmember Place to store pointer to new member or @c NULL if not
+ *                interested.
+ * @return EOK on success, ENOMEM if out of memory, EEXIST if the
+ *         identifier is already present in the scope
+ */
+int scope_insert_eelem(scope_t *scope, lexer_tok_t *tident,
+    cgen_enum_elem_t *eelem, scope_member_t **rmember)
+{
+	scope_member_t *member;
+	cgtype_enum_t *etype = NULL;
+	int rc;
+
+	member = scope_lookup_local(scope, tident->text);
+	if (member != NULL) {
+		/* Identifier already exists */
+		return EEXIST;
+	}
+
+	member = calloc(1, sizeof(scope_member_t));
+	if (member == NULL)
+		return ENOMEM;
+
+	rc = cgtype_enum_create(eelem->cgenum, &etype);
+	if (rc != EOK) {
+		free(member);
+		return ENOMEM;
+	}
+
+	member->tident = tident;
+	member->cgtype = &etype->cgtype;
+	member->mtype = sm_eelem;
+	member->m.eelem.eelem = eelem;
+	member->scope = scope;
+	list_append(&member->lmembers, &scope->members);
+
+	if (rmember != NULL)
+		*rmember = member;
+	return EOK;
+}
+
 /** Get first (local) scope member.
  *
  * @param scope Scope
@@ -375,7 +469,8 @@ scope_member_t *scope_lookup_tag_local(scope_t *scope, const char *ident)
 	member = scope_first(scope);
 	while (member != NULL) {
 		if (strcmp(member->tident->text, ident) == 0 &&
-		    member->mtype == sm_record)
+		    (member->mtype == sm_record ||
+		    member->mtype == sm_enum))
 			return member;
 
 		member = scope_next(member);
