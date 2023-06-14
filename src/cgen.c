@@ -1669,7 +1669,7 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	cgen_enum_elem_t *eelem;
 	comp_tok_t *ident;
 	comp_tok_t *ctok;
-	scope_member_t *smember;
+	scope_member_t *member;
 	int rc;
 
 	ident = (comp_tok_t *) elem->tident.data;
@@ -1695,9 +1695,22 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	if (rc != EOK)
 		goto error;
 
+	/* Check for shadowing a wider-scope identifier */
+	if (cgen->cur_scope->parent != NULL) {
+		member = scope_lookup(cgen->cur_scope->parent,
+		    ident->tok.text);
+		if (member != NULL) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Declaration of '%s' "
+			    "shadows a wider-scope declaration.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		}
+	}
+
 	/* Insert identifier into current scope */
 	rc = scope_insert_eelem(cgen->cur_scope, &ident->tok, eelem,
-	    &smember);
+	    &member);
 	if (rc != EOK) {
 		if (rc == EEXIST) {
 			lexer_dprint_tok(&ident->tok, stderr);
@@ -1868,8 +1881,14 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 	if (tsenum->have_def)
 		cgenum->defined = true;
 
-	/* Enum always declares useful identifiers */
-	flags |= cgrd_ident;
+	/*
+	 * Enum definition always declares useful identifiers.
+	 * We want to allow anonymous enum definitions 'enum { ... };',
+	 * but warn for enum forward declarations 'enum x;' which
+	 * are forbidden by the C standard
+	 */
+	if (tsenum->have_def)
+		flags |= cgrd_ident;
 
 	if (tsenum->have_def)
 		flags |= cgrd_def;
@@ -6837,7 +6856,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
 		ctok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Struct/union definition inside a cast.\n");
+		fprintf(stderr, ": Warning: Struct/union/enum definition inside a cast.\n");
 		++cgproc->cgen->warnings;
 	}
 

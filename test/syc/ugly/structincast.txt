@@ -1,0 +1,3 @@
+<test/syc/ugly/structincast.c:9:29-31:id:foo>: Definition of 'struct foo' in a non-global scope.
+<test/syc/ugly/structincast.c:9:22-27:'struct'>: Warning: Struct/union/enum definition inside a cast.
+<test/syc/ugly/structincast.c:9:29-31:id:foo>: Warning: 'foo' is defined, but not used.

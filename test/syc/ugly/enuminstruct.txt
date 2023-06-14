@@ -1,0 +1,1 @@
+<test/syc/ugly/enuminstruct.c:6:14:id:e>: Definition of 'enum e' inside struct or union definition.

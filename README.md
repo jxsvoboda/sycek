@@ -358,12 +358,13 @@ It can detect the following types of problems and style issues:
  * converting to pointer from integer of different size
  * pointer should be the left operand while indexing
  * type definition in a non-global scope
- * definition of struct/union shadows a wider-scope struct/union definition
- * definition of struct/union in non-global scope
- * definition of struct/union inside another struct/union definition
- * definition of struct/union inside parameter list will not be visible
+ * definition of struct/union/enum shadows a wider-scope struct/union/enum
+   definition
+ * definition of struct/union/enum in non-global scope
+ * definition of struct/union/enum inside another struct/union definition
+ * definition of struct/union/enum inside parameter list will not be visible
    outside of function declaration/definition
- * struct/union definition inside a cast
+ * struct/union/enum definition inside a cast
  * mixing arguments with and without an identifier
  * useless type in empty declaration
  * multiple declarations of function/variable/struct/union

@@ -1,0 +1,4 @@
+<test/syc/ugly/enumincast.c:7:21-23:id:foo>: Definition of 'enum foo' in a non-global scope.
+<test/syc/ugly/enumincast.c:7:16-19:'enum'>: Warning: Struct/union/enum definition inside a cast.
+<test/syc/ugly/enumincast.c:7:21-23:id:foo>: Warning: 'foo' is defined, but not used.
+<test/syc/ugly/enumincast.c:7:31-32:id:e2>: Warning: 'e2' is defined, but not used.

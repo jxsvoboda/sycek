@@ -1,0 +1,1 @@
+<test/syc/ugly/enumfwddecl.c:5:1-4:'enum'>: Warning: Useless type in empty declaration.
