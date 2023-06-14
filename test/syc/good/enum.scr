@@ -1,0 +1,10 @@
+mapfile "enum.map";
+ldbin "enum.bin", 0x8000;
+
+ld word ptr (@_x1), 0xffff;
+ld word ptr (@_x2), 0xffff;
+ld word ptr (@_x3), 0xffff;
+call @_eset;
+verify word ptr (@_x1), 0;
+verify word ptr (@_x2), 1;
+verify word ptr (@_x3), 2;

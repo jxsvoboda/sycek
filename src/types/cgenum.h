@@ -29,6 +29,7 @@
 
 #include <adt/list.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /** Enum element */
 typedef struct cgen_enum_elem {
@@ -52,6 +53,8 @@ typedef struct cgen_enum {
 	char *cident;
 	/** @c true iff enum is in process of being defined */
 	bool defining;
+	/** Next value to be assigned */
+	int64_t next_value;
 	/** Enum elements (of cgen_enum_elem_t) */
 	list_t elems;
 	/** @c true iff enum is defined */

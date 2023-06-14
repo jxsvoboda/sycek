@@ -1670,6 +1670,7 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	comp_tok_t *ident;
 	comp_tok_t *ctok;
 	scope_member_t *member;
+	int64_t value;
 	int rc;
 
 	ident = (comp_tok_t *) elem->tident.data;
@@ -1683,7 +1684,9 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 		goto error;
 	}
 
-	rc = cgen_enum_append(cgenum, ident->tok.text, 42, &eelem);
+	value = cgenum->next_value;
+
+	rc = cgen_enum_append(cgenum, ident->tok.text, value, &eelem);
 	if (rc == EEXIST) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Duplicate enum member '%s'.\n",
@@ -1724,6 +1727,7 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	}
 
 	cgtype_destroy(stype);
+	cgenum->next_value = value + 1;
 	return EOK;
 error:
 	cgtype_destroy(stype);
