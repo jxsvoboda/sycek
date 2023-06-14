@@ -408,6 +408,28 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	return EOK;
 }
 
+/** Get value of constant integer expression.
+ *
+ * @param cgen Code generator
+ * @param expr Constant integer expression
+ * @param rval Place to store value
+ * @param rtype Place to store elementary type
+ * @return EOK on success, EINVAL if expression is not valid
+ */
+static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
+    cgtype_elmtype_t *rtype)
+{
+	comp_tok_t *ctok;
+	ast_eint_t *eint;
+
+	if (expr->ntype != ant_eint)
+		return EINVAL;
+
+	eint = (ast_eint_t *)expr->ext;
+	ctok = (comp_tok_t *)eint->tlit.data;
+	return cgen_intlit_val(cgen, ctok, rval, rtype);
+}
+
 /** Create local variable operand with specific number.
  *
  * @param var Variable number
@@ -1670,21 +1692,26 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	comp_tok_t *ident;
 	comp_tok_t *ctok;
 	scope_member_t *member;
+	cgtype_elmtype_t elmtype;
 	int64_t value;
 	int rc;
 
 	ident = (comp_tok_t *) elem->tident.data;
 
 	if (elem->init != NULL) {
-		ctok = (comp_tok_t *)elem->tequals.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented enum initializer.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
+		rc = cgen_intexpr_val(cgen, elem->init, &value, &elmtype);
+		if (rc != EOK) {
+			ctok = (comp_tok_t *)elem->tequals.data;
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Unimplemented initializer "
+			    "expression.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+	} else {
+		value = cgenum->next_value;
 	}
-
-	value = cgenum->next_value;
 
 	rc = cgen_enum_append(cgenum, ident->tok.text, value, &eelem);
 	if (rc == EEXIST) {
