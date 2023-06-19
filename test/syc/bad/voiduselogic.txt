@@ -1,0 +1,1 @@
+<test/syc/bad/voiduselogic.c:11:13-19:id:retvoid>: Invalid use of void value.

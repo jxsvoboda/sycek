@@ -198,7 +198,13 @@ typedef enum {
 	/** No flags */
 	cguac_none = 0,
 	/** Mixed signedness integers converted to unsigned */
-	cguac_mix2u = 0x1
+	cguac_mix2u = 0x1,
+	/** Enum(s) converted to integer(s) */
+	cguac_enum = 0x2,
+	/** Two incompatible enum types */
+	cguac_enuminc = 0x4,
+	/** Enum type and non-enum type */
+	cguac_enummix = 0x8
 } cgen_uac_flags_t;
 
 /** Record declaration flags */

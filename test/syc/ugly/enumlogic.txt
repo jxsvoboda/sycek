@@ -1,0 +1,20 @@
+<test/syc/ugly/enumlogic.c:13:13-14:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:13:13-14:id:e1>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:13:19-20:id:e2>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:13:19-20:id:e2>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:13:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/enumlogic.c:14:13-14:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:14:13-14:id:e1>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:14:19:num:1>: Warning: 'int' used as a truth value.
+<test/syc/ugly/enumlogic.c:14:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/enumlogic.c:15:14-15:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:15:14-15:id:e1>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:15:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/enumlogic.c:17:13-14:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:17:13-14:id:e1>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:20:16-17:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:20:16-17:id:e1>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:24:18-19:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:24:18-19:id:e1>: Warning: 'enum e' used as a truth value.
+<test/syc/ugly/enumlogic.c:26:23-24:id:e1>: Warning: Suspicious logic operation involving enums.
+<test/syc/ugly/enumlogic.c:26:23-24:id:e1>: Warning: 'enum e' used as a truth value.

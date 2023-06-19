@@ -355,6 +355,9 @@ It can detect the following types of problems and style issues:
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * implicit conversion between enum types
+ * suspicious arithmetic/logic operation involving enums
+ * comparison of different enum types
+ * comparison of enum and non-enum type
  * converting to pointer from integer of different size
  * pointer should be the left operand while indexing
  * type definition in a non-global scope
@@ -370,6 +373,70 @@ It can detect the following types of problems and style issues:
  * multiple declarations of function/variable/struct/union
  * declaration of function/variable/struct/union follows definition
  * variable not used since forward declaration
+
+### Strict truth type
+
+While C has the type `bool` (or `_Bool`), logic operations produce and
+consume `int`, due to historic reasons. Syc pretends that C actually
+has a built-in boolean type that is produced and consumed by logic
+operations. It behaves just like `int`, except that trying to implicitly
+convert between values of this type (which we call `truth values`)
+and another type (e.g. `int`) produces a warning. Thus we can enforce
+strict use of truth type while still allowing standards-compliant programs
+to compile (by ignoring warnings).
+
+For example:
+
+    int i = 1 < 0;
+
+will produce a warning, because we are converting a truth value (produced
+by the comparison operator,) and implicitly converting it to an int.
+
+Conversely:
+
+    int i;
+    if (i)
+	return;
+
+will produce a warning, because we use int in a place where a truth value
+is expected. (Should be changed to e.g. `if (i != 0)` or, if i is supposed
+to be a boolean varuable, its type needs to be changed to `bool`.
+
+### Strict enum types
+
+In C enums are mostly interchangeable with integer types. Implicit
+conversion from/to integer or arithmetic on enum types is allowed.
+This can lead to errors. Syc pretends that enums are strictly typed.
+Implicit conversion from/to other type (e.g. integer) will produce
+a warning. Arithmetic on enum types will produce a warning,
+with the exception of adding/subtracting an integer to/from an enum.
+It is also allowed to compare two values of the same enum type.
+Trying to use an enum where a logic value is expected will also
+produce a warning.
+
+As an exception, enum types that neither have a tag nor any typedef
+or instance are not considered strict. They are considered just a
+collection of integer constants. For example:
+
+    enum {
+	e1 = 1
+    };
+
+    int i = e1;
+
+will not produce a warning, because e1 is considered to be just
+an integer constant. On the other hand:
+
+    typedef enum {
+	e1
+    } e_t;
+
+    e_t x = 1;
+    int y = e1;
+
+will produce two warnings, one for each assignment, because the type
+e_t is considered a strict enum type and its members e1 are also
+considered strictly enum values.
 
 Intermediate Representation
 ---------------------------

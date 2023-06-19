@@ -1,0 +1,13 @@
+<test/syc/ugly/enumcmpmix.c:10:16:'<'>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:12:16-17:'<='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:14:16-17:'=='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:16:16-17:'!='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:18:16-17:'>='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:20:16:'>'>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:23:15:'<'>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:25:15-16:'<='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:27:15-16:'=='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:29:15-16:'!='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:31:15-16:'>='>: Warning: Comparison of enum and non-enum type.
+'<test/syc/ugly/enumcmpmix.c:33:15:'>'>: Warning: Comparison of enum and non-enum type.
+'

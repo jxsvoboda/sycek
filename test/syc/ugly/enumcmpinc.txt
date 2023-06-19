@@ -1,0 +1,7 @@
+<test/syc/ugly/enumcmpinc.c:14:16:'<'>: Warning: Comparison of different enum types.
+'<test/syc/ugly/enumcmpinc.c:16:16-17:'<='>: Warning: Comparison of different enum types.
+'<test/syc/ugly/enumcmpinc.c:18:16-17:'=='>: Warning: Comparison of different enum types.
+'<test/syc/ugly/enumcmpinc.c:20:16-17:'!='>: Warning: Comparison of different enum types.
+'<test/syc/ugly/enumcmpinc.c:22:16-17:'>='>: Warning: Comparison of different enum types.
+'<test/syc/ugly/enumcmpinc.c:24:16:'>'>: Warning: Comparison of different enum types.
+'
