@@ -1,0 +1,1 @@
+<test/syc/ugly/enumuminus.c:16:13:'-'>: Warning: Suspicious arithmetic operation involving enums.

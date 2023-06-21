@@ -61,6 +61,8 @@ static int cgen_eres_promoted_rvalue(cgen_proc_t *, cgen_eres_t *,
     ir_lblock_t *, cgen_eres_t *);
 static int cgen_enum2int(cgen_proc_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *, bool *);
+static int cgen_int2enum(cgen_proc_t *, cgen_eres_t *, cgtype_t *,
+    cgen_eres_t *);
 static int cgen_uac(cgen_proc_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
 static int cgen_expr2_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
@@ -3284,40 +3286,20 @@ static int cgen_add_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t ares;
-	cgtype_int_rank_t rank;
-	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&ares);
 
 	rc = cgen_add_int(cgproc, lres, rres, lblock, &ares);
 	if (rc != EOK)
-		goto error;
+		return rc;
 
-	rank = cgtype_int_rank(ares.cgtype);
-	is_signed = cgen_type_is_signed(cgproc->cgen, ares.cgtype);
-
-	/*
-	 * If the number was extended beyond the range of 'int',
-	 * we cannot pretend it is an enum anymore. Just return it
-	 * as an integer type.
-	 */
-	if (rank > cgir_int || (rank == cgir_int && !is_signed)) {
-		cgen_eres_clone(&ares, eres);
-		return EOK;
-	}
-
-	eres->varname = ares.varname;
-	eres->valtype = ares.valtype;
-
-	rc = cgtype_clone(lres->cgtype, &eres->cgtype);
+	/* Convert result back to original enum type, if possible */
+	rc = cgen_int2enum(cgproc, &ares, lres->cgtype, eres);
 	if (rc != EOK)
-		goto error;
+		return rc;
 
-	cgen_eres_fini(&ares);
-error:
-	cgen_eres_fini(&ares);
-	return rc;
+	return EOK;
 }
 
 /** Generate code for addition of pointer and integer.
@@ -7520,20 +7502,30 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	cgen_eres_t bres;
+	cgen_eres_t bires;
+	cgen_eres_t sres;
+	bool conv;
 	unsigned bits;
 	int rc;
 
 	cgen_eres_init(&bres);
+	cgen_eres_init(&bires);
+	cgen_eres_init(&sres);
 
 	/* Evaluate and promote base expression */
 	rc = cgen_expr_promoted_rvalue(cgproc, eusign->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
+	/* Convert enum to int if needed */
+	rc = cgen_enum2int(cgproc, &bres, lblock, &bires, &conv);
+	if (rc != EOK)
+		goto error;
+
 	atok = ast_tree_first_tok(&eusign->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if (bres.cgtype->ntype != cgn_basic) {
+	if (bires.cgtype->ntype != cgn_basic) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -7542,7 +7534,7 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	}
 
 	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)bres.cgtype->ext);
+	    (cgtype_basic_t *)bires.cgtype->ext);
 	if (bits == 0) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented variable type.\n");
@@ -7552,7 +7544,10 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	}
 
 	if (eusign->usign == aus_minus) {
-		/* neg %<dest>, %<bres> */
+		if (conv)
+			cgen_warn_arith_enum(cgproc->cgen, &eusign->tsign);
+
+		/* neg %<dest>, %<bires> */
 
 		rc = ir_instr_create(&instr);
 		if (rc != EOK)
@@ -7562,7 +7557,7 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 		if (rc != EOK)
 			goto error;
 
-		rc = ir_oper_var_create(bres.varname, &barg);
+		rc = ir_oper_var_create(bires.varname, &barg);
 		if (rc != EOK)
 			goto error;
 
@@ -7577,18 +7572,26 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 
 		eres->varname = dest->varname;
 		eres->valtype = cgen_rvalue;
-		/* Salvage the type from bres */
-		eres->cgtype = bres.cgtype;
-		bres.cgtype = NULL;
+		/* Salvage the type from bires */
+		eres->cgtype = bires.cgtype;
+		bires.cgtype = NULL;
 	} else {
-		eres->varname = bres.varname;
-		eres->valtype = cgen_rvalue;
-		/* Salvage the type from bres */
-		eres->cgtype = bres.cgtype;
-		bres.cgtype = NULL;
+		/* Unary plus */
+		sres.varname = bires.varname;
+		sres.valtype = cgen_rvalue;
+		/* Salvage the type from bires */
+		sres.cgtype = bires.cgtype;
+		bires.cgtype = NULL;
+
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &sres, bres.cgtype, eres);
+		if (rc != EOK)
+			return rc;
 	}
 
 	cgen_eres_fini(&bres);
+	cgen_eres_fini(&bires);
+	cgen_eres_fini(&sres);
 
 	return EOK;
 error:
@@ -7598,6 +7601,8 @@ error:
 	if (barg != NULL)
 		ir_oper_destroy(&barg->oper);
 	cgen_eres_fini(&bres);
+	cgen_eres_fini(&bires);
+	cgen_eres_fini(&sres);
 	return rc;
 }
 
@@ -8389,6 +8394,51 @@ static int cgen_enum2int(cgen_proc_t *cgproc, cgen_eres_t *res,
 	return EOK;
 error:
 	return rc;
+}
+
+/** Generate code for converting integer back to enum after arithmetic
+ * operation.
+ *
+ * Arithmetic with enums works, in general, such that for allowed operations
+ * we first convert enum inputs to integer types, perform the operation
+ * with integers and then, if the result hasn't been extended beyond
+ * the range of int, we can pronounce the result to be still the original
+ * enum type (or, possibly, a promoted version thereof).
+ *
+ * @param cgproc Code generator for procedure
+ * @param bres Result of arithmetic operation
+ * @param etype Original enum type
+ * @param eres Place to store result, possibly converted to enum
+ * @return EOK on success or an error code
+ */
+static int cgen_int2enum(cgen_proc_t *cgproc, cgen_eres_t *ares,
+    cgtype_t *etype, cgen_eres_t *eres)
+{
+	cgtype_int_rank_t rank;
+	bool is_signed;
+	int rc;
+
+	rank = cgtype_int_rank(ares->cgtype);
+	is_signed = cgen_type_is_signed(cgproc->cgen, ares->cgtype);
+
+	/*
+	 * If the number was extended beyond the range of 'int',
+	 * we cannot pretend it is an enum anymore. Just return it
+	 * as an integer type.
+	 */
+	if (rank > cgir_int || (rank == cgir_int && !is_signed)) {
+		cgen_eres_clone(ares, eres);
+		return EOK;
+	}
+
+	eres->varname = ares->varname;
+	eres->valtype = ares->valtype;
+
+	rc = cgtype_clone(etype, &eres->cgtype);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
 }
 
 /** Perform usual arithmetic conversions on a pair of expression results.
