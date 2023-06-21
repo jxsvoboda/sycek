@@ -3271,6 +3271,55 @@ error:
 	return rc;
 }
 
+/** Generate code for addition of enum and integer.
+ *
+ * @param cgproc Code generator for procedure
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of addition
+ * @return EOK on success or an error code
+ */
+static int cgen_add_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t ares;
+	cgtype_int_rank_t rank;
+	bool is_signed;
+	int rc;
+
+	cgen_eres_init(&ares);
+
+	rc = cgen_add_int(cgproc, lres, rres, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rank = cgtype_int_rank(ares.cgtype);
+	is_signed = cgen_type_is_signed(cgproc->cgen, ares.cgtype);
+
+	/*
+	 * If the number was extended beyond the range of 'int',
+	 * we cannot pretend it is an enum anymore. Just return it
+	 * as an integer type.
+	 */
+	if (rank > cgir_int || (rank == cgir_int && !is_signed)) {
+		cgen_eres_clone(&ares, eres);
+		return EOK;
+	}
+
+	eres->varname = ares.varname;
+	eres->valtype = ares.valtype;
+
+	rc = cgtype_clone(lres->cgtype, &eres->cgtype);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&ares);
+error:
+	cgen_eres_fini(&ares);
+	return rc;
+}
+
 /** Generate code for addition of pointer and integer.
  *
  * @param cgproc Code generator for procedure
@@ -3392,27 +3441,38 @@ error:
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
+static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	bool l_int;
 	bool r_int;
+	bool l_enum;
+	bool r_enum;
 	bool l_ptr;
 	bool r_ptr;
 
+	ctok = (comp_tok_t *)optok->data;
+
 	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
 	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
+	l_enum = lres->cgtype->ntype == cgn_enum;
+	r_enum = rres->cgtype->ntype == cgn_enum;
 
 	/* Integer + integer */
 	if (l_int && r_int)
 		return cgen_add_int(cgproc, lres, rres, lblock, eres);
+
+	/* Enum + integer */
+	if (l_enum && r_int)
+		return cgen_add_enum_int(cgproc, lres, rres, lblock, eres);
 
 	l_ptr = lres->cgtype->ntype == cgn_pointer;
 	r_ptr = rres->cgtype->ntype == cgn_pointer;
 
 	/* Pointer + pointer */
 	if (l_ptr && r_ptr) {
-		lexer_dprint_tok(&optok->tok, stderr);
+		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Cannot add ");
 		(void) cgtype_print(lres->cgtype, stderr);
 		fprintf(stderr, " and ");
@@ -3425,17 +3485,43 @@ static int cgen_add(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
 
 	/* Pointer + integer */
 	if (l_ptr && r_int)
-		return cgen_add_ptr_int(cgproc, optok, lres, rres, lblock, eres);
+		return cgen_add_ptr_int(cgproc, ctok, lres, rres, lblock, eres);
 
 	/* Integer + pointer */
 	if (l_int && r_ptr) {
 		/* Produce a style warning and switch the operands */
-		lexer_dprint_tok(&optok->tok, stderr);
+		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
 		++cgproc->cgen->warnings;
-		return cgen_add_ptr_int(cgproc, optok, rres, lres, lblock, eres);
-		return EINVAL;
+		return cgen_add_ptr_int(cgproc, ctok, rres, lres, lblock, eres);
+	}
+
+	/* Integer + enum */
+	if (l_int && r_enum) {
+		/* Produce a style warning and switch the operands */
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Enum should be the left "
+		    "operand while adjusting.\n");
+		++cgproc->cgen->warnings;
+		return cgen_add_enum_int(cgproc, rres, lres, lblock, eres);
+	}
+
+	/* Enum + enum */
+	if (l_enum && r_enum) {
+		/* Produce warning and proceed */
+		cgen_warn_arith_enum(cgproc->cgen, optok);
+		return cgen_add_int(cgproc, lres, rres, lblock, eres);
+	}
+
+	/* Integer + pointer */
+	if (l_int && r_ptr) {
+		/* Produce a style warning and switch the operands */
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Pointer should be the left "
+		    "operand while indexing.\n");
+		++cgproc->cgen->warnings;
+		return cgen_add_ptr_int(cgproc, ctok, rres, lres, lblock, eres);
 	}
 
 	fprintf(stderr, "Unimplemented addition of ");
@@ -3706,13 +3792,16 @@ error:
  * @param eres Place to store result of subtraction
  * @return EOK on success or an error code
  */
-static int cgen_sub(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
+static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	bool l_int;
 	bool r_int;
 	bool l_ptr;
 	bool r_ptr;
+
+	ctok = (comp_tok_t *)optok->data;
 
 	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
 	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
@@ -3726,7 +3815,7 @@ static int cgen_sub(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
 
 	/* Pointer - pointer */
 	if (l_ptr && r_ptr) {
-		lexer_dprint_tok(&optok->tok, stderr);
+		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented pointer subtraction.\n");
 
 		cgproc->cgen->error = true; // TODO
@@ -3735,11 +3824,11 @@ static int cgen_sub(cgen_proc_t *cgproc, comp_tok_t *optok, cgen_eres_t *lres,
 
 	/* Pointer - integer */
 	if (l_ptr && r_int)
-		return cgen_sub_ptr_int(cgproc, optok, lres, rres, lblock, eres);
+		return cgen_sub_ptr_int(cgproc, ctok, lres, rres, lblock, eres);
 
 	/* Integer - pointer */
 	if (l_int && r_ptr) {
-		lexer_dprint_tok(&optok->tok, stderr);
+		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Invalid subtraction of ");
 		(void) cgtype_print(lres->cgtype, stderr);
 		fprintf(stderr, " and ");
@@ -4274,7 +4363,6 @@ static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
-	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -4290,10 +4378,8 @@ static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	ctok = (comp_tok_t *) ebinop->top.data;
-
 	/* Add the two operands */
-	rc = cgen_add(cgproc, ctok, &lres, &rres, lblock, eres);
+	rc = cgen_add(cgproc, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4320,7 +4406,6 @@ static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 {
 	cgen_eres_t lres;
 	cgen_eres_t rres;
-	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -4336,10 +4421,8 @@ static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	ctok = (comp_tok_t *) ebinop->top.data;
-
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, ctok, &lres, &rres, lblock, eres);
+	rc = cgen_sub(cgproc, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -5898,7 +5981,6 @@ error:
 static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	comp_tok_t *ctok;
 	cgen_eres_t laddr;
 	cgen_eres_t lval;
 	cgen_eres_t rres;
@@ -5927,10 +6009,8 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	ctok = (comp_tok_t *) ebinop->top.data;
-
 	/* Add the two operands */
-	rc = cgen_add(cgproc, ctok, &lval, &rres, lblock, &ores);
+	rc = cgen_add(cgproc, &ebinop->top, &lval, &rres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
@@ -5974,7 +6054,6 @@ error:
 static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	comp_tok_t *ctok;
 	cgen_eres_t laddr;
 	cgen_eres_t lval;
 	cgen_eres_t rres;
@@ -6003,10 +6082,8 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	ctok = (comp_tok_t *) ebinop->top.data;
-
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, ctok, &lval, &rres, lblock, &ores);
+	rc = cgen_sub(cgproc, &ebinop->top, &lval, &rres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
@@ -6930,7 +7007,7 @@ static int cgen_eindex(cgen_proc_t *cgproc, ast_eindex_t *eindex,
 	}
 
 	/* Add the two operands */
-	rc = cgen_add(cgproc, ctok, &bres, &ires, lblock, &sres);
+	rc = cgen_add(cgproc, &eindex->tlbracket, &bres, &ires, lblock, &sres);
 	if (rc != EOK)
 		goto error;
 
@@ -7769,7 +7846,6 @@ error:
 static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	comp_tok_t *ctok;
 	cgen_eres_t baddr;
 	cgen_eres_t bval;
 	cgen_eres_t adj;
@@ -7798,16 +7874,16 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	if (rc != EOK)
 		goto error;
 
-	ctok = (comp_tok_t *) epreadj->tadj.data;
-
 	if (epreadj->adj == aat_inc) {
 		/* Add the two operands */
-		rc = cgen_add(cgproc, ctok, &bval, &adj, lblock, &ares);
+		rc = cgen_add(cgproc, &epreadj->tadj, &bval, &adj, lblock,
+		    &ares);
 		if (rc != EOK)
 			goto error;
 	} else {
 		/* Subtract the two operands */
-		rc = cgen_sub(cgproc, ctok, &bval, &adj, lblock, &ares);
+		rc = cgen_sub(cgproc, &epreadj->tadj, &bval, &adj, lblock,
+		    &ares);
 		if (rc != EOK)
 			goto error;
 	}
@@ -7853,7 +7929,6 @@ error:
 static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	comp_tok_t *ctok;
 	cgen_eres_t baddr;
 	cgen_eres_t bval;
 	cgen_eres_t adj;
@@ -7882,16 +7957,16 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	if (rc != EOK)
 		goto error;
 
-	ctok = (comp_tok_t *) epostadj->tadj.data;
-
 	if (epostadj->adj == aat_inc) {
 		/* Add the two operands */
-		rc = cgen_add(cgproc, ctok, &bval, &adj, lblock, &ares);
+		rc = cgen_add(cgproc, &epostadj->tadj, &bval, &adj, lblock,
+		    &ares);
 		if (rc != EOK)
 			goto error;
 	} else {
 		/* Subtract the two operands */
-		rc = cgen_sub(cgproc, ctok, &bval, &adj, lblock, &ares);
+		rc = cgen_sub(cgproc, &epostadj->tadj, &bval, &adj, lblock,
+		    &ares);
 		if (rc != EOK)
 			goto error;
 	}

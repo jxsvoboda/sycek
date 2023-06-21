@@ -395,12 +395,13 @@ by the comparison operator,) and implicitly converting it to an int.
 Conversely:
 
     int i;
-    if (i)
-	return;
+    if (i) {
+	    return;
+    }
 
 will produce a warning, because we use int in a place where a truth value
 is expected. (Should be changed to e.g. `if (i != 0)` or, if i is supposed
-to be a boolean varuable, its type needs to be changed to `bool`.
+to be a boolean variable, its type needs to be changed to `bool`.
 
 ### Strict enum types
 
@@ -419,7 +420,7 @@ or instance are not considered strict. They are considered just a
 collection of integer constants. For example:
 
     enum {
-	e1 = 1
+	    e1 = 1
     };
 
     int i = e1;
@@ -428,7 +429,7 @@ will not produce a warning, because e1 is considered to be just
 an integer constant. On the other hand:
 
     typedef enum {
-	e1
+	    e1
     } e_t;
 
     e_t x = 1;

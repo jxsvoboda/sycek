@@ -1,0 +1,1 @@
+<test/syc/ugly/enumaddi.c:13:15:'+'>: Warning: Enum should be the left operand while adjusting.
