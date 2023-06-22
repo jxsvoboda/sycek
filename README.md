@@ -409,9 +409,19 @@ In C enums are mostly interchangeable with integer types. Implicit
 conversion from/to integer or arithmetic on enum types is allowed.
 This can lead to errors. Syc pretends that enums are strictly typed.
 Implicit conversion from/to other type (e.g. integer) will produce
-a warning. Arithmetic on enum types will produce a warning,
-with the exception of adding/subtracting an integer to/from an enum.
+a warning.
+
+Arithmetic on strict enum types: It is allowed to add an integer
+to an enum or to subtract integer from an enum (but not vice vesa),
+the result is an enum. (Pre/post inc-/decrement also work).
+
+It is allowed to subtract two values of the same enum type (the result
+is an integer).
+
 It is also allowed to compare two values of the same enum type.
+Other operations (e.g. mutiplication, adding two enums and so on)
+will produce a warning.
+
 Trying to use an enum where a logic value is expected will also
 produce a warning.
 

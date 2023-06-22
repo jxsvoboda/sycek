@@ -1,0 +1,1 @@
+<test/syc/ugly/enumsubinc.c:19:15:'-'>: Warning: Subtracting incompatible enum types enum e and enum f.

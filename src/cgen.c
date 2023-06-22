@@ -1278,6 +1278,28 @@ static void cgen_warn_arith_enum(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: subtracting different enum types.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ */
+static void cgen_warn_sub_enum_inc(cgen_t *cgen, ast_tok_t *atok,
+    cgen_eres_t *lres, cgen_eres_t *rres)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Subtracting incompatible enum types ");
+	(void) cgtype_print(lres->cgtype, stderr);
+	fprintf(stderr, " and ");
+	(void) cgtype_print(rres->cgtype, stderr);
+	fprintf(stderr, ".\n");
+	++cgen->warnings;
+}
+
 /** Generate warning: suspicious logic operation involving enums.
  *
  * @param cgen Code generator
@@ -3616,6 +3638,68 @@ error:
 	return rc;
 }
 
+/** Generate code for subtraction of enum and integer.
+ *
+ * @param cgproc Code generator for procedure
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of addition
+ * @return EOK on success or an error code
+ */
+static int cgen_sub_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t ares;
+	int rc;
+
+	cgen_eres_init(&ares);
+
+	rc = cgen_sub_int(cgproc, lres, rres, lblock, &ares);
+	if (rc != EOK)
+		return rc;
+
+	/* Convert result back to original enum type, if possible */
+	rc = cgen_int2enum(cgproc, &ares, lres->cgtype, eres);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Generate code for subtraction of enums.
+ *
+ * @param cgproc Code generator for procedure
+ * @param optok Operator token
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of addition
+ * @return EOK on success or an error code
+ */
+static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgtype_enum_t *lenum;
+	cgtype_enum_t *renum;
+	int rc;
+
+	assert(lres->cgtype->ntype == cgn_enum);
+	lenum = (cgtype_enum_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_enum);
+	renum = (cgtype_enum_t *)rres->cgtype->ext;
+
+	rc = cgen_sub_int(cgproc, lres, rres, lblock, eres);
+	if (rc != EOK)
+		return rc;
+
+	/* Different enum types? */
+	if (lenum->cgenum != renum->cgenum)
+		cgen_warn_sub_enum_inc(cgproc->cgen, optok, lres, rres);
+
+	return EOK;
+}
+
 /** Generate code for subtraction of pointer and integer.
  *
  * @param cgproc Code generator for procedure
@@ -3780,6 +3864,8 @@ static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 	comp_tok_t *ctok;
 	bool l_int;
 	bool r_int;
+	bool l_enum;
+	bool r_enum;
 	bool l_ptr;
 	bool r_ptr;
 
@@ -3787,10 +3873,26 @@ static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 
 	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
 	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
+	l_enum = lres->cgtype->ntype == cgn_enum;
+	r_enum = rres->cgtype->ntype == cgn_enum;
 
 	/* Integer - integer */
 	if (l_int && r_int)
 		return cgen_sub_int(cgproc, lres, rres, lblock, eres);
+
+	/* Enum - integer */
+	if (l_enum && r_int)
+		return cgen_sub_enum_int(cgproc, lres, rres, lblock, eres);
+
+	/* Integer - enum */
+	if (l_int && r_enum) {
+		cgen_warn_arith_enum(cgproc->cgen, optok);
+		return cgen_sub_int(cgproc, lres, rres, lblock, eres);
+	}
+
+	/* Enum - enum */
+	if (l_enum && r_enum)
+		return cgen_sub_enum(cgproc, optok, lres, rres, lblock, eres);
 
 	l_ptr = lres->cgtype->ntype == cgn_pointer;
 	r_ptr = rres->cgtype->ntype == cgn_pointer;
