@@ -1,5 +1,5 @@
 /*
- * Subtrac int from enum
+ * Subtract int from enum, enum from the same enum
  */
 
 

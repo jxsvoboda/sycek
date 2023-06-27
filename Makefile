@@ -146,11 +146,10 @@ test_ugly_out_diffs = $(test_ugly_ins:-in.c=-out.txt.diff)
 test_ugly_h_ins = $(wildcard test/ccheck/ugly/*-in.h)
 test_ugly_h_fixed_diffs = $(test_ugly_h_ins:-in.h=-fixed.h.diff)
 test_ugly_h_out_diffs = $(test_ugly_h_ins:-in.h=-out.txt.diff)
-test_vg_outs =
-#\
-#    $(test_good_ins:-in.c=-vg.txt) \
-#    $(test_ugly_ins:-in.c=-vg.txt) \
-#    $(test_ugly_h_ins:-in.h=-vg.txt)
+test_vg_outs = \
+    $(test_good_ins:-in.c=-vg.txt) \
+    $(test_ugly_ins:-in.c=-vg.txt) \
+    $(test_ugly_h_ins:-in.h=-vg.txt)
 test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     $(test_bad_err_diffs) $(test_bad_errs) $(test_ugly_fixed_diffs) \
     $(test_ugly_h_fixed_diffs) $(test_ugly_err_diffs) $(test_ugly_out_diffs) \
@@ -168,10 +167,9 @@ test_syc_bad_diffs = $(test_syc_bad_srcs:.c=.txt.diff)
 test_syc_ugly_srcs = $(wildcard test/syc/ugly/*.c)
 test_syc_ugly_asms = $(test_syc_ugly_srcs:.c=.asm)
 test_syc_ugly_diffs = $(test_syc_ugly_srcs:.c=.txt.diff)
-test_syc_vg_outs =
-#\
-#    $(test_syc_good_srcs:.c=-vg.txt) \
-#    $(test_syc_ugly_srcs:.c=-vg.txt)
+test_syc_vg_outs = \
+    $(test_syc_good_srcs:.c=-vg.txt) \
+    $(test_syc_ugly_srcs:.c=-vg.txt)
 test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
     test/syc/all.diff

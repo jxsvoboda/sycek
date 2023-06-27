@@ -1346,6 +1346,36 @@ static void cgen_warn_cmp_enum_mix(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: bitwise operation on different enum types.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_bitop_enum_inc(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Bitwise operation on different enum types.\n'");
+	++cgen->warnings;
+}
+
+/** Generate warning: bitwise operation on enum and non-enum type.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_bitop_enum_mix(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Bitwise operation on enum and non-enum type.\n'");
+	++cgen->warnings;
+}
+
 /** Generate warning: unsigned comparison of mixed-sign integers.
  *
  * @param cgen Code generator
@@ -3314,14 +3344,18 @@ static int cgen_add_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 
 	rc = cgen_add_int(cgproc, lres, rres, lblock, &ares);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	/* Convert result back to original enum type, if possible */
 	rc = cgen_int2enum(cgproc, &ares, lres->cgtype, eres);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
+	cgen_eres_fini(&ares);
 	return EOK;
+error:
+	cgen_eres_fini(&ares);
+	return rc;
 }
 
 /** Generate code for addition of pointer and integer.
@@ -3657,14 +3691,18 @@ static int cgen_sub_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 
 	rc = cgen_sub_int(cgproc, lres, rres, lblock, &ares);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	/* Convert result back to original enum type, if possible */
 	rc = cgen_int2enum(cgproc, &ares, lres->cgtype, eres);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
+	cgen_eres_fini(&ares);
 	return EOK;
+error:
+	cgen_eres_fini(&ares);
+	return rc;
 }
 
 /** Generate code for subtraction of enums.
@@ -5357,27 +5395,43 @@ error:
 static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_eres_t bres;
 	cgen_uac_flags_t flags;
 	comp_tok_t *ctok;
 	bool is_signed;
 	int rc;
 
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
+	cgen_eres_init(&bres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &res1);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	if (rc != EOK)
+		goto error;
+
+	/* Usual arithmetic conversions */
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	is_signed = cgen_basic_type_signed(cgproc->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	/* If any of the operands was signed */
-	if (is_signed || (flags & cguac_mix2u) != 0) {
+	/* Integer (not enum) operands, any of them signed */
+	if ((is_signed || (flags & cguac_mix2u) != 0) &&
+	    (flags & cguac_enum) == 0) {
 		ctok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
@@ -5385,22 +5439,44 @@ static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		++cgproc->cgen->warnings;
 	}
 
-	/* Bitwise operation on enums */
-	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+	/* Two incompatible enums */
+	if ((flags & cguac_enuminc) != 0)
+		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+	/* One enum, one not */
+	if ((flags & cguac_enummix) != 0)
+		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
 
 	/* Bitwise AND */
-	rc = cgen_band(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_band(cgproc, &lres, &rres, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
+	/* Operating on enums? */
+	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
+	    (flags & cguac_enummix) == 0) {
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &bres, res1.cgtype, eres);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = cgen_eres_clone(&bres, eres);
+		if (rc != EOK)
+			return rc;
+	}
+
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&bres);
 
 	return EOK;
 error:
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&bres);
 	return rc;
 }
 
@@ -5415,27 +5491,43 @@ error:
 static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_eres_t bres;
 	cgen_uac_flags_t flags;
 	comp_tok_t *ctok;
 	bool is_signed;
 	int rc;
 
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
+	cgen_eres_init(&bres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &res1);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	if (rc != EOK)
+		goto error;
+
+	/* Usual arithmetic conversions */
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	is_signed = cgen_basic_type_signed(cgproc->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	/* If any of the operands was signed */
-	if (is_signed || (flags & cguac_mix2u) != 0) {
+	/* Integer (not enum) operands, any of them signed */
+	if ((is_signed || (flags & cguac_mix2u) != 0) &&
+	    (flags & cguac_enum) == 0) {
 		ctok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
@@ -5443,26 +5535,48 @@ static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		++cgproc->cgen->warnings;
 	}
 
-	/* Bitwise operation on enums */
-	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+	/* Two incompatible enums */
+	if ((flags & cguac_enuminc) != 0)
+		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+	/* One enum, one not */
+	if ((flags & cguac_enummix) != 0)
+		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
 
 	/* Bitwise XOR */
-	rc = cgen_bxor(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_bxor(cgproc, &lres, &rres, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
+	/* Operating on enums? */
+	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
+	    (flags & cguac_enummix) == 0) {
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &bres, res1.cgtype, eres);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = cgen_eres_clone(&bres, eres);
+		if (rc != EOK)
+			return rc;
+	}
+
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&bres);
 
 	return EOK;
 error:
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&bres);
 	return rc;
 }
 
-/** Generate code for bitwise OR operator.
+/** Generate code for bitwise OR expression.
  *
  * @param cgproc Code generator for procedure
  * @param ebinop AST binary operator expression (bitwise OR)
@@ -5473,27 +5587,43 @@ error:
 static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
+	cgen_eres_t bres;
 	cgen_uac_flags_t flags;
 	comp_tok_t *ctok;
 	bool is_signed;
 	int rc;
 
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
+	cgen_eres_init(&bres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &res1);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	if (rc != EOK)
+		goto error;
+
+	/* Usual arithmetic conversions */
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	is_signed = cgen_basic_type_signed(cgproc->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	/* If any of the operands was signed */
-	if (is_signed || (flags & cguac_mix2u) != 0) {
+	/* Integer (not enum) operands, any of them signed */
+	if ((is_signed || (flags & cguac_mix2u) != 0) &&
+	    (flags & cguac_enum) == 0) {
 		ctok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
@@ -5501,22 +5631,44 @@ static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		++cgproc->cgen->warnings;
 	}
 
-	/* Bitwise operation on enums */
-	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+	/* Two incompatible enums */
+	if ((flags & cguac_enuminc) != 0)
+		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+	/* One enum, one not */
+	if ((flags & cguac_enummix) != 0)
+		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
 
 	/* Bitwise OR */
-	rc = cgen_bor(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_bor(cgproc, &lres, &rres, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
+	/* Operating on enums? */
+	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
+	    (flags & cguac_enummix) == 0) {
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &bres, res1.cgtype, eres);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = cgen_eres_clone(&bres, eres);
+		if (rc != EOK)
+			return rc;
+	}
+
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&bres);
 
 	return EOK;
 error:
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
+	cgen_eres_fini(&bres);
 	return rc;
 }
 
@@ -6475,32 +6627,45 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
 	cgen_eres_t ores;
-	cgtype_t *cgtype;
 	bool is_signed;
 	cgen_uac_flags_t flags;
 	comp_tok_t *ctok;
-	const char *resvn;
 	int rc;
 
 	cgen_eres_init(&lres);
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres, &flags);
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_rvalue(cgproc, &lres, lblock, &res1);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	is_signed = cgen_basic_type_signed(cgproc->cgen,
 	    (cgtype_basic_t *)ares.cgtype->ext);
 
-	/* If any of the operands was signed */
-	if (is_signed || (flags & cguac_mix2u) != 0) {
+	/* Integer (not enum) operands, any of them signed */
+	if ((is_signed || (flags & cguac_mix2u) != 0) &&
+	    (flags & cguac_enum) == 0) {
 		ctok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
@@ -6508,9 +6673,12 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		++cgproc->cgen->warnings;
 	}
 
-	/* If any of the operands was an enum */
-	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+	/* Two incompatible enums */
+	if ((flags & cguac_enuminc) != 0)
+		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+	/* One enum, one not */
+	if ((flags & cguac_enummix) != 0)
+		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
 
 	/* Bitwise AND the two operands */
 	rc = cgen_band(cgproc, &ares, &bres, lblock, &ores);
@@ -6522,24 +6690,32 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Salvage type from ores */
-	cgtype = ores.cgtype;
-	ores.cgtype = NULL;
+	/* Operating on enums? */
+	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
+	    (flags & cguac_enummix) == 0) {
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &ores, res1.cgtype, eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = cgen_eres_clone(&ores, eres);
+		if (rc != EOK)
+			goto error;
+	}
 
-	resvn = ores.varname;
+	eres->valused = true;
 
 	cgen_eres_fini(&lres);
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ores);
-
-	eres->varname = resvn;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = cgtype;
-	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ores);
@@ -6558,32 +6734,45 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
 	cgen_eres_t ores;
-	cgtype_t *cgtype;
 	bool is_signed;
 	cgen_uac_flags_t flags;
 	comp_tok_t *ctok;
-	const char *resvn;
 	int rc;
 
 	cgen_eres_init(&lres);
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres, &flags);
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_rvalue(cgproc, &lres, lblock, &res1);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	is_signed = cgen_basic_type_signed(cgproc->cgen,
 	    (cgtype_basic_t *)ares.cgtype->ext);
 
-	/* If any of the operands was signed */
-	if (is_signed || (flags & cguac_mix2u) != 0) {
+	/* Integer (not enum) operands, any of them signed */
+	if ((is_signed || (flags & cguac_mix2u) != 0) &&
+	    (flags & cguac_enum) == 0) {
 		ctok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
@@ -6591,9 +6780,12 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		++cgproc->cgen->warnings;
 	}
 
-	/* If any of the operands was an enum */
-	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+	/* Two incompatible enums */
+	if ((flags & cguac_enuminc) != 0)
+		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+	/* One enum, one not */
+	if ((flags & cguac_enummix) != 0)
+		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
 
 	/* Bitwise XOR the two operands */
 	rc = cgen_bxor(cgproc, &ares, &bres, lblock, &ores);
@@ -6605,24 +6797,32 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Salvage type from ores */
-	cgtype = ores.cgtype;
-	ores.cgtype = NULL;
+	/* Operating on enums? */
+	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
+	    (flags & cguac_enummix) == 0) {
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &ores, res1.cgtype, eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = cgen_eres_clone(&ores, eres);
+		if (rc != EOK)
+			goto error;
+	}
 
-	resvn = ores.varname;
+	eres->valused = true;
 
 	cgen_eres_fini(&lres);
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ores);
-
-	eres->varname = resvn;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = cgtype;
-	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ores);
@@ -6641,32 +6841,45 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
+	cgen_eres_t res1;
+	cgen_eres_t res2;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
 	cgen_eres_t ores;
-	cgtype_t *cgtype;
 	bool is_signed;
 	cgen_uac_flags_t flags;
 	comp_tok_t *ctok;
-	const char *resvn;
 	int rc;
 
 	cgen_eres_init(&lres);
+	cgen_eres_init(&res1);
+	cgen_eres_init(&res2);
 	cgen_eres_init(&ares);
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &ares, &bres, &flags);
+	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_rvalue(cgproc, &lres, lblock, &res1);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_uac(cgproc, &res1, &res2, lblock, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	is_signed = cgen_basic_type_signed(cgproc->cgen,
 	    (cgtype_basic_t *)ares.cgtype->ext);
 
-	/* If any of the operands was signed */
-	if (is_signed || (flags & cguac_mix2u) != 0) {
+	/* Integer (not enum) operands, any of them signed */
+	if ((is_signed || (flags & cguac_mix2u) != 0) &&
+	    (flags & cguac_enum) == 0) {
 		ctok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
@@ -6674,9 +6887,12 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		++cgproc->cgen->warnings;
 	}
 
-	/* If any of the operands was an enum */
-	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+	/* Two incompatible enums */
+	if ((flags & cguac_enuminc) != 0)
+		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+	/* One enum, one not */
+	if ((flags & cguac_enummix) != 0)
+		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
 
 	/* Bitwise OR the two operands */
 	rc = cgen_bor(cgproc, &ares, &bres, lblock, &ores);
@@ -6688,24 +6904,32 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Salvage type from ores */
-	cgtype = ores.cgtype;
-	ores.cgtype = NULL;
+	/* Operating on enums? */
+	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
+	    (flags & cguac_enummix) == 0) {
+		/* Convert result back to original enum type, if possible */
+		rc = cgen_int2enum(cgproc, &ores, res1.cgtype, eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = cgen_eres_clone(&ores, eres);
+		if (rc != EOK)
+			goto error;
+	}
 
-	resvn = ores.varname;
+	eres->valused = true;
 
 	cgen_eres_fini(&lres);
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ores);
-
-	eres->varname = resvn;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = cgtype;
-	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
+	cgen_eres_fini(&res1);
+	cgen_eres_fini(&res2);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ores);
@@ -7875,19 +8099,27 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *barg = NULL;
+	bool conv;
 	cgen_eres_t bres;
+	cgen_eres_t bires;
 	unsigned bits;
 	cgtype_t *cgtype;
 	int rc;
 
 	cgen_eres_init(&bres);
+	cgen_eres_init(&bires);
 
 	rc = cgen_expr_promoted_rvalue(cgproc, ebnot->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
+	/* Convert enum to int if needed */
+	rc = cgen_enum2int(cgproc, &bres, lblock, &bires, &conv);
+	if (rc != EOK)
+		goto error;
+
 	/* Check the type */
-	if (bres.cgtype->ntype != cgn_basic) {
+	if (bires.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -7895,7 +8127,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	}
 
 	bits = cgen_basic_type_bits(cgproc->cgen,
-	    (cgtype_basic_t *)bres.cgtype->ext);
+	    (cgtype_basic_t *)bires.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgproc->cgen->error = true; // TODO
@@ -7911,7 +8143,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(bres.varname, &barg);
+	rc = ir_oper_var_create(bires.varname, &barg);
 	if (rc != EOK)
 		goto error;
 
@@ -7927,6 +8159,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	cgtype = bres.cgtype;
 	bres.cgtype = NULL;
 	cgen_eres_fini(&bres);
+	cgen_eres_fini(&bires);
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
@@ -7939,6 +8172,7 @@ error:
 	if (barg != NULL)
 		ir_oper_destroy(&barg->oper);
 	cgen_eres_fini(&bres);
+	cgen_eres_fini(&bires);
 	return rc;
 }
 
@@ -12552,6 +12786,7 @@ void cgen_destroy(cgen_t *cgen)
 	if (cgen == NULL)
 		return;
 
+	cgen_enums_destroy(cgen->enums);
 	scope_destroy(cgen->scope);
 	cgen_records_destroy(cgen->records);
 	free(cgen);

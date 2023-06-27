@@ -1,0 +1,7 @@
+<test/syc/ugly/enumbitmix.c:17:15:'&'>: Warning: Bitwise operation on enum and non-enum type.
+'<test/syc/ugly/enumbitmix.c:18:15:'^'>: Warning: Bitwise operation on enum and non-enum type.
+'<test/syc/ugly/enumbitmix.c:19:15:'|'>: Warning: Bitwise operation on enum and non-enum type.
+'<test/syc/ugly/enumbitmix.c:21:11-12:'&='>: Warning: Bitwise operation on enum and non-enum type.
+'<test/syc/ugly/enumbitmix.c:22:11-12:'^='>: Warning: Bitwise operation on enum and non-enum type.
+'<test/syc/ugly/enumbitmix.c:23:11-12:'|='>: Warning: Bitwise operation on enum and non-enum type.
+'
