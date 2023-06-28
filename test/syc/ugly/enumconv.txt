@@ -1,0 +1,6 @@
+<test/syc/ugly/enumconv.c:18:11:'='>: Warning: Implicit conversion from 'enum e' to 'int'.
+<test/syc/ugly/enumconv.c:24:11:'='>: Warning: Implicit conversion from 'enum e' to 'char'.
+<test/syc/ugly/enumconv.c:24:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/enumconv.c:27:11:'='>: Warning: Implicit conversion from 'int' to 'enum e'.
+<test/syc/ugly/enumconv.c:33:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/enumconv.c:33:11:'='>: Warning: Implicit conversion from 'long' to 'enum e'.

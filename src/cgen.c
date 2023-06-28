@@ -9356,6 +9356,117 @@ error:
 	return rc;
 }
 
+/** Convert expression result from enum to a different type.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_from_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype,  cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t ires;
+	bool converted;
+	int rc;
+
+	cgen_eres_init(&ires);
+
+	/* First drop to corresponding integer type */
+	rc = cgen_enum2int(cgproc, ares, lblock, &ires, &converted);
+	if (rc != EOK)
+		goto error;
+
+	assert(converted == true);
+
+	if (expl != cgen_explicit) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, "' to '");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, "'.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	/* Now do the rest of the work */
+	rc = cgen_type_convert(cgproc, ctok, &ires, dtype, expl, lblock, cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&ires);
+	return EOK;
+error:
+	cgen_eres_fini(&ires);
+	return rc;
+}
+
+/** Convert expression result to enum from a different type.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_to_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype,  cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t ires;
+	cgtype_t *cgtype = NULL;
+	int rc;
+
+	cgen_eres_init(&ires);
+
+	/* Construct corresponding integer type */
+	rc = cgtype_int_construct(true, cgir_int, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert to corresponding integer type */
+	rc = cgen_type_convert(cgproc, ctok, ares, cgtype, expl, lblock, &ires);
+	if (rc != EOK)
+		goto error;
+
+	if (expl != cgen_explicit) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, "' to '");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, "'.\n");
+		++cgproc->cgen->warnings;
+	}
+
+	cres->varname = ires.varname;
+	cres->valtype = ires.valtype;
+
+	rc = cgtype_clone(dtype, &cres->cgtype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(cgtype);
+	cgen_eres_fini(&ires);
+	return EOK;
+error:
+	cgtype_destroy(cgtype);
+	cgen_eres_fini(&ires);
+	return rc;
+}
+
 /** Convert expression result from integer to pointer.
  *
  * @param cgproc Code generator for procedure
@@ -9458,6 +9569,18 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	if (ares->cgtype->ntype == cgn_enum &&
 	    dtype->ntype == cgn_enum) {
 		return cgen_type_convert_enum(cgproc, ctok, ares, dtype, expl,
+		    lblock, cres);
+	}
+
+	/* Source type is enum (but destination is not) */
+	if (ares->cgtype->ntype == cgn_enum) {
+		return cgen_type_convert_from_enum(cgproc, ctok, ares, dtype, expl,
+		    lblock, cres);
+	}
+
+	/* Destination type is enum (but source is not) */
+	if (dtype->ntype == cgn_enum) {
+		return cgen_type_convert_to_enum(cgproc, ctok, ares, dtype, expl,
 		    lblock, cres);
 	}
 

@@ -1,5 +1,6 @@
 /*
  * Explicit conversion between enum types is okay.
+ * Explicit conversion from/to enum is okay.
 */
 enum e {
 	e1
@@ -11,5 +12,9 @@ enum f {
 
 void main(void)
 {
+	int i;
+
 	x = (enum e)y;
+	i = (int)x;
+	x = (enum e)1;
 }
