@@ -1,0 +1,4 @@
+<test/syc/ugly/enumstrict.c:30:11:'='>: Warning: Implicit conversion from 'enum etag' to 'int'.
+<test/syc/ugly/enumstrict.c:31:11:'='>: Warning: Implicit conversion from 'enum <anonymous>' to 'int'.
+<test/syc/ugly/enumstrict.c:32:11:'='>: Warning: Implicit conversion from 'enum <anonymous>' to 'int'.
+<test/syc/ugly/enumstrict.c:35:16:'-'>: Warning: Suspicious arithmetic operation involving enums.

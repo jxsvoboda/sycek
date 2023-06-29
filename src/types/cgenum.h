@@ -59,6 +59,8 @@ typedef struct cgen_enum {
 	list_t elems;
 	/** @c true iff enum is defined */
 	bool defined;
+	/** @c true iff enum has a tag, typedef or instance */
+	bool named;
 } cgen_enum_t;
 
 /** Enum definitions */

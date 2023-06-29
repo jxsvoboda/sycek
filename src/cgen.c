@@ -2052,6 +2052,8 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 			dmember->m.menum.cgenum = cgenum;
 
 		if (tsenum->have_ident) {
+			cgenum->named = true;
+
 			/* Insert new enum scope member */
 			rc = scope_insert_enum(cgen->cur_scope, &ident_tok->tok,
 			    cgenum, &dmember);
@@ -3537,18 +3539,23 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Integer + enum */
 	if (l_int && r_enum) {
-		/* Produce a style warning and switch the operands */
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Enum should be the left "
-		    "operand while adjusting.\n");
-		++cgproc->cgen->warnings;
+		/* Produce a style warning if enum is strict */
+		if (cgtype_is_strict_enum(rres->cgtype)) {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Enum should be the left "
+			    "operand while adjusting.\n");
+			++cgproc->cgen->warnings;
+		}
+		/* Switch the operands */
 		return cgen_add_enum_int(cgproc, rres, lres, lblock, eres);
 	}
 
 	/* Enum + enum */
 	if (l_enum && r_enum) {
-		/* Produce warning and proceed */
-		cgen_warn_arith_enum(cgproc->cgen, optok);
+		/* Produce warning if both enums are strict */
+		if (cgtype_is_strict_enum(lres->cgtype) &&
+		    cgtype_is_strict_enum(rres->cgtype))
+			cgen_warn_arith_enum(cgproc->cgen, optok);
 		return cgen_add_int(cgproc, lres, rres, lblock, eres);
 	}
 
@@ -3732,8 +3739,16 @@ static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lre
 		return rc;
 
 	/* Different enum types? */
-	if (lenum->cgenum != renum->cgenum)
-		cgen_warn_sub_enum_inc(cgproc->cgen, optok, lres, rres);
+	if (lenum->cgenum != renum->cgenum) {
+		if (cgtype_is_strict_enum(lres->cgtype) &&
+		    (cgtype_is_strict_enum(rres->cgtype))) {
+			/* Subtracting incompatible strict enum type */
+			cgen_warn_sub_enum_inc(cgproc->cgen, optok, lres, rres);
+		} else if (cgtype_is_strict_enum(rres->cgtype)) {
+			/* Subtracting strict enum from non-strict */
+			cgen_warn_arith_enum(cgproc->cgen, optok);
+		}
+	}
 
 	return EOK;
 }
@@ -8714,7 +8729,8 @@ static int cgen_enum2int(cgen_proc_t *cgproc, cgen_eres_t *res,
 
 	if (res->cgtype->ntype == cgn_enum) {
 		/* Return corresponding integer type */
-		*converted = true;
+		if (cgtype_is_strict_enum(res->cgtype))
+			*converted = true;
 
 		rres->varname = res->varname;
 		rres->valtype = res->valtype;
@@ -9384,9 +9400,8 @@ static int cgen_type_convert_from_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	if (rc != EOK)
 		goto error;
 
-	assert(converted == true);
-
-	if (expl != cgen_explicit) {
+	/* Conversion is implicit and enum is strict */
+	if (expl != cgen_explicit && converted) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Implicit conversion from '");
 		(void) cgtype_print(ares->cgtype, stderr);
@@ -11156,6 +11171,7 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	comp_tok_t *ident;
 	scope_member_t *member;
 	cgtype_t *dtype = NULL;
+	cgtype_enum_t *tenum;
 	int rc;
 
 	(void) lblock;
@@ -11172,6 +11188,12 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
+		/* Mark enum as named, because it has an instance. */
+		if (stype->ntype == cgn_enum) {
+			tenum = (cgtype_enum_t *)stype;
+			tenum->cgenum->named = true;
+		}
+
 		/* Process declarator */
 		rc = cgen_decl(cgproc->cgen, stype, identry->decl,
 		    identry->aslist, &dtype);
@@ -12063,11 +12085,18 @@ static int cgen_typedef(cgen_t *cgen, ast_idlist_t *idlist, cgtype_t *btype)
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	cgtype_t *dtype = NULL;
+	cgtype_enum_t *tenum;
 	int rc;
 
 	/* For all init-declarator list entries */
 	idle = ast_idlist_first(idlist);
 	while (idle != NULL) {
+		/* Mark enum as named, because it has an instance. */
+		if (btype->ntype == cgn_enum) {
+			tenum = (cgtype_enum_t *)btype;
+			tenum->cgenum->named = true;
+		}
+
 		/* Process declarator */
 		rc = cgen_decl(cgen, btype, idle->decl, idle->aslist,
 		    &dtype);
@@ -12318,10 +12347,17 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	symbol_t *symbol;
 	scope_member_t *member;
 	cgtype_t *ctype;
+	cgtype_enum_t *tenum;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
+
+	/* Mark enum as named, because it has an instance. */
+	if (stype->ntype == cgn_enum) {
+		tenum = (cgtype_enum_t *)stype;
+		tenum->cgenum->named = true;
+	}
 
 	symbol = symbols_lookup(cgen->symbols, ident->tok.text);
 	if (symbol == NULL) {

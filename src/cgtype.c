@@ -1059,3 +1059,22 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 	}
 	return true;
 }
+
+/** Return @c true iff @a cgtype is a strict enum.
+ *
+ * An enum is strict iff it is named, i.e. it has a tag, typedef or
+ * an instance.
+ *
+ * @param @a cgtype Type
+ * @return @c true if @a cgtype is a strict enum, @c false otherwise
+ */
+bool cgtype_is_strict_enum(cgtype_t *cgtype)
+{
+	cgtype_enum_t *tenum;
+
+	if (cgtype->ntype != cgn_enum)
+		return false;
+
+	tenum = (cgtype_enum_t *)cgtype->ext;
+	return tenum->cgenum->named;
+}

@@ -218,8 +218,8 @@ parsable by ccheck.
 Using Syc
 ---------
 Syc is a C cross-compiler under construction, targetting the Sinclair
-ZX Spectrum platform / Zilog Z80 processor. Only a subset of C is currently
-implemented.
+ZX Spectrum platform / Zilog Z80 processor. Coverage of C language features
+is incomplete, with some important things still missing.
 
 Specifically, these language features are supported:
 
@@ -232,11 +232,12 @@ Specifically, these language features are supported:
    and integer type conversions, usual arithmetic conversions
  * Basic support for pointers
  * Typedef
- * Struct, union
- * Enum (WIP)
+ * Struct, union, enum
 
-These are NOT supported:
+These are NOT supported yet:
 
+ * Constant expressions
+ * Complex initializers
  * Arrays
  * Bit fields
  * Floating point
@@ -405,8 +406,8 @@ to be a boolean variable, its type needs to be changed to `bool`.
 
 ### Strict enum types
 
-In C enums are mostly interchangeable with integer types. Implicit
-conversion from/to integer or arithmetic on enum types is allowed.
+In the C standard enums are mostly interchangeable with integer types.
+Implicit conversion from/to integer or arithmetic on enum types is allowed.
 This can lead to errors. Syc pretends that enums are strictly typed.
 Implicit conversion from/to other type (e.g. integer) will produce
 a warning.
@@ -425,9 +426,9 @@ will produce a warning.
 Trying to use an enum where a logic value is expected will also
 produce a warning.
 
-As an exception, enum types that neither have a tag nor any typedef
-or instance are not considered strict. They are considered just a
-collection of integer constants. For example:
+Enum types that do not have a tag, typedef or instance are not considered
+strict. They are considered just a collection of integer constants.
+For example:
 
     enum {
 	    e1 = 1
