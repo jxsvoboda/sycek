@@ -47,36 +47,36 @@ static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
-static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
+static int cgen_const_int(cgen_expr_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
-static void cgen_expr_check_unused(cgen_proc_t *, ast_node_t *,
+static void cgen_expr_check_unused(cgen_expr_t *, ast_node_t *,
     cgen_eres_t *);
-static int cgen_expr_lvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
+static int cgen_expr_lvalue(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_expr_rvalue(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
+static int cgen_expr_rvalue(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_expr_promoted_rvalue(cgen_proc_t *, ast_node_t *,
+static int cgen_expr_promoted_rvalue(cgen_expr_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *);
-static int cgen_eres_promoted_rvalue(cgen_proc_t *, cgen_eres_t *,
+static int cgen_eres_promoted_rvalue(cgen_expr_t *, cgen_eres_t *,
     ir_lblock_t *, cgen_eres_t *);
-static int cgen_enum2int(cgen_proc_t *, cgen_eres_t *, ir_lblock_t *,
+static int cgen_enum2int(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *, bool *);
-static int cgen_int2enum(cgen_proc_t *, cgen_eres_t *, cgtype_t *,
+static int cgen_int2enum(cgen_expr_t *, cgen_eres_t *, cgtype_t *,
     cgen_eres_t *);
-static int cgen_uac(cgen_proc_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
+static int cgen_uac(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
-static int cgen_expr2_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
+static int cgen_expr2_uac(cgen_expr_t *, ast_node_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
-static int cgen_expr2lr_uac(cgen_proc_t *, ast_node_t *, ast_node_t *,
+static int cgen_expr2lr_uac(cgen_expr_t *, ast_node_t *, ast_node_t *,
     ir_lblock_t *lblock, cgen_eres_t *, cgen_eres_t *, cgen_eres_t *,
     cgen_uac_flags_t *);
-static int cgen_expr(cgen_proc_t *, ast_node_t *, ir_lblock_t *,
+static int cgen_expr(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_eres_rvalue(cgen_proc_t *, cgen_eres_t *, ir_lblock_t *,
+static int cgen_eres_rvalue(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_type_convert(cgen_proc_t *, comp_tok_t *, cgen_eres_t *,
+static int cgen_type_convert(cgen_expr_t *, comp_tok_t *, cgen_eres_t *,
     cgtype_t *, cgen_expl_t, ir_lblock_t *, cgen_eres_t *);
-static int cgen_truth_cjmp(cgen_proc_t *, ast_node_t *, bool, const char *,
+static int cgen_truth_cjmp(cgen_expr_t *, ast_node_t *, bool, const char *,
     ir_lblock_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
@@ -718,6 +718,15 @@ int cgen_create(cgen_t **rcgen)
 	return EOK;
 }
 
+/** Initialize code generator for expession.
+ *
+ * @param cgexpr Code generator for expression
+ */
+static void cgen_expr_init(cgen_expr_t *cgexpr)
+{
+	memset(cgexpr, 0, sizeof(*cgexpr));
+}
+
 /** Create code generator.
  *
  * @param cgen Code generator
@@ -745,6 +754,10 @@ static int cgen_proc_create(cgen_t *cgen, ir_proc_t *irproc,
 	rc = labels_create(&cgproc->labels);
 	if (rc != EOK)
 		goto error;
+
+	cgen_expr_init(&cgproc->cgexpr);
+	cgproc->cgexpr.cgproc = cgproc;
+	cgproc->cgexpr.cgen = cgen;
 
 	cgproc->cgen = cgen;
 	cgproc->irproc = irproc;
@@ -2868,13 +2881,13 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 
 /** Generate code for integer literal expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eint AST integer literal expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
+static int cgen_eint(cgen_expr_t *cgexpr, ast_eint_t *eint,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *lit;
@@ -2883,26 +2896,26 @@ static int cgen_eint(cgen_proc_t *cgproc, ast_eint_t *eint,
 	int rc;
 
 	lit = (comp_tok_t *) eint->tlit.data;
-	rc = cgen_intlit_val(cgproc->cgen, lit, &val, &elmtype);
+	rc = cgen_intlit_val(cgexpr->cgen, lit, &val, &elmtype);
 	if (rc != EOK) {
 		lexer_dprint_tok(&lit->tok, stderr);
 		fprintf(stderr, ": Invalid integer literal.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return rc;
 	}
 
-	return cgen_const_int(cgproc, elmtype, val, lblock, eres);
+	return cgen_const_int(cgexpr, elmtype, val, lblock, eres);
 }
 
 /** Generate code for identifier expression referencing global symbol.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eident_gsym(cgen_proc_t *cgproc, ast_eident_t *eident,
+static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ident;
@@ -2922,7 +2935,7 @@ static int cgen_eident_gsym(cgen_proc_t *cgproc, ast_eident_t *eident,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -2931,7 +2944,7 @@ static int cgen_eident_gsym(cgen_proc_t *cgproc, ast_eident_t *eident,
 		goto error;
 
 	instr->itype = iri_varptr;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
@@ -2961,7 +2974,7 @@ error:
 
 /** Generate code for identifier expression referencing function argument.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param vident Identifier of IR variable holding the argument
  * @param idx Argument index
@@ -2970,10 +2983,10 @@ error:
  *
  * @return EOK on success or an error code
  */
-static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,
+static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
     const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	(void) cgproc;
+	(void) cgexpr;
 	(void) eident;
 	(void) lblock;
 
@@ -2985,7 +2998,7 @@ static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,
 
 /** Generate code for identifier expression referencing local variable.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param vident Identifier of IR variable holding the local variable
  * @param lblock IR labeled block to which the code should be appended
@@ -2993,7 +3006,7 @@ static int cgen_eident_arg(cgen_proc_t *cgproc, ast_eident_t *eident,
  *
  * @return EOK on success or an error code
  */
-static int cgen_eident_lvar(cgen_proc_t *cgproc, ast_eident_t *eident,
+static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
     const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -3009,7 +3022,7 @@ static int cgen_eident_lvar(cgen_proc_t *cgproc, ast_eident_t *eident,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3018,7 +3031,7 @@ static int cgen_eident_lvar(cgen_proc_t *cgproc, ast_eident_t *eident,
 		goto error;
 
 	instr->itype = iri_lvarptr;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
@@ -3044,7 +3057,7 @@ error:
 
 /** Generate code for identifier expression referencing enum element.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param eelem Enum element
  * @param lblock IR labeled block to which the code should be appended
@@ -3052,7 +3065,7 @@ error:
  *
  * @return EOK on success or an error code
  */
-static int cgen_eident_eelem(cgen_proc_t *cgproc, ast_eident_t *eident,
+static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
     cgen_enum_elem_t *eelem, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -3066,7 +3079,7 @@ static int cgen_eident_eelem(cgen_proc_t *cgproc, ast_eident_t *eident,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3103,7 +3116,7 @@ error:
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
+static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ident;
@@ -3114,12 +3127,12 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 	ident = (comp_tok_t *) eident->tident.data;
 
 	/* Check if the identifier is declared */
-	member = scope_lookup(cgproc->cgen->cur_scope, ident->tok.text);
+	member = scope_lookup(cgexpr->cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Undeclared identifier '%s'.\n",
 		    ident->tok.text);
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
@@ -3130,14 +3143,14 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 
 	switch (member->mtype) {
 	case sm_gsym:
-		rc = cgen_eident_gsym(cgproc, eident, lblock, eres);
+		rc = cgen_eident_gsym(cgexpr, eident, lblock, eres);
 		break;
 	case sm_arg:
-		rc = cgen_eident_arg(cgproc, eident, member->m.arg.vident,
+		rc = cgen_eident_arg(cgexpr, eident, member->m.arg.vident,
 		    lblock, eres);
 		break;
 	case sm_lvar:
-		rc = cgen_eident_lvar(cgproc, eident, member->m.lvar.vident,
+		rc = cgen_eident_lvar(cgexpr, eident, member->m.lvar.vident,
 		    lblock, eres);
 		break;
 	case sm_record:
@@ -3149,14 +3162,14 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 		assert(false);
 		return EINVAL;
 	case sm_eelem:
-		rc = cgen_eident_eelem(cgproc, eident, member->m.eelem.eelem,
+		rc = cgen_eident_eelem(cgexpr, eident, member->m.eelem.eelem,
 		    lblock, eres);
 		break;
 	case sm_tdef:
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Expected variable name. '%s' is a type.\n",
 		    ident->tok.text);
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
@@ -3172,28 +3185,28 @@ static int cgen_eident(cgen_proc_t *cgproc, ast_eident_t *eident,
 
 /** Generate code for parenthesized expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eparen AST parenthesized expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eparen(cgen_proc_t *cgproc, ast_eparen_t *eparen,
+static int cgen_eparen(cgen_expr_t *cgexpr, ast_eparen_t *eparen,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	return cgen_expr(cgproc, eparen->bexpr, lblock, eres);
+	return cgen_expr(cgexpr, eparen->bexpr, lblock, eres);
 }
 
 /** Generate code to return integer constant.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param elmtype Elementary type
  * @param val Value
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
+static int cgen_const_int(cgen_expr_t *cgexpr, cgtype_elmtype_t elmtype,
     int64_t val, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -3206,7 +3219,7 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3219,7 +3232,7 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgen_basic_type_bits(cgproc->cgen, btype);
+	instr->width = cgen_basic_type_bits(cgexpr->cgen, btype);
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -3243,14 +3256,14 @@ error:
 
 /** Generate code for addition of integers.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
+static int cgen_add_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -3268,7 +3281,7 @@ static int cgen_add_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 	cgen_eres_init(&res2);
 
 	/* Perform usual arithmetic conversion */
-	rc = cgen_uac(cgproc, lres, rres, lblock, &res1, &res2, &flags);
+	rc = cgen_uac(cgexpr, lres, rres, lblock, &res1, &res2, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -3278,16 +3291,16 @@ static int cgen_add_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 	/* Check the type */
 	if (res1.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)res1.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -3300,7 +3313,7 @@ static int cgen_add_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3344,14 +3357,14 @@ error:
 
 /** Generate code for addition of enum and integer.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for procedure
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
+static int cgen_add_enum_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t ares;
@@ -3359,12 +3372,12 @@ static int cgen_add_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 
 	cgen_eres_init(&ares);
 
-	rc = cgen_add_int(cgproc, lres, rres, lblock, &ares);
+	rc = cgen_add_int(cgexpr, lres, rres, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert result back to original enum type, if possible */
-	rc = cgen_int2enum(cgproc, &ares, lres->cgtype, eres);
+	rc = cgen_int2enum(cgexpr, &ares, lres->cgtype, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -3377,7 +3390,7 @@ error:
 
 /** Generate code for addition of pointer and integer.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
@@ -3385,7 +3398,7 @@ error:
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
+static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
     cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
     cgen_eres_t *eres)
 {
@@ -3407,7 +3420,7 @@ static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 		goto error;
 
 	/* Convert index to be same size as pointer */
-	rc = cgen_type_convert(cgproc, optok, rres, idxtype,
+	rc = cgen_type_convert(cgexpr, optok, rres, idxtype,
 	    cgen_implicit, lblock, &cres);
 	if (rc != EOK)
 		goto error;
@@ -3424,16 +3437,16 @@ static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 		goto error;
 
 	/* Check type for completeness */
-	if (cgen_type_is_incomplete(cgproc->cgen, ptrt->tgtype)) {
+	if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
 		lexer_dprint_tok(&optok->tok, stderr);
 		fprintf(stderr, " : Indexing pointer to incomplete type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	/* Generate IR type expression for the element type */
-	rc = cgen_cgtype(cgproc->cgen, ptrt->tgtype, &elemte);
+	rc = cgen_cgtype(cgexpr->cgen, ptrt->tgtype, &elemte);
 	if (rc != EOK)
 		goto error;
 
@@ -3441,7 +3454,7 @@ static int cgen_add_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3488,7 +3501,7 @@ error:
 
 /** Generate code for addition.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
@@ -3496,7 +3509,7 @@ error:
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
+static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ctok;
@@ -3509,18 +3522,18 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 
 	ctok = (comp_tok_t *)optok->data;
 
-	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
-	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
+	l_int = cgen_type_is_integer(cgexpr->cgen, lres->cgtype);
+	r_int = cgen_type_is_integer(cgexpr->cgen, rres->cgtype);
 	l_enum = lres->cgtype->ntype == cgn_enum;
 	r_enum = rres->cgtype->ntype == cgn_enum;
 
 	/* Integer + integer */
 	if (l_int && r_int)
-		return cgen_add_int(cgproc, lres, rres, lblock, eres);
+		return cgen_add_int(cgexpr, lres, rres, lblock, eres);
 
 	/* Enum + integer */
 	if (l_enum && r_int)
-		return cgen_add_enum_int(cgproc, lres, rres, lblock, eres);
+		return cgen_add_enum_int(cgexpr, lres, rres, lblock, eres);
 
 	l_ptr = lres->cgtype->ntype == cgn_pointer;
 	r_ptr = rres->cgtype->ntype == cgn_pointer;
@@ -3534,13 +3547,13 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 		(void) cgtype_print(rres->cgtype, stderr);
 		fprintf(stderr, ".\n");
 
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
 	/* Pointer + integer */
 	if (l_ptr && r_int)
-		return cgen_add_ptr_int(cgproc, ctok, lres, rres, lblock, eres);
+		return cgen_add_ptr_int(cgexpr, ctok, lres, rres, lblock, eres);
 
 	/* Integer + pointer */
 	if (l_int && r_ptr) {
@@ -3548,8 +3561,8 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
-		++cgproc->cgen->warnings;
-		return cgen_add_ptr_int(cgproc, ctok, rres, lres, lblock, eres);
+		++cgexpr->cgen->warnings;
+		return cgen_add_ptr_int(cgexpr, ctok, rres, lres, lblock, eres);
 	}
 
 	/* Integer + enum */
@@ -3559,10 +3572,10 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Enum should be the left "
 			    "operand while adjusting.\n");
-			++cgproc->cgen->warnings;
+			++cgexpr->cgen->warnings;
 		}
 		/* Switch the operands */
-		return cgen_add_enum_int(cgproc, rres, lres, lblock, eres);
+		return cgen_add_enum_int(cgexpr, rres, lres, lblock, eres);
 	}
 
 	/* Enum + enum */
@@ -3570,8 +3583,8 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 		/* Produce warning if both enums are strict */
 		if (cgtype_is_strict_enum(lres->cgtype) &&
 		    cgtype_is_strict_enum(rres->cgtype))
-			cgen_warn_arith_enum(cgproc->cgen, optok);
-		return cgen_add_int(cgproc, lres, rres, lblock, eres);
+			cgen_warn_arith_enum(cgexpr->cgen, optok);
+		return cgen_add_int(cgexpr, lres, rres, lblock, eres);
 	}
 
 	/* Integer + pointer */
@@ -3580,8 +3593,8 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
-		++cgproc->cgen->warnings;
-		return cgen_add_ptr_int(cgproc, ctok, rres, lres, lblock, eres);
+		++cgexpr->cgen->warnings;
+		return cgen_add_ptr_int(cgexpr, ctok, rres, lres, lblock, eres);
 	}
 
 	fprintf(stderr, "Unimplemented addition of ");
@@ -3589,21 +3602,21 @@ static int cgen_add(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 	fprintf(stderr, " and ");
 	(void) cgtype_print(rres->cgtype, stderr);
 	fprintf(stderr, ".\n");
-	cgproc->cgen->error = true; // TODO
+	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
 }
 
 /** Generate code for subtraction of integers.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of subtraction
  * @return EOK on success or an error code
  */
-static int cgen_sub_int(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
-    ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_sub_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -3620,7 +3633,7 @@ static int cgen_sub_int(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rre
 	cgen_eres_init(&res2);
 
 	/* Perform usual arithmetic conversion */
-	rc = cgen_uac(cgproc, lres, rres, lblock, &res1, &res2, &flags);
+	rc = cgen_uac(cgexpr, lres, rres, lblock, &res1, &res2, &flags);
 	if (rc != EOK)
 		goto error;
 
@@ -3630,16 +3643,16 @@ static int cgen_sub_int(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rre
 	/* Check the type */
 	if (res1.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)res1.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -3652,7 +3665,7 @@ static int cgen_sub_int(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rre
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3696,14 +3709,14 @@ error:
 
 /** Generate code for subtraction of enum and integer.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_sub_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
+static int cgen_sub_enum_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t ares;
@@ -3711,12 +3724,12 @@ static int cgen_sub_enum_int(cgen_proc_t *cgproc, cgen_eres_t *lres,
 
 	cgen_eres_init(&ares);
 
-	rc = cgen_sub_int(cgproc, lres, rres, lblock, &ares);
+	rc = cgen_sub_int(cgexpr, lres, rres, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert result back to original enum type, if possible */
-	rc = cgen_int2enum(cgproc, &ares, lres->cgtype, eres);
+	rc = cgen_int2enum(cgexpr, &ares, lres->cgtype, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -3729,7 +3742,7 @@ error:
 
 /** Generate code for subtraction of enums.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param optok Operator token
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
@@ -3737,8 +3750,9 @@ error:
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
-    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_sub_enum(cgen_expr_t *cgexpr, ast_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	cgtype_enum_t *lenum;
 	cgtype_enum_t *renum;
@@ -3749,7 +3763,7 @@ static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lre
 	assert(rres->cgtype->ntype == cgn_enum);
 	renum = (cgtype_enum_t *)rres->cgtype->ext;
 
-	rc = cgen_sub_int(cgproc, lres, rres, lblock, eres);
+	rc = cgen_sub_int(cgexpr, lres, rres, lblock, eres);
 	if (rc != EOK)
 		return rc;
 
@@ -3758,10 +3772,10 @@ static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lre
 		if (cgtype_is_strict_enum(lres->cgtype) &&
 		    (cgtype_is_strict_enum(rres->cgtype))) {
 			/* Subtracting incompatible strict enum type */
-			cgen_warn_sub_enum_inc(cgproc->cgen, optok, lres, rres);
+			cgen_warn_sub_enum_inc(cgexpr->cgen, optok, lres, rres);
 		} else if (cgtype_is_strict_enum(rres->cgtype)) {
 			/* Subtracting strict enum from non-strict */
-			cgen_warn_arith_enum(cgproc->cgen, optok);
+			cgen_warn_arith_enum(cgexpr->cgen, optok);
 		}
 	}
 
@@ -3770,7 +3784,7 @@ static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lre
 
 /** Generate code for subtraction of pointer and integer.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
@@ -3778,7 +3792,7 @@ static int cgen_sub_enum(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lre
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
+static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
     cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
     cgen_eres_t *eres)
 {
@@ -3803,7 +3817,7 @@ static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 		goto error;
 
 	/* Convert index to be same size as pointer */
-	rc = cgen_type_convert(cgproc, optok, rres, idxtype,
+	rc = cgen_type_convert(cgexpr, optok, rres, idxtype,
 	    cgen_implicit, lblock, &cres);
 	if (rc != EOK)
 		goto error;
@@ -3820,16 +3834,16 @@ static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 		goto error;
 
 	/* Check type for completeness */
-	if (cgen_type_is_incomplete(cgproc->cgen, ptrt->tgtype)) {
+	if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
 		lexer_dprint_tok(&optok->tok, stderr);
 		fprintf(stderr, " : Indexing pointer to incomplete type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	/* Generate IR type expression for the element type */
-	rc = cgen_cgtype(cgproc->cgen, ptrt->tgtype, &elemte);
+	rc = cgen_cgtype(cgexpr->cgen, ptrt->tgtype, &elemte);
 	if (rc != EOK)
 		goto error;
 
@@ -3839,7 +3853,7 @@ static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &tmp);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &tmp);
 	if (rc != EOK)
 		goto error;
 
@@ -3867,7 +3881,7 @@ static int cgen_sub_ptr_int(cgen_proc_t *cgproc, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3918,7 +3932,7 @@ error:
 
 /** Generate code for subtraction.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
@@ -3926,7 +3940,7 @@ error:
  * @param eres Place to store result of subtraction
  * @return EOK on success or an error code
  */
-static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
+static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
     cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ctok;
@@ -3939,28 +3953,28 @@ static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 
 	ctok = (comp_tok_t *)optok->data;
 
-	l_int = cgen_type_is_integer(cgproc->cgen, lres->cgtype);
-	r_int = cgen_type_is_integer(cgproc->cgen, rres->cgtype);
+	l_int = cgen_type_is_integer(cgexpr->cgen, lres->cgtype);
+	r_int = cgen_type_is_integer(cgexpr->cgen, rres->cgtype);
 	l_enum = lres->cgtype->ntype == cgn_enum;
 	r_enum = rres->cgtype->ntype == cgn_enum;
 
 	/* Integer - integer */
 	if (l_int && r_int)
-		return cgen_sub_int(cgproc, lres, rres, lblock, eres);
+		return cgen_sub_int(cgexpr, lres, rres, lblock, eres);
 
 	/* Enum - integer */
 	if (l_enum && r_int)
-		return cgen_sub_enum_int(cgproc, lres, rres, lblock, eres);
+		return cgen_sub_enum_int(cgexpr, lres, rres, lblock, eres);
 
 	/* Integer - enum */
 	if (l_int && r_enum) {
-		cgen_warn_arith_enum(cgproc->cgen, optok);
-		return cgen_sub_int(cgproc, lres, rres, lblock, eres);
+		cgen_warn_arith_enum(cgexpr->cgen, optok);
+		return cgen_sub_int(cgexpr, lres, rres, lblock, eres);
 	}
 
 	/* Enum - enum */
 	if (l_enum && r_enum)
-		return cgen_sub_enum(cgproc, optok, lres, rres, lblock, eres);
+		return cgen_sub_enum(cgexpr, optok, lres, rres, lblock, eres);
 
 	l_ptr = lres->cgtype->ntype == cgn_pointer;
 	r_ptr = rres->cgtype->ntype == cgn_pointer;
@@ -3970,13 +3984,13 @@ static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented pointer subtraction.\n");
 
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
 	/* Pointer - integer */
 	if (l_ptr && r_int)
-		return cgen_sub_ptr_int(cgproc, ctok, lres, rres, lblock, eres);
+		return cgen_sub_ptr_int(cgexpr, ctok, lres, rres, lblock, eres);
 
 	/* Integer - pointer */
 	if (l_int && r_ptr) {
@@ -3986,7 +4000,7 @@ static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 		fprintf(stderr, " and ");
 		(void) cgtype_print(rres->cgtype, stderr);
 		fprintf(stderr, ".\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
@@ -3995,20 +4009,20 @@ static int cgen_sub(cgen_proc_t *cgproc, ast_tok_t *optok, cgen_eres_t *lres,
 	fprintf(stderr, " and ");
 	(void) cgtype_print(rres->cgtype, stderr);
 	fprintf(stderr, ".\n");
-	cgproc->cgen->error = true; // TODO
+	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
 }
 
 /** Generate code for multiplication.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of multiplication
  * @return EOK on success or an error code
  */
-static int cgen_mul(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_mul(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4022,16 +4036,16 @@ static int cgen_mul(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -4044,7 +4058,7 @@ static int cgen_mul(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4083,14 +4097,14 @@ error:
 
 /** Generate code for shift left.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_shl(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_shl(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4104,16 +4118,16 @@ static int cgen_shl(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -4126,7 +4140,7 @@ static int cgen_shl(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4165,7 +4179,7 @@ error:
 
 /** Generate code for shift right.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop Binary operator expression (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
@@ -4173,7 +4187,7 @@ error:
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
@@ -4189,7 +4203,7 @@ static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	int rc;
 
 	/* Check the type */
-	if (!cgen_type_is_integer(cgproc->cgen, lres->cgtype)) {
+	if (!cgen_type_is_integer(cgexpr->cgen, lres->cgtype)) {
 		atok = ast_tree_first_tok(ebinop->larg);
 		ctok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
@@ -4197,18 +4211,18 @@ static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		    "of integer type. Found ");
 		(void) cgtype_print(lres->cgtype, stderr);
 		fprintf(stderr, ".\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	assert(lres->cgtype->ntype == cgn_basic);
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	assert(bits != 0);
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
@@ -4219,7 +4233,7 @@ static int cgen_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4258,14 +4272,14 @@ error:
 
 /** Generate code for bitwise AND.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_band(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4279,16 +4293,16 @@ static int cgen_band(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -4301,7 +4315,7 @@ static int cgen_band(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4340,14 +4354,14 @@ error:
 
 /** Generate code for bitwise XOR.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_bxor(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4361,16 +4375,16 @@ static int cgen_bxor(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -4383,7 +4397,7 @@ static int cgen_bxor(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4429,7 +4443,7 @@ error:
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_bor(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
+static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4443,16 +4457,16 @@ static int cgen_bor(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -4465,7 +4479,7 @@ static int cgen_bor(cgen_proc_t *cgproc, cgen_eres_t *lres, cgen_eres_t *rres,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4504,13 +4518,13 @@ error:
 
 /** Generate code for binary '+' operator.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (addition)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_plus(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -4521,17 +4535,17 @@ static int cgen_bo_plus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Add the two operands */
-	rc = cgen_add(cgproc, &ebinop->top, &lres, &rres, lblock, eres);
+	rc = cgen_add(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4547,13 +4561,13 @@ error:
 
 /** Generate code for binary '-' operator.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (addition)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_minus(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -4564,17 +4578,17 @@ static int cgen_bo_minus(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, &ebinop->top, &lres, &rres, lblock, eres);
+	rc = cgen_sub(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4590,13 +4604,13 @@ error:
 
 /** Generate code for binary '*' operator.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (multiplication)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_times(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_times(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -4608,7 +4622,7 @@ static int cgen_bo_times(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rres);
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -4618,10 +4632,10 @@ static int cgen_bo_times(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	 * Multiplication involving enums is not.
 	 */
 	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Multiply the two operands */
-	rc = cgen_mul(cgproc, &lres, &rres, lblock, eres);
+	rc = cgen_mul(cgexpr, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4637,13 +4651,13 @@ error:
 
 /** Generate code for shift left binary operator.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (shift left)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_shl(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_shl(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -4660,30 +4674,30 @@ static int cgen_bo_shl(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rires);
 
 	/* Promoted value of left operand */
-	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &lres, lblock, &lires, &conv1);
+	rc = cgen_enum2int(cgexpr, &lres, lblock, &lires, &conv1);
 	if (rc != EOK)
 		goto error;
 
 	/* Promoted value of right operand */
-	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &rres, lblock, &rires, &conv2);
+	rc = cgen_enum2int(cgexpr, &rres, lblock, &rires, &conv2);
 	if (rc != EOK)
 		goto error;
 
 	if (conv1 || conv2)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
-	rc = cgen_shl(cgproc, &lires, &rires, lblock, eres);
+	rc = cgen_shl(cgexpr, &lires, &rires, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4703,13 +4717,13 @@ error:
 
 /** Generate code for shift right operator.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (shift right)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -4726,30 +4740,30 @@ static int cgen_bo_shr(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rires);
 
 	/* Promoted value of left operand */
-	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &lres, lblock, &lires, &conv1);
+	rc = cgen_enum2int(cgexpr, &lres, lblock, &lires, &conv1);
 	if (rc != EOK)
 		goto error;
 
 	/* Promoted value of right operand */
-	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &rres, lblock, &rires, &conv2);
+	rc = cgen_enum2int(cgexpr, &rres, lblock, &rires, &conv2);
 	if (rc != EOK)
 		goto error;
 
 	if (conv1 || conv2)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Shift right */
-	rc = cgen_shr(cgproc, ebinop, &lires, &rires, lblock, eres);
+	rc = cgen_shr(cgexpr, ebinop, &lires, &rires, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -4769,13 +4783,13 @@ error:
 
 /** Generate code for less than expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (less than)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4795,7 +4809,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -4803,29 +4817,29 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Check the type */
 	if (lres.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -4835,7 +4849,7 @@ static int cgen_lt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4879,13 +4893,13 @@ error:
 
 /** Generate code for less than or equal expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (less than or equal)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -4905,7 +4919,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -4913,29 +4927,29 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Check the type */
 	if (lres.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -4945,7 +4959,7 @@ static int cgen_lteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -4989,13 +5003,13 @@ error:
 
 /** Generate code for greater than expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (greater than)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_gt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -5015,32 +5029,32 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
 	/* Check the type */
-	if (!cgen_type_is_integer(cgproc->cgen, lres.cgtype) ||
-	    !cgen_type_is_integer(cgproc->cgen, rres.cgtype)) {
+	if (!cgen_type_is_integer(cgexpr->cgen, lres.cgtype) ||
+	    !cgen_type_is_integer(cgexpr->cgen, rres.cgtype)) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -5050,7 +5064,7 @@ static int cgen_gt(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -5094,13 +5108,13 @@ error:
 
 /** Generate code for greater than or equal expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (greater than or equal)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -5120,7 +5134,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -5128,29 +5142,29 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Check the type */
 	if (lres.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -5160,7 +5174,7 @@ static int cgen_gteq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -5204,13 +5218,13 @@ error:
 
 /** Generate code for equal expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (equal)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -5229,7 +5243,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -5237,26 +5251,26 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Check the type */
 	if (lres.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -5266,7 +5280,7 @@ static int cgen_eq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -5310,13 +5324,13 @@ error:
 
 /** Generate code for not equal expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (not equal)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -5335,7 +5349,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
 	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -5343,26 +5357,26 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	/* Check the type */
 	if (lres.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -5372,7 +5386,7 @@ static int cgen_neq(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -5416,13 +5430,13 @@ error:
 
 /** Generate code for bitwise AND expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (bitwise AND)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t res1;
@@ -5442,21 +5456,21 @@ static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &res1);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
 	/* Usual arithmetic conversions */
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, &lres, &rres, &flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	/* Integer (not enum) operands, any of them signed */
@@ -5466,18 +5480,18 @@ static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
 		    "integer(s).\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise AND */
-	rc = cgen_band(cgproc, &lres, &rres, lblock, &bres);
+	rc = cgen_band(cgexpr, &lres, &rres, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -5485,7 +5499,7 @@ static int cgen_bo_band(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
 	    (flags & cguac_enummix) == 0) {
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &bres, res1.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &bres, res1.cgtype, eres);
 		if (rc != EOK)
 			return rc;
 	} else {
@@ -5512,13 +5526,13 @@ error:
 
 /** Generate code for bitwise XOR expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (bitwise XOR)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_bxor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t res1;
@@ -5538,21 +5552,21 @@ static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &res1);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
 	/* Usual arithmetic conversions */
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, &lres, &rres, &flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	/* Integer (not enum) operands, any of them signed */
@@ -5562,18 +5576,18 @@ static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
 		    "integer(s).\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise XOR */
-	rc = cgen_bxor(cgproc, &lres, &rres, lblock, &bres);
+	rc = cgen_bxor(cgexpr, &lres, &rres, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -5581,7 +5595,7 @@ static int cgen_bo_bxor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
 	    (flags & cguac_enummix) == 0) {
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &bres, res1.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &bres, res1.cgtype, eres);
 		if (rc != EOK)
 			return rc;
 	} else {
@@ -5608,13 +5622,13 @@ error:
 
 /** Generate code for bitwise OR expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (bitwise OR)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bo_bor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t res1;
@@ -5634,21 +5648,21 @@ static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->larg, lblock, &res1);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
 	/* Usual arithmetic conversions */
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, &lres, &rres, &flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	/* Integer (not enum) operands, any of them signed */
@@ -5658,18 +5672,18 @@ static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
 		    "integer(s).\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise OR */
-	rc = cgen_bor(cgproc, &lres, &rres, lblock, &bres);
+	rc = cgen_bor(cgexpr, &lres, &rres, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -5677,7 +5691,7 @@ static int cgen_bo_bor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
 	    (flags & cguac_enummix) == 0) {
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &bres, res1.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &bres, res1.cgtype, eres);
 		if (rc != EOK)
 			return rc;
 	} else {
@@ -5704,13 +5718,13 @@ error:
 
 /** Generate code for logical AND expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (logical AND)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -5730,13 +5744,13 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	lblno = cgen_new_label_num(cgproc);
+	lblno = cgen_new_label_num(cgexpr->cgproc);
 
-	rc = cgen_create_label(cgproc, "false_and", lblno, &flabel);
+	rc = cgen_create_label(cgexpr->cgproc, "false_and", lblno, &flabel);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_label(cgproc, "end_and", lblno, &elabel);
+	rc = cgen_create_label(cgexpr->cgproc, "end_and", lblno, &elabel);
 	if (rc != EOK)
 		goto error;
 
@@ -5746,13 +5760,13 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Jump to %false_and if left argument is zero */
 
-	rc = cgen_truth_cjmp(cgproc, ebinop->larg, false, flabel, lblock);
+	rc = cgen_truth_cjmp(cgexpr, ebinop->larg, false, flabel, lblock);
 	if (rc != EOK)
 		goto error;
 
 	/* Jump to %false_and if right argument is zero */
 
-	rc = cgen_truth_cjmp(cgproc, ebinop->rarg, false, flabel, lblock);
+	rc = cgen_truth_cjmp(cgexpr, ebinop->rarg, false, flabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -5762,7 +5776,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -5771,7 +5785,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -5831,7 +5845,7 @@ static int cgen_land(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest2->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -5875,13 +5889,13 @@ error:
 
 /** Generate code for logical OR expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (logical OR)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -5901,13 +5915,13 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	lblno = cgen_new_label_num(cgproc);
+	lblno = cgen_new_label_num(cgexpr->cgproc);
 
-	rc = cgen_create_label(cgproc, "true_or", lblno, &tlabel);
+	rc = cgen_create_label(cgexpr->cgproc, "true_or", lblno, &tlabel);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_label(cgproc, "end_or", lblno, &elabel);
+	rc = cgen_create_label(cgexpr->cgproc, "end_or", lblno, &elabel);
 	if (rc != EOK)
 		goto error;
 
@@ -5917,13 +5931,13 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 	/* Jump to %true_or if left argument is not zero */
 
-	rc = cgen_truth_cjmp(cgproc, ebinop->larg, true, tlabel, lblock);
+	rc = cgen_truth_cjmp(cgexpr, ebinop->larg, true, tlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
 	/* Jump to %true_or if right argument is not zero */
 
-	rc = cgen_truth_cjmp(cgproc, ebinop->rarg, true, tlabel, lblock);
+	rc = cgen_truth_cjmp(cgexpr, ebinop->rarg, true, tlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -5933,7 +5947,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -5942,7 +5956,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -6001,7 +6015,7 @@ static int cgen_lor(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest2->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -6045,13 +6059,13 @@ error:
 
 /** Generate code for storing a record (in an assignment expression).
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ares Address expression result
  * @param vres Value expression result
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_store_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
+static int cgen_store_record(cgen_expr_t *cgexpr, cgen_eres_t *ares,
     cgen_eres_t *vres, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
@@ -6060,12 +6074,10 @@ static int cgen_store_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	ir_texpr_t *recte = NULL;
 	int rc;
 
-	(void)cgproc;
-
 	assert(vres->cgtype->ntype == cgn_record);
 
 	/* Generate IR type expression for the record type */
-	rc = cgen_cgtype(cgproc->cgen, vres->cgtype, &recte);
+	rc = cgen_cgtype(cgexpr->cgen, vres->cgtype, &recte);
 	if (rc != EOK)
 		goto error;
 
@@ -6103,13 +6115,13 @@ error:
 
 /** Generate code for storing a value (in an assignment expression).
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ares Address expression result
  * @param vres Value expression result
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
+static int cgen_store(cgen_expr_t *cgexpr, cgen_eres_t *ares,
     cgen_eres_t *vres, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
@@ -6120,23 +6132,23 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 
 	/* Check the type */
 	if (vres->cgtype->ntype == cgn_basic) {
-		bits = cgen_basic_type_bits(cgproc->cgen,
+		bits = cgen_basic_type_bits(cgexpr->cgen,
 		    (cgtype_basic_t *)vres->cgtype->ext);
 		if (bits == 0) {
 			fprintf(stderr, "Unimplemented variable type.\n");
-			cgproc->cgen->error = true; // TODO
+			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
 		}
 	} else if (vres->cgtype->ntype == cgn_pointer) {
 		bits = cgen_pointer_bits;
 	} else if (vres->cgtype->ntype == cgn_record) {
-		return cgen_store_record(cgproc, ares, vres, lblock);
+		return cgen_store_record(cgexpr, ares, vres, lblock);
 	} else if (vres->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -6173,13 +6185,13 @@ error:
 
 /** Generate code for assignment expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (addition)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ctok;
@@ -6194,25 +6206,25 @@ static int cgen_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&cres);
 
 	/* Address of left hand expression */
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Value of right hand expression */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	ctok = (comp_tok_t *) ebinop->top.data;
 
 	/* Convert expression result to the destination type */
-	rc = cgen_type_convert(cgproc, ctok, &rres, lres.cgtype,
+	rc = cgen_type_convert(cgexpr, ctok, &rres, lres.cgtype,
 	    cgen_implicit, lblock, &cres);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the converted value */
-	rc = cgen_store(cgproc, &lres, &cres, lblock);
+	rc = cgen_store(cgexpr, &lres, &cres, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6238,13 +6250,13 @@ error:
 
 /** Generate code for add assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (add assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_plus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t laddr;
@@ -6261,27 +6273,27 @@ static int cgen_plus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ores);
 
 	/* Address of left hand expression */
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &laddr);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &laddr);
 	if (rc != EOK)
 		goto error;
 
 	/* Value of left hand expression */
-	rc = cgen_eres_rvalue(cgproc, &laddr, lblock, &lval);
+	rc = cgen_eres_rvalue(cgexpr, &laddr, lblock, &lval);
 	if (rc != EOK)
 		goto error;
 
 	/* Value of right hand expression */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Add the two operands */
-	rc = cgen_add(cgproc, &ebinop->top, &lval, &rres, lblock, &ores);
+	rc = cgen_add(cgexpr, &ebinop->top, &lval, &rres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &laddr, &ores, lblock);
+	rc = cgen_store(cgexpr, &laddr, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6311,13 +6323,13 @@ error:
 
 /** Generate code for subtract assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (subtract assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_minus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t laddr;
@@ -6334,27 +6346,27 @@ static int cgen_minus_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ores);
 
 	/* Address of left hand expression */
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &laddr);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &laddr);
 	if (rc != EOK)
 		goto error;
 
 	/* Value of left hand expression */
-	rc = cgen_eres_rvalue(cgproc, &laddr, lblock, &lval);
+	rc = cgen_eres_rvalue(cgexpr, &laddr, lblock, &lval);
 	if (rc != EOK)
 		goto error;
 
 	/* Value of right hand expression */
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Subtract the two operands */
-	rc = cgen_sub(cgproc, &ebinop->top, &lval, &rres, lblock, &ores);
+	rc = cgen_sub(cgexpr, &ebinop->top, &lval, &rres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &laddr, &ores, lblock);
+	rc = cgen_store(cgexpr, &laddr, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6384,13 +6396,13 @@ error:
 
 /** Generate code for multiply assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (mutiply assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -6408,7 +6420,7 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ores);
 
 	/* Evaluate and perform usual arithmetic conversions on operands */
-	rc = cgen_expr2lr_uac(cgproc, ebinop->larg, ebinop->rarg, lblock,
+	rc = cgen_expr2lr_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
 	    &lres, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
@@ -6418,15 +6430,15 @@ static int cgen_times_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	 * Multiplication involving enums is not.
 	 */
 	if ((flags & cguac_enum) != 0)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Multiply the two operands */
-	rc = cgen_mul(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_mul(cgexpr, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6456,13 +6468,13 @@ error:
 
 /** Generate code for shift left assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (shift left assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -6485,40 +6497,40 @@ static int cgen_shl_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ores);
 
 	/* Address of left hand expression */
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Promoted value of left operand */
-	rc = cgen_eres_promoted_rvalue(cgproc, &lres, lblock, &ares);
+	rc = cgen_eres_promoted_rvalue(cgexpr, &lres, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &ares, lblock, &aires, &conv1);
+	rc = cgen_enum2int(cgexpr, &ares, lblock, &aires, &conv1);
 	if (rc != EOK)
 		goto error;
 
 	/* Promoted value of right operand */
-	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebinop->rarg, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &bres, lblock, &bires, &conv2);
+	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv2);
 	if (rc != EOK)
 		goto error;
 
 	if (conv1 || conv2)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
-	rc = cgen_shl(cgproc, &aires, &bires, lblock, &ores);
+	rc = cgen_shl(cgexpr, &aires, &bires, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6552,12 +6564,12 @@ error:
 
 /** Generate code for shift right assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (shift right assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression resucess or an error code
  */
-static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -6580,40 +6592,40 @@ static int cgen_shr_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&ores);
 
 	/* Address of left hand expression */
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Promoted value of left operand */
-	rc = cgen_eres_promoted_rvalue(cgproc, &lres, lblock, &ares);
+	rc = cgen_eres_promoted_rvalue(cgexpr, &lres, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &ares, lblock, &aires, &conv1);
+	rc = cgen_enum2int(cgexpr, &ares, lblock, &aires, &conv1);
 	if (rc != EOK)
 		goto error;
 
 	/* Promoted value of right operand */
-	rc = cgen_expr_promoted_rvalue(cgproc, ebinop->rarg, lblock, &bres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebinop->rarg, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &bres, lblock, &bires, &conv2);
+	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv2);
 	if (rc != EOK)
 		goto error;
 
 	if (conv1 || conv2)
-		cgen_warn_arith_enum(cgproc->cgen, &ebinop->top);
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Shift right */
-	rc = cgen_shr(cgproc, ebinop, &aires, &bires, lblock, &ores);
+	rc = cgen_shr(cgexpr, ebinop, &aires, &bires, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6647,13 +6659,13 @@ error:
 
 /** Generate code for bitwise AND assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (bitwise AND assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -6674,23 +6686,23 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_rvalue(cgproc, &lres, lblock, &res1);
+	rc = cgen_eres_rvalue(cgexpr, &lres, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, &ares, &bres, &flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)ares.cgtype->ext);
 
 	/* Integer (not enum) operands, any of them signed */
@@ -6700,23 +6712,23 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
 		    "integer(s).\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise AND the two operands */
-	rc = cgen_band(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_band(cgexpr, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6724,7 +6736,7 @@ static int cgen_band_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
 	    (flags & cguac_enummix) == 0) {
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &ores, res1.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &ores, res1.cgtype, eres);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -6754,13 +6766,13 @@ error:
 
 /** Generate code for bitwise XOR assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (bitwise XOR assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -6781,23 +6793,23 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_rvalue(cgproc, &lres, lblock, &res1);
+	rc = cgen_eres_rvalue(cgexpr, &lres, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, &ares, &bres, &flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)ares.cgtype->ext);
 
 	/* Integer (not enum) operands, any of them signed */
@@ -6807,23 +6819,23 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
 		    "integer(s).\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise XOR the two operands */
-	rc = cgen_bxor(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_bxor(cgexpr, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6831,7 +6843,7 @@ static int cgen_bxor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
 	    (flags & cguac_enummix) == 0) {
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &ores, res1.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &ores, res1.cgtype, eres);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -6861,13 +6873,13 @@ error:
 
 /** Generate code for bitwise OR assign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression (bitwise OR assign)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
@@ -6888,23 +6900,23 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	cgen_eres_init(&bres);
 	cgen_eres_init(&ores);
 
-	rc = cgen_expr_lvalue(cgproc, ebinop->larg, lblock, &lres);
+	rc = cgen_expr_lvalue(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_rvalue(cgproc, &lres, lblock, &res1);
+	rc = cgen_eres_rvalue(cgexpr, &lres, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_expr_rvalue(cgproc, ebinop->rarg, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, &ares, &bres, &flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, &ares, &bres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgproc->cgen,
+	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)ares.cgtype->ext);
 
 	/* Integer (not enum) operands, any of them signed */
@@ -6914,23 +6926,23 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Bitwise operation on signed "
 		    "integer(s).\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_bitop_enum_inc(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_bitop_enum_mix(cgproc->cgen, &ebinop->top);
+		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise OR the two operands */
-	rc = cgen_bor(cgproc, &ares, &bres, lblock, &ores);
+	rc = cgen_bor(cgexpr, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6938,7 +6950,7 @@ static int cgen_bor_assign(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
 	    (flags & cguac_enummix) == 0) {
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &ores, res1.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &ores, res1.cgtype, eres);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -6968,82 +6980,82 @@ error:
 
 /** Generate code for binary operator expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST binary operator expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
+static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *tok;
 
 	switch (ebinop->optype) {
 	case abo_plus:
-		return cgen_bo_plus(cgproc, ebinop, lblock, eres);
+		return cgen_bo_plus(cgexpr, ebinop, lblock, eres);
 	case abo_minus:
-		return cgen_bo_minus(cgproc, ebinop, lblock, eres);
+		return cgen_bo_minus(cgexpr, ebinop, lblock, eres);
 	case abo_times:
-		return cgen_bo_times(cgproc, ebinop, lblock, eres);
+		return cgen_bo_times(cgexpr, ebinop, lblock, eres);
 	case abo_divide:
 	case abo_modulo:
 		tok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Unimplemented binary operator.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	case abo_shl:
-		return cgen_bo_shl(cgproc, ebinop, lblock, eres);
+		return cgen_bo_shl(cgexpr, ebinop, lblock, eres);
 	case abo_shr:
-		return cgen_bo_shr(cgproc, ebinop, lblock, eres);
+		return cgen_bo_shr(cgexpr, ebinop, lblock, eres);
 	case abo_lt:
-		return cgen_lt(cgproc, ebinop, lblock, eres);
+		return cgen_lt(cgexpr, ebinop, lblock, eres);
 	case abo_lteq:
-		return cgen_lteq(cgproc, ebinop, lblock, eres);
+		return cgen_lteq(cgexpr, ebinop, lblock, eres);
 	case abo_gt:
-		return cgen_gt(cgproc, ebinop, lblock, eres);
+		return cgen_gt(cgexpr, ebinop, lblock, eres);
 	case abo_gteq:
-		return cgen_gteq(cgproc, ebinop, lblock, eres);
+		return cgen_gteq(cgexpr, ebinop, lblock, eres);
 	case abo_eq:
-		return cgen_eq(cgproc, ebinop, lblock, eres);
+		return cgen_eq(cgexpr, ebinop, lblock, eres);
 	case abo_neq:
-		return cgen_neq(cgproc, ebinop, lblock, eres);
+		return cgen_neq(cgexpr, ebinop, lblock, eres);
 	case abo_band:
-		return cgen_bo_band(cgproc, ebinop, lblock, eres);
+		return cgen_bo_band(cgexpr, ebinop, lblock, eres);
 	case abo_bxor:
-		return cgen_bo_bxor(cgproc, ebinop, lblock, eres);
+		return cgen_bo_bxor(cgexpr, ebinop, lblock, eres);
 	case abo_bor:
-		return cgen_bo_bor(cgproc, ebinop, lblock, eres);
+		return cgen_bo_bor(cgexpr, ebinop, lblock, eres);
 	case abo_land:
-		return cgen_land(cgproc, ebinop, lblock, eres);
+		return cgen_land(cgexpr, ebinop, lblock, eres);
 	case abo_lor:
-		return cgen_lor(cgproc, ebinop, lblock, eres);
+		return cgen_lor(cgexpr, ebinop, lblock, eres);
 	case abo_assign:
-		return cgen_assign(cgproc, ebinop, lblock, eres);
+		return cgen_assign(cgexpr, ebinop, lblock, eres);
 	case abo_plus_assign:
-		return cgen_plus_assign(cgproc, ebinop, lblock, eres);
+		return cgen_plus_assign(cgexpr, ebinop, lblock, eres);
 	case abo_minus_assign:
-		return cgen_minus_assign(cgproc, ebinop, lblock, eres);
+		return cgen_minus_assign(cgexpr, ebinop, lblock, eres);
 	case abo_times_assign:
-		return cgen_times_assign(cgproc, ebinop, lblock, eres);
+		return cgen_times_assign(cgexpr, ebinop, lblock, eres);
 	case abo_divide_assign:
 	case abo_modulo_assign:
 		tok = (comp_tok_t *) ebinop->top.data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Unimplemented binary operator.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	case abo_shl_assign:
-		return cgen_shl_assign(cgproc, ebinop, lblock, eres);
+		return cgen_shl_assign(cgexpr, ebinop, lblock, eres);
 	case abo_shr_assign:
-		return cgen_shr_assign(cgproc, ebinop, lblock, eres);
+		return cgen_shr_assign(cgexpr, ebinop, lblock, eres);
 	case abo_band_assign:
-		return cgen_band_assign(cgproc, ebinop, lblock, eres);
+		return cgen_band_assign(cgexpr, ebinop, lblock, eres);
 	case abo_bxor_assign:
-		return cgen_bxor_assign(cgproc, ebinop, lblock, eres);
+		return cgen_bxor_assign(cgexpr, ebinop, lblock, eres);
 	case abo_bor_assign:
-		return cgen_bor_assign(cgproc, ebinop, lblock, eres);
+		return cgen_bor_assign(cgexpr, ebinop, lblock, eres);
 	}
 
 	/* Should not be reached */
@@ -7053,40 +7065,40 @@ static int cgen_ebinop(cgen_proc_t *cgproc, ast_ebinop_t *ebinop,
 
 /** Generate code for comma expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ecomma AST comma expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ecomma(cgen_proc_t *cgproc, ast_ecomma_t *ecomma,
+static int cgen_ecomma(cgen_expr_t *cgexpr, ast_ecomma_t *ecomma,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t lres;
 	int rc;
 
 	/* Evaluate and ignore left argument */
-	rc = cgen_expr(cgproc, ecomma->larg, lblock, &lres);
+	rc = cgen_expr(cgexpr, ecomma->larg, lblock, &lres);
 	if (rc != EOK)
 		return rc;
 
-	cgen_expr_check_unused(cgproc, ecomma->larg, &lres);
+	cgen_expr_check_unused(cgexpr, ecomma->larg, &lres);
 
 	cgen_eres_fini(&lres);
 
 	/* Evaluate and return right argument */
-	return cgen_expr(cgproc, ecomma->rarg, lblock, eres);
+	return cgen_expr(cgexpr, ecomma->rarg, lblock, eres);
 }
 
 /** Generate code for call expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ecall AST call expression)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
+static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ast_tok_t *atok;
@@ -7116,7 +7128,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Function call needs an identifier (not implemented).\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -7125,12 +7137,12 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 	ident = (comp_tok_t *) eident->tident.data;
 
 	/* Check if the identifier is declared */
-	member = scope_lookup(cgproc->cgen->cur_scope, ident->tok.text);
+	member = scope_lookup(cgexpr->cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Undeclared identifier '%s'.\n",
 		    ident->tok.text);
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -7139,7 +7151,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Called object '%s' is not a function.\n",
 		    ident->tok.text);
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -7190,12 +7202,12 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Too many arguments to function '%s'.\n",
 			    ident->tok.text);
-			cgproc->cgen->error = true; // TODO
+			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
 		}
 
-		rc = cgen_expr_rvalue(cgproc, earg->arg, lblock, &ares);
+		rc = cgen_expr_rvalue(cgexpr, earg->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
 
@@ -7207,7 +7219,7 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		 * variadic, convert it to its declared type.
 		 * XXX Otherwise it should be simply promoted.
 		 */
-		rc = cgen_type_convert(cgproc, tok, &ares, farg->atype,
+		rc = cgen_type_convert(cgexpr, tok, &ares, farg->atype,
 		    cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;
@@ -7239,13 +7251,13 @@ static int cgen_ecall(cgen_proc_t *cgproc, ast_ecall_t *ecall,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Too few arguments to function '%s'.\n",
 		    ident->tok.text);
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	if (!cgtype_is_void(ftype->rtype)) {
-		rc = cgen_create_new_lvar_oper(cgproc, &dest);
+		rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 		if (rc != EOK)
 			goto error;
 	}
@@ -7285,13 +7297,13 @@ error:
 
 /** Generate code for index expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eindex AST index expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eindex(cgen_proc_t *cgproc, ast_eindex_t *eindex,
+static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -7311,17 +7323,17 @@ static int cgen_eindex(cgen_proc_t *cgproc, ast_eindex_t *eindex,
 	cgen_eres_init(&sres);
 
 	/* Evaluate base operand */
-	rc = cgen_expr_rvalue(cgproc, eindex->bexpr, lblock, &bres);
+	rc = cgen_expr_rvalue(cgexpr, eindex->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate index operand */
-	rc = cgen_expr_rvalue(cgproc, eindex->iexpr, lblock, &ires);
+	rc = cgen_expr_rvalue(cgexpr, eindex->iexpr, lblock, &ires);
 	if (rc != EOK)
 		goto error;
 
-	b_int = cgen_type_is_integer(cgproc->cgen, bres.cgtype);
-	i_int = cgen_type_is_integer(cgproc->cgen, ires.cgtype);
+	b_int = cgen_type_is_integer(cgexpr->cgen, bres.cgtype);
+	i_int = cgen_type_is_integer(cgexpr->cgen, ires.cgtype);
 
 	b_ptr = bres.cgtype->ntype == cgn_pointer;
 	i_ptr = ires.cgtype->ntype == cgn_pointer;
@@ -7331,7 +7343,7 @@ static int cgen_eindex(cgen_proc_t *cgproc, ast_eindex_t *eindex,
 	if (!b_ptr && !i_ptr) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Subscripted object is neither pointer nor array.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -7339,13 +7351,13 @@ static int cgen_eindex(cgen_proc_t *cgproc, ast_eindex_t *eindex,
 	if ((b_ptr && !i_int) || (i_ptr && !b_int)) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Subscript index is not an integer.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	/* Add the two operands */
-	rc = cgen_add(cgproc, &eindex->tlbracket, &bres, &ires, lblock, &sres);
+	rc = cgen_add(cgexpr, &eindex->tlbracket, &bres, &ires, lblock, &sres);
 	if (rc != EOK)
 		goto error;
 
@@ -7375,13 +7387,13 @@ error:
 
 /** Generate code for dereference expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ederef AST dereference expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
+static int cgen_ederef(cgen_expr_t *cgexpr, ast_ederef_t *ederef,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -7393,7 +7405,7 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 	cgen_eres_init(&bres);
 
 	/* Evaluate expression as rvalue */
-	rc = cgen_expr_rvalue(cgproc, ederef->bexpr, lblock, &bres);
+	rc = cgen_expr_rvalue(cgexpr, ederef->bexpr, lblock, &bres);
 	if (rc != EOK) {
 		printf("error\n");
 		goto error;
@@ -7408,7 +7420,7 @@ static int cgen_ederef(cgen_proc_t *cgproc, ast_ederef_t *ederef,
 		fprintf(stderr, ": Dereference operator needs a pointer, got '");
 		(void) cgtype_print(bres.cgtype, stderr);
 		fprintf(stderr, "'.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -7433,13 +7445,13 @@ error:
 
 /** Generate code for address expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eaddr AST address expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
+static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -7450,7 +7462,7 @@ static int cgen_eaddr(cgen_proc_t *cgproc, ast_eaddr_t *eaddr,
 	cgen_eres_init(&bres);
 
 	/* Evaluate expression as lvalue */
-	rc = cgen_expr_lvalue(cgproc, eaddr->bexpr, lblock, &bres);
+	rc = cgen_expr_lvalue(cgexpr, eaddr->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -7477,13 +7489,13 @@ error:
 
 /** Generate code for sizeof expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param esizeof AST sizeof expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_esizeof(cgen_proc_t *cgproc, ast_esizeof_t *esizeof,
+static int cgen_esizeof(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ast_tok_t *atok;
@@ -7498,19 +7510,19 @@ static int cgen_esizeof(cgen_proc_t *cgproc, ast_esizeof_t *esizeof,
 	tok = (comp_tok_t *) atok->data;
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": This expression type is not implemented.\n");
-	cgproc->cgen->error = true; // TODO
+	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
 }
 
 /** Generate code for cast expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ecast AST cast expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
+static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -7525,7 +7537,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 	cgen_eres_init(&bres);
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgproc->cgen, ecast->dspecs, &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgexpr->cgen, ecast->dspecs, &sctype, &flags, &stype);
 	if (rc != EOK)
 		goto error;
 
@@ -7534,7 +7546,7 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 		ctok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Struct/union/enum definition inside a cast.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	if (sctype != asc_none) {
@@ -7542,24 +7554,24 @@ static int cgen_ecast(cgen_proc_t *cgproc, ast_ecast_t *ecast,
 		ctok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented storage class specifier.\n");
-		cgproc->cgen->error = true; // XXX
+		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
 	}
 
 	/* Declarator */
-	rc = cgen_decl(cgproc->cgen, stype, ecast->decl, NULL, &dtype);
+	rc = cgen_decl(cgexpr->cgen, stype, ecast->decl, NULL, &dtype);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate expression */
-	rc = cgen_expr(cgproc, ecast->bexpr, lblock, &bres);
+	rc = cgen_expr(cgexpr, ecast->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	ctok = (comp_tok_t *)ecast->tlparen.data;
 
-	rc = cgen_type_convert(cgproc, ctok, &bres, dtype,
+	rc = cgen_type_convert(cgexpr, ctok, &bres, dtype,
 	    cgen_explicit, lblock, eres);
 	if (rc != EOK)
 		goto error;
@@ -7577,13 +7589,13 @@ error:
 
 /** Generate code for member expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param emember AST member expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
+static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -7606,7 +7618,7 @@ static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
 	cgen_eres_init(&bres);
 
 	/* Evaluate expression */
-	rc = cgen_expr(cgproc, emember->bexpr, lblock, &bres);
+	rc = cgen_expr(cgexpr, emember->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -7615,7 +7627,7 @@ static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
 		ctok = (comp_tok_t *)emember->tperiod.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": '.' requires a struct or union.\n");
-		cgproc->cgen->error = true; // XXX
+		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
 	}
@@ -7632,7 +7644,7 @@ static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
 		fprintf(stderr, ": Record type ");
 		(void) cgtype_print(btype, stderr);
 		fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
-		cgproc->cgen->error = true; // XXX
+		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
 	}
@@ -7644,7 +7656,7 @@ static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
 	}
 
 	/* Generate IR type expression for the record type */
-	rc = cgen_cgtype(cgproc->cgen, btype, &recte);
+	rc = cgen_cgtype(cgexpr->cgen, btype, &recte);
 	if (rc != EOK)
 		goto error;
 
@@ -7652,7 +7664,7 @@ static int cgen_emember(cgen_proc_t *cgproc, ast_emember_t *emember,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -7704,13 +7716,13 @@ error:
 
 /** Generate code for indirect member expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eindmember AST indirect member expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
+static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -7734,7 +7746,7 @@ static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
 	cgen_eres_init(&bres);
 
 	/* Evaluate expression as rvalue */
-	rc = cgen_expr_rvalue(cgproc, eindmember->bexpr, lblock, &bres);
+	rc = cgen_expr_rvalue(cgexpr, eindmember->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -7743,7 +7755,7 @@ static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
 		ctok = (comp_tok_t *)eindmember->tarrow.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": '->' requires a pointer to a struct or union.\n");
-		cgproc->cgen->error = true; // XXX
+		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
 	}
@@ -7754,7 +7766,7 @@ static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
 		ctok = (comp_tok_t *)eindmember->tarrow.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": '->' requires a pointer to a struct or union.\n");
-		cgproc->cgen->error = true; // XXX
+		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
 	}
@@ -7771,7 +7783,7 @@ static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
 		fprintf(stderr, ": Record type ");
 		(void) cgtype_print(ptype->tgtype, stderr);
 		fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
-		cgproc->cgen->error = true; // XXX
+		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
 	}
@@ -7783,7 +7795,7 @@ static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
 	}
 
 	/* Generate IR type expression for the record type */
-	rc = cgen_cgtype(cgproc->cgen, ptype->tgtype, &recte);
+	rc = cgen_cgtype(cgexpr->cgen, ptype->tgtype, &recte);
 	if (rc != EOK)
 		goto error;
 
@@ -7791,7 +7803,7 @@ static int cgen_eindmember(cgen_proc_t *cgproc, ast_eindmember_t *eindmember,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -7843,13 +7855,13 @@ error:
 
 /** Generate code for unary sign expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param eusign AST unary sign expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
+static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -7869,12 +7881,12 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	cgen_eres_init(&sres);
 
 	/* Evaluate and promote base expression */
-	rc = cgen_expr_promoted_rvalue(cgproc, eusign->bexpr, lblock, &bres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, eusign->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &bres, lblock, &bires, &conv);
+	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv);
 	if (rc != EOK)
 		goto error;
 
@@ -7884,24 +7896,24 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 	if (bires.cgtype->ntype != cgn_basic) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)bires.cgtype->ext);
 	if (bits == 0) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	if (eusign->usign == aus_minus) {
 		if (conv)
-			cgen_warn_arith_enum(cgproc->cgen, &eusign->tsign);
+			cgen_warn_arith_enum(cgexpr->cgen, &eusign->tsign);
 
 		/* neg %<dest>, %<bires> */
 
@@ -7909,7 +7921,7 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 		if (rc != EOK)
 			goto error;
 
-		rc = cgen_create_new_lvar_oper(cgproc, &dest);
+		rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 		if (rc != EOK)
 			goto error;
 
@@ -7940,7 +7952,7 @@ static int cgen_eusign(cgen_proc_t *cgproc, ast_eusign_t *eusign,
 		bires.cgtype = NULL;
 
 		/* Convert result back to original enum type, if possible */
-		rc = cgen_int2enum(cgproc, &sres, bres.cgtype, eres);
+		rc = cgen_int2enum(cgexpr, &sres, bres.cgtype, eres);
 		if (rc != EOK)
 			return rc;
 	}
@@ -7964,13 +7976,13 @@ error:
 
 /** Generate code for logical not expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param elnot AST logical not expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
+static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -7984,13 +7996,13 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 	cgtype_basic_t *btype = NULL;
 	int rc;
 
-	lblno = cgen_new_label_num(cgproc);
+	lblno = cgen_new_label_num(cgexpr->cgproc);
 
-	rc = cgen_create_label(cgproc, "false_lnot", lblno, &flabel);
+	rc = cgen_create_label(cgexpr->cgproc, "false_lnot", lblno, &flabel);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_label(cgproc, "end_lnot", lblno, &elabel);
+	rc = cgen_create_label(cgexpr->cgproc, "end_lnot", lblno, &elabel);
 	if (rc != EOK)
 		goto error;
 
@@ -8000,7 +8012,7 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 
 	/* Jump to false_lnot if base expression is not zero */
 
-	rc = cgen_truth_cjmp(cgproc, elnot->bexpr, true, flabel, lblock);
+	rc = cgen_truth_cjmp(cgexpr, elnot->bexpr, true, flabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -8010,7 +8022,7 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -8019,7 +8031,7 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -8077,7 +8089,7 @@ static int cgen_elnot(cgen_proc_t *cgproc, ast_elnot_t *elnot,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgproc->cgen->arith_width;
+	instr->width = cgexpr->cgen->arith_width;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -8117,13 +8129,13 @@ error:
 
 /** Generate code for bitwise NOT expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ebinop AST bitwise NOT expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
+static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -8139,28 +8151,28 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	cgen_eres_init(&bres);
 	cgen_eres_init(&bires);
 
-	rc = cgen_expr_promoted_rvalue(cgproc, ebnot->bexpr, lblock, &bres);
+	rc = cgen_expr_promoted_rvalue(cgexpr, ebnot->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgproc, &bres, lblock, &bires, &conv);
+	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv);
 	if (rc != EOK)
 		goto error;
 
 	/* Check the type */
 	if (bires.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)bires.cgtype->ext);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -8169,7 +8181,7 @@ static int cgen_ebnot(cgen_proc_t *cgproc, ast_ebnot_t *ebnot,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -8208,13 +8220,13 @@ error:
 
 /** Generate code for preadjustment expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param epreadj AST preadjustment expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
+static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t baddr;
@@ -8231,36 +8243,36 @@ static int cgen_epreadj(cgen_proc_t *cgproc, ast_epreadj_t *epreadj,
 	cgen_eres_init(&ares);
 
 	/* Evaluate base expression as lvalue */
-	rc = cgen_expr_lvalue(cgproc, epreadj->bexpr, lblock, &baddr);
+	rc = cgen_expr_lvalue(cgexpr, epreadj->bexpr, lblock, &baddr);
 	if (rc != EOK)
 		goto error;
 
 	/* Get the value */
-	rc = cgen_eres_rvalue(cgproc, &baddr, lblock, &bval);
+	rc = cgen_eres_rvalue(cgexpr, &baddr, lblock, &bval);
 	if (rc != EOK)
 		goto error;
 
 	/* Adjustment value */
-	rc = cgen_const_int(cgproc, cgelm_int, 1, lblock, &adj);
+	rc = cgen_const_int(cgexpr, cgelm_int, 1, lblock, &adj);
 	if (rc != EOK)
 		goto error;
 
 	if (epreadj->adj == aat_inc) {
 		/* Add the two operands */
-		rc = cgen_add(cgproc, &epreadj->tadj, &bval, &adj, lblock,
+		rc = cgen_add(cgexpr, &epreadj->tadj, &bval, &adj, lblock,
 		    &ares);
 		if (rc != EOK)
 			goto error;
 	} else {
 		/* Subtract the two operands */
-		rc = cgen_sub(cgproc, &epreadj->tadj, &bval, &adj, lblock,
+		rc = cgen_sub(cgexpr, &epreadj->tadj, &bval, &adj, lblock,
 		    &ares);
 		if (rc != EOK)
 			goto error;
 	}
 
 	/* Store the updated value */
-	rc = cgen_store(cgproc, &baddr, &ares, lblock);
+	rc = cgen_store(cgexpr, &baddr, &ares, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -8291,13 +8303,13 @@ error:
 
 /** Generate code for postadjustment expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param epostadj AST postadjustment expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
+static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t baddr;
@@ -8314,36 +8326,36 @@ static int cgen_epostadj(cgen_proc_t *cgproc, ast_epostadj_t *epostadj,
 	cgen_eres_init(&ares);
 
 	/* Evaluate base expression as lvalue */
-	rc = cgen_expr_lvalue(cgproc, epostadj->bexpr, lblock, &baddr);
+	rc = cgen_expr_lvalue(cgexpr, epostadj->bexpr, lblock, &baddr);
 	if (rc != EOK)
 		goto error;
 
 	/* Get the value */
-	rc = cgen_eres_rvalue(cgproc, &baddr, lblock, &bval);
+	rc = cgen_eres_rvalue(cgexpr, &baddr, lblock, &bval);
 	if (rc != EOK)
 		goto error;
 
 	/* Adjustment value */
-	rc = cgen_const_int(cgproc, cgelm_int, 1, lblock, &adj);
+	rc = cgen_const_int(cgexpr, cgelm_int, 1, lblock, &adj);
 	if (rc != EOK)
 		goto error;
 
 	if (epostadj->adj == aat_inc) {
 		/* Add the two operands */
-		rc = cgen_add(cgproc, &epostadj->tadj, &bval, &adj, lblock,
+		rc = cgen_add(cgexpr, &epostadj->tadj, &bval, &adj, lblock,
 		    &ares);
 		if (rc != EOK)
 			goto error;
 	} else {
 		/* Subtract the two operands */
-		rc = cgen_sub(cgproc, &epostadj->tadj, &bval, &adj, lblock,
+		rc = cgen_sub(cgexpr, &epostadj->tadj, &bval, &adj, lblock,
 		    &ares);
 		if (rc != EOK)
 			goto error;
 	}
 
 	/* Store the updated value */
-	rc = cgen_store(cgproc, &baddr, &ares, lblock);
+	rc = cgen_store(cgexpr, &baddr, &ares, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -8374,13 +8386,13 @@ error:
 
 /** Generate code for expression.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param expr AST expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
+static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ast_tok_t *atok;
@@ -8391,7 +8403,7 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 
 	switch (expr->ntype) {
 	case ant_eint:
-		rc = cgen_eint(cgproc, (ast_eint_t *) expr->ext, lblock, eres);
+		rc = cgen_eint(cgexpr, (ast_eint_t *) expr->ext, lblock, eres);
 		break;
 	case ant_echar:
 	case ant_estring:
@@ -8399,15 +8411,15 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
 	case ant_eident:
-		rc = cgen_eident(cgproc, (ast_eident_t *) expr->ext, lblock,
+		rc = cgen_eident(cgexpr, (ast_eident_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_eparen:
-		rc = cgen_eparen(cgproc, (ast_eparen_t *) expr->ext, lblock,
+		rc = cgen_eparen(cgexpr, (ast_eparen_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_econcat:
@@ -8415,11 +8427,11 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
 	case ant_ebinop:
-		rc = cgen_ebinop(cgproc, (ast_ebinop_t *) expr->ext, lblock,
+		rc = cgen_ebinop(cgexpr, (ast_ebinop_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_etcond:
@@ -8427,35 +8439,35 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
 	case ant_ecomma:
-		rc = cgen_ecomma(cgproc, (ast_ecomma_t *) expr->ext, lblock,
+		rc = cgen_ecomma(cgexpr, (ast_ecomma_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_ecall:
-		rc = cgen_ecall(cgproc, (ast_ecall_t *) expr->ext, lblock,
+		rc = cgen_ecall(cgexpr, (ast_ecall_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_eindex:
-		rc = cgen_eindex(cgproc, (ast_eindex_t *) expr->ext, lblock,
+		rc = cgen_eindex(cgexpr, (ast_eindex_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_ederef:
-		rc = cgen_ederef(cgproc, (ast_ederef_t *) expr->ext, lblock,
+		rc = cgen_ederef(cgexpr, (ast_ederef_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_eaddr:
-		rc = cgen_eaddr(cgproc, (ast_eaddr_t *) expr->ext, lblock,
+		rc = cgen_eaddr(cgexpr, (ast_eaddr_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_esizeof:
-		rc = cgen_esizeof(cgproc, (ast_esizeof_t *) expr->ext, lblock,
+		rc = cgen_esizeof(cgexpr, (ast_esizeof_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_ecast:
-		rc = cgen_ecast(cgproc, (ast_ecast_t *) expr->ext, lblock,
+		rc = cgen_ecast(cgexpr, (ast_ecast_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_ecliteral:
@@ -8463,35 +8475,35 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
 	case ant_emember:
-		rc = cgen_emember(cgproc, (ast_emember_t *) expr->ext, lblock,
+		rc = cgen_emember(cgexpr, (ast_emember_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_eindmember:
-		rc = cgen_eindmember(cgproc, (ast_eindmember_t *) expr->ext,
+		rc = cgen_eindmember(cgexpr, (ast_eindmember_t *) expr->ext,
 		    lblock, eres);
 		break;
 	case ant_eusign:
-		rc = cgen_eusign(cgproc, (ast_eusign_t *) expr->ext, lblock,
+		rc = cgen_eusign(cgexpr, (ast_eusign_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_elnot:
-		rc = cgen_elnot(cgproc, (ast_elnot_t *) expr->ext, lblock,
+		rc = cgen_elnot(cgexpr, (ast_elnot_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_ebnot:
-		rc = cgen_ebnot(cgproc, (ast_ebnot_t *) expr->ext, lblock,
+		rc = cgen_ebnot(cgexpr, (ast_ebnot_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_epreadj:
-		rc = cgen_epreadj(cgproc, (ast_epreadj_t *) expr->ext, lblock,
+		rc = cgen_epreadj(cgexpr, (ast_epreadj_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_epostadj:
-		rc = cgen_epostadj(cgproc, (ast_epostadj_t *) expr->ext, lblock,
+		rc = cgen_epostadj(cgexpr, (ast_epostadj_t *) expr->ext, lblock,
 		    eres);
 		break;
 	default:
@@ -8507,20 +8519,20 @@ static int cgen_expr(cgen_proc_t *cgproc, ast_node_t *expr,
  *
  * Verify that it is actually an lvalue, otherwise produce an error.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param expr AST expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_expr_lvalue(cgen_proc_t *cgproc, ast_node_t *expr,
+static int cgen_expr_lvalue(cgen_expr_t *cgexpr, ast_node_t *expr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	int rc;
 
-	rc = cgen_expr(cgproc, expr, lblock, eres);
+	rc = cgen_expr(cgexpr, expr, lblock, eres);
 	if (rc != EOK)
 		return rc;
 
@@ -8529,7 +8541,7 @@ static int cgen_expr_lvalue(cgen_proc_t *cgproc, ast_node_t *expr,
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr); // XXX Print range
 		fprintf(stderr, ": Lvalue required.\n");
-		cgproc->cgen->error = true;
+		cgexpr->cgen->error = true;
 		return EINVAL;
 	}
 
@@ -8540,13 +8552,13 @@ static int cgen_expr_lvalue(cgen_proc_t *cgproc, ast_node_t *expr,
  *
  * If the result of expression is an lvalue, read it to produce an rvalue.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param expr AST expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_expr_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
+static int cgen_expr_rvalue(cgen_expr_t *cgexpr, ast_node_t *expr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t res;
@@ -8554,11 +8566,11 @@ static int cgen_expr_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
 
 	cgen_eres_init(&res);
 
-	rc = cgen_expr(cgproc, expr, lblock, &res);
+	rc = cgen_expr(cgexpr, expr, lblock, &res);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_rvalue(cgproc, &res, lblock, eres);
+	rc = cgen_eres_rvalue(cgexpr, &res, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -8573,13 +8585,13 @@ error:
  *
  * If the result is an lvalue, read it to produce an rvalue.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param res Original expression result
  * @param lblock IR labeled block to which the code should be appended
  * @param dres Place to store rvalue expression result
  * @return EOK on success or an error code
  */
-static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
+static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -8608,11 +8620,11 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 
 	/* Check the type */
 	if (res->cgtype->ntype == cgn_basic) {
-		bits = cgen_basic_type_bits(cgproc->cgen,
+		bits = cgen_basic_type_bits(cgexpr->cgen,
 		    (cgtype_basic_t *)res->cgtype->ext);
 		if (bits == 0) {
 			fprintf(stderr, "Unimplemented variable type.\n");
-			cgproc->cgen->error = true; // TODO
+			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
 		}
@@ -8622,7 +8634,7 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 		bits = cgen_enum_bits;
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -8633,7 +8645,7 @@ static int cgen_eres_rvalue(cgen_proc_t *cgproc, cgen_eres_t *res,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -8673,17 +8685,17 @@ error:
  * If @a bres is an lvalue, read it to produce an rvalue.
  * If it is smaller than int (float), promote it.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param bres Base expression result
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eres_promoted_rvalue(cgen_proc_t *cgproc, cgen_eres_t *bres,
+static int cgen_eres_promoted_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *bres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	// TODO
-	return cgen_eres_rvalue(cgproc, bres, lblock, eres);
+	return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
 }
 
 /** Generate code for expression, producing a promoted rvalue.
@@ -8691,13 +8703,13 @@ static int cgen_eres_promoted_rvalue(cgen_proc_t *cgproc, cgen_eres_t *bres,
  * If the result of expression is an lvalue, read it to produce an rvalue.
  * If it is smaller than int (float), promote it.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param expr AST expression
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_expr_promoted_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
+static int cgen_expr_promoted_rvalue(cgen_expr_t *cgexpr, ast_node_t *expr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
@@ -8705,11 +8717,11 @@ static int cgen_expr_promoted_rvalue(cgen_proc_t *cgproc, ast_node_t *expr,
 
 	cgen_eres_init(&bres);
 
-	rc = cgen_expr_rvalue(cgproc, expr, lblock, &bres);
+	rc = cgen_expr_rvalue(cgexpr, expr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_promoted_rvalue(cgproc, &bres, lblock, eres);
+	rc = cgen_eres_promoted_rvalue(cgexpr, &bres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -8726,20 +8738,20 @@ error:
  * set @a *converted to true. Set it to false, if there was no
  * conversion (already an integer) or the enum was not strict.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param res Expression result that is an int or enum
  * @param lblock IR labeled block to which the code should be appended
  * @param rres Place to store converted result
  * @param converted Place to store @c true iff a strict enum was
  *                  converted to int, @c false otherwise.
  */
-static int cgen_enum2int(cgen_proc_t *cgproc, cgen_eres_t *res,
+static int cgen_enum2int(cgen_expr_t *cgexpr, cgen_eres_t *res,
     ir_lblock_t *lblock, cgen_eres_t *rres, bool *converted)
 {
 	int rc;
 	*converted = false;
 
-	(void)cgproc;
+	(void)cgexpr;
 	(void)lblock;
 
 	if (res->cgtype->ntype == cgn_enum) {
@@ -8772,13 +8784,13 @@ error:
  * the range of int, we can pronounce the result to be still the original
  * enum type (or, possibly, a promoted version thereof).
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param bres Result of arithmetic operation
  * @param etype Original enum type
  * @param eres Place to store result, possibly converted to enum
  * @return EOK on success or an error code
  */
-static int cgen_int2enum(cgen_proc_t *cgproc, cgen_eres_t *ares,
+static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
     cgtype_t *etype, cgen_eres_t *eres)
 {
 	cgtype_int_rank_t rank;
@@ -8786,7 +8798,7 @@ static int cgen_int2enum(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	int rc;
 
 	rank = cgtype_int_rank(ares->cgtype);
-	is_signed = cgen_type_is_signed(cgproc->cgen, ares->cgtype);
+	is_signed = cgen_type_is_signed(cgexpr->cgen, ares->cgtype);
 
 	/*
 	 * If the number was extended beyond the range of 'int',
@@ -8816,7 +8828,7 @@ static int cgen_int2enum(cgen_proc_t *cgproc, cgen_eres_t *ares,
  * is converted, if needed. Values of type smaller than int (or float)
  * should be promoted.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param res1 First expression result
  * @param res2 Second expression result
  * @param lblock Labeled block to which to append code
@@ -8826,7 +8838,7 @@ static int cgen_int2enum(cgen_proc_t *cgproc, cgen_eres_t *ares,
  *
  * @return EOK on success or an error code
  */
-static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
+static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
     cgen_eres_t *res2, ir_lblock_t *lblock, cgen_eres_t *eres1,
     cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
@@ -8856,22 +8868,22 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
 	cgen_eres_init(&pr1);
 	cgen_eres_init(&pr2);
 
-	rc = cgen_enum2int(cgproc, res1, lblock, &ir1, &conv1);
+	rc = cgen_enum2int(cgexpr, res1, lblock, &ir1, &conv1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_enum2int(cgproc, res2, lblock, &ir2, &conv2);
+	rc = cgen_enum2int(cgexpr, res2, lblock, &ir2, &conv2);
 	if (rc != EOK)
 		goto error;
 
-	if (!cgen_type_is_integer(cgproc->cgen, ir1.cgtype) ||
-	    !cgen_type_is_integer(cgproc->cgen, ir2.cgtype)) {
+	if (!cgen_type_is_integer(cgexpr->cgen, ir1.cgtype) ||
+	    !cgen_type_is_integer(cgexpr->cgen, ir2.cgtype)) {
 		fprintf(stderr, "Performing UAC on non-integral type(s) ");
 		(void) cgtype_print(ir1.cgtype, stderr);
 		fprintf(stderr, ", ");
 		(void) cgtype_print(ir2.cgtype, stderr);
 		fprintf(stderr, " (not implemented).\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -8882,12 +8894,12 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
 	/* Get rank, bits and signedness of both operands */
 
 	rank1 = cgtype_int_rank(ir1.cgtype);
-	sign1 = cgen_type_is_signed(cgproc->cgen, ir1.cgtype);
-	bits1 = cgen_basic_type_bits(cgproc->cgen, bt1);
+	sign1 = cgen_type_is_signed(cgexpr->cgen, ir1.cgtype);
+	bits1 = cgen_basic_type_bits(cgexpr->cgen, bt1);
 
 	rank2 = cgtype_int_rank(ir2.cgtype);
-	sign2 = cgen_type_is_signed(cgproc->cgen, ir2.cgtype);
-	bits2 = cgen_basic_type_bits(cgproc->cgen, bt2);
+	sign2 = cgen_type_is_signed(cgexpr->cgen, ir2.cgtype);
+	bits2 = cgen_basic_type_bits(cgexpr->cgen, bt2);
 
 	/* Determine resulting rank */
 
@@ -8916,11 +8928,11 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
 
 	/* Promote both operands */
 
-	rc = cgen_eres_promoted_rvalue(cgproc, &ir1, lblock, &pr1);
+	rc = cgen_eres_promoted_rvalue(cgexpr, &ir1, lblock, &pr1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_promoted_rvalue(cgproc, &ir2, lblock, &pr2);
+	rc = cgen_eres_promoted_rvalue(cgexpr, &ir2, lblock, &pr2);
 	if (rc != EOK)
 		goto error;
 
@@ -8932,12 +8944,12 @@ static int cgen_uac(cgen_proc_t *cgproc, cgen_eres_t *res1,
 
 	/* Convert the promoted arguments to the result type */
 
-	rc = cgen_type_convert(cgproc, NULL, &pr1, rtype, cgen_explicit, lblock,
+	rc = cgen_type_convert(cgexpr, NULL, &pr1, rtype, cgen_explicit, lblock,
 	    eres1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_type_convert(cgproc, NULL, &pr2, rtype, cgen_explicit, lblock,
+	rc = cgen_type_convert(cgexpr, NULL, &pr2, rtype, cgen_explicit, lblock,
 	    eres2);
 	if (rc != EOK)
 		goto error;
@@ -8976,7 +8988,7 @@ error:
  * The results can be used when generating code for a binary operator,
  * knowing that the two results already have the same type.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for pexression
  * @param expr1 First expression
  * @param expr2 Second expression
  * @param lblock Labeled block to which to append code
@@ -8986,7 +8998,7 @@ error:
  *
  * @return EOK on success or an error code
  */
-static int cgen_expr2_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
+static int cgen_expr2_uac(cgen_expr_t *cgexpr, ast_node_t *expr1,
     ast_node_t *expr2, ir_lblock_t *lblock, cgen_eres_t *eres1,
     cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
@@ -8997,15 +9009,15 @@ static int cgen_expr2_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
 	cgen_eres_init(&res1);
 	cgen_eres_init(&res2);
 
-	rc = cgen_expr_rvalue(cgproc, expr1, lblock, &res1);
+	rc = cgen_expr_rvalue(cgexpr, expr1, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_expr_rvalue(cgproc, expr2, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, expr2, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, eres1, eres2, flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, eres1, eres2, flags);
 	if (rc != EOK)
 		goto error;
 
@@ -9024,7 +9036,7 @@ error:
  * This is used in a compound assignment to get the assignment destination
  * as well as the value of both opeands.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param expr1 First expression
  * @param expr2 Second expression
  * @param lblock Labeled block to which to append code
@@ -9035,7 +9047,7 @@ error:
  *
  * @return EOK on success or an error code
  */
-static int cgen_expr2lr_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
+static int cgen_expr2lr_uac(cgen_expr_t *cgexpr, ast_node_t *expr1,
     ast_node_t *expr2, ir_lblock_t *lblock, cgen_eres_t *lres1,
     cgen_eres_t *eres1, cgen_eres_t *eres2, cgen_uac_flags_t *flags)
 {
@@ -9046,19 +9058,19 @@ static int cgen_expr2lr_uac(cgen_proc_t *cgproc, ast_node_t *expr1,
 	cgen_eres_init(&res1);
 	cgen_eres_init(&res2);
 
-	rc = cgen_expr_lvalue(cgproc, expr1, lblock, lres1);
+	rc = cgen_expr_lvalue(cgexpr, expr1, lblock, lres1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_eres_rvalue(cgproc, lres1, lblock, &res1);
+	rc = cgen_eres_rvalue(cgexpr, lres1, lblock, &res1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_expr_rvalue(cgproc, expr2, lblock, &res2);
+	rc = cgen_expr_rvalue(cgexpr, expr2, lblock, &res2);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_uac(cgproc, &res1, &res2, lblock, eres1, eres2, flags);
+	rc = cgen_uac(cgexpr, &res1, &res2, lblock, eres1, eres2, flags);
 	if (rc != EOK)
 		goto error;
 
@@ -9073,7 +9085,7 @@ error:
 
 /** Convert expression result to void.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9081,13 +9093,13 @@ error:
  *
  * @return EOk or an error code
  */
-static int cgen_type_convert_to_void(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_to_void(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_eres_t *cres)
 {
 	cgtype_t *cgtype;
 	int rc;
 
-	(void)cgproc;
+	(void)cgexpr;
 	(void)ctok;
 	(void)ares;
 
@@ -9105,7 +9117,7 @@ static int cgen_type_convert_to_void(cgen_proc_t *cgproc, comp_tok_t *ctok,
 
 /** Convert expression result between two integer types.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9116,7 +9128,7 @@ static int cgen_type_convert_to_void(cgen_proc_t *cgproc, comp_tok_t *ctok,
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9132,13 +9144,13 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	int rc;
 
 	assert(ares->cgtype->ntype == cgn_basic);
-	srcw = cgen_basic_type_bits(cgproc->cgen,
+	srcw = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)ares->cgtype->ext);
-	src_signed = cgen_basic_type_signed(cgproc->cgen,
+	src_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)ares->cgtype->ext);
 
 	assert(dtype->ntype == cgn_basic);
-	destw = cgen_basic_type_bits(cgproc->cgen,
+	destw = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)dtype->ext);
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -9158,7 +9170,7 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 
 	cgen_eres_init(&rres);
 
-	rc = cgen_eres_rvalue(cgproc, ares, lblock, &rres);
+	rc = cgen_eres_rvalue(cgexpr, ares, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
@@ -9172,7 +9184,7 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Conversion may loose "
 			    "significant digits.\n");
-			++cgproc->cgen->warnings;
+			++cgexpr->cgen->warnings;
 		}
 	} else {
 		/* Extension */
@@ -9188,7 +9200,7 @@ static int cgen_type_convert_integer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -9231,7 +9243,7 @@ error:
 
 /** Convert expression result between two pointer types.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9242,7 +9254,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_pointer(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9251,7 +9263,6 @@ static int cgen_type_convert_pointer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	cgtype_t *cgtype;
 	int rc;
 
-	(void)cgproc;
 	(void)lblock;
 
 	assert(ares->cgtype->ntype == cgn_pointer);
@@ -9268,7 +9279,7 @@ static int cgen_type_convert_pointer(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		fprintf(stderr, " to incompatible pointer type ");
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, ".\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -9285,7 +9296,7 @@ error:
 
 /** Convert expression result between two record types.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9294,7 +9305,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_record(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_record(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9303,7 +9314,6 @@ static int cgen_type_convert_record(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	cgtype_t *cgtype;
 	int rc;
 
-	(void)cgproc;
 	(void)lblock;
 
 	assert(ares->cgtype->ntype == cgn_record);
@@ -9319,7 +9329,7 @@ static int cgen_type_convert_record(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		fprintf(stderr, "' to incompatible struct/union type '");
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, "'.\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 	}
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -9336,7 +9346,7 @@ error:
 
 /** Convert expression result between two enum types.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9347,7 +9357,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype,  cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9356,7 +9366,6 @@ static int cgen_type_convert_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	cgtype_t *cgtype;
 	int rc;
 
-	(void)cgproc;
 	(void)lblock;
 
 	assert(ares->cgtype->ntype == cgn_enum);
@@ -9372,7 +9381,7 @@ static int cgen_type_convert_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		fprintf(stderr, "' to different enum type '");
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, "'.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -9389,7 +9398,7 @@ error:
 
 /** Convert expression result from enum to a different type.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9400,7 +9409,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_from_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_from_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype,  cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9411,7 +9420,7 @@ static int cgen_type_convert_from_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	cgen_eres_init(&ires);
 
 	/* First drop to corresponding integer type */
-	rc = cgen_enum2int(cgproc, ares, lblock, &ires, &converted);
+	rc = cgen_enum2int(cgexpr, ares, lblock, &ires, &converted);
 	if (rc != EOK)
 		goto error;
 
@@ -9423,11 +9432,11 @@ static int cgen_type_convert_from_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		fprintf(stderr, "' to '");
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, "'.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Now do the rest of the work */
-	rc = cgen_type_convert(cgproc, ctok, &ires, dtype, expl, lblock, cres);
+	rc = cgen_type_convert(cgexpr, ctok, &ires, dtype, expl, lblock, cres);
 	if (rc != EOK)
 		goto error;
 
@@ -9440,7 +9449,7 @@ error:
 
 /** Convert expression result to enum from a different type.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9451,7 +9460,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_to_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_to_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype,  cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9467,7 +9476,7 @@ static int cgen_type_convert_to_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		goto error;
 
 	/* Convert to corresponding integer type */
-	rc = cgen_type_convert(cgproc, ctok, ares, cgtype, expl, lblock, &ires);
+	rc = cgen_type_convert(cgexpr, ctok, ares, cgtype, expl, lblock, &ires);
 	if (rc != EOK)
 		goto error;
 
@@ -9478,7 +9487,7 @@ static int cgen_type_convert_to_enum(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		fprintf(stderr, "' to '");
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, "'.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	cres->varname = ires.varname;
@@ -9499,7 +9508,7 @@ error:
 
 /** Convert expression result from integer to pointer.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9510,7 +9519,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9523,21 +9532,21 @@ static int cgen_type_convert_int_ptr(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	assert(ares->cgtype->ntype == cgn_basic);
 	assert(dtype->ntype == cgn_pointer);
 
-	bits = cgen_basic_type_bits(cgproc->cgen,
+	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)ares->cgtype->ext);
 
 	if (expl != cgen_explicit) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Implicit conversion from integer "
 		    "to pointer.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	if (bits != cgen_pointer_bits) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Converting to pointer from integer "
 		    "of different size.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -9554,7 +9563,7 @@ error:
 
 /** Convert value expression result to the specified type.
  *
- * @param cgen Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9565,7 +9574,7 @@ error:
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9584,40 +9593,40 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	/* Source and destination types are pointers */
 	if (ares->cgtype->ntype == cgn_pointer &&
 	    dtype->ntype == cgn_pointer) {
-		return cgen_type_convert_pointer(cgproc, ctok, ares, dtype,
+		return cgen_type_convert_pointer(cgexpr, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 
 	/* Source and destination types are record types */
 	if (ares->cgtype->ntype == cgn_record &&
 	    dtype->ntype == cgn_record) {
-		return cgen_type_convert_record(cgproc, ctok, ares, dtype,
+		return cgen_type_convert_record(cgexpr, ctok, ares, dtype,
 		    lblock, cres);
 	}
 
 	/* Source and destination types are enum types */
 	if (ares->cgtype->ntype == cgn_enum &&
 	    dtype->ntype == cgn_enum) {
-		return cgen_type_convert_enum(cgproc, ctok, ares, dtype, expl,
+		return cgen_type_convert_enum(cgexpr, ctok, ares, dtype, expl,
 		    lblock, cres);
 	}
 
 	/* Source type is enum (but destination is not) */
 	if (ares->cgtype->ntype == cgn_enum) {
-		return cgen_type_convert_from_enum(cgproc, ctok, ares, dtype, expl,
+		return cgen_type_convert_from_enum(cgexpr, ctok, ares, dtype, expl,
 		    lblock, cres);
 	}
 
 	/* Destination type is enum (but source is not) */
 	if (dtype->ntype == cgn_enum) {
-		return cgen_type_convert_to_enum(cgproc, ctok, ares, dtype, expl,
+		return cgen_type_convert_to_enum(cgexpr, ctok, ares, dtype, expl,
 		    lblock, cres);
 	}
 
 	/* Source and destination types are pointers */
-	if (cgen_type_is_integer(cgproc->cgen, ares->cgtype) &&
+	if (cgen_type_is_integer(cgexpr->cgen, ares->cgtype) &&
 	    dtype->ntype == cgn_pointer) {
-		return cgen_type_convert_int_ptr(cgproc, ctok, ares, dtype,
+		return cgen_type_convert_int_ptr(cgexpr, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 
@@ -9626,13 +9635,13 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 	    expl != cgen_explicit) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Truth value used as an integer.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Converting between two integer types */
-	if (cgen_type_is_integer(cgproc->cgen, ares->cgtype) &&
-	    cgen_type_is_integer(cgproc->cgen, dtype)) {
-		return cgen_type_convert_integer(cgproc, ctok, ares, dtype,
+	if (cgen_type_is_integer(cgexpr->cgen, ares->cgtype) &&
+	    cgen_type_is_integer(cgexpr->cgen, dtype)) {
+		return cgen_type_convert_integer(cgexpr, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 
@@ -9643,7 +9652,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, " which is different from int "
 		    "(not implemented).\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
@@ -9655,7 +9664,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 		(void) cgtype_print(ares->cgtype, stderr);
 		fprintf(stderr, " which is different from int "
 		    "(not implemented).\n");
-		cgproc->cgen->error = true; // TODO
+		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
@@ -9664,7 +9673,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
 
 /** Convert expression result to the specified type.
  *
- * @param cgen Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param ctok Conversion token - only used to print diagnostics
  * @param ares Argument (expression result)
  * @param dtype Destination type
@@ -9675,7 +9684,7 @@ static int cgen_type_convert_rval(cgen_proc_t *cgproc, comp_tok_t *ctok,
  *
  * @return EOK or an error code
  */
-static int cgen_type_convert(cgen_proc_t *cgproc, comp_tok_t *ctok,
+static int cgen_type_convert(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
     cgen_eres_t *cres)
 {
@@ -9686,15 +9695,15 @@ static int cgen_type_convert(cgen_proc_t *cgproc, comp_tok_t *ctok,
 
 	/* Destination type is void */
 	if (cgtype_is_void(dtype)) {
-		return cgen_type_convert_to_void(cgproc, ctok, ares,
+		return cgen_type_convert_to_void(cgexpr, ctok, ares,
 		    dtype, cres);
 	}
 
-	rc = cgen_eres_rvalue(cgproc, ares, lblock, &rres);
+	rc = cgen_eres_rvalue(cgexpr, ares, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_type_convert_rval(cgproc, ctok, &rres, dtype, expl, lblock,
+	rc = cgen_type_convert_rval(cgexpr, ctok, &rres, dtype, expl, lblock,
 	    cres);
 	if (rc != EOK)
 		goto error;
@@ -9711,14 +9720,14 @@ error:
  * Evaluate truth expression, then jump if it is true/non-zero (@a cval == true),
  * or false/non-zero (@a cval == false), respectively.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param aexpr Truth expression
  * @param cval Condition value when jump is taken
  * @param dlabel Jump destination label
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
+static int cgen_truth_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
     bool cval, const char *dlabel, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
@@ -9734,7 +9743,7 @@ static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
 
 	/* Condition */
 
-	rc = cgen_expr_rvalue(cgproc, aexpr, lblock, &cres);
+	rc = cgen_expr_rvalue(cgexpr, aexpr, lblock, &cres);
 	if (rc != EOK)
 		goto error;
 
@@ -9745,7 +9754,7 @@ static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		btype = (cgtype_basic_t *)cres.cgtype->ext;
 		switch (btype->elmtype) {
 		case cgelm_void:
-			cgen_error_use_void_value(cgproc->cgen,
+			cgen_error_use_void_value(cgexpr->cgen,
 			    ast_tree_first_tok(aexpr));
 			return EINVAL;
 		case cgelm_char:
@@ -9764,7 +9773,7 @@ static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		}
 		break;
 	case cgn_enum:
-		cgen_warn_logic_enum(cgproc->cgen, ast_tree_first_tok(aexpr));
+		cgen_warn_logic_enum(cgexpr->cgen, ast_tree_first_tok(aexpr));
 		break;
 	case cgn_func:
 		// XXX TODO
@@ -9773,7 +9782,7 @@ static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
 	case cgn_pointer:
 		break;
 	case cgn_record:
-		cgen_error_need_scalar(cgproc->cgen, ast_tree_first_tok(aexpr));
+		cgen_error_need_scalar(cgexpr->cgen, ast_tree_first_tok(aexpr));
 		return EINVAL;
 	}
 
@@ -9785,7 +9794,7 @@ static int cgen_truth_cjmp(cgen_proc_t *cgproc, ast_node_t *aexpr,
 		fprintf(stderr, ": Warning: '");
 		cgtype_print(cres.cgtype, stderr);
 		fprintf(stderr, "' used as a truth value.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 
 	/* j[n]z %<cres>, %dlabel */
@@ -10020,7 +10029,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	if (areturn->arg != NULL) {
 		/* Evaluate the return value */
 
-		rc = cgen_expr_rvalue(cgproc, areturn->arg, lblock, &ares);
+		rc = cgen_expr_rvalue(&cgproc->cgexpr, areturn->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
 	}
@@ -10031,7 +10040,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 		ctok = (comp_tok_t *) atok->data;
 
 		/* Convert to the return type */
-		rc = cgen_type_convert(cgproc, ctok, &ares,
+		rc = cgen_type_convert(&cgproc->cgexpr, ctok, &ares,
 		    cgproc->rtype, cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;
@@ -10127,7 +10136,7 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 	/* Jump to false_if if condition is false */
 
-	rc = cgen_truth_cjmp(cgproc, aif->cond, false, fiflabel, lblock);
+	rc = cgen_truth_cjmp(&cgproc->cgexpr, aif->cond, false, fiflabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10181,7 +10190,8 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 		/* Jump to false_if if else-if condition is false */
 
-		rc = cgen_truth_cjmp(cgproc, elsif->cond, false, fiflabel, lblock);
+		rc = cgen_truth_cjmp(&cgproc->cgexpr, elsif->cond, false,
+		    fiflabel, lblock);
 		if (rc != EOK)
 			goto error;
 
@@ -10300,7 +10310,7 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	/* Jump to %end_while if condition is false */
 
-	rc = cgen_truth_cjmp(cgproc, awhile->cond, false, ewlabel, lblock);
+	rc = cgen_truth_cjmp(&cgproc->cgexpr, awhile->cond, false, ewlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10424,7 +10434,7 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 
 	/* Jump to %do if condition is true */
 
-	rc = cgen_truth_cjmp(cgproc, ado->cond, true, dlabel, lblock);
+	rc = cgen_truth_cjmp(&cgproc->cgexpr, ado->cond, true, dlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10518,11 +10528,11 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	if (afor->linit != NULL) {
 		/* Evaluate and ignore initialization expression */
-		rc = cgen_expr_rvalue(cgproc, afor->linit, lblock, &ires);
+		rc = cgen_expr_rvalue(&cgproc->cgexpr, afor->linit, lblock, &ires);
 		if (rc != EOK)
 			goto error;
 
-		cgen_expr_check_unused(cgproc, afor->linit, &ires);
+		cgen_expr_check_unused(&cgproc->cgexpr, afor->linit, &ires);
 	}
 
 	ir_lblock_append(lblock, flabel, NULL);
@@ -10532,7 +10542,8 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	if (afor->lcond != NULL) {
 		/* Jump to %end_for if condition is false */
 
-		rc = cgen_truth_cjmp(cgproc, afor->lcond, false, eflabel, lblock);
+		rc = cgen_truth_cjmp(&cgproc->cgexpr, afor->lcond, false,
+		    eflabel, lblock);
 		if (rc != EOK)
 			goto error;
 	}
@@ -10549,11 +10560,12 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	if (afor->lnext != NULL) {
 		/* Evaluate and ignore next iteration expression */
-		rc = cgen_expr_rvalue(cgproc, afor->lnext, lblock, &nres);
+		rc = cgen_expr_rvalue(&cgproc->cgexpr, afor->lnext, lblock,
+		    &nres);
 		if (rc != EOK)
 			goto error;
 
-		cgen_expr_check_unused(cgproc, afor->lnext, &nres);
+		cgen_expr_check_unused(&cgproc->cgexpr, afor->lnext, &nres);
 	}
 
 	/* jmp %for */
@@ -10659,7 +10671,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	/* Switch expression */
 
-	rc = cgen_expr_rvalue(cgproc, aswitch->sexpr, lblock, &eres);
+	rc = cgen_expr_rvalue(&cgproc->cgexpr, aswitch->sexpr, lblock, &eres);
 	if (rc != EOK)
 		goto error;
 
@@ -10852,7 +10864,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 
 	// TODO Verify that the expression is constant
 
-	rc = cgen_expr_rvalue(cgproc, aclabel->cexpr, lblock, &cres);
+	rc = cgen_expr_rvalue(&cgproc->cgexpr, aclabel->cexpr, lblock, &cres);
 	if (rc != EOK)
 		goto error;
 
@@ -11036,11 +11048,11 @@ error:
  *
  * If it is not OK to ignore the return value, it will produce a warning.
  *
- * @param cgproc Code generator for procedure
+ * @param cgexpr Code generator for expression
  * @param expr Expression
  * @param ares Expression result
  */
-static void cgen_expr_check_unused(cgen_proc_t *cgproc, ast_node_t *expr,
+static void cgen_expr_check_unused(cgen_expr_t *cgexpr, ast_node_t *expr,
     cgen_eres_t *ares)
 {
 	ast_tok_t *atok;
@@ -11057,7 +11069,7 @@ static void cgen_expr_check_unused(cgen_proc_t *cgproc, ast_node_t *expr,
 		    &cbtok->tok.epos, stderr);
 		fprintf(stderr, ": Warning: Computed expression value is not "
 		    "used.\n");
-		++cgproc->cgen->warnings;
+		++cgexpr->cgen->warnings;
 	}
 }
 
@@ -11077,7 +11089,7 @@ static int cgen_stexpr(cgen_proc_t *cgproc, ast_stexpr_t *stexpr,
 	cgen_eres_init(&ares);
 
 	/* Compute the value of the expression (e.g. read volatile variable) */
-	rc = cgen_expr_rvalue(cgproc, stexpr->expr, lblock, &ares);
+	rc = cgen_expr_rvalue(&cgproc->cgexpr, stexpr->expr, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
@@ -11085,7 +11097,7 @@ static int cgen_stexpr(cgen_proc_t *cgproc, ast_stexpr_t *stexpr,
 	 * If the expression computes a value that is not used within
 	 * the expression itself (e.g. i + 1), generate a warning.
 	 */
-	cgen_expr_check_unused(cgproc, stexpr->expr, &ares);
+	cgen_expr_check_unused(&cgproc->cgexpr, stexpr->expr, &ares);
 
 	/* Ignore the value of the expression */
 	cgen_eres_fini(&ares);

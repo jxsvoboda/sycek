@@ -59,8 +59,20 @@ typedef struct {
 	struct ir_module *irmod;
 } cgen_t;
 
-/** Code generator for procedure */
+/** Code generator for expression */
 typedef struct {
+	/** Code generator */
+	cgen_t *cgen;
+	/** Code generator for procedure or @c NULL if constant expression */
+	struct cgen_proc *cgproc;
+	/** @c true iff constant expression */
+	bool cexpr;
+	/** @c true iff integer constant expression */
+	bool icexpr;
+} cgen_expr_t;
+
+/** Code generator for procedure */
+typedef struct cgen_proc {
 	/** Containing code generator */
 	cgen_t *cgen;
 	/** IR procedure being constructed */
@@ -81,6 +93,8 @@ typedef struct {
 	struct cgen_loop_switch *cur_loop_switch;
 	/** Goto labels */
 	struct labels *labels;
+	/** Code generator for non-constant expressions */
+	cgen_expr_t cgexpr;
 } cgen_proc_t;
 
 /** Code generator for declaration specifies / specifier-qualifier list.
