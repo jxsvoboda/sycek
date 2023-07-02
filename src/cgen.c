@@ -88,7 +88,7 @@ static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
-static int cgen_typedef(cgen_t *, ast_idlist_t *, cgtype_t *);
+static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
 
 enum {
 	cgen_pointer_bits = 16,
@@ -1259,6 +1259,21 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": superfluous 'int' used with short/long/signed/unsigned.\n");
 
+	++cgen->warnings;
+}
+
+/** Generate warning: useless type in empty declaration.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_useless_type(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Useless type in empty declaration.\n");
 	++cgen->warnings;
 }
 
@@ -11283,7 +11298,9 @@ static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	(void)flags;
 
 	if (sctype == asc_typedef) {
-		rc = cgen_typedef(cgproc->cgen, stdecln->idlist, stype);
+		rc = cgen_typedef(cgproc->cgen,
+		    ast_tree_first_tok(&stdecln->dspecs->node), stdecln->idlist,
+		    stype);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -12074,11 +12091,13 @@ error:
 /** Generate code for type definition.
  *
  * @param cgen Code generator
+ * @param atok Type definition token (for diagnostics)
  * @param idlist Init-declarator list
  * @param btype Type derived from declaration specifiers
  * @return EOK on success or an error code
  */
-static int cgen_typedef(cgen_t *cgen, ast_idlist_t *idlist, cgtype_t *btype)
+static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
+    cgtype_t *btype)
 {
 	ast_idlist_entry_t *idle;
 	scope_member_t *member;
@@ -12102,6 +12121,15 @@ static int cgen_typedef(cgen_t *cgen, ast_idlist_t *idlist, cgtype_t *btype)
 		    &dtype);
 		if (rc != EOK)
 			goto error;
+
+		if (idle->decl->ntype == ant_dnoident) {
+			cgen_warn_useless_type(cgen, dtok);
+			cgtype_destroy(dtype);
+			dtype = NULL;
+
+			idle = ast_idlist_next(idle);
+			break;
+		}
 
 		atok = ast_decl_get_ident(idle->decl);
 		ctok = (comp_tok_t *)atok->data;
@@ -12144,6 +12172,16 @@ static int cgen_typedef(cgen_t *cgen, ast_idlist_t *idlist, cgtype_t *btype)
 		dtype = NULL;
 
 		idle = ast_idlist_next(idle);
+	}
+
+	if (idle != NULL) {
+		/* This means we have a dnoident followed by comma */
+		ctok = (comp_tok_t *)idle->tcomma.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Declarator expected before ','.\n");
+		cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
 	}
 
 	return EOK;
@@ -12575,7 +12613,9 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 		goto error;
 
 	if (sctype == asc_typedef) {
-		rc = cgen_typedef(cgen, gdecln->idlist, stype);
+		rc = cgen_typedef(cgen,
+		    ast_tree_first_tok(&gdecln->dspecs->node),
+		    gdecln->idlist, stype);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->body != NULL) {
@@ -12608,10 +12648,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 			} else if (entry->decl->ntype == ant_dnoident) {
 				if ((flags & cgrd_ident) == 0) {
 					atok = ast_tree_first_tok(&gdecln->dspecs->node);
-					tok = (comp_tok_t *) atok->data;
-					lexer_dprint_tok(&tok->tok, stderr);
-					fprintf(stderr, ": Warning: Useless type in empty declaration.\n");
-					++cgen->warnings;
+					cgen_warn_useless_type(cgen, atok);
 				}
 				if ((flags & cgrd_def) == 0) {
 					/* This is a pure struct/union declaration */

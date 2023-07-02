@@ -8,3 +8,8 @@ struct {
 	int x;
 	int y;
 };
+
+typedef struct {
+	int a;
+	int b;
+};

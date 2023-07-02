@@ -1,0 +1,2 @@
+<test/syc/bad/dnoidents.c:11:1-7:'typedef'>: Warning: Useless type in empty declaration.
+<test/syc/bad/dnoidents.c:12:3:','>: Declarator expected before ','.
