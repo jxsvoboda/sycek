@@ -43,6 +43,7 @@
 #include <string.h>
 #include <symbols.h>
 
+static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
@@ -412,28 +413,6 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	return EOK;
 }
 
-/** Get value of constant integer expression.
- *
- * @param cgen Code generator
- * @param expr Constant integer expression
- * @param rval Place to store value
- * @param rtype Place to store elementary type
- * @return EOK on success, EINVAL if expression is not valid
- */
-static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
-    cgtype_elmtype_t *rtype)
-{
-	comp_tok_t *ctok;
-	ast_eint_t *eint;
-
-	if (expr->ntype != ant_eint)
-		return EINVAL;
-
-	eint = (ast_eint_t *)expr->ext;
-	ctok = (comp_tok_t *)eint->tlit.data;
-	return cgen_intlit_val(cgen, ctok, rval, rtype);
-}
-
 /** Create local variable operand with specific number.
  *
  * @param var Variable number
@@ -673,7 +652,75 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 	dres->varname = res->varname;
 	dres->valtype = res->valtype;
 	dres->cgtype = cgtype;
+	dres->cvint = res->cvint;
 	return EOK;
+}
+
+/** Initialize code generator for expession.
+ *
+ * @param cgexpr Code generator for expression
+ */
+static void cgen_expr_init(cgen_expr_t *cgexpr)
+{
+	memset(cgexpr, 0, sizeof(*cgexpr));
+}
+
+/** Get value of constant integer expression.
+ *
+ * @param cgen Code generator
+ * @param expr Constant integer expression
+ * @param rval Place to store value
+ * @param rtype Place to store elementary type
+ * @return EOK on success, EINVAL if expression is not valid
+ */
+static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
+    cgtype_elmtype_t *rtype)
+{
+	cgen_eres_t eres;
+	cgen_expr_t cgexpr;
+	ir_lblock_t *lblock = NULL;
+	ir_proc_t *irproc = NULL;
+	cgen_proc_t *cgproc = NULL;
+	int rc;
+
+	cgen_eres_init(&eres);
+
+	rc = ir_lblock_create(&lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_proc_create("foo", 0, lblock, &irproc);
+	if (rc != EOK)
+		goto error;
+
+	lblock = NULL;
+
+	rc = cgen_proc_create(cgen, irproc, &cgproc);
+	if (rc != EOK)
+		goto error;
+
+	/* Code generator for an integer constant expression */
+	cgen_expr_init(&cgexpr);
+	cgexpr.cgen = cgen;
+	cgexpr.cgproc = cgproc;
+	cgexpr.cexpr = true;
+	cgexpr.icexpr = true;
+
+	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, &eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_proc_destroy(cgproc);
+	ir_lblock_destroy(lblock);
+	cgen_eres_fini(&eres);
+	*rval = eres.cvint;
+	*rtype = cgelm_int; // XXXX TODO!!!!
+	return EOK;
+error:
+	cgen_proc_destroy(cgproc);
+	ir_lblock_destroy(lblock);
+	cgen_eres_fini(&eres);
+	return rc;
 }
 
 /** Create code generator.
@@ -717,16 +764,6 @@ int cgen_create(cgen_t **rcgen)
 	*rcgen = cgen;
 	return EOK;
 }
-
-/** Initialize code generator for expession.
- *
- * @param cgexpr Code generator for expression
- */
-static void cgen_expr_init(cgen_expr_t *cgexpr)
-{
-	memset(cgexpr, 0, sizeof(*cgexpr));
-}
-
 /** Create code generator.
  *
  * @param cgen Code generator
@@ -1241,6 +1278,23 @@ static void cgen_error_need_scalar(cgen_t *cgen, ast_tok_t *atok)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: expression is not constant.
+ *
+ * @param cgen Code generator
+ * @param atok Token
+ */
+static void cgen_error_expr_not_constant(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *)atok->data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Expression is not constant.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate warning: unimplemented type specifier.
  *
  * @param cgen Code generator
@@ -1668,32 +1722,32 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 
 	if (tsrecord->have_def && cgen->cur_scope->parent != NULL) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Definition of '%s %s' in a non-global "
-		    "scope.\n", rtype, ident);
+		fprintf(stderr, ": Warning: Definition of '%s %s' in a "
+		    "non-global scope.\n", rtype, ident);
 		++cgen->warnings;
 
 		member = scope_lookup_tag(cgen->cur_scope->parent,
 		    ident);
 		if (member != NULL) {
 			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Definition of '%s %s' shadows "
-			    "a wider-scope struct, union or enum definition.\n", rtype,
-			    ident);
+			fprintf(stderr, ": Warning: Definition of '%s %s' "
+			    "shadows a wider-scope struct, union or enum "
+			    "definition.\n", rtype, ident);
 			++cgen->warnings;
 		}
 	}
 
 	if (tsrecord->have_def && cgen->tsrec_cnt > 0) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Definition of '%s %s' inside another "
-		    "struct/union definition.\n", rtype, ident);
+		fprintf(stderr, ": Warning: Definition of '%s %s' inside "
+		    "another struct/union definition.\n", rtype, ident);
 		++cgen->warnings;
 	}
 
 	if (tsrecord->have_def && cgen->arglist_cnt > 0) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Definition of '%s %s' inside parameter "
-		    "list will not be visible outside of function "
+		fprintf(stderr, ": Warning: Definition of '%s %s' inside "
+		    "parameter list will not be visible outside of function "
 		    "declaration/definition.\n", rtype, ident);
 		++cgen->warnings;
 	}
@@ -1891,7 +1945,6 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	cgtype_t *stype = NULL;
 	cgen_enum_elem_t *eelem;
 	comp_tok_t *ident;
-	comp_tok_t *ctok;
 	scope_member_t *member;
 	cgtype_elmtype_t elmtype;
 	int64_t value;
@@ -1901,15 +1954,8 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 
 	if (elem->init != NULL) {
 		rc = cgen_intexpr_val(cgen, elem->init, &value, &elmtype);
-		if (rc != EOK) {
-			ctok = (comp_tok_t *)elem->tequals.data;
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Unimplemented initializer "
-			    "expression.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
+		if (rc != EOK)
 			goto error;
-		}
 	} else {
 		value = cgenum->next_value;
 	}
@@ -1996,32 +2042,32 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 
 	if (tsenum->have_def && cgen->cur_scope->parent != NULL) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Definition of 'enum %s' in a non-global "
-		    "scope.\n", ident);
+		fprintf(stderr, ": Warning: Definition of 'enum %s' in a "
+		    "non-global scope.\n", ident);
 		++cgen->warnings;
 
 		member = scope_lookup_tag(cgen->cur_scope->parent,
 		    ident);
 		if (member != NULL) {
 			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Definition of 'enum %s' shadows "
-			    "a wider-scope struct, union or enum definition.\n",
-			    ident);
+			fprintf(stderr, ": Warning: Definition of 'enum %s' "
+			    "shadows a wider-scope struct, union or enum "
+			    "definition.\n", ident);
 			++cgen->warnings;
 		}
 	}
 
 	if (tsenum->have_def && cgen->tsrec_cnt > 0) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Definition of 'enum %s' inside "
+		fprintf(stderr, ": Warning: Definition of 'enum %s' inside "
 		    "struct or union definition.\n", ident);
 		++cgen->warnings;
 	}
 
 	if (tsenum->have_def && cgen->arglist_cnt > 0) {
 		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Definition of 'enum %s' inside parameter "
-		    "list will not be visible outside of function "
+		fprintf(stderr, ": Warning: Definition of 'enum %s' inside "
+		    "parameter list will not be visible outside of function "
 		    "declaration/definition.\n", ident);
 		++cgen->warnings;
 	}
@@ -2927,6 +2973,11 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
 
 	ident = (comp_tok_t *) eident->tident.data;
 
+	if (cgexpr->cexpr) {
+		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
+		return EINVAL;
+	}
+
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
 		goto error;
@@ -2986,9 +3037,12 @@ error:
 static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
     const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	(void) cgexpr;
-	(void) eident;
 	(void) lblock;
+
+	if (cgexpr->cexpr) {
+		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
+		return EINVAL;
+	}
 
 	eres->varname = vident;
 	eres->valtype = cgen_rvalue;
@@ -3012,11 +3066,12 @@ static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
-	comp_tok_t *ident;
 	int rc;
 
-	ident = (comp_tok_t *) eident->tident.data;
-	(void) ident;
+	if (cgexpr->cexpr) {
+		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
+		return EINVAL;
+	}
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -3098,6 +3153,7 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = NULL;
+	eres->cvint = eelem->value;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -3242,6 +3298,7 @@ static int cgen_const_int(cgen_expr_t *cgexpr, cgtype_elmtype_t elmtype,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+	eres->cvint = val;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -8615,6 +8672,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->valtype = cgen_rvalue;
 		eres->cgtype = cgtype;
 		eres->valused = res->valused;
+		eres->cvint = res->cvint;
 		return EOK;
 	}
 
@@ -8669,6 +8727,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = res->valused;
+	eres->cvint = res->cvint;
 
 	return EOK;
 error:

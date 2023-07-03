@@ -1,0 +1,1 @@
+<test/syc/bad/cexprnc.c:8:14:id:x>: Expression is not constant.

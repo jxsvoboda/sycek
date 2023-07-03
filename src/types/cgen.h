@@ -28,6 +28,7 @@
 #define TYPES_CGEN_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <types/ast.h>
 #include <types/cgtype.h>
 
@@ -158,6 +159,8 @@ typedef struct {
 	 * that are then not used. Example: ++i -> true, (++i) + 1 -> false.
 	 */
 	bool valused;
+	/** Integer value of constant expression (or offset if a pointer) */
+	int64_t cvint;
 } cgen_eres_t;
 
 /** Code generator loop tracking record.

@@ -1,0 +1,2 @@
+<test/syc/bad/cexprncarg.c:7:14:id:e>: Warning: Definition of 'enum e' in a non-global scope.
+<test/syc/bad/cexprncarg.c:8:22:id:a>: Expression is not constant.
