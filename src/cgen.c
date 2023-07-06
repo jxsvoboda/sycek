@@ -392,10 +392,21 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		elmtype = lunsigned ? cgelm_uint : cgelm_int;
 	}
 
-	if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong &&
+	if (!lunsigned && (uint64_t)val > 0x7fffffffu && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
 		lexer_dprint_tok(&tlit->tok, stderr);
 		fprintf(stderr, ": Warning: Constant should be long long.\n");
+		++cgen->warnings;
+	} else if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong &&
+	    elmtype != cgelm_ulonglong) {
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Constant should be long long.\n");
+		++cgen->warnings;
+	} else if (!lunsigned && (uint64_t)val > 0x7fff && elmtype != cgelm_long &&
+	    elmtype != cgelm_ulong && elmtype != cgelm_longlong &&
+	    elmtype != cgelm_ulonglong) {
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Constant should be long.\n");
 		++cgen->warnings;
 	} else if ((uint64_t)val > 0xffff && elmtype != cgelm_long &&
 	    elmtype != cgelm_ulong && elmtype != cgelm_longlong &&
@@ -653,6 +664,7 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 	dres->valtype = res->valtype;
 	dres->cgtype = cgtype;
 	dres->cvint = res->cvint;
+	dres->cvknown = res->cvknown;
 	return EOK;
 }
 
@@ -711,6 +723,7 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
 		goto error;
 
 	cgen_proc_destroy(cgproc);
+	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
 	cgen_eres_fini(&eres);
 	*rval = eres.cvint;
@@ -1471,6 +1484,21 @@ static void cgen_warn_cmp_sign_mix(cgen_t *cgen, ast_tok_t *atok)
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
 	    "integers.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: integer arithmetic overflow.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_integer_overflow(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Integer arithmetic overflow.\n");
 	++cgen->warnings;
 }
 
@@ -2925,6 +2953,70 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 	return EOK;
 }
 
+static void cgen_cvint_mask(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a, int64_t *res)
+{
+	uint64_t r;
+	uint64_t mask;
+
+	(void)cgen;
+
+	if (bits < 64) {
+		mask = ((uint64_t)1 << bits) - 1;
+	} else {
+		mask = ~(uint64_t)0;
+	}
+
+	r = (uint64_t)a & mask;
+	if (bits < 64 && is_signed) {
+		/* Need to sign-exend after masking */
+		if ((r & ((uint64_t)1 << (bits - 1))) != 0) {
+			r |= ~mask;
+		}
+	}
+
+	*res = (int64_t)r;
+}
+
+/** Add two integer constants with overflow checking.
+ *
+ * Overflow is only detected for signed addition. Unsigned addition
+ * is modulo.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff addition is signed
+ * @param bits Number of bits
+ * @param a1 First argument
+ * @param a2 Second argument
+ * @param res Place to store result
+ * @param overflow Place to store @c true on signed overflow
+ */
+static void cgen_cvint_add(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res, bool *overflow)
+{
+	uint64_t r;
+	int64_t rm;
+	bool neg1, neg2;
+	bool rneg;
+
+	*overflow = false;
+
+	r = (uint64_t)(a1 + a2);
+	cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
+
+	if (is_signed) {
+		neg1 = a1 < 0;
+		neg2 = a2 < 0;
+		rneg = rm < 0;
+
+		/* Addition can only overflow if both operands have same sign */
+		if (neg1 == neg2 && rneg != neg1)
+			*overflow = true;
+	}
+
+	*res = rm;
+}
+
 /** Generate code for integer literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -3153,6 +3245,7 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = NULL;
+	eres->cvknown = true;
 	eres->cvint = eelem->value;
 	return EOK;
 error:
@@ -3298,6 +3391,7 @@ static int cgen_const_int(cgen_expr_t *cgexpr, cgtype_elmtype_t elmtype,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+	eres->cvknown = true;
 	eres->cvint = val;
 	return EOK;
 error:
@@ -3314,14 +3408,16 @@ error:
 /** Generate code for addition of integers.
  *
  * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
-    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -3331,7 +3427,10 @@ static int cgen_add_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
 	cgen_eres_t res2;
 	cgtype_t *cgtype = NULL;
 	cgen_uac_flags_t flags;
+	cgtype_basic_t *tbasic;
+	bool is_signed;
 	unsigned bits;
+	bool overflow;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -3353,14 +3452,16 @@ static int cgen_add_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)res1.cgtype->ext);
+	tbasic = (cgtype_basic_t *)res1.cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
 
 	rc = cgtype_clone(res1.cgtype, &cgtype);
 	if (rc != EOK)
@@ -3394,6 +3495,14 @@ static int cgen_add_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	if (res1.cvknown && res2.cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_add(cgexpr->cgen, is_signed, bits, res1.cvint,
+		    res2.cvint, &eres->cvint, &overflow);
+		if (overflow)
+			cgen_warn_integer_overflow(cgexpr->cgen, optok);
+	}
+
 	cgen_eres_fini(&res1);
 	cgen_eres_fini(&res2);
 
@@ -3415,21 +3524,23 @@ error:
 /** Generate code for addition of enum and integer.
  *
  * @param cgexpr Code generator for procedure
+ * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add_enum_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
-    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_add_enum_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	cgen_eres_t ares;
 	int rc;
 
 	cgen_eres_init(&ares);
 
-	rc = cgen_add_int(cgexpr, lres, rres, lblock, &ares);
+	rc = cgen_add_int(cgexpr, optok, lres, rres, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
@@ -3586,11 +3697,13 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Integer + integer */
 	if (l_int && r_int)
-		return cgen_add_int(cgexpr, lres, rres, lblock, eres);
+		return cgen_add_int(cgexpr, optok, lres, rres, lblock, eres);
 
 	/* Enum + integer */
-	if (l_enum && r_int)
-		return cgen_add_enum_int(cgexpr, lres, rres, lblock, eres);
+	if (l_enum && r_int) {
+		return cgen_add_enum_int(cgexpr, optok, lres, rres, lblock,
+		    eres);
+	}
 
 	l_ptr = lres->cgtype->ntype == cgn_pointer;
 	r_ptr = rres->cgtype->ntype == cgn_pointer;
@@ -3632,7 +3745,8 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 			++cgexpr->cgen->warnings;
 		}
 		/* Switch the operands */
-		return cgen_add_enum_int(cgexpr, rres, lres, lblock, eres);
+		return cgen_add_enum_int(cgexpr, optok, rres, lres, lblock,
+		    eres);
 	}
 
 	/* Enum + enum */
@@ -3641,7 +3755,7 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		if (cgtype_is_strict_enum(lres->cgtype) &&
 		    cgtype_is_strict_enum(rres->cgtype))
 			cgen_warn_arith_enum(cgexpr->cgen, optok);
-		return cgen_add_int(cgexpr, lres, rres, lblock, eres);
+		return cgen_add_int(cgexpr, optok, lres, rres, lblock, eres);
 	}
 
 	/* Integer + pointer */
@@ -8672,6 +8786,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->valtype = cgen_rvalue;
 		eres->cgtype = cgtype;
 		eres->valused = res->valused;
+		eres->cvknown = res->cvknown;
 		eres->cvint = res->cvint;
 		return EOK;
 	}
@@ -8727,6 +8842,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = res->valused;
+	eres->cvknown = res->cvknown;
 	eres->cvint = res->cvint;
 
 	return EOK;
@@ -8820,6 +8936,8 @@ static int cgen_enum2int(cgen_expr_t *cgexpr, cgen_eres_t *res,
 
 		rres->varname = res->varname;
 		rres->valtype = res->valtype;
+		rres->cvknown = res->cvknown;
+		rres->cvint = res->cvint;
 
 		rc = cgtype_int_construct(true, cgir_int, &rres->cgtype);
 		if (rc != EOK)
@@ -8871,6 +8989,8 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 
 	eres->varname = ares->varname;
 	eres->valtype = ares->valtype;
+	eres->cvknown = ares->cvknown;
+	eres->cvint = ares->cvint;
 
 	rc = cgtype_clone(etype, &eres->cgtype);
 	if (rc != EOK)

@@ -1,2 +1,2 @@
-<test/syc/ugly/structarg.c:8:17-19:id:foo>: Definition of 'struct foo' in a non-global scope.
-<test/syc/ugly/structarg.c:8:17-19:id:foo>: Definition of 'struct foo' inside parameter list will not be visible outside of function declaration/definition.
+<test/syc/ugly/structarg.c:8:17-19:id:foo>: Warning: Definition of 'struct foo' in a non-global scope.
+<test/syc/ugly/structarg.c:8:17-19:id:foo>: Warning: Definition of 'struct foo' inside parameter list will not be visible outside of function declaration/definition.

@@ -8,3 +8,11 @@ verify word ptr (@_z), 1;
 ld word ptr (@_z), 0;
 call @_se2;
 verify word ptr (@_z), 1;
+
+ld word ptr (@_z), 0;
+call @_se3;
+verify word ptr (@_z), 11;
+
+ld word ptr (@_z), 0;
+call @_se4;
+verify word ptr (@_z), 2;

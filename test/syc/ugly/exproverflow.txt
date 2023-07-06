@@ -1,0 +1,1 @@
+<test/syc/ugly/exproverflow.c:13:19:'+'>: Warning: Integer arithmetic overflow.

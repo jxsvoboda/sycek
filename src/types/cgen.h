@@ -159,6 +159,8 @@ typedef struct {
 	 * that are then not used. Example: ++i -> true, (++i) + 1 -> false.
 	 */
 	bool valused;
+	/** @c true if expression has a known constant value */
+	bool cvknown;
 	/** Integer value of constant expression (or offset if a pointer) */
 	int64_t cvint;
 } cgen_eres_t;

@@ -1,3 +1,3 @@
-<test/syc/ugly/enumelshadow.c:10:14:id:e>: Definition of 'enum e' in a non-global scope.
+<test/syc/ugly/enumelshadow.c:10:14:id:e>: Warning: Definition of 'enum e' in a non-global scope.
 <test/syc/ugly/enumelshadow.c:11:17-18:id:e1>: Warning: Declaration of 'e1' shadows a wider-scope declaration.
 <test/syc/ugly/enumelshadow.c:10:14:id:e>: Warning: 'e' is defined, but not used.
