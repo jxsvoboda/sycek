@@ -1,0 +1,14 @@
+mapfile "icshift.map";
+ldbin "icshift.bin", 0x8000;
+
+ld word ptr (@_z), 0;
+call @_se1;
+verify word ptr (@_z), 20;
+
+ld word ptr (@_z), 0;
+call @_se2;
+verify word ptr (@_z), 5;
+
+ld word ptr (@_z), 0;
+call @_se3;
+verify word ptr (@_z), 0xfffb;

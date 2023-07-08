@@ -1,0 +1,2 @@
+<test/syc/ugly/exprshift.c:10:15-16:'<<'>: Warning: Shift amount exceeds operand width.
+<test/syc/ugly/exprshift.c:13:15-16:'<<'>: Warning: Shift is negative.

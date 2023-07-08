@@ -1502,6 +1502,36 @@ static void cgen_warn_integer_overflow(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: shift amount exceeds operand width.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_shift_exceed_bits(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Shift amount exceeds operand width.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: shift is negative.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_shift_negative(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Shift is negative.\n");
+	++cgen->warnings;
+}
+
 /** Generate code for record definition.
  *
  * @param cgen Code generator
@@ -3129,6 +3159,47 @@ static void cgen_cvint_mul(cgen_t *cgen, bool is_signed, unsigned bits,
 	*res = rm;
 }
 
+/** Shift constant left.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff addition is signed
+ * @param bits Number of bits
+ * @param a1 First argument (value)
+ * @param a2 Second argument (shift)
+ * @param res Place to store result
+ */
+static void cgen_cvint_shl(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res)
+{
+	uint64_t r;
+
+	r = (uint64_t)a1 << a2;
+	cgen_cvint_mask(cgen, is_signed, bits, r, res);
+}
+
+/** Shift constant right.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff addition is signed
+ * @param bits Number of bits
+ * @param a1 First argument (value)
+ * @param a2 Second argument (shift)
+ * @param res Place to store result
+ */
+static void cgen_cvint_shr(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res)
+{
+	uint64_t r;
+
+	if (is_signed) {
+		r = a1 >> a2;
+	} else {
+		r = (uint64_t)a1 >> a2;
+	}
+
+	cgen_cvint_mask(cgen, is_signed, bits, r, res);
+}
+
 /** Generate code for integer literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -4414,20 +4485,23 @@ error:
 /** Generate code for shift left.
  *
  * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of shifting
  * @return EOK on success or an error code
  */
-static int cgen_shl(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
-    ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
+	cgtype_basic_t *tbasic;
+	bool is_signed;
 	unsigned bits;
 	int rc;
 
@@ -4439,14 +4513,16 @@ static int cgen_shl(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)lres->cgtype->ext);
+	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
 	if (rc != EOK)
@@ -4479,6 +4555,16 @@ static int cgen_shl(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_shl(cgexpr->cgen, is_signed, bits, lres->cvint,
+		    rres->cvint, &eres->cvint);
+		if (rres->cvint >= bits)
+			cgen_warn_shift_exceed_bits(cgexpr->cgen, optok);
+		if (rres->cvint < 0)
+			cgen_warn_shift_negative(cgexpr->cgen, optok);
+	}
 
 	return EOK;
 error:
@@ -4514,9 +4600,12 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgtype_t *cgtype = NULL;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
+	ast_tok_t *optok;
 	unsigned bits;
 	bool is_signed;
 	int rc;
+
+	optok = &ebinop->top;
 
 	/* Check the type */
 	if (!cgen_type_is_integer(cgexpr->cgen, lres->cgtype)) {
@@ -4572,6 +4661,16 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_shr(cgexpr->cgen, is_signed, bits, lres->cvint,
+		    rres->cvint, &eres->cvint);
+		if (rres->cvint >= bits)
+			cgen_warn_shift_exceed_bits(cgexpr->cgen, optok);
+		if (rres->cvint < 0)
+			cgen_warn_shift_negative(cgexpr->cgen, optok);
+	}
 
 	return EOK;
 error:
@@ -5013,7 +5112,7 @@ static int cgen_bo_shl(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
-	rc = cgen_shl(cgexpr, &lires, &rires, lblock, eres);
+	rc = cgen_shl(cgexpr, &ebinop->top, &lires, &rires, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -6841,7 +6940,7 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
-	rc = cgen_shl(cgexpr, &aires, &bires, lblock, &ores);
+	rc = cgen_shl(cgexpr, &ebinop->top, &aires, &bires, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
