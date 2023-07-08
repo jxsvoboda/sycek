@@ -1,5 +1,5 @@
 /*
- * Integer constant expression.
+ * Integer constant expression - arithmetic operators
  */
 
 enum {
@@ -20,7 +20,9 @@ enum {
 	/* Unary plus enum */
 	e8 = +e7,
 	/* Unary minus int */
-	e9 = -1
+	e9 = -1,
+	/* Multiply int * int */
+	e10 = 10 * 10
 };
 
 int z;
@@ -64,7 +66,13 @@ void se8(void)
 {
 	z = e8;
 }
+
 void se9(void)
 {
 	z = e9;
+}
+
+void se10(void)
+{
+	z = e10;
 }

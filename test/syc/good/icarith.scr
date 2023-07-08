@@ -1,5 +1,5 @@
-mapfile "icexpr.map";
-ldbin "icexpr.bin", 0x8000;
+mapfile "icarith.map";
+ldbin "icarith.bin", 0x8000;
 
 ld word ptr (@_z), 0;
 call @_se1;
@@ -36,3 +36,7 @@ verify word ptr (@_z), 1;
 ld word ptr (@_z), 0;
 call @_se9;
 verify word ptr (@_z), 0xffff;
+
+ld word ptr (@_z), 0;
+call @_se10;
+verify word ptr (@_z), 100;

@@ -3092,6 +3092,43 @@ static void cgen_cvint_neg(cgen_t *cgen, bool is_signed, unsigned bits,
 	*res = rm;
 }
 
+/** Multiply two integer constants with overflow checking.
+ *
+ * Overflow is only detected for signed multiplication. Unsigned multiplication
+ * is modulo.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff addition is signed
+ * @param bits Number of bits
+ * @param a1 First argument
+ * @param a2 Second argument
+ * @param res Place to store result
+ * @param overflow Place to store @c true on signed overflow
+ */
+static void cgen_cvint_mul(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res, bool *overflow)
+{
+	uint64_t r;
+	int64_t v;
+	int64_t rm;
+
+	*overflow = false;
+
+	r = (uint64_t)a1 * (uint64_t)a2;
+	cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
+
+	if (is_signed && a2 != 0) {
+		/* Verification */
+		v = (int64_t)rm / (int64_t) a2;
+
+		/* If verification failed, we have an overflow */
+		if (v != a1)
+			*overflow = true;
+	}
+
+	*res = rm;
+}
+
 /** Generate code for integer literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -4281,21 +4318,25 @@ static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 /** Generate code for multiplication.
  *
  * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of multiplication
  * @return EOK on success or an error code
  */
-static int cgen_mul(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
-    ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_mul(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
+	cgtype_basic_t *tbasic;
+	bool is_signed;
 	unsigned bits;
+	bool overflow;
 	int rc;
 
 	/* Check the type */
@@ -4306,14 +4347,16 @@ static int cgen_mul(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)lres->cgtype->ext);
+	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
 	if (rc != EOK)
@@ -4346,6 +4389,14 @@ static int cgen_mul(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_mul(cgexpr->cgen, is_signed, bits, lres->cvint,
+		    rres->cvint, &eres->cvint, &overflow);
+		if (overflow)
+			cgen_warn_integer_overflow(cgexpr->cgen, optok);
+	}
 
 	return EOK;
 error:
@@ -4900,7 +4951,7 @@ static int cgen_bo_times(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Multiply the two operands */
-	rc = cgen_mul(cgexpr, &lres, &rres, lblock, eres);
+	rc = cgen_mul(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -6698,7 +6749,7 @@ static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Multiply the two operands */
-	rc = cgen_mul(cgexpr, &ares, &bres, lblock, &ores);
+	rc = cgen_mul(cgexpr, &ebinop->top, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
 		goto error;
 
