@@ -16,3 +16,11 @@ verify word ptr (@_z), 11;
 ld word ptr (@_z), 0;
 call @_se4;
 verify word ptr (@_z), 2;
+
+ld word ptr (@_z), 0;
+call @_se5;
+verify word ptr (@_z), 9;
+
+ld word ptr (@_z), 0;
+call @_se6;
+verify word ptr (@_z), 8;

@@ -10,7 +10,11 @@ enum {
 	/* Add int + int */
 	e3 = 10 + 1,
 	/* Add enum + int */
-	e4 = e2 + 1
+	e4 = e2 + 1,
+	/* Subtract int - int */
+	e5 = 10 - 1,
+	/* Subtract enum - int */
+	e6 = e5 - 1
 };
 
 int z;
@@ -33,4 +37,14 @@ void se3(void)
 void se4(void)
 {
 	z = e4;
+}
+
+void se5(void)
+{
+	z = e5;
+}
+
+void se6(void)
+{
+	z = e6;
 }

@@ -3017,6 +3017,45 @@ static void cgen_cvint_add(cgen_t *cgen, bool is_signed, unsigned bits,
 	*res = rm;
 }
 
+/** Subtract two integer constants with overflow checking.
+ *
+ * Overflow is only detected for signed subtraction. Unsigned subtraction
+ * is modulo.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff addition is signed
+ * @param bits Number of bits
+ * @param a1 First argument
+ * @param a2 Second argument
+ * @param res Place to store result
+ * @param overflow Place to store @c true on signed overflow
+ */
+static void cgen_cvint_sub(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res, bool *overflow)
+{
+	uint64_t r;
+	int64_t rm;
+	bool neg1, neg2;
+	bool rneg;
+
+	*overflow = false;
+
+	r = (uint64_t)(a1 - a2);
+	cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
+
+	if (is_signed) {
+		neg1 = a1 < 0;
+		neg2 = a2 < 0;
+		rneg = rm < 0;
+
+		/* Subtraction can only overflow if operand signs differ */
+		if (neg1 != neg2 && rneg != neg1)
+			*overflow = true;
+	}
+
+	*res = rm;
+}
+
 /** Generate code for integer literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -3780,14 +3819,16 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 /** Generate code for subtraction of integers.
  *
  * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of subtraction
  * @return EOK on success or an error code
  */
-static int cgen_sub_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
-    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -3797,7 +3838,10 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
 	cgen_eres_t res2;
 	cgtype_t *cgtype = NULL;
 	cgen_uac_flags_t flags;
+	cgtype_basic_t *tbasic;
+	bool is_signed;
 	unsigned bits;
+	bool overflow;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -3819,14 +3863,16 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)res1.cgtype->ext);
+	tbasic = (cgtype_basic_t *)res1.cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
 
 	rc = cgtype_clone(res1.cgtype, &cgtype);
 	if (rc != EOK)
@@ -3860,6 +3906,14 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	if (res1.cvknown && res2.cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_sub(cgexpr->cgen, is_signed, bits, res1.cvint,
+		    res2.cvint, &eres->cvint, &overflow);
+		if (overflow)
+			cgen_warn_integer_overflow(cgexpr->cgen, optok);
+	}
+
 	cgen_eres_fini(&res1);
 	cgen_eres_fini(&res2);
 
@@ -3881,21 +3935,23 @@ error:
 /** Generate code for subtraction of enum and integer.
  *
  * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
  * @param lres Result of evaluating left operand
  * @param rres Result of evaluating right operand
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_sub_enum_int(cgen_expr_t *cgexpr, cgen_eres_t *lres,
-    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_sub_enum_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	cgen_eres_t ares;
 	int rc;
 
 	cgen_eres_init(&ares);
 
-	rc = cgen_sub_int(cgexpr, lres, rres, lblock, &ares);
+	rc = cgen_sub_int(cgexpr, optok, lres, rres, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
@@ -3934,7 +3990,7 @@ static int cgen_sub_enum(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	assert(rres->cgtype->ntype == cgn_enum);
 	renum = (cgtype_enum_t *)rres->cgtype->ext;
 
-	rc = cgen_sub_int(cgexpr, lres, rres, lblock, eres);
+	rc = cgen_sub_int(cgexpr, optok, lres, rres, lblock, eres);
 	if (rc != EOK)
 		return rc;
 
@@ -4131,16 +4187,18 @@ static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Integer - integer */
 	if (l_int && r_int)
-		return cgen_sub_int(cgexpr, lres, rres, lblock, eres);
+		return cgen_sub_int(cgexpr, optok, lres, rres, lblock, eres);
 
 	/* Enum - integer */
-	if (l_enum && r_int)
-		return cgen_sub_enum_int(cgexpr, lres, rres, lblock, eres);
+	if (l_enum && r_int) {
+		return cgen_sub_enum_int(cgexpr, optok, lres, rres, lblock,
+		    eres);
+	}
 
 	/* Integer - enum */
 	if (l_int && r_enum) {
 		cgen_warn_arith_enum(cgexpr->cgen, optok);
-		return cgen_sub_int(cgexpr, lres, rres, lblock, eres);
+		return cgen_sub_int(cgexpr, optok, lres, rres, lblock, eres);
 	}
 
 	/* Enum - enum */

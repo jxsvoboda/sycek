@@ -1,1 +1,2 @@
 <test/syc/ugly/cexproverflow.c:6:20:'+'>: Warning: Integer arithmetic overflow.
+<test/syc/ugly/cexproverflow.c:7:24:'-'>: Warning: Integer arithmetic overflow.
