@@ -1,2 +1,4 @@
 <test/syc/ugly/exproverflow.c:13:19:'+'>: Warning: Integer arithmetic overflow.
 <test/syc/ugly/exproverflow.c:14:23:'-'>: Warning: Integer arithmetic overflow.
+<test/syc/ugly/exproverflow.c:15:16-20:num:32768>: Warning: Constant should be long.
+<test/syc/ugly/exproverflow.c:15:13:'-'>: Warning: Integer arithmetic overflow.

@@ -3001,7 +3001,7 @@ static void cgen_cvint_add(cgen_t *cgen, bool is_signed, unsigned bits,
 
 	*overflow = false;
 
-	r = (uint64_t)(a1 + a2);
+	r = (uint64_t)a1 + (uint64_t)a2;
 	cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
 
 	if (is_signed) {
@@ -3040,7 +3040,7 @@ static void cgen_cvint_sub(cgen_t *cgen, bool is_signed, unsigned bits,
 
 	*overflow = false;
 
-	r = (uint64_t)(a1 - a2);
+	r = (uint64_t)a1 - (uint64_t)a2;
 	cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
 
 	if (is_signed) {
@@ -3050,6 +3050,42 @@ static void cgen_cvint_sub(cgen_t *cgen, bool is_signed, unsigned bits,
 
 		/* Subtraction can only overflow if operand signs differ */
 		if (neg1 != neg2 && rneg != neg1)
+			*overflow = true;
+	}
+
+	*res = rm;
+}
+
+/** Negate an integer constants with overflow checking.
+ *
+ * Overflow is only detected for signed negation.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff addition is signed
+ * @param bits Number of bits
+ * @param a1 First argument
+ * @param res Place to store result
+ * @param overflow Place to store @c true on signed overflow
+ */
+static void cgen_cvint_neg(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t *res, bool *overflow)
+{
+	uint64_t r;
+	int64_t rm;
+	bool neg1;
+	bool rneg;
+
+	*overflow = false;
+
+	r = -(uint64_t)a1;
+	cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
+
+	if (is_signed) {
+		neg1 = a1 < 0;
+		rneg = rm < 0;
+
+		/* Most negative value in two's complement has no negation */
+		if (rneg == neg1)
 			*overflow = true;
 	}
 
@@ -8096,13 +8132,15 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *barg = NULL;
-	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	cgen_eres_t bres;
 	cgen_eres_t bires;
 	cgen_eres_t sres;
+	cgtype_basic_t *tbasic;
 	bool conv;
+	bool is_signed;
 	unsigned bits;
+	bool overflow;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -8119,8 +8157,7 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 	if (rc != EOK)
 		goto error;
 
-	atok = ast_tree_first_tok(&eusign->node);
-	ctok = (comp_tok_t *) atok->data;
+	ctok = (comp_tok_t *) eusign->tsign.data;
 
 	if (bires.cgtype->ntype != cgn_basic) {
 		lexer_dprint_tok(&ctok->tok, stderr);
@@ -8130,8 +8167,8 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)bires.cgtype->ext);
+	tbasic = (cgtype_basic_t *)bires.cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Unimplemented variable type.\n");
@@ -8139,6 +8176,8 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		rc = EINVAL;
 		goto error;
 	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
 
 	if (eusign->usign == aus_minus) {
 		if (conv)
@@ -8172,6 +8211,15 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		/* Salvage the type from bires */
 		eres->cgtype = bires.cgtype;
 		bires.cgtype = NULL;
+
+		if (bires.cvknown) {
+			eres->cvknown = true;
+			cgen_cvint_neg(cgexpr->cgen, is_signed, bits, bires.cvint,
+			    &eres->cvint, &overflow);
+			if (overflow)
+				cgen_warn_integer_overflow(cgexpr->cgen,
+				    &eusign->tsign);
+		}
 	} else {
 		/* Unary plus */
 		sres.varname = bires.varname;
@@ -8179,6 +8227,8 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		/* Salvage the type from bires */
 		sres.cgtype = bires.cgtype;
 		bires.cgtype = NULL;
+		sres.cvknown = bires.cvknown;
+		sres.cvint = bires.cvint;
 
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &sres, bres.cgtype, eres);

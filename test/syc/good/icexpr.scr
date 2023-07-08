@@ -24,3 +24,15 @@ verify word ptr (@_z), 9;
 ld word ptr (@_z), 0;
 call @_se6;
 verify word ptr (@_z), 8;
+
+ld word ptr (@_z), 0;
+call @_se7;
+verify word ptr (@_z), 1;
+
+ld word ptr (@_z), 0;
+call @_se8;
+verify word ptr (@_z), 1;
+
+ld word ptr (@_z), 0;
+call @_se9;
+verify word ptr (@_z), 0xffff;

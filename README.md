@@ -374,6 +374,7 @@ It can detect the following types of problems and style issues:
  * multiple declarations of function/variable/struct/union
  * declaration of function/variable/struct/union follows definition
  * variable not used since forward declaration
+ * integer arithmetic overflow
 
 ### Strict truth type
 
@@ -449,6 +450,20 @@ an integer constant. On the other hand:
 will produce two warnings, one for each assignment, because the type
 e_t is considered a strict enum type and its members e1 are also
 considered strictly enum values.
+
+### Integer arithmetic checking in constant expressions
+
+In C unsigned types silently wrap around on overflow. Signed integer
+types can hava different behavier on overflow depending on implementation.
+Signed integers can be either two's complement, one's complement or
+sign-magnitude. If they are not two's complement, the implementation should
+signal overflow.
+
+In constant expressions or (sub)expressions that have constant value
+Syc will check the arithmetic operations and it will warn if there
+is a signed arithmetic overflow (despite using two's complement),
+because such computations are non-portable and may have different
+behavior on different implementations.
 
 Intermediate Representation
 ---------------------------

@@ -14,7 +14,13 @@ enum {
 	/* Subtract int - int */
 	e5 = 10 - 1,
 	/* Subtract enum - int */
-	e6 = e5 - 1
+	e6 = e5 - 1,
+	/* Unary plus int */
+	e7 = +1,
+	/* Unary plus enum */
+	e8 = +e7,
+	/* Unary minus int */
+	e9 = -1
 };
 
 int z;
@@ -47,4 +53,18 @@ void se5(void)
 void se6(void)
 {
 	z = e6;
+}
+
+void se7(void)
+{
+	z = e7;
+}
+
+void se8(void)
+{
+	z = e8;
+}
+void se9(void)
+{
+	z = e9;
 }
