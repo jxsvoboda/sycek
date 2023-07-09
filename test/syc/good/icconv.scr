@@ -1,0 +1,6 @@
+mapfile "icconv.map";
+ldbin "icconv.bin", 0x8000;
+
+ld word ptr (@_z), 0;
+call @_se1;
+verify word ptr (@_z), 0x5678;

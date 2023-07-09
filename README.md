@@ -378,6 +378,7 @@ It can detect the following types of problems and style issues:
  * integer arithmetic overflow
  * shift amount exceeds operand width
  * shift is negative
+ * number changed in conversion
 
 ### Strict truth type
 

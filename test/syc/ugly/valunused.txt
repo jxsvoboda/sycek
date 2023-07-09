@@ -6,6 +6,3 @@
 <test/syc/ugly/valunused.c:37:14:num:1>: Warning: Computed expression value is not used.
 <test/syc/ugly/valunused.c:37:19:num:2>: Warning: Computed expression value is not used.
 <test/syc/ugly/valunused.c:41:9:id:i>: Warning: Computed expression value is not used.
-<test/syc/ugly/valunused.c:68:11-12:'&='>: Warning: Bitwise operation on signed integer(s).
-<test/syc/ugly/valunused.c:70:11-12:'|='>: Warning: Bitwise operation on signed integer(s).
-<test/syc/ugly/valunused.c:72:11-12:'^='>: Warning: Bitwise operation on signed integer(s).

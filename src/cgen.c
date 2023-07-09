@@ -9612,6 +9612,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cgtype_t *cgtype;
 	unsigned srcw, destw;
 	bool src_signed;
+	bool dest_signed;
 	int rc;
 
 	assert(ares->cgtype->ntype == cgn_basic);
@@ -9622,6 +9623,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	assert(dtype->ntype == cgn_basic);
 	destw = cgen_basic_type_bits(cgexpr->cgen,
+	    (cgtype_basic_t *)dtype->ext);
+	dest_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)dtype->ext);
 
 	rc = cgtype_clone(dtype, &cgtype);
@@ -9651,7 +9654,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		/* Integer truncation */
 		itype = iri_trunc;
 
-		if (expl != cgen_explicit) {
+		if (expl != cgen_explicit && !ares->cvknown) {
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Conversion may loose "
 			    "significant digits.\n");
@@ -9695,6 +9698,16 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = cgen_rvalue;
 	cres->cgtype = cgtype;
 	cres->valused = true;
+
+	if (ares->cvknown) {
+		cgen_cvint_mask(cgexpr->cgen, dest_signed, destw,
+		    ares->cvint, &cres->cvint);
+		if (expl != cgen_explicit && cres->cvint != ares->cvint) {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Number changed in conversion.\n");
+			++cgexpr->cgen->warnings;
+		}
+	}
 
 	cgen_eres_fini(&rres);
 	return EOK;

@@ -1,0 +1,1 @@
+<test/syc/ugly/exprconv.c:9:11:'='>: Warning: Number changed in conversion.
