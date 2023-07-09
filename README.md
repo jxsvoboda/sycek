@@ -351,7 +351,8 @@ It can detect the following types of problems and style issues:
  * unused local struct/union tag
  * constant should be long (or long long)
  * unsigned comparison of mixed-sign integers
- * bitwise operation on signed integers
+ * bitwise operation on signed integer(s)
+ * bitwise operation on negative number(s)
  * conversion may loose significant digits
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
@@ -375,6 +376,8 @@ It can detect the following types of problems and style issues:
  * declaration of function/variable/struct/union follows definition
  * variable not used since forward declaration
  * integer arithmetic overflow
+ * shift amount exceeds operand width
+ * shift is negative
 
 ### Strict truth type
 

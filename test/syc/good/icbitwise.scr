@@ -1,0 +1,34 @@
+mapfile "icbitwise.map";
+ldbin "icbitwise.bin", 0x8000;
+
+ld word ptr (@_z), 0;
+call @_se1;
+verify word ptr (@_z), 0x7;
+
+ld word ptr (@_z), 0;
+call @_se2;
+verify word ptr (@_z), 0x7f;
+
+ld word ptr (@_z), 0;
+call @_se3;
+verify word ptr (@_z), 0x78;
+
+ld word ptr (@_z), 0;
+call @_se4;
+verify word ptr (@_z), 0xfff0;
+
+ld word ptr (@_z), 0;
+call @_se5;
+verify word ptr (@_z), 0x7;
+
+ld word ptr (@_z), 0;
+call @_se6;
+verify word ptr (@_z), 0x7f;
+
+ld word ptr (@_z), 0;
+call @_se7;
+verify word ptr (@_z), 0x78;
+
+ld word ptr (@_z), 0;
+call @_se8;
+verify word ptr (@_z), 0xfff0;

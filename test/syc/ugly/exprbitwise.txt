@@ -1,0 +1,7 @@
+<test/syc/ugly/exprbitwise.c:9:18:'&'>: Warning: Bitwise operation on negative number(s).
+<test/syc/ugly/exprbitwise.c:10:15:'&'>: Warning: Bitwise operation on negative number(s).
+<test/syc/ugly/exprbitwise.c:11:18:'|'>: Warning: Bitwise operation on negative number(s).
+<test/syc/ugly/exprbitwise.c:12:15:'|'>: Warning: Bitwise operation on negative number(s).
+<test/syc/ugly/exprbitwise.c:13:18:'^'>: Warning: Bitwise operation on negative number(s).
+<test/syc/ugly/exprbitwise.c:14:15:'^'>: Warning: Bitwise operation on negative number(s).
+<test/syc/ugly/exprbitwise.c:15:13:'~'>: Warning: Bitwise operation on signed integer(s).

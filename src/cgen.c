@@ -1471,6 +1471,36 @@ static void cgen_warn_bitop_enum_mix(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: bitwise operation on signed integers.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_bitop_signed(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Bitwise operation on signed integer(s).\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: bitwise operation on negative number(s).
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_bitop_negative(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Bitwise operation on negative number(s).\n");
+	++cgen->warnings;
+}
+
 /** Generate warning: unsigned comparison of mixed-sign integers.
  *
  * @param cgen Code generator
@@ -2983,6 +3013,20 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 	return EOK;
 }
 
+/** Mask constant value to a specified number of bits.
+ *
+ * We represent constant values of all integer types as int64_t
+ * (sign-extended). After performing a computation it may be necessary
+ * to mask the result to the number of bits of the actual type
+ * to simulate the limited precision. If the type is signed,
+ * we also need to sign-extend the result.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff the constant is of signed type
+ * @param bits Width of the type of the constant in bits
+ * @param a Value
+ * @param res Place to store masked and sign-exteneded value
+ */
 static void cgen_cvint_mask(cgen_t *cgen, bool is_signed, unsigned bits,
     int64_t a, int64_t *res)
 {
@@ -4754,6 +4798,11 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		eres->cvint = lres->cvint & rres->cvint;
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4836,6 +4885,11 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		eres->cvint = lres->cvint ^ rres->cvint;
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -4917,6 +4971,11 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		eres->cvint = lres->cvint | rres->cvint;
+	}
 
 	return EOK;
 error:
@@ -5860,8 +5919,6 @@ static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_t rres;
 	cgen_eres_t bres;
 	cgen_uac_flags_t flags;
-	comp_tok_t *ctok;
-	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -5885,19 +5942,12 @@ static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)lres.cgtype->ext);
-
 	/* Integer (not enum) operands, any of them signed */
-	if ((is_signed || (flags & cguac_mix2u) != 0) &&
-	    (flags & cguac_enum) == 0) {
-		ctok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Bitwise operation on signed "
-		    "integer(s).\n");
-		++cgexpr->cgen->warnings;
-	}
-
+	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
+	/* Any operand is a negative constant */
+	if ((flags & cguac_negative) != 0)
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -5956,8 +6006,6 @@ static int cgen_bo_bxor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_t rres;
 	cgen_eres_t bres;
 	cgen_uac_flags_t flags;
-	comp_tok_t *ctok;
-	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -5981,19 +6029,12 @@ static int cgen_bo_bxor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)lres.cgtype->ext);
-
 	/* Integer (not enum) operands, any of them signed */
-	if ((is_signed || (flags & cguac_mix2u) != 0) &&
-	    (flags & cguac_enum) == 0) {
-		ctok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Bitwise operation on signed "
-		    "integer(s).\n");
-		++cgexpr->cgen->warnings;
-	}
-
+	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
+	/* Any operand is a negative constant */
+	if ((flags & cguac_negative) != 0)
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -6052,8 +6093,6 @@ static int cgen_bo_bor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_t rres;
 	cgen_eres_t bres;
 	cgen_uac_flags_t flags;
-	comp_tok_t *ctok;
-	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -6077,19 +6116,12 @@ static int cgen_bo_bor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)lres.cgtype->ext);
-
 	/* Integer (not enum) operands, any of them signed */
-	if ((is_signed || (flags & cguac_mix2u) != 0) &&
-	    (flags & cguac_enum) == 0) {
-		ctok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Bitwise operation on signed "
-		    "integer(s).\n");
-		++cgexpr->cgen->warnings;
-	}
-
+	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
+	/* Any operand is a negative constant */
+	if ((flags & cguac_negative) != 0)
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -7089,9 +7121,7 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_t ares;
 	cgen_eres_t bres;
 	cgen_eres_t ores;
-	bool is_signed;
 	cgen_uac_flags_t flags;
-	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -7117,19 +7147,12 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)ares.cgtype->ext);
-
 	/* Integer (not enum) operands, any of them signed */
-	if ((is_signed || (flags & cguac_mix2u) != 0) &&
-	    (flags & cguac_enum) == 0) {
-		ctok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Bitwise operation on signed "
-		    "integer(s).\n");
-		++cgexpr->cgen->warnings;
-	}
-
+	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
+	/* Any operand is a negative constant */
+	if ((flags & cguac_negative) != 0)
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -7196,9 +7219,7 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_t ares;
 	cgen_eres_t bres;
 	cgen_eres_t ores;
-	bool is_signed;
 	cgen_uac_flags_t flags;
-	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -7224,19 +7245,12 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)ares.cgtype->ext);
-
 	/* Integer (not enum) operands, any of them signed */
-	if ((is_signed || (flags & cguac_mix2u) != 0) &&
-	    (flags & cguac_enum) == 0) {
-		ctok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Bitwise operation on signed "
-		    "integer(s).\n");
-		++cgexpr->cgen->warnings;
-	}
-
+	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
+	/* Any operand is a negative constant */
+	if ((flags & cguac_negative) != 0)
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -7303,9 +7317,7 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_t ares;
 	cgen_eres_t bres;
 	cgen_eres_t ores;
-	bool is_signed;
 	cgen_uac_flags_t flags;
-	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -7331,19 +7343,12 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)ares.cgtype->ext);
-
 	/* Integer (not enum) operands, any of them signed */
-	if ((is_signed || (flags & cguac_mix2u) != 0) &&
-	    (flags & cguac_enum) == 0) {
-		ctok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Bitwise operation on signed "
-		    "integer(s).\n");
-		++cgexpr->cgen->warnings;
-	}
-
+	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
+	/* Any operand is a negative constant */
+	if ((flags & cguac_negative) != 0)
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -8573,8 +8578,10 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	bool conv;
 	cgen_eres_t bres;
 	cgen_eres_t bires;
+	bool is_signed;
 	unsigned bits;
 	cgtype_t *cgtype;
+	cgtype_basic_t *tbasic;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -8597,14 +8604,23 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)bires.cgtype->ext);
+	tbasic = (cgtype_basic_t *)bires.cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
+
+	/* Signed integer (not enum) operand */
+	if (is_signed && !conv && !bires.cvknown)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebnot->tbnot);
+	/* Negative constant operand */
+	if (bires.cvknown && bires.cvint < 0)
+		cgen_warn_bitop_signed(cgexpr->cgen, &ebnot->tbnot);
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -8635,6 +8651,13 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+
+	if (bires.cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_mask(cgexpr->cgen, is_signed, bits,
+		    ~bires.cvint, &eres->cvint);
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -9289,6 +9312,8 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	cgtype_int_rank_t rrank;
 	bool sign1;
 	bool sign2;
+	bool const1;
+	bool const2;
 	bool rsign;
 	unsigned bits1;
 	unsigned bits2;
@@ -9333,10 +9358,12 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	rank1 = cgtype_int_rank(ir1.cgtype);
 	sign1 = cgen_type_is_signed(cgexpr->cgen, ir1.cgtype);
 	bits1 = cgen_basic_type_bits(cgexpr->cgen, bt1);
+	const1 = ir1.cvknown;
 
 	rank2 = cgtype_int_rank(ir2.cgtype);
 	sign2 = cgen_type_is_signed(cgexpr->cgen, ir2.cgtype);
 	bits2 = cgen_basic_type_bits(cgexpr->cgen, bt2);
+	const2 = ir2.cvknown;
 
 	/* Determine resulting rank */
 
@@ -9362,6 +9389,13 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 		/* XXX Signed smaller than unsigned */
 		*flags |= cguac_mix2u;
 	}
+
+	/* One of the operands is signed (but not a constant) */
+	if ((sign1 && !const1) || (sign2 && !const2))
+		*flags |= cguac_signed;
+	/* One of the operands is a negative constant */
+	if ((const1 && ir1.cvint < 0) || (const2 && ir2.cvint < 0))
+		*flags |= cguac_negative;
 
 	/* Promote both operands */
 
