@@ -1,0 +1,1 @@
+<test/syc/ugly/exprnegunsign.c:9:11:'='>: Warning: Number sign changed in conversion.

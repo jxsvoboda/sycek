@@ -1,0 +1,6 @@
+<test/syc/ugly/negunscmp.c:11:23:'<'>: Warning: Negative number converted to unsigned before comparison.
+<test/syc/ugly/negunscmp.c:16:23-24:'<='>: Warning: Negative number converted to unsigned before comparison.
+<test/syc/ugly/negunscmp.c:21:23:'>'>: Warning: Negative number converted to unsigned before comparison.
+<test/syc/ugly/negunscmp.c:26:23-24:'>='>: Warning: Negative number converted to unsigned before comparison.
+<test/syc/ugly/negunscmp.c:31:23-24:'=='>: Warning: Negative number converted to unsigned before comparison.
+<test/syc/ugly/negunscmp.c:36:23-24:'!='>: Warning: Negative number converted to unsigned before comparison.

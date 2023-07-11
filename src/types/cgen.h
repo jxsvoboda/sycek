@@ -218,16 +218,18 @@ typedef enum {
 	cguac_none = 0,
 	/** Mixed signedness integers converted to unsigned */
 	cguac_mix2u = 0x1,
+	/** Negative number converted to unsigned */
+	cguac_neg2u = 0x2,
 	/** Enum(s) converted to integer(s) */
-	cguac_enum = 0x2,
+	cguac_enum = 0x4,
 	/** Two incompatible enum types */
-	cguac_enuminc = 0x4,
+	cguac_enuminc = 0x8,
 	/** Enum type and non-enum type */
-	cguac_enummix = 0x8,
+	cguac_enummix = 0x10,
 	/** Any of the operands was signed integer (not constant) */
-	cguac_signed = 0x10,
+	cguac_signed = 0x20,
 	/** Any of the operands was a negative constant */
-	cguac_negative = 0x20
+	cguac_negative = 0x40
 } cgen_uac_flags_t;
 
 /** Record declaration flags */

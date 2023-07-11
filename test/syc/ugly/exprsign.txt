@@ -1,0 +1,1 @@
+<test/syc/ugly/exprsign.c:10:11:'='>: Warning: Conversion from int to unsigned int changes signedness.

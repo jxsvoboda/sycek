@@ -351,9 +351,12 @@ It can detect the following types of problems and style issues:
  * unused local struct/union tag
  * constant should be long (or long long)
  * unsigned comparison of mixed-sign integers
+ * negative number converted to unsigned before comparison
  * bitwise operation on signed integer(s)
  * bitwise operation on negative number(s)
  * conversion may loose significant digits
+ * conversion from x to y changes signedness
+ * number sign changed in conversion
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * implicit conversion between enum types

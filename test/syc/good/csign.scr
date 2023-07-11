@@ -1,0 +1,6 @@
+mapfile "csign.map";
+ldbin "csign.bin", 0x8000;
+
+ld word ptr (@_u), 0;
+call @_foo;
+verify word ptr (@_u), 1;

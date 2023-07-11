@@ -1517,6 +1517,22 @@ static void cgen_warn_cmp_sign_mix(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: negative number converted to unsigned before comparison.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_cmp_neg_unsigned(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Negative number converted to unsigned "
+	    "before comparison.\n");
+	++cgen->warnings;
+}
+
 /** Generate warning: integer arithmetic overflow.
  *
  * @param cgen Code generator
@@ -1559,6 +1575,50 @@ static void cgen_warn_shift_negative(cgen_t *cgen, ast_tok_t *atok)
 	tok = (comp_tok_t *) atok->data;
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Warning: Shift is negative.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: number sign changed in conversion.
+ *
+ * @param cgen Code generator
+ * @param ctok Operator token
+ */
+static void cgen_warn_sign_changed(cgen_t *cgen, comp_tok_t *ctok)
+{
+	lexer_dprint_tok(&ctok->tok, stderr);
+	fprintf(stderr, ": Warning: Number sign changed in conversion.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: conversion from 'x' to 'y' changes signedness.
+ *
+ * @param cgen Code generator
+ * @param ctok Operator token
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ */
+static void cgen_warn_sign_convert(cgen_t *cgen, comp_tok_t *ctok,
+    cgen_eres_t *lres, cgen_eres_t *rres)
+{
+	lexer_dprint_tok(&ctok->tok, stderr);
+	fprintf(stderr, ": Warning: Conversion from ");
+	(void) cgtype_print(lres->cgtype, stderr);
+	fprintf(stderr, " to ");
+	(void) cgtype_print(rres->cgtype, stderr);
+	fprintf(stderr, " changes signedness.\n");
+	++cgen->warnings;
+}
+
+
+/** Generate warning: number changed in conversion.
+ *
+ * @param cgen Code generator
+ * @param ctok Operator token
+ */
+static void cgen_warn_number_changed(cgen_t *cgen, comp_tok_t *ctok)
+{
+	lexer_dprint_tok(&ctok->tok, stderr);
+	fprintf(stderr, ": Warning: Number changed in conversion.\n");
 	++cgen->warnings;
 }
 
@@ -3244,6 +3304,23 @@ static void cgen_cvint_shr(cgen_t *cgen, bool is_signed, unsigned bits,
 	cgen_cvint_mask(cgen, is_signed, bits, r, res);
 }
 
+/** Determine if constant value is negative.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff constant is of signed integer type
+ * @param a Constant value
+ * @return @c true iff constant value is negative
+ */
+static bool cgen_cvint_is_negative(cgen_t *cgen, bool is_signed, int64_t a)
+{
+	(void) cgen;
+
+	if (is_signed)
+		return a < 0;
+	else
+		return false;
+}
+
 /** Generate code for integer literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -4544,9 +4621,11 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
-	cgtype_basic_t *tbasic;
-	bool is_signed;
-	unsigned bits;
+	cgtype_basic_t *tbasic1;
+	cgtype_basic_t *tbasic2;
+	bool is_signed1;
+	bool is_signed2;
+	unsigned bits1;
 	int rc;
 
 	/* Check the type */
@@ -4557,16 +4636,27 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		goto error;
 	}
 
-	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
-	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
-	if (bits == 0) {
+	tbasic1 = (cgtype_basic_t *)lres->cgtype->ext;
+	bits1 = cgen_basic_type_bits(cgexpr->cgen, tbasic1);
+	if (bits1 == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
+	is_signed1 = cgen_basic_type_signed(cgexpr->cgen, tbasic1);
+
+	/* Check the type */
+	if (rres->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	tbasic2 = (cgtype_basic_t *)rres->cgtype->ext;
+	is_signed2 = cgen_basic_type_signed(cgexpr->cgen, tbasic2);
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
 	if (rc != EOK)
@@ -4589,7 +4679,7 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		goto error;
 
 	instr->itype = iri_shl;
-	instr->width = bits;
+	instr->width = bits1;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -4602,11 +4692,11 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	if (lres->cvknown && rres->cvknown) {
 		eres->cvknown = true;
-		cgen_cvint_shl(cgexpr->cgen, is_signed, bits, lres->cvint,
+		cgen_cvint_shl(cgexpr->cgen, is_signed1, bits1, lres->cvint,
 		    rres->cvint, &eres->cvint);
-		if (rres->cvint >= bits)
+		if (rres->cvint >= bits1)
 			cgen_warn_shift_exceed_bits(cgexpr->cgen, optok);
-		if (rres->cvint < 0)
+		if (cgen_cvint_is_negative(cgexpr->cgen, is_signed2, rres->cvint))
 			cgen_warn_shift_negative(cgexpr->cgen, optok);
 	}
 
@@ -4642,37 +4732,45 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
-	ast_tok_t *atok;
-	comp_tok_t *ctok;
+	cgtype_basic_t *tbasic1;
+	cgtype_basic_t *tbasic2;
 	ast_tok_t *optok;
-	unsigned bits;
-	bool is_signed;
+	unsigned bits1;
+	bool is_signed1;
+	bool is_signed2;
 	int rc;
 
 	optok = &ebinop->top;
 
 	/* Check the type */
-	if (!cgen_type_is_integer(cgexpr->cgen, lres->cgtype)) {
-		atok = ast_tree_first_tok(ebinop->larg);
-		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Left argument of '>>' operator should be "
-		    "of integer type. Found ");
-		(void) cgtype_print(lres->cgtype, stderr);
-		fprintf(stderr, ".\n");
+	if (lres->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	assert(lres->cgtype->ntype == cgn_basic);
+	tbasic1 = (cgtype_basic_t *)lres->cgtype->ext;
+	bits1 = cgen_basic_type_bits(cgexpr->cgen, tbasic1);
+	if (bits1 == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)lres->cgtype->ext);
-	assert(bits != 0);
+	is_signed1 = cgen_basic_type_signed(cgexpr->cgen, tbasic1);
 
-	is_signed = cgen_basic_type_signed(cgexpr->cgen,
-	    (cgtype_basic_t *)lres->cgtype->ext);
+	/* Check the type */
+	if (rres->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	tbasic2 = (cgtype_basic_t *)rres->cgtype->ext;
+	is_signed2 = cgen_basic_type_signed(cgexpr->cgen, tbasic2);
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
 	if (rc != EOK)
@@ -4694,8 +4792,8 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	instr->itype = is_signed ? iri_shra : iri_shrl;
-	instr->width = bits;
+	instr->itype = is_signed1 ? iri_shra : iri_shrl;
+	instr->width = bits1;
 	instr->dest = &dest->oper;
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
@@ -4708,11 +4806,11 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if (lres->cvknown && rres->cvknown) {
 		eres->cvknown = true;
-		cgen_cvint_shr(cgexpr->cgen, is_signed, bits, lres->cvint,
+		cgen_cvint_shr(cgexpr->cgen, is_signed1, bits1, lres->cvint,
 		    rres->cvint, &eres->cvint);
-		if (rres->cvint >= bits)
+		if (rres->cvint >= bits1)
 			cgen_warn_shift_exceed_bits(cgexpr->cgen, optok);
-		if (rres->cvint < 0)
+		if (cgen_cvint_is_negative(cgexpr->cgen, is_signed2, rres->cvint))
 			cgen_warn_shift_negative(cgexpr->cgen, optok);
 	}
 
@@ -5310,6 +5408,8 @@ static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if ((flags & cguac_mix2u) != 0)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_neg2u) != 0)
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
@@ -5349,6 +5449,17 @@ static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	if (lres.cvknown && rres.cvknown) {
+		eres->cvknown = true;
+		if (is_signed) {
+			eres->cvint = lres.cvint < rres.cvint ? 1 : 0;
+		} else {
+			eres->cvint = (uint64_t)lres.cvint <
+			    (uint64_t)rres.cvint ? 1 : 0;
+		}
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5420,6 +5531,8 @@ static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if ((flags & cguac_mix2u) != 0)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_neg2u) != 0)
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
@@ -5459,6 +5572,17 @@ static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	if (lres.cvknown && rres.cvknown) {
+		eres->cvknown = true;
+		if (is_signed) {
+			eres->cvint = lres.cvint <= rres.cvint ? 1 : 0;
+		} else {
+			eres->cvint = (uint64_t)lres.cvint <=
+			    (uint64_t)rres.cvint ? 1 : 0;
+		}
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5525,6 +5649,8 @@ static int cgen_gt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if ((flags & cguac_mix2u) != 0)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_neg2u) != 0)
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
@@ -5564,6 +5690,17 @@ static int cgen_gt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	if (lres.cvknown && rres.cvknown) {
+		eres->cvknown = true;
+		if (is_signed) {
+			eres->cvint = lres.cvint > rres.cvint ? 1 : 0;
+		} else {
+			eres->cvint = (uint64_t)lres.cvint >
+			    (uint64_t)rres.cvint ? 1 : 0;
+		}
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5635,6 +5772,8 @@ static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if ((flags & cguac_mix2u) != 0)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_neg2u) != 0)
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
@@ -5674,6 +5813,17 @@ static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	if (lres.cvknown && rres.cvknown) {
+		eres->cvknown = true;
+		if (is_signed) {
+			eres->cvint = lres.cvint >= rres.cvint ? 1 : 0;
+		} else {
+			eres->cvint = (uint64_t)lres.cvint >=
+			    (uint64_t)rres.cvint ? 1 : 0;
+		}
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5741,6 +5891,8 @@ static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if ((flags & cguac_mix2u) != 0)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_neg2u) != 0)
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
@@ -5780,6 +5932,12 @@ static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	if (lres.cvknown && rres.cvknown) {
+		eres->cvknown = true;
+		eres->cvint = lres.cvint == rres.cvint ? 1 : 0;
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -5847,6 +6005,8 @@ static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if ((flags & cguac_mix2u) != 0)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_neg2u) != 0)
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enuminc) != 0)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
 	if ((flags & cguac_enummix) != 0)
@@ -5886,6 +6046,12 @@ static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+
+	if (lres.cvknown && rres.cvknown) {
+		eres->cvknown = true;
+		eres->cvint = lres.cvint != rres.cvint ? 1 : 0;
+	}
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -8619,8 +8785,10 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	if (is_signed && !conv && !bires.cvknown)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebnot->tbnot);
 	/* Negative constant operand */
-	if (bires.cvknown && bires.cvint < 0)
-		cgen_warn_bitop_signed(cgexpr->cgen, &ebnot->tbnot);
+	if (bires.cvknown && cgen_cvint_is_negative(cgexpr->cgen, is_signed,
+	    bires.cvint)) {
+		cgen_warn_bitop_negative(cgexpr->cgen, &ebnot->tbnot);
+	}
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -9323,6 +9491,8 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	cgtype_enum_t *et2;
 	bool conv1;
 	bool conv2;
+	bool neg1;
+	bool neg2;
 	int rc;
 
 	cgen_eres_init(&ir1);
@@ -9359,11 +9529,13 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	sign1 = cgen_type_is_signed(cgexpr->cgen, ir1.cgtype);
 	bits1 = cgen_basic_type_bits(cgexpr->cgen, bt1);
 	const1 = ir1.cvknown;
+	neg1 = const1 && cgen_cvint_is_negative(cgexpr->cgen, sign1, ir1.cvint);
 
 	rank2 = cgtype_int_rank(ir2.cgtype);
 	sign2 = cgen_type_is_signed(cgexpr->cgen, ir2.cgtype);
 	bits2 = cgen_basic_type_bits(cgexpr->cgen, bt2);
 	const2 = ir2.cvknown;
+	neg2 = const2 && cgen_cvint_is_negative(cgexpr->cgen, sign2, ir2.cvint);
 
 	/* Determine resulting rank */
 
@@ -9387,15 +9559,27 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 		 */
 		rsign = false;
 		/* XXX Signed smaller than unsigned */
-		*flags |= cguac_mix2u;
+//		*flags |= cguac_mix2u;
 	}
 
 	/* One of the operands is signed (but not a constant) */
 	if ((sign1 && !const1) || (sign2 && !const2))
 		*flags |= cguac_signed;
 	/* One of the operands is a negative constant */
-	if ((const1 && ir1.cvint < 0) || (const2 && ir2.cvint < 0))
+	if (neg1 || neg2)
 		*flags |= cguac_negative;
+	/* First operand was negative and converted to unsigned */
+	if (neg1 && rsign == false)
+		*flags |= cguac_neg2u;
+	/* Second operand was negative and converted to unsigned */
+	if (neg2 && rsign == false)
+		*flags |= cguac_neg2u;
+	/* First operand non-constant, signed and converted to unsigned */
+	if (!const1 && sign1 && rsign == false)
+		*flags |= cguac_mix2u;
+	/* Second operand non-constant, signed and converted to unsigned */
+	if (!const2 && sign2 && rsign == false)
+		*flags |= cguac_mix2u;
 
 	/* Promote both operands */
 
@@ -9613,6 +9797,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	unsigned srcw, destw;
 	bool src_signed;
 	bool dest_signed;
+	bool src_neg;
+	bool dest_neg;
 	int rc;
 
 	assert(ares->cgtype->ntype == cgn_basic);
@@ -9638,6 +9824,27 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		cres->valtype = ares->valtype;
 		cres->cgtype = cgtype;
 		cres->valused = true;
+
+		/*
+		 * For constant expression masking/sign extension may be
+		 * needed when signedness is changed.
+		 */
+		if (ares->cvknown) {
+			cres->cvknown = true;
+			cgen_cvint_mask(cgexpr->cgen, dest_signed, destw,
+			    ares->cvint, &cres->cvint);
+
+			/* Test for sign change */
+			src_neg = cgen_cvint_is_negative(cgexpr->cgen,
+			    src_signed, ares->cvint);
+			dest_neg = cgen_cvint_is_negative(cgexpr->cgen,
+			    dest_signed, cres->cvint);
+			if (expl != cgen_explicit && src_neg != dest_neg)
+				cgen_warn_sign_changed(cgexpr->cgen, ctok);
+		} else if (expl != cgen_explicit) {
+			cgen_warn_sign_convert(cgexpr->cgen,
+			    ctok, ares, cres);
+		}
 
 		return EOK;
 	}
@@ -9702,11 +9909,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (ares->cvknown) {
 		cgen_cvint_mask(cgexpr->cgen, dest_signed, destw,
 		    ares->cvint, &cres->cvint);
-		if (expl != cgen_explicit && cres->cvint != ares->cvint) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Number changed in conversion.\n");
-			++cgexpr->cgen->warnings;
-		}
+		if (expl != cgen_explicit && cres->cvint != ares->cvint)
+			cgen_warn_number_changed(cgexpr->cgen, ctok);
 	}
 
 	cgen_eres_fini(&rres);
