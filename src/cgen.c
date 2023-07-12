@@ -9393,7 +9393,9 @@ static int cgen_enum2int(cgen_expr_t *cgexpr, cgen_eres_t *res,
 			goto error;
 	} else {
 		/* Return unchanged */
-		cgen_eres_clone(res, rres);
+		rc = cgen_eres_clone(res, rres);
+		if (rc != EOK)
+			goto error;
 	}
 
 	return EOK;

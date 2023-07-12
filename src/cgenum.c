@@ -203,7 +203,7 @@ int cgen_enum_append(cgen_enum_t *cgenum, const char *ident, int value,
 	if (elem != NULL)
 		return EEXIST;
 
-	elem = calloc(1, sizeof(cgen_rec_elem_t));
+	elem = calloc(1, sizeof(cgen_enum_elem_t));
 	if (elem == NULL)
 		return ENOMEM;
 
