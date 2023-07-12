@@ -77,7 +77,9 @@ static int cgen_eres_rvalue(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_type_convert(cgen_expr_t *, comp_tok_t *, cgen_eres_t *,
     cgtype_t *, cgen_expl_t, ir_lblock_t *, cgen_eres_t *);
-static int cgen_truth_cjmp(cgen_expr_t *, ast_node_t *, bool, const char *,
+static int cgen_truth_eres_cjmp(cgen_expr_t *, ast_tok_t *, cgen_eres_t *, bool,
+    const char *, ir_lblock_t *);
+static int cgen_truth_expr_cjmp(cgen_expr_t *, ast_node_t *, bool, const char *,
     ir_lblock_t *);
 static int cgen_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
 static int cgen_gn_block(cgen_proc_t *, ast_block_t *, ir_lblock_t *);
@@ -726,6 +728,8 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
 	cgen_eres_fini(&eres);
+
+	assert(eres.cvknown);
 	*rval = eres.cvint;
 	*rtype = cgelm_int; // XXXX TODO!!!!
 	return EOK;
@@ -3319,6 +3323,21 @@ static bool cgen_cvint_is_negative(cgen_t *cgen, bool is_signed, int64_t a)
 		return a < 0;
 	else
 		return false;
+}
+
+/** Determine if constant value of expression result is true.
+ *
+ * @param cgen Code generator
+ * @param eres Expression result
+ * @return @c true iff constant value is logically true
+ */
+static bool cgen_eres_is_true(cgen_t *cgen, cgen_eres_t *eres)
+{
+	assert(eres->cvknown);
+
+	(void) cgen;
+	// XXX Floating point
+	return eres->cvint != 0;
 }
 
 /** Generate code for integer literal expression.
@@ -6371,15 +6390,29 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	/* Evaluate left argument */
+
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
 	/* Jump to %false_and if left argument is zero */
 
-	rc = cgen_truth_cjmp(cgexpr, ebinop->larg, false, flabel, lblock);
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(ebinop->larg),
+	    &lres, false, flabel, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right argument */
+
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Jump to %false_and if right argument is zero */
 
-	rc = cgen_truth_cjmp(cgexpr, ebinop->rarg, false, flabel, lblock);
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(ebinop->rarg),
+	    &rres, false, flabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6471,6 +6504,21 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	dest2 = NULL;
 	imm = NULL;
 
+	if (lres.cvknown) {
+		if (!cgen_eres_is_true(cgexpr->cgen, &lres)) {
+			eres->cvknown = true;
+			eres->cvint = 0;
+		} else {
+			if (rres.cvknown) {
+				eres->cvknown = true;
+				if (!cgen_eres_is_true(cgexpr->cgen, &rres))
+					eres->cvint = 0;
+				else
+					eres->cvint = 1;
+			}
+		}
+	}
+
 	/* %end_and label */
 	ir_lblock_append(lblock, elabel, NULL);
 
@@ -6542,15 +6590,29 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	/* Evaluate left argument */
+
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
 	/* Jump to %true_or if left argument is not zero */
 
-	rc = cgen_truth_cjmp(cgexpr, ebinop->larg, true, tlabel, lblock);
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(ebinop->larg),
+	    &lres, true, tlabel, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right argument */
+
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
 	/* Jump to %true_or if right argument is not zero */
 
-	rc = cgen_truth_cjmp(cgexpr, ebinop->rarg, true, tlabel, lblock);
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(ebinop->rarg),
+	    &rres, true, tlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6640,6 +6702,21 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	dest2 = NULL;
 	imm = NULL;
+
+	if (lres.cvknown) {
+		if (cgen_eres_is_true(cgexpr->cgen, &lres)) {
+			eres->cvknown = true;
+			eres->cvint = 1;
+		} else {
+			if (rres.cvknown) {
+				eres->cvknown = true;
+				if (cgen_eres_is_true(cgexpr->cgen, &rres))
+					eres->cvint = 1;
+				else
+					eres->cvint = 0;
+			}
+		}
+	}
 
 	/* %end_and label */
 	ir_lblock_append(lblock, elabel, NULL);
@@ -8594,7 +8671,10 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	char *elabel = NULL;
 	const char *dvarname;
 	cgtype_basic_t *btype = NULL;
+	cgen_eres_t bres;
 	int rc;
+
+	cgen_eres_init(&bres);
 
 	lblno = cgen_new_label_num(cgexpr->cgproc);
 
@@ -8610,9 +8690,16 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	if (rc != EOK)
 		goto error;
 
+	/* Evaluate base expression */
+
+	rc = cgen_expr_rvalue(cgexpr, elnot->bexpr, lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
 	/* Jump to false_lnot if base expression is not zero */
 
-	rc = cgen_truth_cjmp(cgexpr, elnot->bexpr, true, flabel, lblock);
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(elnot->bexpr),
+	    &bres, true, flabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -8707,10 +8794,22 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
+	if (bres.cvknown) {
+		eres->cvknown = true;
+		if (cgen_eres_is_true(cgexpr->cgen, &bres))
+			eres->cvint = 0;
+		else
+			eres->cvint = 1;
+	}
+
+	cgen_eres_fini(&bres);
+
 	free(flabel);
 	free(elabel);
 	return EOK;
 error:
+	cgen_eres_fini(&bres);
+
 	if (flabel != NULL)
 		free(flabel);
 	if (elabel != NULL)
@@ -10405,47 +10504,37 @@ error:
 	return rc;
 }
 
-/** Generate code for a truth test / conditional jump.
+/** Generate code for a truth expression result test / conditional jump.
  *
  * Evaluate truth expression, then jump if it is true/non-zero (@a cval == true),
  * or false/non-zero (@a cval == false), respectively.
  *
  * @param cgexpr Code generator for expression
- * @param aexpr Truth expression
+ * @param atok First token of condition expression for printing diagnostics
+ * @param cres Result of evaluating condition expression
  * @param cval Condition value when jump is taken
  * @param dlabel Jump destination label
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_truth_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
-    bool cval, const char *dlabel, ir_lblock_t *lblock)
+static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *cres, bool cval, const char *dlabel, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *carg = NULL;
 	ir_oper_var_t *larg = NULL;
-	ast_tok_t *atok;
 	comp_tok_t *tok;
-	cgen_eres_t cres;
 	cgtype_basic_t *btype;
 	int rc;
 
-	cgen_eres_init(&cres);
-
-	/* Condition */
-
-	rc = cgen_expr_rvalue(cgexpr, aexpr, lblock, &cres);
-	if (rc != EOK)
-		goto error;
-
 	/* Check the type */
 
-	switch (cres.cgtype->ntype) {
+	switch (cres->cgtype->ntype) {
 	case cgn_basic:
-		btype = (cgtype_basic_t *)cres.cgtype->ext;
+		btype = (cgtype_basic_t *)cres->cgtype->ext;
 		switch (btype->elmtype) {
 		case cgelm_void:
-			cgen_error_use_void_value(cgexpr->cgen,
-			    ast_tree_first_tok(aexpr));
+			cgen_error_use_void_value(cgexpr->cgen, atok);
 			return EINVAL;
 		case cgelm_char:
 		case cgelm_uchar:
@@ -10463,7 +10552,7 @@ static int cgen_truth_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
 		}
 		break;
 	case cgn_enum:
-		cgen_warn_logic_enum(cgexpr->cgen, ast_tree_first_tok(aexpr));
+		cgen_warn_logic_enum(cgexpr->cgen, atok);
 		break;
 	case cgn_func:
 		// XXX TODO
@@ -10472,17 +10561,16 @@ static int cgen_truth_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
 	case cgn_pointer:
 		break;
 	case cgn_record:
-		cgen_error_need_scalar(cgexpr->cgen, ast_tree_first_tok(aexpr));
+		cgen_error_need_scalar(cgexpr->cgen, atok);
 		return EINVAL;
 	}
 
-	if (cres.cgtype->ntype != cgn_basic ||
-	    ((cgtype_basic_t *)cres.cgtype->ext)->elmtype != cgelm_logic) {
-		atok = ast_tree_first_tok(aexpr);
+	if (cres->cgtype->ntype != cgn_basic ||
+	    ((cgtype_basic_t *)cres->cgtype->ext)->elmtype != cgelm_logic) {
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Warning: '");
-		cgtype_print(cres.cgtype, stderr);
+		cgtype_print(cres->cgtype, stderr);
 		fprintf(stderr, "' used as a truth value.\n");
 		++cgexpr->cgen->warnings;
 	}
@@ -10493,7 +10581,7 @@ static int cgen_truth_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(cres.varname, &carg);
+	rc = ir_oper_var_create(cres->varname, &carg);
 	if (rc != EOK)
 		goto error;
 
@@ -10513,13 +10601,49 @@ static int cgen_truth_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
-	cgen_eres_fini(&cres);
 	return EOK;
 error:
 	if (carg != NULL)
 		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
 		ir_instr_destroy(instr);
+	return rc;
+}
+
+/** Generate code for a truth expression test / conditional jump.
+ *
+ * Evaluate truth expression, then jump if it is true/non-zero (@a cval == true),
+ * or false/non-zero (@a cval == false), respectively.
+ *
+ * @param cgexpr Code generator for expression
+ * @param aexpr Truth expression
+ * @param cval Condition value when jump is taken
+ * @param dlabel Jump destination label
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_truth_expr_cjmp(cgen_expr_t *cgexpr, ast_node_t *aexpr,
+    bool cval, const char *dlabel, ir_lblock_t *lblock)
+{
+	cgen_eres_t cres;
+	int rc;
+
+	cgen_eres_init(&cres);
+
+	/* Condition */
+
+	rc = cgen_expr_rvalue(cgexpr, aexpr, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(aexpr),
+	    &cres, cval, dlabel, lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&cres);
+	return EOK;
+error:
 	cgen_eres_fini(&cres);
 	return rc;
 }
@@ -10826,7 +10950,7 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 	/* Jump to false_if if condition is false */
 
-	rc = cgen_truth_cjmp(&cgproc->cgexpr, aif->cond, false, fiflabel, lblock);
+	rc = cgen_truth_expr_cjmp(&cgproc->cgexpr, aif->cond, false, fiflabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10880,7 +11004,7 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 		/* Jump to false_if if else-if condition is false */
 
-		rc = cgen_truth_cjmp(&cgproc->cgexpr, elsif->cond, false,
+		rc = cgen_truth_expr_cjmp(&cgproc->cgexpr, elsif->cond, false,
 		    fiflabel, lblock);
 		if (rc != EOK)
 			goto error;
@@ -11000,7 +11124,7 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	/* Jump to %end_while if condition is false */
 
-	rc = cgen_truth_cjmp(&cgproc->cgexpr, awhile->cond, false, ewlabel, lblock);
+	rc = cgen_truth_expr_cjmp(&cgproc->cgexpr, awhile->cond, false, ewlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11124,7 +11248,7 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 
 	/* Jump to %do if condition is true */
 
-	rc = cgen_truth_cjmp(&cgproc->cgexpr, ado->cond, true, dlabel, lblock);
+	rc = cgen_truth_expr_cjmp(&cgproc->cgexpr, ado->cond, true, dlabel, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11232,7 +11356,7 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	if (afor->lcond != NULL) {
 		/* Jump to %end_for if condition is false */
 
-		rc = cgen_truth_cjmp(&cgproc->cgexpr, afor->lcond, false,
+		rc = cgen_truth_expr_cjmp(&cgproc->cgexpr, afor->lcond, false,
 		    eflabel, lblock);
 		if (rc != EOK)
 			goto error;
