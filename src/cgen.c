@@ -130,6 +130,28 @@ static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 	}
 }
 
+/** Return minimum value of int type
+ *
+ * @param cgen Code generator
+ * @return Minimum int value
+ */
+static int64_t cgen_int_min(cgen_t *cgen)
+{
+	(void)cgen;
+	return -32768;
+}
+
+/** Return maximum value of int type
+ *
+ * @param cgen Code generator
+ * @return Maximum int value
+ */
+static int64_t cgen_int_max(cgen_t *cgen)
+{
+	(void)cgen;
+	return (int64_t)32767;
+}
+
 /** Return if basic type is signed.
  *
  * @param cgen Code generator
@@ -683,21 +705,16 @@ static void cgen_expr_init(cgen_expr_t *cgexpr)
  *
  * @param cgen Code generator
  * @param expr Constant integer expression
- * @param rval Place to store value
- * @param rtype Place to store elementary type
+ * @param eres Place to store expression result
  * @return EOK on success, EINVAL if expression is not valid
  */
-static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
-    cgtype_elmtype_t *rtype)
+static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 {
-	cgen_eres_t eres;
 	cgen_expr_t cgexpr;
 	ir_lblock_t *lblock = NULL;
 	ir_proc_t *irproc = NULL;
 	cgen_proc_t *cgproc = NULL;
 	int rc;
-
-	cgen_eres_init(&eres);
 
 	rc = ir_lblock_create(&lblock);
 	if (rc != EOK)
@@ -720,23 +737,19 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, int64_t *rval,
 	cgexpr.cexpr = true;
 	cgexpr.icexpr = true;
 
-	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, &eres);
+	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, eres);
 	if (rc != EOK)
 		goto error;
 
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
-	cgen_eres_fini(&eres);
 
-	assert(eres.cvknown);
-	*rval = eres.cvint;
-	*rtype = cgelm_int; // XXXX TODO!!!!
+	assert(eres->cvknown);
 	return EOK;
 error:
 	cgen_proc_destroy(cgproc);
 	ir_lblock_destroy(lblock);
-	cgen_eres_fini(&eres);
 	return rc;
 }
 
@@ -1399,6 +1412,43 @@ static void cgen_warn_sub_enum_inc(cgen_t *cgen, ast_tok_t *atok,
 	++cgen->warnings;
 }
 
+/** Generate warning: initializing enum member from incompatible type.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ * @param eres Initializer expression result
+ */
+static void cgen_warn_init_enum_inc(cgen_t *cgen, ast_tok_t *atok,
+    cgen_eres_t *eres)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Initializing enum member from incompatible "
+	    "type ");
+	(void) cgtype_print(eres->cgtype, stderr);
+	fprintf(stderr, ".\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: enum initializer is out of range of type int.
+ *
+ * @param cgen Code generator
+ * @param atok Token for diagnostics
+ * @param eres Initializer expression result
+ */
+static void cgen_warn_init_enum_range(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Enum initializer is out of range "
+	    "of int.\n");
+	++cgen->warnings;
+}
+
 /** Generate warning: suspicious logic operation involving enums.
  *
  * @param cgen Code generator
@@ -1612,7 +1662,6 @@ static void cgen_warn_sign_convert(cgen_t *cgen, comp_tok_t *ctok,
 	fprintf(stderr, " changes signedness.\n");
 	++cgen->warnings;
 }
-
 
 /** Generate warning: number changed in conversion.
  *
@@ -2098,16 +2147,37 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	cgen_enum_elem_t *eelem;
 	comp_tok_t *ident;
 	scope_member_t *member;
-	cgtype_elmtype_t elmtype;
 	int64_t value;
+	cgen_eres_t eres;
+	cgen_eres_t cres;
+	cgtype_enum_t *tenum;
 	int rc;
 
 	ident = (comp_tok_t *) elem->tident.data;
 
+	cgen_eres_init(&eres);
+	cgen_eres_init(&cres);
+
 	if (elem->init != NULL) {
-		rc = cgen_intexpr_val(cgen, elem->init, &value, &elmtype);
+		rc = cgen_intexpr_val(cgen, elem->init, &eres);
 		if (rc != EOK)
 			goto error;
+
+		assert(eres.cvknown);
+		if (eres.cgtype->ntype == cgn_enum) {
+			tenum = (cgtype_enum_t *)eres.cgtype->ext;
+			if (tenum->cgenum != cgenum &&
+			    cgtype_is_strict_enum(eres.cgtype))
+				cgen_warn_init_enum_inc(cgen, &elem->tequals,
+				    &eres);
+		}
+
+		if (eres.cvint < cgen_int_min(cgen) ||
+		    eres.cvint > cgen_int_max(cgen)) {
+			cgen_warn_init_enum_range(cgen, &elem->tequals);
+		}
+
+		value = eres.cvint;
 	} else {
 		value = cgenum->next_value;
 	}
@@ -2152,10 +2222,14 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 		goto error;
 	}
 
+	cgen_eres_fini(&eres);
+	cgen_eres_fini(&cres);
 	cgtype_destroy(stype);
 	cgenum->next_value = value + 1;
 	return EOK;
 error:
+	cgen_eres_fini(&eres);
+	cgen_eres_fini(&cres);
 	cgtype_destroy(stype);
 	return rc;
 }
@@ -3902,11 +3976,14 @@ static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_t *cgtype = NULL;
 	ir_texpr_t *elemte = NULL;
 	cgtype_pointer_t *ptrt;
+	bool idx_signed;
 	int rc;
 
 	cgen_eres_init(&cres);
 
-	rc = cgtype_int_construct(false, cgir_int, &idxtype);
+	idx_signed = cgen_type_is_signed(cgexpr->cgen, rres->cgtype);
+
+	rc = cgtype_int_construct(idx_signed, cgir_int, &idxtype);
 	if (rc != EOK)
 		goto error;
 
@@ -9659,8 +9736,6 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 		 * Resulting type is unsigned.
 		 */
 		rsign = false;
-		/* XXX Signed smaller than unsigned */
-//		*flags |= cguac_mix2u;
 	}
 
 	/* One of the operands is signed (but not a constant) */
@@ -9942,7 +10017,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 			    dest_signed, cres->cvint);
 			if (expl != cgen_explicit && src_neg != dest_neg)
 				cgen_warn_sign_changed(cgexpr->cgen, ctok);
-		} else if (expl != cgen_explicit) {
+		} else if (expl != cgen_explicit && src_signed != dest_signed) {
 			cgen_warn_sign_convert(cgexpr->cgen,
 			    ctok, ares, cres);
 		}
@@ -10008,6 +10083,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valused = true;
 
 	if (ares->cvknown) {
+		cres->cvknown = true;
 		cgen_cvint_mask(cgexpr->cgen, dest_signed, destw,
 		    ares->cvint, &cres->cvint);
 		if (expl != cgen_explicit && cres->cvint != ares->cvint)

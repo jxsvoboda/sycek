@@ -4,4 +4,4 @@
 <test/syc/ugly/cexprbitwise.c:9:16:'|'>: Warning: Bitwise operation on negative number(s).
 <test/syc/ugly/cexprbitwise.c:10:19:'^'>: Warning: Bitwise operation on negative number(s).
 <test/syc/ugly/cexprbitwise.c:11:16:'^'>: Warning: Bitwise operation on negative number(s).
-<test/syc/ugly/cexprbitwise.c:12:14:'~'>: Warning: Bitwise operation on signed integer(s).
+<test/syc/ugly/cexprbitwise.c:12:14:'~'>: Warning: Bitwise operation on negative number(s).

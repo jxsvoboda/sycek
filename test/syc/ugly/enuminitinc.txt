@@ -1,0 +1,1 @@
+<test/syc/ugly/enuminitinc.c:9:12:'='>: Warning: Initializing enum member from incompatible type enum e.

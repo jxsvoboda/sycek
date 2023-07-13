@@ -360,6 +360,7 @@ It can detect the following types of problems and style issues:
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * implicit conversion between enum types
+ * initializing enum type from incompatible type
  * suspicious arithmetic/logic operation involving enums
  * comparison of different enum types
  * comparison of enum and non-enum type

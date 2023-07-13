@@ -1,0 +1,1 @@
+<test/syc/ugly/enuminitrange.c:5:12:'='>: Warning: Enum initializer is out of range of int.
