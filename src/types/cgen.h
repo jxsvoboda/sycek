@@ -183,8 +183,8 @@ typedef struct cgen_loop {
 typedef struct cgen_switch {
 	/** Outside switch statement */
 	struct cgen_switch *parent;
-	/** Name of variable containing case expression result */
-	const char *svarname;
+	/** Switch expression result */
+	cgen_eres_t *sres;
 	/** Next case condition label */
 	char *nclabel;
 	/** Next case body label */

@@ -1,0 +1,14 @@
+<test/syc/ugly/caserange.c:29:14:'-'>: Warning: Case value is out of range of char.
+<test/syc/ugly/caserange.c:31:14-16:num:128>: Warning: Case value is out of range of char.
+<test/syc/ugly/caserange.c:49:14:'-'>: Warning: Case value is out of range of unsigned char.
+<test/syc/ugly/caserange.c:51:14-16:num:256>: Warning: Case value is out of range of unsigned char.
+<test/syc/ugly/caserange.c:71:14:'-'>: Warning: Case value is out of range of int.
+<test/syc/ugly/caserange.c:73:14-19:num:32768l>: Warning: Case value is out of range of int.
+<test/syc/ugly/caserange.c:91:14:'-'>: Warning: Case value is out of range of unsigned int.
+<test/syc/ugly/caserange.c:93:14-19:num:65536l>: Warning: Case value is out of range of unsigned int.
+<test/syc/ugly/caserange.c:113:14:'-'>: Warning: Case value is out of range of long.
+<test/syc/ugly/caserange.c:115:14-25:num:2147483648ll>: Warning: Case value is out of range of long.
+<test/syc/ugly/caserange.c:133:14:'-'>: Warning: Case value is out of range of unsigned long.
+<test/syc/ugly/caserange.c:135:14-26:num:4294967296ull>: Warning: Case value is out of range of unsigned long.
+<test/syc/ugly/caserange.c:156:14-35:num:9223372036854775808ull>: Warning: Case value is out of range of long long.
+<test/syc/ugly/caserange.c:174:14:'-'>: Warning: Case value is out of range of unsigned long long.

@@ -48,7 +48,7 @@ static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
-static int cgen_const_int(cgen_expr_t *, cgtype_elmtype_t, int64_t,
+static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
 static void cgen_expr_check_unused(cgen_expr_t *, ast_node_t *,
     cgen_eres_t *);
@@ -1672,6 +1672,25 @@ static void cgen_warn_number_changed(cgen_t *cgen, comp_tok_t *ctok)
 {
 	lexer_dprint_tok(&ctok->tok, stderr);
 	fprintf(stderr, ": Warning: Number changed in conversion.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: case value is out of range of type.
+ *
+ * @param cgen Code generator
+ * @param atok Case expression token
+ * @param cgtype Type of switch expression
+ */
+static void cgen_warn_case_value_range(cgen_t *cgen, ast_tok_t *atok,
+    cgtype_t *cgtype)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Case value is out of range of ");
+	(void) cgtype_print(cgtype, stderr);
+	fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
 
@@ -3399,6 +3418,57 @@ static bool cgen_cvint_is_negative(cgen_t *cgen, bool is_signed, int64_t a)
 		return false;
 }
 
+/** Determine if constant value is in the range of a basic type.
+ *
+ * @param cgen Code generator
+ * @param asigned Is constant signed
+ * @param a Constant value
+ * @param tbasic Basic type
+ * @return @c true iff constant is in range of the basic type
+ */
+static bool cgen_cvint_in_tbasic_range(cgen_t *cgen, bool asigned,
+    int64_t a, cgtype_basic_t *tbasic)
+{
+	int bits;
+	bool is_signed;
+	int64_t lo;
+	int64_t hi;
+
+	bits = cgen_basic_type_bits(cgen, tbasic);
+	is_signed = cgen_basic_type_signed(cgen, tbasic);
+
+	/* Have to treat 64 bits as special due to limitations of int64_t */
+	if (bits == 64) {
+		/* Switch expression type is signed? */
+		if (is_signed) {
+			/* Only out of range if >= 2^63 */
+			if (asigned) {
+				return true;
+			} else {
+				/* unsigned & int64_t < 0 means bit 63 set */
+				return a >= 0;
+			}
+		} else {
+			/* Only out of range if a is negative */
+			if (asigned)
+				return a >= 0;
+			else
+				return true;
+		}
+	}
+
+	/* Compute upper and lower bound */
+	if (is_signed) {
+		lo = -((int64_t)1 << (bits - 1));
+		hi = ((int64_t)1 << (bits - 1)) - 1;
+	} else {
+		lo = 0;
+		hi = ((int64_t)1 << bits) - 1;
+	}
+
+	return lo <= a && a <= hi;
+}
+
 /** Determine if constant value of expression result is true.
  *
  * @param cgen Code generator
@@ -3439,7 +3509,7 @@ static int cgen_eint(cgen_expr_t *cgexpr, ast_eint_t *eint,
 		return rc;
 	}
 
-	return cgen_const_int(cgexpr, elmtype, val, lblock, eres);
+	return cgen_const_int(cgexpr->cgproc, elmtype, val, lblock, eres);
 }
 
 /** Generate code for identifier expression referencing global symbol.
@@ -3745,14 +3815,14 @@ static int cgen_eparen(cgen_expr_t *cgexpr, ast_eparen_t *eparen,
 
 /** Generate code to return integer constant.
  *
- * @param cgexpr Code generator for expression
+ * @param cgproc Code generator for procedure
  * @param elmtype Elementary type
  * @param val Value
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_const_int(cgen_expr_t *cgexpr, cgtype_elmtype_t elmtype,
+static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
     int64_t val, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -3765,7 +3835,7 @@ static int cgen_const_int(cgen_expr_t *cgexpr, cgtype_elmtype_t elmtype,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -3778,7 +3848,7 @@ static int cgen_const_int(cgen_expr_t *cgexpr, cgtype_elmtype_t elmtype,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgen_basic_type_bits(cgexpr->cgen, btype);
+	instr->width = cgen_basic_type_bits(cgproc->cgen, btype);
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -9049,7 +9119,7 @@ static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
 		goto error;
 
 	/* Adjustment value */
-	rc = cgen_const_int(cgexpr, cgelm_int, 1, lblock, &adj);
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, 1, lblock, &adj);
 	if (rc != EOK)
 		goto error;
 
@@ -9132,7 +9202,7 @@ static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
 		goto error;
 
 	/* Adjustment value */
-	rc = cgen_const_int(cgexpr, cgelm_int, 1, lblock, &adj);
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, 1, lblock, &adj);
 	if (rc != EOK)
 		goto error;
 
@@ -11592,8 +11662,8 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	/* Set this as the innermost loop/switch */
 	cgproc->cur_loop_switch = lswitch;
 
-	/* Switch expression result variable name */
-	cgswitch->svarname = eres.varname;
+	/* Switch expression result */
+	cgswitch->sres = &eres;
 
 	/* Body */
 
@@ -11689,18 +11759,25 @@ error:
 static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
     ir_lblock_t *lblock)
 {
+	cgen_eres_t *sres;
 	cgen_eres_t cres;
+	cgen_eres_t eres;
+	cgtype_basic_t *ctbasic;
+	cgtype_basic_t *tbasic;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	ir_oper_var_t *carg = NULL;
+	ast_tok_t *atok;
 	comp_tok_t *tok;
+	bool csigned;
 	unsigned lblno;
 	char *dvarname;
 	int rc;
 
 	cgen_eres_init(&cres);
+	cgen_eres_init(&eres);
 
 	/* If there is no enclosing switch statement */
 	if (cgproc->cur_switch == NULL) {
@@ -11752,9 +11829,27 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 
 	/* Evaluate case expression */
 
-	// TODO Verify that the expression is constant
+	rc = cgen_intexpr_val(cgproc->cgen, aclabel->cexpr, &eres);
+	if (rc != EOK)
+		goto error;
 
-	rc = cgen_expr_rvalue(&cgproc->cgexpr, aclabel->cexpr, lblock, &cres);
+	assert(eres.cgtype->ntype == cgn_basic);
+	ctbasic = (cgtype_basic_t *)eres.cgtype->ext;
+	csigned = cgen_basic_type_signed(cgproc->cgen, ctbasic);
+
+	/* Introduce constant with case expression value */
+	sres = cgproc->cur_switch->sres;
+	assert(sres->cgtype->ntype == cgn_basic);
+	tbasic = (cgtype_basic_t *)sres->cgtype->ext;
+
+	/* Is the value in range of the basic type */
+	if (!cgen_cvint_in_tbasic_range(cgproc->cgen, csigned, eres.cvint,
+	    tbasic)) {
+		atok = ast_tree_first_tok(aclabel->cexpr);
+		cgen_warn_case_value_range(cgproc->cgen, atok, sres->cgtype);
+	}
+
+	rc = cgen_const_int(cgproc, tbasic->elmtype, eres.cvint, lblock, &cres);
 	if (rc != EOK)
 		goto error;
 
@@ -11768,7 +11863,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(cgproc->cur_switch->svarname, &larg);
+	rc = ir_oper_var_create(cgproc->cur_switch->sres->varname, &larg);
 	if (rc != EOK)
 		goto error;
 
@@ -11831,6 +11926,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 		goto error;
 
 	cgen_eres_fini(&cres);
+	cgen_eres_fini(&eres);
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -11843,6 +11939,7 @@ error:
 	if (carg != NULL)
 		ir_oper_destroy(&carg->oper);
 	cgen_eres_fini(&cres);
+	cgen_eres_fini(&eres);
 	return rc;
 }
 
