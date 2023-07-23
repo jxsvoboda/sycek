@@ -350,6 +350,7 @@ It can detect the following types of problems and style issues:
  * unused goto label
  * unused local struct/union tag
  * constant should be long (or long long)
+ * constant is too large
  * unsigned comparison of mixed-sign integers
  * negative number converted to unsigned before comparison
  * bitwise operation on signed integer(s)

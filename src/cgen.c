@@ -362,10 +362,14 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	const char *text = tlit->tok.text;
 	cgtype_elmtype_t elmtype;
 	bool lunsigned;
-	int64_t val;
+	bool toolarge;
+	uint64_t val;
+	uint64_t nval;
+	uint64_t verif;
 
 	val = 0;
 	lunsigned = false;
+	toolarge = false;
 
 	if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
 		text += 2;
@@ -373,24 +377,45 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		/* Hexadecimal */
 		while (is_hexdigit(*text)) {
 			if (is_num(*text))
-				val = val * 16 + (*text - '0');
+				nval = val * 16 + (*text - '0');
 			else if (*text >= 'a' && *text <= 'f')
-				val = val * 16 + 10 + (*text - 'a');
+				nval = val * 16 + 10 + (*text - 'a');
 			else
-				val = val * 16 + 10 + (*text - 'A');
+				nval = val * 16 + 10 + (*text - 'A');
+
+			/* Verify to check for overflow */
+			verif = nval / 16;
+			if (verif != val)
+				toolarge = true;
+
+			val = nval;
 			++text;
 		}
 	} else if (text[0] == '0' && is_num(text[1])) {
 		++text;
 		/* Octal */
 		while (is_octdigit(*text)) {
-			val = val * 8 + (*text - '0');
+			nval = val * 8 + (*text - '0');
+
+			/* Verify to check for overflow */
+			verif = nval / 8;
+			if (verif != val)
+				toolarge = true;
+
+			val = nval;
 			++text;
 		}
 	} else {
 		/* Decimal */
 		while (is_num(*text)) {
-			val = val * 10 + (*text - '0');
+			nval = val * 10 + (*text - '0');
+
+			/* Verify to check for overflow */
+			verif = nval / 10;
+			if (verif != val)
+				toolarge = true;
+
+			val = nval;
 			++text;
 		}
 	}
@@ -437,6 +462,12 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	    elmtype != cgelm_ulonglong) {
 		lexer_dprint_tok(&tlit->tok, stderr);
 		fprintf(stderr, ": Warning: Constant should be long.\n");
+		++cgen->warnings;
+	}
+
+	if (toolarge) {
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Constant is too large.\n");
 		++cgen->warnings;
 	}
 

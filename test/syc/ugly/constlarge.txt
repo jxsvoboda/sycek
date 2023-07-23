@@ -1,0 +1,3 @@
+<test/syc/ugly/constlarge.c:8:24-46:num:18446744073709551616ull>: Warning: Constant is too large.
+<test/syc/ugly/constlarge.c:11:24-49:num:02000000000000000000000ull>: Warning: Constant is too large.
+<test/syc/ugly/constlarge.c:14:24-46:num:0x100000000100000000ull>: Warning: Constant is too large.
