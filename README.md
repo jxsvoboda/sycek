@@ -385,6 +385,8 @@ It can detect the following types of problems and style issues:
  * shift is negative
  * number changed in conversion
  * case value is out of range of type
+ * case value is not boolean
+ * case value is not in enum
 
 ### Strict truth type
 

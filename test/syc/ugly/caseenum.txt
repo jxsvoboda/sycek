@@ -1,0 +1,1 @@
+<test/syc/ugly/caseenum.c:23:14-15:id:e2>: Warning: Case value is not in enum e.

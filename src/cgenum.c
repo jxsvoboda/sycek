@@ -244,6 +244,27 @@ cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *cgenum,
 	return NULL;
 }
 
+/** Look up enum element by value.
+ *
+ * @param cgenum Enum definition
+ * @param val Value
+ * @return Enum element or @c NULL if not found
+ */
+cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *cgenum, int val)
+{
+	cgen_enum_elem_t *elem;
+
+	elem = cgen_enum_first(cgenum);
+	while (elem != NULL) {
+		if (elem->value == val)
+			return elem;
+
+		elem = cgen_enum_next(elem);
+	}
+
+	return NULL;
+}
+
 /** Return first enum element.
  *
  * @param cgenum Enum definition

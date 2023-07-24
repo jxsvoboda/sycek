@@ -43,5 +43,7 @@ extern cgen_enum_elem_t *cgen_enum_first(cgen_enum_t *);
 extern cgen_enum_elem_t *cgen_enum_next(cgen_enum_elem_t *);
 extern cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *,
     const char *);
+extern cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *,
+    int);
 
 #endif

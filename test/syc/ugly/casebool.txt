@@ -1,0 +1,2 @@
+<test/syc/ugly/casebool.c:21:14:'-'>: Warning: Case value is not boolean.
+<test/syc/ugly/casebool.c:23:14:num:2>: Warning: Case value is not boolean.

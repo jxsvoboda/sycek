@@ -60,8 +60,7 @@ static int cgen_expr_promoted_rvalue(cgen_expr_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *);
 static int cgen_eres_promoted_rvalue(cgen_expr_t *, cgen_eres_t *,
     ir_lblock_t *, cgen_eres_t *);
-static int cgen_enum2int(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
-    cgen_eres_t *, bool *);
+static int cgen_enum2int(cgen_t *, cgen_eres_t *, cgen_eres_t *, bool *);
 static int cgen_int2enum(cgen_expr_t *, cgen_eres_t *, cgtype_t *,
     cgen_eres_t *);
 static int cgen_uac(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
@@ -1720,6 +1719,40 @@ static void cgen_warn_case_value_range(cgen_t *cgen, ast_tok_t *atok,
 	tok = (comp_tok_t *) atok->data;
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Warning: Case value is out of range of ");
+	(void) cgtype_print(cgtype, stderr);
+	fprintf(stderr, ".\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: case value is not boolean.
+ *
+ * @param cgen Code generator
+ * @param atok Case expression token
+ */
+static void cgen_warn_case_value_not_bool(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Case value is not boolean.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: case value is not in enum.
+ *
+ * @param cgen Code generator
+ * @param atok Case expression token
+ * @param cgtype Enum type
+ */
+static void cgen_warn_case_value_not_in_enum(cgen_t *cgen, ast_tok_t *atok,
+    cgtype_t *cgtype)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Case value is not in ");
 	(void) cgtype_print(cgtype, stderr);
 	fprintf(stderr, ".\n");
 	++cgen->warnings;
@@ -3498,6 +3531,29 @@ static bool cgen_cvint_in_tbasic_range(cgen_t *cgen, bool asigned,
 	}
 
 	return lo <= a && a <= hi;
+}
+
+/** Determine if constant value is one of the values of an enum.
+ *
+ * @param cgen Code generator
+ * @param asigned Is constant signed
+ * @param a Constant value
+ * @param cgenum Enum
+ * @return @c true iff constant is in enum
+ */
+static bool cgen_cvint_in_enum(cgen_t *cgen, bool asigned,
+    int64_t a, cgen_enum_t *cgenum)
+{
+	cgen_enum_elem_t *elem;
+
+	(void)asigned;
+
+	if (a < cgen_int_min(cgen) ||
+	    a > cgen_int_max(cgen))
+		return false;
+
+	elem = cgen_enum_val_find(cgenum, (int)a);
+	return elem != NULL;
 }
 
 /** Determine if constant value of expression result is true.
@@ -5448,7 +5504,7 @@ static int cgen_bo_shl(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &lres, lblock, &lires, &conv1);
+	rc = cgen_enum2int(cgexpr->cgen, &lres, &lires, &conv1);
 	if (rc != EOK)
 		goto error;
 
@@ -5458,7 +5514,7 @@ static int cgen_bo_shl(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &rres, lblock, &rires, &conv2);
+	rc = cgen_enum2int(cgexpr->cgen, &rres, &rires, &conv2);
 	if (rc != EOK)
 		goto error;
 
@@ -5514,7 +5570,7 @@ static int cgen_bo_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &lres, lblock, &lires, &conv1);
+	rc = cgen_enum2int(cgexpr->cgen, &lres, &lires, &conv1);
 	if (rc != EOK)
 		goto error;
 
@@ -5524,7 +5580,7 @@ static int cgen_bo_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &rres, lblock, &rires, &conv2);
+	rc = cgen_enum2int(cgexpr->cgen, &rres, &rires, &conv2);
 	if (rc != EOK)
 		goto error;
 
@@ -7375,7 +7431,7 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &ares, lblock, &aires, &conv1);
+	rc = cgen_enum2int(cgexpr->cgen, &ares, &aires, &conv1);
 	if (rc != EOK)
 		goto error;
 
@@ -7385,7 +7441,7 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv2);
+	rc = cgen_enum2int(cgexpr->cgen, &bres, &bires, &conv2);
 	if (rc != EOK)
 		goto error;
 
@@ -7470,7 +7526,7 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &ares, lblock, &aires, &conv1);
+	rc = cgen_enum2int(cgexpr->cgen, &ares, &aires, &conv1);
 	if (rc != EOK)
 		goto error;
 
@@ -7480,7 +7536,7 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv2);
+	rc = cgen_enum2int(cgexpr->cgen, &bres, &bires, &conv2);
 	if (rc != EOK)
 		goto error;
 
@@ -8729,7 +8785,7 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv);
+	rc = cgen_enum2int(cgexpr->cgen, &bres, &bires, &conv);
 	if (rc != EOK)
 		goto error;
 
@@ -9035,7 +9091,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 		goto error;
 
 	/* Convert enum to int if needed */
-	rc = cgen_enum2int(cgexpr, &bres, lblock, &bires, &conv);
+	rc = cgen_enum2int(cgexpr->cgen, &bres, &bires, &conv);
 	if (rc != EOK)
 		goto error;
 
@@ -9639,21 +9695,19 @@ error:
  * set @a *converted to true. Set it to false, if there was no
  * conversion (already an integer) or the enum was not strict.
  *
- * @param cgexpr Code generator for expression
+ * @param cgen Code generator
  * @param res Expression result that is an int or enum
- * @param lblock IR labeled block to which the code should be appended
  * @param rres Place to store converted result
  * @param converted Place to store @c true iff a strict enum was
  *                  converted to int, @c false otherwise.
  */
-static int cgen_enum2int(cgen_expr_t *cgexpr, cgen_eres_t *res,
-    ir_lblock_t *lblock, cgen_eres_t *rres, bool *converted)
+static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
+    cgen_eres_t *rres, bool *converted)
 {
 	int rc;
 	*converted = false;
 
-	(void)cgexpr;
-	(void)lblock;
+	(void)cgen;
 
 	if (res->cgtype->ntype == cgn_enum) {
 		/* Return corresponding integer type */
@@ -9779,11 +9833,11 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	cgen_eres_init(&pr1);
 	cgen_eres_init(&pr2);
 
-	rc = cgen_enum2int(cgexpr, res1, lblock, &ir1, &conv1);
+	rc = cgen_enum2int(cgexpr->cgen, res1, &ir1, &conv1);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_enum2int(cgexpr, res2, lblock, &ir2, &conv2);
+	rc = cgen_enum2int(cgexpr->cgen, res2, &ir2, &conv2);
 	if (rc != EOK)
 		goto error;
 
@@ -10386,7 +10440,7 @@ static int cgen_type_convert_from_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cgen_eres_init(&ires);
 
 	/* First drop to corresponding integer type */
-	rc = cgen_enum2int(cgexpr, ares, lblock, &ires, &converted);
+	rc = cgen_enum2int(cgexpr->cgen, ares, &ires, &converted);
 	if (rc != EOK)
 		goto error;
 
@@ -11628,6 +11682,8 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	ir_oper_var_t *larg = NULL;
 	cgen_switch_t *cgswitch = NULL;
 	cgen_loop_switch_t *lswitch = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	int rc;
 
 	cgen_eres_init(&eres);
@@ -11665,6 +11721,17 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	rc = cgen_expr_rvalue(&cgproc->cgexpr, aswitch->sexpr, lblock, &eres);
 	if (rc != EOK)
 		goto error;
+
+	/* Expression must be integer or enum */
+	if (!cgen_type_is_integer(cgproc->cgen, eres.cgtype) &&
+	    eres.cgtype->ntype != cgn_enum) {
+		atok = ast_tree_first_tok(aswitch->sexpr);
+		tok = (comp_tok_t *)atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Switch expression does not have integer type.\n");
+		cgproc->cgen->error = true; // TODO
+		goto error;
+	}
 
 	/* Skip over any code before the first case label */
 
@@ -11793,8 +11860,10 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	cgen_eres_t *sres;
 	cgen_eres_t cres;
 	cgen_eres_t eres;
+	cgen_eres_t ieres;
 	cgtype_basic_t *ctbasic;
 	cgtype_basic_t *tbasic;
+	cgtype_enum_t *tenum;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
@@ -11804,11 +11873,14 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	comp_tok_t *tok;
 	bool csigned;
 	unsigned lblno;
+	cgtype_elmtype_t elmtype;
 	char *dvarname;
+	bool converted;
 	int rc;
 
 	cgen_eres_init(&cres);
 	cgen_eres_init(&eres);
+	cgen_eres_init(&ieres);
 
 	/* If there is no enclosing switch statement */
 	if (cgproc->cur_switch == NULL) {
@@ -11864,23 +11936,65 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	if (rc != EOK)
 		goto error;
 
-	assert(eres.cgtype->ntype == cgn_basic);
-	ctbasic = (cgtype_basic_t *)eres.cgtype->ext;
-	csigned = cgen_basic_type_signed(cgproc->cgen, ctbasic);
+	/* If it is an enum, convert it to integer */
+	rc = cgen_enum2int(cgproc->cgen, &eres, &ieres, &converted);
+	if (rc != EOK)
+		goto error;
 
-	/* Introduce constant with case expression value */
+	/* Switch expression result */
 	sres = cgproc->cur_switch->sres;
-	assert(sres->cgtype->ntype == cgn_basic);
-	tbasic = (cgtype_basic_t *)sres->cgtype->ext;
 
-	/* Is the value in range of the basic type */
-	if (!cgen_cvint_in_tbasic_range(cgproc->cgen, csigned, eres.cvint,
-	    tbasic)) {
+	switch (sres->cgtype->ntype) {
+	case cgn_basic:
+		ctbasic = (cgtype_basic_t *)ieres.cgtype->ext;
+		csigned = cgen_basic_type_signed(cgproc->cgen, ctbasic);
+		tbasic = (cgtype_basic_t *)sres->cgtype->ext;
+
 		atok = ast_tree_first_tok(aclabel->cexpr);
-		cgen_warn_case_value_range(cgproc->cgen, atok, sres->cgtype);
+
+		/* Is the value in range of the basic type */
+		if (tbasic->elmtype == cgelm_logic) {
+			if (eres.cvint != 0 && eres.cvint != 1) {
+				cgen_warn_case_value_not_bool(cgproc->cgen,
+				    atok);
+			}
+		} else if (!cgen_cvint_in_tbasic_range(cgproc->cgen, csigned,
+		    eres.cvint, tbasic)) {
+			cgen_warn_case_value_range(cgproc->cgen, atok, sres->cgtype);
+		}
+
+		elmtype = tbasic->elmtype;
+		break;
+	case cgn_enum:
+		// XXX Flexible-sized enum
+		elmtype = cgelm_int;
+		ctbasic = (cgtype_basic_t *)ieres.cgtype->ext;
+		csigned = cgen_basic_type_signed(cgproc->cgen, ctbasic);
+		tenum = (cgtype_enum_t *)sres->cgtype->ext;
+
+		atok = ast_tree_first_tok(aclabel->cexpr);
+
+		/*
+		 * Is the value in the enum? This might be a little redundant
+		 * if strict enum checking is enabled. Might be a problem
+		 * if one decided to switch on a bitfield-style enum.
+		 * We'll see.
+		 */
+		if (!cgen_cvint_in_enum(cgproc->cgen, csigned, eres.cvint,
+		    tenum->cgenum)) {
+			cgen_warn_case_value_not_in_enum(cgproc->cgen, atok,
+			    sres->cgtype);
+		}
+		break;
+	default:
+		assert(false);
+		rc = EINVAL;
+		goto error;
 	}
 
-	rc = cgen_const_int(cgproc, tbasic->elmtype, eres.cvint, lblock, &cres);
+	/* Introduce constant with case expression value */
+
+	rc = cgen_const_int(cgproc, elmtype, eres.cvint, lblock, &cres);
 	if (rc != EOK)
 		goto error;
 
@@ -11958,6 +12072,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&eres);
+	cgen_eres_fini(&ieres);
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -11971,6 +12086,7 @@ error:
 		ir_oper_destroy(&carg->oper);
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&eres);
+	cgen_eres_fini(&ieres);
 	return rc;
 }
 
