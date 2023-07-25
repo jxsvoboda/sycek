@@ -11847,6 +11847,145 @@ error:
 	return rc;
 }
 
+/** Check case label type where switch expression is an integer.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stype Switch expression type
+ * @param ctype Case expression type
+ * @param atok Token of case expresison
+ */
+static void cgen_clabel_check_integer(cgen_proc_t *cgproc, cgtype_t *stype,
+    cgtype_t *ctype, ast_tok_t *atok)
+{
+	cgtype_basic_t *tbasic;
+	comp_tok_t *tok;
+
+	(void)cgproc;
+	tok = (comp_tok_t *)atok->data;
+
+	switch (ctype->ntype) {
+	case cgn_basic:
+		tbasic = (cgtype_basic_t *)ctype->ext;
+		if (tbasic->elmtype == cgelm_logic) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Case expression has truth "
+			    "value, switch expression type is ");
+			(void) cgtype_print(stype, stderr);
+			fprintf(stderr, ".\n");
+			++cgproc->cgen->warnings;
+		}
+		break;
+	case cgn_enum:
+		if (cgtype_is_strict_enum(ctype)) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Case expression is ");
+			(void) cgtype_print(ctype, stderr);
+			fprintf(stderr, ", switch expression type is ");
+			(void) cgtype_print(stype, stderr);
+			fprintf(stderr, ".\n");
+			++cgproc->cgen->warnings;
+		}
+		break;
+	default:
+		assert(false);
+	}
+}
+
+/** Check case label type where switch expression is a truth value.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stype Switch expression type
+ * @param ctype Case expression type
+ * @param atok Token of case expresison
+ */
+static void cgen_clabel_check_logic(cgen_proc_t *cgproc, cgtype_t *ctype,
+    ast_tok_t *atok)
+{
+	cgtype_basic_t *tbasic;
+	comp_tok_t *tok;
+
+	(void)cgproc;
+	tok = (comp_tok_t *)atok->data;
+
+	switch (ctype->ntype) {
+	case cgn_basic:
+		tbasic = (cgtype_basic_t *)ctype->ext;
+		if (tbasic->elmtype != cgelm_logic) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Case expression is ");
+			(void) cgtype_print(ctype, stderr);
+			fprintf(stderr, ", switch expression has truth value.\n");
+			++cgproc->cgen->warnings;
+		}
+		break;
+	case cgn_enum:
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Case expression is ");
+		(void) cgtype_print(ctype, stderr);
+		fprintf(stderr, ", switch expression has truth value.\n");
+		++cgproc->cgen->warnings;
+		break;
+	default:
+		assert(false);
+	}
+}
+
+/** Check case label type where switch expression is an enum.
+ *
+ * @param cgproc Code generator for procedure
+ * @param stype Switch expression type
+ * @param ctype Case expression type
+ * @param atok Token of case expresison
+ */
+static void cgen_clabel_check_enum(cgen_proc_t *cgproc, cgtype_t *stype,
+    cgtype_t *ctype, ast_tok_t *atok)
+{
+	cgtype_basic_t *tbasic;
+	cgtype_enum_t *senum;
+	cgtype_enum_t *cenum;
+	comp_tok_t *tok;
+
+	(void)cgproc;
+	tok = (comp_tok_t *)atok->data;
+
+	switch (ctype->ntype) {
+	case cgn_basic:
+		tbasic = (cgtype_basic_t *)ctype->ext;
+		if (tbasic->elmtype == cgelm_logic) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Case expression has truth "
+			    "value, switch expression type is ");
+			(void) cgtype_print(stype, stderr);
+			fprintf(stderr, ".\n");
+			++cgproc->cgen->warnings;
+		} else {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Case expression is ");
+			(void) cgtype_print(ctype, stderr);
+			fprintf(stderr, ", switch expression type is ");
+			(void) cgtype_print(stype, stderr);
+			fprintf(stderr, ".\n");
+			++cgproc->cgen->warnings;
+		}
+		break;
+	case cgn_enum:
+		senum = (cgtype_enum_t *)stype->ext;
+		cenum = (cgtype_enum_t *)ctype->ext;
+		if (senum->cgenum != cenum->cgenum) {
+			lexer_dprint_tok(&tok->tok, stderr);
+			fprintf(stderr, ": Warning: Case expression is ");
+			(void) cgtype_print(ctype, stderr);
+			fprintf(stderr, ", switch expression type is ");
+			(void) cgtype_print(stype, stderr);
+			fprintf(stderr, ".\n");
+			++cgproc->cgen->warnings;
+		}
+		break;
+	default:
+		assert(false);
+	}
+}
+
 /** Generate code for 'case' label.
  *
  * @param cgproc Code generator for procedure
@@ -11952,15 +12091,32 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 
 		atok = ast_tree_first_tok(aclabel->cexpr);
 
-		/* Is the value in range of the basic type */
 		if (tbasic->elmtype == cgelm_logic) {
+			/* Check case expression value is boolean */
 			if (eres.cvint != 0 && eres.cvint != 1) {
 				cgen_warn_case_value_not_bool(cgproc->cgen,
 				    atok);
 			}
-		} else if (!cgen_cvint_in_tbasic_range(cgproc->cgen, csigned,
-		    eres.cvint, tbasic)) {
-			cgen_warn_case_value_range(cgproc->cgen, atok, sres->cgtype);
+
+			/*
+			 * Check case expression type is compatible with
+			 * logic type
+			 */
+			cgen_clabel_check_logic(cgproc, eres.cgtype, atok);
+		} else {
+			/* Check expression value is in integer type range */
+			if (!cgen_cvint_in_tbasic_range(cgproc->cgen, csigned,
+			    eres.cvint, tbasic)) {
+				cgen_warn_case_value_range(cgproc->cgen, atok,
+				    sres->cgtype);
+			}
+
+			/*
+			 * Check case expression type is compatible with
+			 * integer type
+			 */
+			cgen_clabel_check_integer(cgproc, sres->cgtype,
+			    eres.cgtype, atok);
 		}
 
 		elmtype = tbasic->elmtype;
@@ -11985,6 +12141,13 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 			cgen_warn_case_value_not_in_enum(cgproc->cgen, atok,
 			    sres->cgtype);
 		}
+
+		/*
+		 * Check case expression type is compatible with
+		 * enum type
+		 */
+		cgen_clabel_check_enum(cgproc, sres->cgtype, eres.cgtype,
+		    atok);
 		break;
 	default:
 		assert(false);

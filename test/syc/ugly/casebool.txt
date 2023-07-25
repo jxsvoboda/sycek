@@ -1,2 +1,6 @@
+<test/syc/ugly/casebool.c:11:14:num:0>: Warning: Case expression is int, switch expression has truth value.
+<test/syc/ugly/casebool.c:13:14:num:1>: Warning: Case expression is int, switch expression has truth value.
 <test/syc/ugly/casebool.c:21:14:'-'>: Warning: Case value is not boolean.
+<test/syc/ugly/casebool.c:21:14:'-'>: Warning: Case expression is int, switch expression has truth value.
 <test/syc/ugly/casebool.c:23:14:num:2>: Warning: Case value is not boolean.
+<test/syc/ugly/casebool.c:23:14:num:2>: Warning: Case expression is int, switch expression has truth value.

@@ -1,0 +1,7 @@
+<test/syc/ugly/casetype.c:33:14-15:id:f1>: Warning: Case expression is enum f, switch expression type is enum e.
+<test/syc/ugly/casetype.c:41:14:num:0>: Warning: Case expression is int, switch expression type is enum e.
+<test/syc/ugly/casetype.c:49:14:num:0>: Warning: Case expression has truth value, switch expression type is enum e.
+<test/syc/ugly/casetype.c:61:14-15:id:e1>: Warning: Case expression is enum e, switch expression type is int.
+<test/syc/ugly/casetype.c:77:14:num:0>: Warning: Case expression has truth value, switch expression type is int.
+<test/syc/ugly/casetype.c:89:14-15:id:e1>: Warning: Case expression is enum e, switch expression has truth value.
+<test/syc/ugly/casetype.c:97:14:num:0>: Warning: Case expression is int, switch expression has truth value.

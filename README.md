@@ -387,6 +387,7 @@ It can detect the following types of problems and style issues:
  * case value is out of range of type
  * case value is not boolean
  * case value is not in enum
+ * case expression is <type>, switch expression is of type <type>
 
 ### Strict truth type
 
