@@ -1,0 +1,1 @@
+<test/syc/bad/defmultiple.c:11:9-15:'default'>: Multiple default labels in switch statement.

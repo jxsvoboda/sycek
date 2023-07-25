@@ -12278,6 +12278,15 @@ static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
 		goto error;
 	}
 
+	if (cgproc->cur_switch->dlabel != NULL) {
+		tok = (comp_tok_t *) adlabel->tdefault.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Multiple default labels in switch statement.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Create and insert label for default case */
 
 	lblno = cgen_new_label_num(cgproc);
