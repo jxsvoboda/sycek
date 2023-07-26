@@ -1,0 +1,1 @@
+<test/syc/ugly/caseunhandl.c:13:9-14:'switch'>: Warning: Enumeration value 'e2' not handled in switch.

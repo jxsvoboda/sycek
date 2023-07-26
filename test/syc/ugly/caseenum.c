@@ -22,5 +22,7 @@ void notinenum(void)
 	switch (x) {
 	case e2 + 1:
 		break;
+	default:
+		break;
 	}
 }

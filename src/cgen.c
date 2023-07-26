@@ -11685,6 +11685,9 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	ir_oper_var_t *larg = NULL;
 	cgen_switch_t *cgswitch = NULL;
 	cgen_loop_switch_t *lswitch = NULL;
+	cgtype_enum_t *tenum;
+	cgen_enum_elem_t *elem;
+	cgen_switch_value_t *value;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	int rc;
@@ -11824,6 +11827,27 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	/* label end_switch */
 
 	ir_lblock_append(lblock, eslabel, NULL);
+
+	/* Switch expression is an enum and there is no default label */
+	if (eres.cgtype->ntype == cgn_enum && cgswitch->dlabel == NULL) {
+		/* Verify that all enum values are handled */
+		tenum = (cgtype_enum_t *)eres.cgtype->ext;
+		elem = cgen_enum_first(tenum->cgenum);
+		while (elem != NULL) {
+			rc = cgen_switch_find_value(cgswitch, elem->value,
+			    &value);
+			if (rc != EOK) {
+				tok = (comp_tok_t *)aswitch->tswitch.data;
+				lexer_dprint_tok(&tok->tok, stderr);
+				fprintf(stderr, ": Warning: Enumeration value "
+				    "'%s' not handled in switch.\n",
+				    elem->ident);
+				++cgproc->cgen->warnings;
+			}
+
+			elem = cgen_enum_next(elem);
+		}
+	}
 
 	cgproc->cur_switch = cgswitch->parent;
 	cgen_switch_destroy(cgswitch);
