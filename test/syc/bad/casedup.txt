@@ -1,0 +1,1 @@
+<test/syc/bad/casedup.c:12:14:num:1>: Duplicate case value.

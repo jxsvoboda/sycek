@@ -176,6 +176,16 @@ typedef struct cgen_loop {
 	const char *clabel;
 } cgen_loop_t;
 
+/** Code generator switch value */
+typedef struct {
+	/** Containing switch statement */
+	struct cgen_switch *cgswitch;
+	/** Link to @c cgswitch->values */
+	link_t lvalues;
+	/** Value */
+	int64_t value;
+} cgen_switch_value_t;
+
 /** Code generator switch tracking record.
  *
  * We keep a stack of enclosing switch statements.
@@ -191,6 +201,8 @@ typedef struct cgen_switch {
 	char *nblabel;
 	/** Default label */
 	char *dlabel;
+	/** List of values (case labels) */
+	list_t values;
 } cgen_switch_t;
 
 /** Code generator loop or switch tracking record.

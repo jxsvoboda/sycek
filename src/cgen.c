@@ -26,6 +26,7 @@
  * Generate IR (machine-independent assembly) from abstract syntax tree (AST).
  */
 
+#include <adt/list.h>
 #include <assert.h>
 #include <ast.h>
 #include <cgenum.h>
@@ -86,6 +87,8 @@ static int cgen_loop_create(cgen_loop_t *, cgen_loop_t **);
 static void cgen_loop_destroy(cgen_loop_t *);
 static int cgen_switch_create(cgen_switch_t *, cgen_switch_t **);
 static void cgen_switch_destroy(cgen_switch_t *);
+static int cgen_switch_insert_value(cgen_switch_t *, int64_t);
+static int cgen_switch_find_value(cgen_switch_t *, int64_t, cgen_switch_value_t **);
 static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
@@ -12015,6 +12018,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	cgtype_elmtype_t elmtype;
 	char *dvarname;
 	bool converted;
+	cgen_switch_value_t *value;
 	int rc;
 
 	cgen_eres_init(&cres);
@@ -12154,6 +12158,24 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 		rc = EINVAL;
 		goto error;
 	}
+
+	/* Check for duplicate case value */
+	rc = cgen_switch_find_value(cgproc->cur_switch, eres.cvint, &value);
+	if (rc == EOK) {
+		/* Found existing value */
+		atok = ast_tree_first_tok(aclabel->cexpr);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Duplicate case value.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Insert to list of values */
+	rc = cgen_switch_insert_value(cgproc->cur_switch, eres.cvint);
+	if (rc != EOK)
+		goto error;
 
 	/* Introduce constant with case expression value */
 
@@ -14352,8 +14374,99 @@ int cgen_switch_create(cgen_switch_t *parent, cgen_switch_t **rswitch)
 		return ENOMEM;
 
 	cgswitch->parent = parent;
+	list_initialize(&cgswitch->values);
 	*rswitch = cgswitch;
 	return EOK;
+}
+
+/** Insert new value to switch tracking record.
+ *
+ * @param cgswitch Code generator switch tracking record
+ * @param val Value
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgen_switch_insert_value(cgen_switch_t *cgswitch, int64_t val)
+{
+	cgen_switch_value_t *value;
+
+	value = calloc(1, sizeof(cgen_switch_value_t));
+	if (value == NULL)
+		return ENOMEM;
+
+	value->cgswitch = cgswitch;
+	value->value = val;
+	list_append(&value->lvalues, &cgswitch->values);
+	return EOK;
+}
+
+/** Get first case value in switch tracking record.
+ *
+ * @param cgswitch Code generator switch tracking record
+ * @return First value or @c NULL if there are none
+ */
+static cgen_switch_value_t *cgen_switch_first_value(cgen_switch_t *cgswitch)
+{
+	link_t *link;
+
+	link = list_first(&cgswitch->values);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_switch_value_t, lvalues);
+}
+
+/** Get next case value in switch tracking record.
+ *
+ * @param cur Current value
+ * @return Next value or @c NULL if @a cur is the last one
+ */
+static cgen_switch_value_t *cgen_switch_next_value(cgen_switch_value_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lvalues, &cur->cgswitch->values);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_switch_value_t, lvalues);
+}
+
+/** Find case value in switch tracking record.
+ *
+ * @param cgswitch Code generator switch tracking record
+ * @param val Value
+ * @param rvalue Place to store value structure if found
+ * @return EOK on success, ENOENT if not found
+ */
+static int cgen_switch_find_value(cgen_switch_t *cgswitch, int64_t val,
+    cgen_switch_value_t **rvalue)
+{
+	cgen_switch_value_t *value;
+
+	value = cgen_switch_first_value(cgswitch);
+	while (value != NULL) {
+		if (value->value == val) {
+			*rvalue = value;
+			return EOK;
+		}
+
+		value = cgen_switch_next_value(value);
+	}
+
+	return ENOENT;
+}
+
+/** Destroy code generator switch value.
+ *
+ * @param value Code generator switch value or @c NULL
+ */
+static void cgen_switch_value_destroy(cgen_switch_value_t *value)
+{
+	if (value == NULL)
+		return;
+
+	list_remove(&value->lvalues);
+	free(value);
 }
 
 /** Destroy code generator switch tracking record.
@@ -14362,8 +14475,16 @@ int cgen_switch_create(cgen_switch_t *parent, cgen_switch_t **rswitch)
  */
 void cgen_switch_destroy(cgen_switch_t *cgswitch)
 {
+	cgen_switch_value_t *value;
+
 	if (cgswitch == NULL)
 		return;
+
+	value = cgen_switch_first_value(cgswitch);
+	while (value != NULL) {
+		cgen_switch_value_destroy(value);
+		value = cgen_switch_first_value(cgswitch);
+	}
 
 	if (cgswitch->nclabel != NULL)
 		free(cgswitch->nclabel);
