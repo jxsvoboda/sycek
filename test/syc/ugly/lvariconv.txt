@@ -1,0 +1,2 @@
+<test/syc/ugly/lvariconv.c:9:15:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/lvariconv.c:9:13:id:a>: Warning: 'a' is defined, but not used.

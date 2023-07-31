@@ -51,6 +51,8 @@ static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
+static int cgen_lvaraddr(cgen_proc_t *, const char *, ir_lblock_t *,
+    cgen_eres_t *);
 static void cgen_expr_check_unused(cgen_expr_t *, ast_node_t *,
     cgen_eres_t *);
 static int cgen_expr_lvalue(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
@@ -3787,51 +3789,12 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
 static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
     const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	ir_instr_t *instr = NULL;
-	ir_oper_var_t *dest = NULL;
-	ir_oper_var_t *var = NULL;
-	int rc;
-
 	if (cgexpr->cexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
 		return EINVAL;
 	}
 
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(vident, &var);
-	if (rc != EOK)
-		goto error;
-
-	instr->itype = iri_lvarptr;
-	instr->width = cgexpr->cgen->arith_width;
-	instr->dest = &dest->oper;
-	instr->op1 = &var->oper;
-	instr->op2 = NULL;
-
-	ir_lblock_append(lblock, NULL, instr);
-
-	eres->varname = dest->varname;
-	eres->valtype = cgen_lvalue;
-	eres->cgtype = NULL;
-
-	dest = NULL;
-	var = NULL;
-
-	return EOK;
-error:
-	ir_instr_destroy(instr);
-	if (dest != NULL)
-		ir_oper_destroy(&dest->oper);
-	if (var != NULL)
-		ir_oper_destroy(&var->oper);
-	return rc;
+	return cgen_lvaraddr(cgexpr->cgproc, vident, lblock, eres);
 }
 
 /** Generate code for identifier expression referencing enum element.
@@ -7056,6 +7019,61 @@ error:
 	cgen_eres_fini(&rres);
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code to get address of local variable.
+ *
+ * @param cgproc Code generator for procedure
+ * @param eident AST identifier expression
+ * @param vident Identifier of IR variable holding the local variable
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_lvaraddr(cgen_proc_t *cgproc, const char *vident,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *var = NULL;
+	int rc;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(vident, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_lvarptr;
+	instr->width = cgproc->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_lvalue;
+	eres->cgtype = NULL;
+
+	dest = NULL;
+	var = NULL;
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
 	return rc;
 }
 
@@ -12536,19 +12554,31 @@ error:
 /** Generate code for declaring a local variable.
  *
  * @param cgproc Code generator for procedure
- * @param stdecln AST declaration statement
+ * @param sctype Storage class
+ * @param dtype Variable type
+ * @param ident Variable identifier
+ * @param itok Initialization token or @c NULL
+ * @param iexpr Initializer expression or @c NULL
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
 static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
-    cgtype_t *dtype, comp_tok_t *ident, ir_lblock_t *lblock)
+    cgtype_t *dtype, comp_tok_t *ident, comp_tok_t *itok, ast_node_t *iexpr,
+    ir_lblock_t *lblock)
 {
 	char *vident = NULL;
 	ir_lvar_t *lvar;
 	ir_texpr_t *vtype = NULL;
+	cgen_eres_t cres;
+	cgen_eres_t ires;
+	cgen_eres_t lres;
 	int rc;
 
 	(void) lblock;
+
+	cgen_eres_init(&cres);
+	cgen_eres_init(&ires);
+	cgen_eres_init(&lres);
 
 	if (sctype != asc_none) {
 		lexer_dprint_tok(&ident->tok, stderr);
@@ -12584,20 +12614,50 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	if (rc != EOK)
 		goto error;
 
-	cgtype_destroy(dtype);
-	dtype = NULL;
-
 	rc = ir_lvar_create(vident, vtype, &lvar);
 	if (rc != EOK)
 		goto error;
+
+	/* Initializer? */
+	if (iexpr != NULL) {
+		/* Variable address */
+		rc = cgen_lvaraddr(cgproc, vident, lblock, &lres);
+		if (rc != EOK)
+			goto error;
+
+		/* Value of initializer expression */
+		rc = cgen_expr_rvalue(&cgproc->cgexpr, iexpr, lblock, &ires);
+		if (rc != EOK)
+			goto error;
+
+		/* Convert expression result to variable type */
+		rc = cgen_type_convert(&cgproc->cgexpr, itok, &ires, dtype,
+		    cgen_implicit, lblock, &cres);
+		if (rc != EOK)
+			goto error;
+
+		/* Store the converted value */
+		rc = cgen_store(&cgproc->cgexpr, &lres, &cres, lblock);
+		if (rc != EOK)
+			goto error;
+	}
 
 	free(vident);
 	vident = NULL;
 	vtype = NULL; /* ownership transferred */
 	ir_proc_append_lvar(cgproc->irproc, lvar);
 
+	cgtype_destroy(dtype);
+	dtype = NULL;
+
+	cgen_eres_fini(&cres);
+	cgen_eres_fini(&ires);
+	cgen_eres_fini(&lres);
 	return EOK;
 error:
+	cgen_eres_fini(&cres);
+	cgen_eres_fini(&ires);
+	cgen_eres_fini(&lres);
 	cgtype_destroy(dtype);
 	if (vident != NULL)
 		free(vident);
@@ -12626,6 +12686,7 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	scope_member_t *member;
 	cgtype_t *dtype = NULL;
 	cgtype_enum_t *tenum;
+	comp_tok_t *itok;
 	int rc;
 
 	(void) lblock;
@@ -12675,15 +12736,6 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			goto error;
 		}
 
-		if (identry->have_init) {
-			tok = (comp_tok_t *) identry->tassign.data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Initializer (unimplemented).\n");
-			cgproc->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
 		aident = ast_decl_get_ident(identry->decl);
 		ident = (comp_tok_t *) aident->data;
 
@@ -12698,8 +12750,15 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			++cgproc->cgen->warnings;
 		}
 
+		if (identry->have_init) {
+			itok = (comp_tok_t *)identry->tassign.data;
+		} else {
+			itok = NULL;
+		}
+
 		/* Local variable */
-		rc = cgen_lvar(cgproc, sctype, dtype, ident, lblock);
+		rc = cgen_lvar(cgproc, sctype, dtype, ident, itok,
+		    identry->init, lblock);
 		if (rc != EOK)
 			goto error;
 

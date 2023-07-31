@@ -233,6 +233,7 @@ Specifically, these language features are supported:
  * Basic support for pointers
  * Typedef
  * Struct, union, enum
+ * Global and local variable initialization
 
 These are NOT supported yet:
 

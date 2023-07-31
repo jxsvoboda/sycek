@@ -1,0 +1,26 @@
+mapfile "lvarinit.map";
+ldbin "lvarinit.bin", 0x8000;
+
+/* 8-bit local variable initialization */
+ld byte ptr (@_ca), 0x12;
+ld byte ptr (@_cb), 0;
+call @_lvars_char;
+verify byte ptr (@_cb), 0x12;
+
+/* 16-bit local variable initialization */
+ld word ptr (@_a), 0x1234;
+ld word ptr (@_b), 0;
+call @_lvars;
+verify word ptr (@_b), 0x1234;
+
+/* 32-bit local variable initialization */
+ld dword ptr (@_la), 0x12345678;
+ld dword ptr (@_lb), 0;
+call @_lvars_long;
+verify dword ptr (@_lb), 0x12345678;
+
+/* 64-bit local variable initialization */
+ld qword ptr (@_lla), 0x12345678abcdef01;
+ld qword ptr (@_llb), 0;
+call @_lvars_longlong;
+verify qword ptr (@_llb), 0x12345678abcdef01;
