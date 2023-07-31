@@ -724,6 +724,8 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 	dres->cgtype = cgtype;
 	dres->cvint = res->cvint;
 	dres->cvknown = res->cvknown;
+	dres->tfirst = res->tfirst;
+	dres->tlast = res->tlast;
 	return EOK;
 }
 
@@ -3699,7 +3701,7 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
 
 	ident = (comp_tok_t *) eident->tident.data;
 
-	if (cgexpr->cexpr) {
+	if (cgexpr->icexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
 		return EINVAL;
 	}
@@ -9449,6 +9451,8 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 	int rc;
 
 	(void) lblock;
+	eres->tfirst = ast_tree_first_tok(expr);
+	eres->tlast = ast_tree_last_tok(expr);
 
 	switch (expr->ntype) {
 	case ant_eint:
@@ -9666,6 +9670,8 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->valused = res->valused;
 		eres->cvknown = res->cvknown;
 		eres->cvint = res->cvint;
+		eres->tfirst = res->tfirst;
+		eres->tlast = res->tlast;
 		return EOK;
 	}
 
@@ -9688,6 +9694,12 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	/* Reading variables is not allowed in constant expressions */
+	if (cgexpr->cexpr) {
+		cgen_error_expr_not_constant(cgexpr->cgen, res->tfirst);
+		return EINVAL;
 	}
 
 	/* Need to read the value in */
@@ -9722,6 +9734,8 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->valused = res->valused;
 	eres->cvknown = res->cvknown;
 	eres->cvint = res->cvint;
+	eres->tfirst = res->tfirst;
+	eres->tlast = res->tlast;
 
 	return EOK;
 error:
@@ -9814,6 +9828,8 @@ static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
 		rres->valtype = res->valtype;
 		rres->cvknown = res->cvknown;
 		rres->cvint = res->cvint;
+		rres->tfirst = res->tfirst;
+		rres->tlast = res->tlast;
 
 		rc = cgtype_int_construct(true, cgir_int, &rres->cgtype);
 		if (rc != EOK)
@@ -9869,6 +9885,8 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	eres->valtype = ares->valtype;
 	eres->cvknown = ares->cvknown;
 	eres->cvint = ares->cvint;
+	eres->tfirst = ares->tfirst;
+	eres->tlast = ares->tlast;
 
 	rc = cgtype_clone(etype, &eres->cgtype);
 	if (rc != EOK)
@@ -10183,7 +10201,6 @@ static int cgen_type_convert_to_void(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	(void)cgexpr;
 	(void)ctok;
-	(void)ares;
 
 	rc = cgtype_clone(dtype, &cgtype);
 	if (rc != EOK)
@@ -10193,6 +10210,8 @@ static int cgen_type_convert_to_void(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = cgen_rvalue;
 	cres->cgtype = cgtype;
 	cres->valused = true;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 
 	return EOK;
 }
@@ -10251,6 +10270,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		cres->valtype = ares->valtype;
 		cres->cgtype = cgtype;
 		cres->valused = true;
+		cres->tfirst = ares->tfirst;
+		cres->tlast = ares->tlast;
 
 		/*
 		 * For constant expression masking/sign extension may be
@@ -10332,6 +10353,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = cgen_rvalue;
 	cres->cgtype = cgtype;
 	cres->valused = true;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 
 	if (ares->cvknown) {
 		cres->cvknown = true;
@@ -10406,6 +10429,8 @@ static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 error:
 	return rc;
 }
@@ -10456,6 +10481,8 @@ static int cgen_type_convert_record(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 error:
 	return rc;
 }
@@ -10508,6 +10535,8 @@ static int cgen_type_convert_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 error:
 	return rc;
 }
@@ -10608,6 +10637,8 @@ static int cgen_type_convert_to_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	cres->varname = ires.varname;
 	cres->valtype = ires.valtype;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 
 	rc = cgtype_clone(dtype, &cres->cgtype);
 	if (rc != EOK)
@@ -10673,6 +10704,8 @@ static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
 error:
 	return rc;
 }

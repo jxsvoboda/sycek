@@ -163,6 +163,10 @@ typedef struct {
 	bool cvknown;
 	/** Integer value of constant expression (or offset if a pointer) */
 	int64_t cvint;
+	/** First token of original expression for printing diagnostics */
+	ast_tok_t *tfirst;
+	/** Last token of original expression for printing diagnostics */
+	ast_tok_t *tlast;
 } cgen_eres_t;
 
 /** Code generator loop tracking record.
