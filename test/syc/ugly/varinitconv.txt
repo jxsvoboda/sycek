@@ -1,0 +1,1 @@
+<test/syc/ugly/varinitconv.c:10:7:'='>: Warning: Number changed in conversion.

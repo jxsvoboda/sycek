@@ -1,0 +1,5 @@
+mapfile "gvariexpr.map";
+ldbin "gvariexpr.bin", 0x8000;
+
+/* Variable initialized to 2 * 5, which should evaluate to 10. */
+verify word ptr (@_a), 10;

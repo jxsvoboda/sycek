@@ -749,6 +749,10 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	cgen_proc_t *cgproc = NULL;
 	int rc;
 
+	/*
+	 * Create a dummy labeled block where the code will be emitted
+	 * and then it will be dropped.
+	 */
 	rc = ir_lblock_create(&lblock);
 	if (rc != EOK)
 		goto error;
@@ -781,6 +785,77 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	assert(eres->cvknown);
 	return EOK;
 error:
+	cgen_proc_destroy(cgproc);
+	ir_lblock_destroy(lblock);
+	return rc;
+}
+
+/** Get value of constant (initializer) expression.
+ *
+ * The expression is implicitly converted to the type of the variable
+ * being initialized (@a dtype).
+ *
+ * @param cgen Code generator
+ * @param expr Constant expression
+ * @param itok Initialization token (for printing diagnostics)
+ * @param dtype Destination type
+ * @param eres Place to store expression result
+ * @return EOK on success, EINVAL if expression is not valid
+ */
+static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
+    cgtype_t *dtype, cgen_eres_t *eres)
+{
+	cgen_expr_t cgexpr;
+	ir_lblock_t *lblock = NULL;
+	ir_proc_t *irproc = NULL;
+	cgen_proc_t *cgproc = NULL;
+	cgen_eres_t bres;
+	int rc;
+
+	cgen_eres_init(&bres);
+
+	/*
+	 * Create a dummy labeled block where the code will be emitted
+	 * and then it will be dropped.
+	 */
+	rc = ir_lblock_create(&lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_proc_create("foo", 0, lblock, &irproc);
+	if (rc != EOK)
+		goto error;
+
+	lblock = NULL;
+
+	rc = cgen_proc_create(cgen, irproc, &cgproc);
+	if (rc != EOK)
+		goto error;
+
+	/* Code generator for a constant expression */
+	cgen_expr_init(&cgexpr);
+	cgexpr.cgen = cgen;
+	cgexpr.cgproc = cgproc;
+	cgexpr.cexpr = true;
+
+	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, &bres);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_type_convert(&cgexpr, itok, &bres, dtype, cgen_implicit,
+	    irproc->lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_proc_destroy(cgproc);
+	ir_proc_destroy(irproc);
+	ir_lblock_destroy(lblock);
+
+	assert(eres->cvknown);
+	cgen_eres_fini(&bres);
+	return EOK;
+error:
+	cgen_eres_fini(&bres);
 	cgen_proc_destroy(cgproc);
 	ir_lblock_destroy(lblock);
 	return rc;
@@ -13736,24 +13811,22 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	ir_dblock_t *dblock = NULL;
 	ir_dentry_t *dentry = NULL;
 	ast_tok_t *aident;
-	ast_eint_t *eint;
 	comp_tok_t *ident;
-	comp_tok_t *lit;
-	ast_tok_t *atok;
-	comp_tok_t *tok;
 	char *pident = NULL;
 	int64_t initval;
-	cgtype_elmtype_t elmtype;
 	ir_texpr_t *vtype = NULL;
 	unsigned bits;
 	symbol_t *symbol;
 	scope_member_t *member;
 	cgtype_t *ctype;
 	cgtype_enum_t *tenum;
+	cgen_eres_t eres;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
+
+	cgen_eres_init(&eres);
 
 	/* Mark enum as named, because it has an instance. */
 	if (stype->ntype == cgn_enum) {
@@ -13850,29 +13923,15 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		/* Mark the symbol as defined */
 		symbol->flags |= sf_defined;
 
-		if (entry->init->ntype != ant_eint) {
-			atok = ast_tree_first_tok(entry->init);
-			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Unsupported initializer.\n");
-			cgen->error = true;
-			rc = EINVAL;
+		/* Evaluate constant expression */
+		rc = cgen_constexpr_val(cgen, entry->init,
+		    (comp_tok_t *)entry->tassign.data, stype, &eres);
+		if (rc != EOK)
 			goto error;
-		}
 
-		eint = (ast_eint_t *) entry->init->ext;
+		initval = eres.cvint;
 
-		lit = (comp_tok_t *) eint->tlit.data;
-		rc = cgen_intlit_val(cgen, lit, &initval, &elmtype);
-		if (rc != EOK) {
-			lexer_dprint_tok(&lit->tok, stderr);
-			fprintf(stderr, ": Invalid integer literal.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		// XXX Convert from elmtype to stype
+		/* Create initialized IR variable */
 
 		rc = cgen_gprefix(ident->tok.text, &pident);
 		if (rc != EOK)
@@ -13942,9 +14001,11 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		var = NULL;
 	}
 
+	cgen_eres_fini(&eres);
 	cgtype_destroy(ctype);
 	return EOK;
 error:
+	cgen_eres_fini(&eres);
 	cgtype_destroy(ctype);
 	ir_var_destroy(var);
 	ir_dentry_destroy(dentry);
