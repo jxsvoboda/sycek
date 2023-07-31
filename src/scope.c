@@ -96,10 +96,12 @@ void scope_destroy(scope_t *scope)
  * @param scope Scope
  * @param tident Identifier token
  * @param cgtype C type of the global symbol
+ * @param symbol Global symbol
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
-int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
+int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
+    symbol_t *symbol)
 {
 	scope_member_t *member;
 	cgtype_t *dtype = NULL;
@@ -125,6 +127,7 @@ int scope_insert_gsym(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype)
 	member->cgtype = dtype;
 	member->mtype = sm_gsym;
 	member->scope = scope;
+	member->m.gsym.symbol = symbol;
 	list_append(&member->lmembers, &scope->members);
 	return EOK;
 }

@@ -723,6 +723,7 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 	dres->valtype = res->valtype;
 	dres->cgtype = cgtype;
 	dres->cvint = res->cvint;
+	dres->cvsymbol = res->cvsymbol;
 	dres->cvknown = res->cvknown;
 	dres->tfirst = res->tfirst;
 	dres->tlast = res->tlast;
@@ -3685,12 +3686,13 @@ static int cgen_eint(cgen_expr_t *cgexpr, ast_eint_t *eint,
  *
  * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
+ * @param symbol Global symbol
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
 static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
-    ir_lblock_t *lblock, cgen_eres_t *eres)
+    symbol_t *symbol, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	comp_tok_t *ident;
 	ir_instr_t *instr = NULL;
@@ -3733,6 +3735,9 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = NULL;
+	eres->cvknown = true;
+	eres->cvsymbol = symbol;
+	eres->cvint = 0;
 
 	dest = NULL;
 	var = NULL;
@@ -3889,7 +3894,8 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 
 	switch (member->mtype) {
 	case sm_gsym:
-		rc = cgen_eident_gsym(cgexpr, eident, lblock, eres);
+		rc = cgen_eident_gsym(cgexpr, eident, member->m.gsym.symbol,
+		    lblock, eres);
 		break;
 	case sm_arg:
 		rc = cgen_eident_arg(cgexpr, eident, member->m.arg.vident,
@@ -8475,7 +8481,11 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
 	/* Return address as rvalue */
 	eres->varname = bres.varname;
 	eres->valtype = cgen_rvalue;
+	eres->cvknown = bres.cvknown;
+	eres->cvint = bres.cvint;
+	eres->cvsymbol = bres.cvsymbol;
 	eres->cgtype = cgtype;
+
 	return EOK;
 error:
 	cgen_eres_fini(&bres);
@@ -9670,6 +9680,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->valused = res->valused;
 		eres->cvknown = res->cvknown;
 		eres->cvint = res->cvint;
+		eres->cvsymbol = res->cvsymbol;
 		eres->tfirst = res->tfirst;
 		eres->tlast = res->tlast;
 		return EOK;
@@ -9732,8 +9743,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = res->valused;
-	eres->cvknown = res->cvknown;
-	eres->cvint = res->cvint;
+	eres->cvknown = false;
 	eres->tfirst = res->tfirst;
 	eres->tlast = res->tlast;
 
@@ -9828,6 +9838,7 @@ static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
 		rres->valtype = res->valtype;
 		rres->cvknown = res->cvknown;
 		rres->cvint = res->cvint;
+		rres->cvsymbol = res->cvsymbol;
 		rres->tfirst = res->tfirst;
 		rres->tlast = res->tlast;
 
@@ -9885,6 +9896,7 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	eres->valtype = ares->valtype;
 	eres->cvknown = ares->cvknown;
 	eres->cvint = ares->cvint;
+	eres->cvsymbol = ares->cvsymbol;
 	eres->tfirst = ares->tfirst;
 	eres->tlast = ares->tlast;
 
@@ -10429,6 +10441,9 @@ static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->cvknown = ares->cvknown;
+	cres->cvint = ares->cvint;
+	cres->cvsymbol = ares->cvsymbol;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 error:
@@ -10481,6 +10496,9 @@ static int cgen_type_convert_record(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->cvknown = ares->cvknown;
+	cres->cvint = ares->cvint;
+	cres->cvsymbol = ares->cvsymbol;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 error:
@@ -10535,6 +10553,9 @@ static int cgen_type_convert_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->cvknown = ares->cvknown;
+	cres->cvint = ares->cvint;
+	cres->cvsymbol = ares->cvsymbol;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 error:
@@ -10637,6 +10658,9 @@ static int cgen_type_convert_to_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	cres->varname = ires.varname;
 	cres->valtype = ires.valtype;
+	cres->cvknown = ares->cvknown;
+	cres->cvint = ares->cvint;
+	cres->cvsymbol = ares->cvsymbol;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 
@@ -10704,6 +10728,9 @@ static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->valtype = ares->valtype;
 	cres->cgtype = cgtype;
 	cres->valused = ares->valused;
+	cres->cvknown = ares->cvknown;
+	cres->cvint = ares->cvint;
+	cres->cvsymbol = ares->cvsymbol;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 error:
@@ -13412,7 +13439,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	dtfunc = (cgtype_func_t *)ctype->ext;
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok, ctype);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, ctype, symbol);
 	if (rc == ENOMEM)
 		goto error;
 
@@ -13762,7 +13789,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 			return rc;
 
 		/* Insert identifier into module scope */
-		rc = scope_insert_gsym(cgen->scope, &ident->tok, ftype);
+		rc = scope_insert_gsym(cgen->scope, &ident->tok, ftype, symbol);
 		if (rc == ENOMEM)
 			return rc;
 	} else {
@@ -14007,7 +14034,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	}
 
 	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype);
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype, symbol);
 	if (rc == ENOMEM)
 		goto error;
 

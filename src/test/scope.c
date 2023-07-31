@@ -63,11 +63,11 @@ static int test_scope_insert_gsym(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_gsym(scope, &tok, NULL);
+	rc = scope_insert_gsym(scope, &tok, NULL, NULL);
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_gsym(scope, &tok, NULL);
+	rc = scope_insert_gsym(scope, &tok, NULL, NULL);
 	if (rc != EEXIST)
 		goto error;
 

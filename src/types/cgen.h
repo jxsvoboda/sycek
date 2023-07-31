@@ -163,6 +163,8 @@ typedef struct {
 	bool cvknown;
 	/** Integer value of constant expression (or offset if a pointer) */
 	int64_t cvint;
+	/** Symbol pointed to by constant expression */
+	struct symbol *cvsymbol;
 	/** First token of original expression for printing diagnostics */
 	ast_tok_t *tfirst;
 	/** Last token of original expression for printing diagnostics */

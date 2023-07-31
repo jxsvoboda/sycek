@@ -31,10 +31,11 @@
 #include <types/cgrec.h>
 #include <types/cgtype.h>
 #include <types/scope.h>
+#include <types/symbols.h>
 
 extern int scope_create(scope_t *, scope_t **);
 extern void scope_destroy(scope_t *);
-extern int scope_insert_gsym(scope_t *, lexer_tok_t *, cgtype_t *);
+extern int scope_insert_gsym(scope_t *, lexer_tok_t *, cgtype_t *, symbol_t *);
 extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
     const char *);
 extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,

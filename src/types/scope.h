@@ -56,6 +56,12 @@ typedef enum {
 	sm_eelem
 } scope_member_type_t;
 
+/** Scope member - global symbol */
+typedef struct {
+	/** Symbol */
+	struct symbol *symbol;
+} scope_member_gsym_t;
+
 /** Scope member - function argument */
 typedef struct {
 	/** Argument IR variable identifier (e.g. '%0', '%1', etc.) */
@@ -111,6 +117,7 @@ typedef struct scope_member {
 	/** Member type */
 	scope_member_type_t mtype;
 	union {
+		scope_member_gsym_t gsym;
 		scope_member_arg_t arg;
 		scope_member_lvar_t lvar;
 		scope_member_record_t record;
