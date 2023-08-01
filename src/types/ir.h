@@ -194,10 +194,10 @@ typedef struct ir_lblock {
 
 /** IR data entry type */
 typedef enum {
-	/** Signed integer */
+	/** Integer */
 	ird_int,
-	/** Unsigned integer */
-	ird_uint
+	/** Pointer */
+	ird_ptr
 } ir_dentry_type_t;
 
 /** IR data entry */
@@ -206,6 +206,8 @@ typedef struct {
 	ir_dentry_type_t dtype;
 	/** Data entry width in bits */
 	unsigned width;
+	/** Symbol */
+	char *symbol;
 	/** Value */
 	int64_t value;
 } ir_dentry_t;

@@ -13932,6 +13932,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	char *pident = NULL;
+	char *sident = NULL;
+	symbol_t *initsym;
 	int64_t initval;
 	ir_texpr_t *vtype = NULL;
 	unsigned bits;
@@ -14049,6 +14051,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			goto error;
 
 		initval = eres.cvint;
+		initsym = eres.cvsymbol;
 
 		/* Create initialized IR variable */
 
@@ -14094,9 +14097,24 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			dentry = NULL;
 
 		} else if (stype->ntype == cgn_pointer) {
-			rc = ir_dentry_create_int(16, initval, &dentry);
-			if (rc != EOK)
-				goto error;
+			if (initsym != NULL) {
+				rc = cgen_gprefix(initsym->ident->tok.text,
+				    &sident);
+				if (rc != EOK)
+					goto error;
+
+				rc = ir_dentry_create_ptr(16, sident, initval,
+				    &dentry);
+				if (rc != EOK)
+					goto error;
+
+				free(sident);
+				sident = NULL;
+			} else {
+				rc = ir_dentry_create_int(16, initval, &dentry);
+				if (rc != EOK)
+					goto error;
+			}
 
 			rc = ir_dblock_append(var->dblock, dentry);
 			if (rc != EOK)
@@ -14124,6 +14142,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	cgtype_destroy(ctype);
 	return EOK;
 error:
+	if (sident != NULL)
+		free(sident);
 	cgen_eres_fini(&eres);
 	cgtype_destroy(ctype);
 	ir_var_destroy(var);

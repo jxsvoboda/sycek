@@ -1178,14 +1178,15 @@ error:
 	return rc;
 }
 
-/** Parse IR data entry.
+/** Parse IR int data entry.
  *
  * @param parser IR parser
  * @param rdentry Place to store pointer to new data entry
  *
  * @return EOK on success or non-zero error code
  */
-static int ir_parser_process_dentry(ir_parser_t *parser, ir_dentry_t **rdentry)
+static int ir_parser_process_dentry_int(ir_parser_t *parser,
+    ir_dentry_t **rdentry)
 {
 	ir_lexer_tok_t itok;
 	ir_dentry_t *dentry = NULL;
@@ -1264,6 +1265,159 @@ static int ir_parser_process_dentry(ir_parser_t *parser, ir_dentry_t **rdentry)
 error:
 	if (dentry != NULL)
 		ir_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Parse IR pointer data entry.
+ *
+ * @param parser IR parser
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_dentry_ptr(ir_parser_t *parser,
+    ir_dentry_t **rdentry)
+{
+	ir_lexer_tok_t itok;
+	ir_dentry_t *dentry = NULL;
+	char *sname = NULL;
+	int32_t width;
+	int32_t value;
+	int rc;
+
+	/* ptr keyword */
+
+	rc = ir_parser_match(parser, itt_ptr);
+	if (rc != EOK)
+		goto error;
+
+	/* '.' */
+
+	rc = ir_parser_match(parser, itt_period);
+	if (rc != EOK)
+		goto error;
+
+	/* Width */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_number) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_lexer_number_val(&itok, &width);
+	if (rc != EOK) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " is not a valid number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	ir_parser_skip(parser);
+
+	/* Symbol */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_ident) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected identifier.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Copy symbol name */
+	sname = strdup(itok.text);
+	if (sname == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	ir_parser_skip(parser);
+
+	/* ',' */
+
+	rc = ir_parser_match(parser, itt_comma);
+	if (rc != EOK)
+		goto error;
+
+	/* Offset */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_number) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpected, expected number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_lexer_number_val(&itok, &value);
+	if (rc != EOK) {
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " is not a valid number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	ir_parser_skip(parser);
+
+	/* ';' */
+
+	rc = ir_parser_match(parser, itt_scolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dentry_create_ptr(width, sname, value, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	free(sname);
+	*rdentry = dentry;
+	return EOK;
+error:
+	if (sname != NULL)
+		free(sname);
+	if (dentry != NULL)
+		ir_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Parse IR data entry.
+ *
+ * @param parser IR parser
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_dentry(ir_parser_t *parser, ir_dentry_t **rdentry)
+{
+	ir_lexer_tok_t itok;
+	int rc;
+
+	/* Which keyword / data entry type */
+
+	ir_parser_read_next_tok(parser, &itok);
+	switch (itok.ttype) {
+	case itt_int:
+		rc = ir_parser_process_dentry_int(parser, rdentry);
+		break;
+	case itt_ptr:
+		rc = ir_parser_process_dentry_ptr(parser, rdentry);
+		break;
+	default:
+		fprintf(stderr, "Error: ");
+		ir_parser_dprint_next_tok(parser, stderr);
+		fprintf(stderr, " unexpeced, expected 'int' or 'ptr'.\n");
+		rc = EINVAL;
+		break;
+	}
+
 	return rc;
 }
 

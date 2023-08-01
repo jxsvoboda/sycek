@@ -8823,35 +8823,25 @@ error:
 	return rc;
 }
 
-/** Select Z80 IC instructions for IR unsigned integer data entry.
+/** Select Z80 IC instructions for IR pointer data entry.
  *
  * @param isel Instruction selector
- * @param irdentry IR integer data entry
+ * @param irdentry IR pointer data entry
  * @param dblock Data block where to append the new data entry
  * @return EOK on success or an error code
  */
-static int z80_isel_uint(z80_isel_t *isel, ir_dentry_t *irdentry,
+static int z80_isel_ptr(z80_isel_t *isel, ir_dentry_t *irdentry,
     z80ic_dblock_t *dblock)
 {
 	z80ic_dentry_t *dentry = NULL;
 	int rc;
 
 	(void) isel;
-	assert(irdentry->dtype == ird_uint);
+	assert(irdentry->dtype == ird_ptr);
 
 	switch (irdentry->width) {
 	case 16:
 		rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
-		if (rc != EOK)
-			goto error;
-		break;
-	case 32:
-		rc = z80ic_dentry_create_defdw(irdentry->value, &dentry);
-		if (rc != EOK)
-			goto error;
-		break;
-	case 64:
-		rc = z80ic_dentry_create_defqw(irdentry->value, &dentry);
 		if (rc != EOK)
 			goto error;
 		break;
@@ -8882,8 +8872,8 @@ static int z80_isel_dentry(z80_isel_t *isel, ir_dentry_t *irdentry,
 	switch (irdentry->dtype) {
 	case ird_int:
 		return z80_isel_int(isel, irdentry, dblock);
-	case ird_uint:
-		return z80_isel_uint(isel, irdentry, dblock);
+	case ird_ptr:
+		return z80_isel_ptr(isel, irdentry, dblock);
 	}
 
 	assert(false);

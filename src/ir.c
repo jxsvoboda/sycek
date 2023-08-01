@@ -500,19 +500,20 @@ static int ir_dentry_int_print(ir_dentry_t *dentry, FILE *f)
 	return EOK;
 }
 
-/** Print IR unsigned integer data entry.
+/** Print IR pointer data entry.
  *
- * @param dentry IR unsigned integer data entry
+ * @param dentry IR pounter data entry
  * @param f Output file
  * @return EOK on success or an error code
  */
-static int ir_dentry_uint_print(ir_dentry_t *dentry, FILE *f)
+static int ir_dentry_ptr_print(ir_dentry_t *dentry, FILE *f)
 {
 	int rv;
 
-	assert(dentry->dtype == ird_uint);
+	assert(dentry->dtype == ird_ptr);
 
-	rv = fprintf(f, "uint.%u %" PRIu64, dentry->width, dentry->value);
+	rv = fprintf(f, "ptr.%u %s, %" PRId64, dentry->width, dentry->symbol,
+	    dentry->value);
 	if (rv < 0)
 		return EIO;
 
@@ -589,15 +590,17 @@ int ir_dentry_create_int(unsigned width, int64_t value, ir_dentry_t **rdentry)
 	return EOK;
 }
 
-/** Create IR unsigned integer data entry.
+/** Create IR pointer data entry.
  *
  * @param width Width of data entry in bits
- * @param value Value
+ * @param symbol Symbol name (will be copied)
+ * @param value Offset
  * @param rdentry Place to store pointer to new data entry
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_dentry_create_uint(unsigned width, uint64_t value, ir_dentry_t **rdentry)
+int ir_dentry_create_ptr(unsigned width, const char *symbol, int64_t value,
+    ir_dentry_t **rdentry)
 {
 	ir_dentry_t *dentry;
 
@@ -605,9 +608,15 @@ int ir_dentry_create_uint(unsigned width, uint64_t value, ir_dentry_t **rdentry)
 	if (dentry == NULL)
 		return ENOMEM;
 
-	dentry->dtype = ird_uint;
+	dentry->dtype = ird_ptr;
 	dentry->width = width;
+	dentry->symbol = strdup(symbol);
 	dentry->value = value;
+
+	if (dentry->symbol == NULL) {
+		free(dentry);
+		return ENOMEM;
+	}
 
 	*rdentry = dentry;
 	return EOK;
@@ -632,8 +641,8 @@ int ir_dentry_print(ir_dentry_t *dentry, FILE *f)
 	case ird_int:
 		rc = ir_dentry_int_print(dentry, f);
 		break;
-	case ird_uint:
-		rc = ir_dentry_uint_print(dentry, f);
+	case ird_ptr:
+		rc = ir_dentry_ptr_print(dentry, f);
 		break;
 	default:
 		assert(false);
@@ -660,6 +669,7 @@ void ir_dentry_destroy(ir_dentry_t *dentry)
 	if (dentry == NULL)
 		return;
 
+	free(dentry->symbol);
 	free(dentry);
 }
 

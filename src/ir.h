@@ -56,7 +56,8 @@ extern ir_dblock_entry_t *ir_dblock_next(ir_dblock_entry_t *);
 extern ir_dblock_entry_t *ir_dblock_last(ir_dblock_t *);
 extern ir_dblock_entry_t *ir_dblock_prev(ir_dblock_entry_t *);
 extern int ir_dentry_create_int(unsigned, int64_t, ir_dentry_t **);
-extern int ir_dentry_create_uint(unsigned, uint64_t, ir_dentry_t **);
+extern int ir_dentry_create_ptr(unsigned, const char *, int64_t,
+    ir_dentry_t **);
 extern int ir_dentry_print(ir_dentry_t *, FILE *);
 extern void ir_dentry_destroy(ir_dentry_t *);
 extern int ir_record_create(const char *, ir_record_type_t, ir_record_t **);

@@ -174,7 +174,7 @@ static int test_ir_dblock(void)
 
 	assert(dentry1 != NULL);
 
-	rc = ir_dentry_create_uint(16, 0xffff, &dentry2);
+	rc = ir_dentry_create_ptr(16, "foo", 1, &dentry2);
 	if (rc != EOK)
 		return rc;
 
