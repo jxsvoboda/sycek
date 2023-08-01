@@ -1653,10 +1653,15 @@ typedef enum {
 	z80icd_defqw
 } z80ic_dentry_type_t;
 
-/** Z80 IC data entry */
+/** Z80 IC data entry.
+ *
+ * This can be either just a number or <symbol>+<offset>
+ */
 typedef struct {
 	/** Data entry type */
 	z80ic_dentry_type_t dtype;
+	/** Symbol name */
+	char *ident;
 	/** Value */
 	uint64_t value;
 } z80ic_dentry_t;

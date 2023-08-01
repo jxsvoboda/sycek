@@ -8834,6 +8834,7 @@ static int z80_isel_ptr(z80_isel_t *isel, ir_dentry_t *irdentry,
     z80ic_dblock_t *dblock)
 {
 	z80ic_dentry_t *dentry = NULL;
+	char *ident = NULL;
 	int rc;
 
 	(void) isel;
@@ -8841,9 +8842,18 @@ static int z80_isel_ptr(z80_isel_t *isel, ir_dentry_t *irdentry,
 
 	switch (irdentry->width) {
 	case 16:
-		rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
+		rc = z80_isel_mangle_global_ident(irdentry->symbol,
+		    &ident);
 		if (rc != EOK)
 			goto error;
+
+		rc = z80ic_dentry_create_defw_sym(ident, irdentry->value,
+		    &dentry);
+		if (rc != EOK)
+			goto error;
+
+		free(ident);
+		ident = NULL;
 		break;
 	default:
 		assert(false);
@@ -8855,6 +8865,8 @@ static int z80_isel_ptr(z80_isel_t *isel, ir_dentry_t *irdentry,
 
 	return EOK;
 error:
+	if (ident != NULL)
+		free(ident);
 	z80ic_dentry_destroy(dentry);
 	return rc;
 }

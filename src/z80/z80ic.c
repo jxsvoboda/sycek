@@ -491,9 +491,16 @@ static int z80ic_dentry_defw_print(z80ic_dentry_t *dentry, FILE *f)
 
 	assert(dentry->dtype == z80icd_defw);
 
-	rv = fprintf(f, "defw $%" PRIx16, (unsigned)dentry->value);
-	if (rv < 0)
-		return EIO;
+	if (dentry->ident != NULL) {
+		rv = fprintf(f, "defw %s+$%" PRIx16, dentry->ident,
+		    (unsigned)dentry->value);
+		if (rv < 0)
+			return EIO;
+	} else {
+		rv = fprintf(f, "defw $%" PRIx16, (unsigned)dentry->value);
+		if (rv < 0)
+			return EIO;
+	}
 
 	return EOK;
 }
@@ -658,6 +665,35 @@ int z80ic_dentry_create_defw(uint16_t value, z80ic_dentry_t **rdentry)
 	return EOK;
 }
 
+/** Create Z80 IC DEFW data entry with symbol name.
+ *
+ * @param ident Symbol identifier
+ * @param value Offset
+ * @param rdentry Place to store pointer to new data entry
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_dentry_create_defw_sym(const char *ident, uint16_t value,
+    z80ic_dentry_t **rdentry)
+{
+	z80ic_dentry_t *dentry;
+
+	dentry = calloc(1, sizeof(z80ic_dentry_t));
+	if (dentry == NULL)
+		return ENOMEM;
+
+	dentry->dtype = z80icd_defw;
+	dentry->value = value;
+	dentry->ident = strdup(ident);
+	if (ident == NULL) {
+		free(dentry);
+		return ENOMEM;
+	}
+
+	*rdentry = dentry;
+	return EOK;
+}
+
 /** Create Z80 IC DEFDW data entry.
  *
  * @param value Value
@@ -755,6 +791,8 @@ void z80ic_dentry_destroy(z80ic_dentry_t *dentry)
 	if (dentry == NULL)
 		return;
 
+	if (dentry->ident != NULL)
+		free(dentry->ident);
 	free(dentry);
 }
 

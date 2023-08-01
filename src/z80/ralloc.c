@@ -2925,9 +2925,16 @@ static int z80_ralloc_defw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 	(void) ralloc;
 	assert(vrdentry->dtype == z80icd_defw);
 
-	rc = z80ic_dentry_create_defw(vrdentry->value, &dentry);
-	if (rc != EOK)
-		goto error;
+	if (vrdentry->ident != NULL) {
+		rc = z80ic_dentry_create_defw_sym(vrdentry->ident,
+		    vrdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = z80ic_dentry_create_defw(vrdentry->value, &dentry);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = z80ic_dblock_append(dblock, dentry);
 	if (rc != EOK)

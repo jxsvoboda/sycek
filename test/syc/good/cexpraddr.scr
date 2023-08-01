@@ -1,0 +1,4 @@
+mapfile "cexpraddr.map";
+ldbin "cexpraddr.bin", 0x8000;
+
+verify word ptr (@_p), @_i;
