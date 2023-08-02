@@ -329,6 +329,31 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 	return 0;
 }
 
+/** Get offset of record element.
+ *
+ * @param cgen Code generator
+ * @param elem Record element
+ * @return ELement offset within its record
+ */
+static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
+{
+	unsigned off;
+	cgen_rec_elem_t *e;
+
+	/* In a union all elements start at zero offset */
+	if (elem->record->rtype == cgr_union)
+		return 0;
+
+	/* Sum up sizes of all preceding elements */
+	e = cgen_record_first(elem->record);
+	while (e != elem) {
+		off += cgen_type_sizeof(cgen, elem->cgtype);
+		e = cgen_record_next(e);
+	}
+
+	return off;
+}
+
 /** Prefix identifier with '@' global variable prefix.
  *
  * @param ident Identifier
@@ -8615,6 +8640,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	unsigned mbroff;
 	char *irident = NULL;
 	ir_texpr_t *recte = NULL;
 	int rc;
@@ -8700,6 +8726,16 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	eres->cgtype = mtype;
 	eres->valused = true;
 
+	/* If record address is known */
+	if (bres.cvknown) {
+		/* Compute member address */
+		mbroff = cgen_rec_elem_offset(cgexpr->cgen, elem);
+
+		eres->cvknown = true;
+		eres->cvint = bres.cvint + mbroff;
+		eres->cvsymbol = bres.cvsymbol;
+	}
+
 	cgen_eres_fini(&bres);
 	free(irident);
 	return EOK;
@@ -8743,6 +8779,7 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	unsigned mbroff;
 	char *irident = NULL;
 	ir_texpr_t *recte = NULL;
 	int rc;
@@ -8838,6 +8875,16 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = mtype;
 	eres->valused = true;
+
+	/* If record address is known */
+	if (bres.cvknown) {
+		/* Compute member address */
+		mbroff = cgen_rec_elem_offset(cgexpr->cgen, elem);
+
+		eres->cvknown = true;
+		eres->cvint = bres.cvint + mbroff;
+		eres->cvsymbol = bres.cvsymbol;
+	}
 
 	cgen_eres_fini(&bres);
 	free(irident);

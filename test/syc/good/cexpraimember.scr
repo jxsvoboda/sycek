@@ -1,0 +1,5 @@
+mapfile "cexpraimember.map";
+ldbin "cexpraimember.bin", 0x8000;
+
+verify word ptr (@_p), @_c + 0;
+verify word ptr (@_q), @_c + 2;

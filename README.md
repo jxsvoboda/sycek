@@ -234,10 +234,10 @@ Specifically, these language features are supported:
  * Typedef
  * Struct, union, enum
  * Global and local variable initialization
+ * Constant expressions
 
 These are NOT supported yet:
 
- * Constant expressions
  * Complex initializers
  * Arrays
  * Bit fields
@@ -247,6 +247,7 @@ These are NOT supported yet:
  * Pointer difference, pointer comparison
  * Character and string literals
  * Variadic functions
+ * Function pointers
  * Ternary operator
  * Lvalue arguments
  * Passing or returning struct/union by value
