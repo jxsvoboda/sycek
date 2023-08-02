@@ -1,0 +1,5 @@
+mapfile "sizeofstruct.map";
+ldbin "sizeofstruct.bin", 0x8000;
+
+/* sizeof(struct s) */
+verify word ptr (@_i), 4;

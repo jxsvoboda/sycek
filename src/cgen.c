@@ -44,6 +44,7 @@
 #include <string.h>
 #include <symbols.h>
 
+static unsigned cgen_type_sizeof(cgen_t *, cgtype_t *);
 static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
@@ -296,6 +297,47 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 	return false;
 }
 
+/** Get record size.
+ *
+ * XXX We might want to remember this information in the record itself.
+ * Computing it again each time is not effictient.
+ *
+ * @param cgen Code generator
+ * @param record Record
+ * @return Record size in bytes
+ */
+static unsigned cgen_record_size(cgen_t *cgen, cgen_record_t *record)
+{
+	unsigned sz;
+	unsigned esz;
+	cgen_rec_elem_t *e;
+
+	sz = 0;
+
+	if (record->rtype == cgr_struct) {
+		/* Sum up sizes of all elements */
+		e = cgen_record_first(record);
+		while (e != NULL) {
+			sz += cgen_type_sizeof(cgen, e->cgtype);
+			e = cgen_record_next(e);
+		}
+	} else {
+		assert(record->rtype == cgr_union);
+
+		/* Size is the maximum of element sizes */
+		e = cgen_record_first(record);
+		while (e != NULL) {
+			esz = cgen_type_sizeof(cgen, e->cgtype);
+			if (esz > sz)
+				sz = esz;
+
+			e = cgen_record_next(e);
+		}
+	}
+
+	return sz;
+}
+
 /** Return the size of a type in bytes.
  *
  * @param cgen Code generator
@@ -304,6 +346,7 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 {
 	cgtype_basic_t *tbasic;
+	cgtype_record_t *trecord;
 
 	switch (cgtype->ntype) {
 	case cgn_basic:
@@ -315,12 +358,8 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 	case cgn_pointer:
 		return cgen_pointer_bits / 8;
 	case cgn_record:
-		/*
-		 * XXX We might want to delegate calculation of record
-		 * size to the backend.
-		 */
-		assert(false);
-		return 0;
+		trecord = (cgtype_record_t *)cgtype->ext;
+		return cgen_record_size(cgen, trecord->record);
 	case cgn_enum:
 		return cgen_enum_bits;
 	}
@@ -331,9 +370,12 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 
 /** Get offset of record element.
  *
+ * XXX We might want to remember this information in the element itself.
+ * Computing it again each time is not effictient.
+ *
  * @param cgen Code generator
  * @param elem Record element
- * @return ELement offset within its record
+ * @return Element offset within its record
  */
 static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 {
@@ -347,7 +389,7 @@ static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 	/* Sum up sizes of all preceding elements */
 	e = cgen_record_first(elem->record);
 	while (e != elem) {
-		off += cgen_type_sizeof(cgen, elem->cgtype);
+		off += cgen_type_sizeof(cgen, e->cgtype);
 		e = cgen_record_next(e);
 	}
 

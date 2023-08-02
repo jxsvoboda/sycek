@@ -1,0 +1,5 @@
+mapfile "sizeofunion.map";
+ldbin "sizeofunion.bin", 0x8000;
+
+/* sizeof(union u) */
+verify word ptr (@_i), 2;
