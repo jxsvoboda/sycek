@@ -1,0 +1,18 @@
+mapfile "sizeofident.map";
+ldbin "sizeofident.bin", 0x8000;
+
+/* sizeof(myint_t) */
+verify word ptr (@_i), 4;
+
+/* sizeof(i) */
+verify word ptr (@_j), 2;
+
+/* sizeof(myint_t) */
+ld word ptr (@_i), 0;
+call @_set_i;
+verify word ptr (@_i), 4;
+
+/* sizeof(i) */
+ld word ptr (@_i), 0;
+call @_set_j;
+verify word ptr (@_j), 2;

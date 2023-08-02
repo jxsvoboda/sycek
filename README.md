@@ -235,6 +235,7 @@ Specifically, these language features are supported:
  * Struct, union, enum
  * Global and local variable initialization
  * Constant expressions
+ * Sizeof
 
 These are NOT supported yet:
 
@@ -252,7 +253,7 @@ These are NOT supported yet:
  * Lvalue arguments
  * Passing or returning struct/union by value
  * Variable-length arrays
- * Sizeof, alignof
+ * Alignof
 
 syc only starts after preprocessing stage (i.e. there must not be any
 preprocessor directives in the C source file) and outputs an .asm

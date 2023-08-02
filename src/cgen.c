@@ -959,7 +959,6 @@ error:
 	return rc;
 }
 
-
 /** Create code generator.
  *
  * @param rcgen Place to store pointer to new code generator
@@ -1982,21 +1981,20 @@ error:
 	return rc;
 }
 
-/** Generate code for identifier type specifier.
+/** Generate code for type identifer.
  *
  * @param cgen Code generator
- * @param tsident Identifier type specifier
+ * @param itok Identifier token
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
-    cgtype_t **rstype)
+static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_t **rstype)
 {
 	comp_tok_t *ident;
 	scope_member_t *member;
 	int rc;
 
-	ident = (comp_tok_t *)tsident->tident.data;
+	ident = (comp_tok_t *)itok->data;
 
 	/* Check if the type is defined */
 	member = scope_lookup(cgen->cur_scope, ident->tok.text);
@@ -2008,12 +2006,34 @@ static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
 		return EINVAL;
 	}
 
+	/* Is it actually a type definition? */
+	if (member->mtype != sm_tdef) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Identifer '%s' is not a type.\n",
+		    ident->tok.text);
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
 	/* Resulting type is the same as type of the member */
 	rc = cgtype_clone(member->cgtype, rstype);
 	if (rc != EOK)
 		return rc;
 
 	return EOK;
+}
+
+/** Generate code for identifier type specifier.
+ *
+ * @param cgen Code generator
+ * @param tsident Identifier type specifier
+ * @param rstype Place to store pointer to the specified type
+ * @return EOK on success or an error code
+ */
+static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
+    cgtype_t **rstype)
+{
+	return cgen_tident(cgen, &tsident->tident, rstype);
 }
 
 /** Generate code for record type specifier element.
@@ -8663,12 +8683,51 @@ static int cgen_esizeof_expr(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgtype_t *etype = NULL;
+	ast_eparen_t *eparen;
+	ast_eident_t *eident;
+	comp_tok_t *ident;
+	scope_member_t *member;
 	unsigned sz;
 	int rc;
 
-	rc = cgen_szexpr_type(cgexpr->cgen, esizeof->bexpr, &etype);
-	if (rc != EOK)
-		goto error;
+	/*
+	 * Because the parser does not have semantic information,
+	 * it misparses sizeof(type-ident) as sizeof applied to
+	 * a parenthesized expression. In this particular case
+	 * we need to re-interpret it as a type identifier.
+	 */
+	if (esizeof->bexpr->ntype == ant_eparen) {
+		eparen = (ast_eparen_t *)esizeof->bexpr->ext;
+
+		if (eparen->bexpr->ntype == ant_eident) {
+			/* Ambiguous case of sizeof(ident) */
+			eident = (ast_eident_t *)eparen->bexpr->ext;
+
+			/* Check if it is a type identifier */
+			ident = (comp_tok_t *)eident->tident.data;
+			member = scope_lookup(cgexpr->cgen->cur_scope,
+			    ident->tok.text);
+			if (member != NULL && member->mtype == sm_tdef) {
+				/* It is a type identifier */
+
+				rc = cgen_tident(cgexpr->cgen, &eident->tident,
+				    &etype);
+				if (rc != EOK)
+					goto error;
+			}
+		}
+	}
+
+	/* In the normal case */
+	if (etype == NULL) {
+		/*
+		 * 'Evaluate' the expression getting its type and ignoring both
+		 * the result and any side effects.
+		 */
+		rc = cgen_szexpr_type(cgexpr->cgen, esizeof->bexpr, &etype);
+		if (rc != EOK)
+			goto error;
+	}
 
 	sz = cgen_type_sizeof(cgexpr->cgen, etype);
 
