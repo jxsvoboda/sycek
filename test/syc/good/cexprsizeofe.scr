@@ -1,0 +1,11 @@
+mapfile "cexprsizeofe.map";
+ldbin "cexprsizeofe.bin", 0x8000;
+
+/* sizeof(literal) */
+verify word ptr (@_sl), 4;
+
+/* sizeof(expression) */
+verify word ptr (@_se), 4;
+
+/* sizeof(variable) */
+verify word ptr (@_sv), 2;

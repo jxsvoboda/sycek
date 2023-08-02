@@ -816,6 +816,7 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	return EOK;
 error:
 	cgen_proc_destroy(cgproc);
+	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
 	return rc;
 }
@@ -887,9 +888,77 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 error:
 	cgen_eres_fini(&bres);
 	cgen_proc_destroy(cgproc);
+	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
 	return rc;
 }
+
+/** Get type of expression (argument to sizeof operator)
+ *
+ * The expression will not actually be evaluated (i.e. will not have
+ * any visible side effects).
+ *
+ * @param cgen Code generator
+ * @param expr Expression
+ * @param etype Place to store expression type
+ * @return EOK on success, EINVAL if expression is not valid
+ */
+static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
+    cgtype_t **etype)
+{
+	cgen_eres_t eres;
+	cgen_expr_t cgexpr;
+	ir_lblock_t *lblock = NULL;
+	ir_proc_t *irproc = NULL;
+	cgen_proc_t *cgproc = NULL;
+	int rc;
+
+	cgen_eres_init(&eres);
+
+	/*
+	 * Create a dummy labeled block where the code will be emitted
+	 * and then it will be dropped.
+	 */
+	rc = ir_lblock_create(&lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_proc_create("foo", 0, lblock, &irproc);
+	if (rc != EOK)
+		goto error;
+
+	lblock = NULL;
+
+	rc = cgen_proc_create(cgen, irproc, &cgproc);
+	if (rc != EOK)
+		goto error;
+
+	/* Code generator for an integer constant expression */
+	cgen_expr_init(&cgexpr);
+	cgexpr.cgen = cgproc->cgen;
+	cgexpr.cgproc = cgproc;
+
+	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, &eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_proc_destroy(cgproc);
+	ir_proc_destroy(irproc);
+	ir_lblock_destroy(lblock);
+
+	*etype = eres.cgtype;
+	eres.cgtype = NULL;
+
+	cgen_eres_fini(&eres);
+	return EOK;
+error:
+	cgen_eres_fini(&eres);
+	cgen_proc_destroy(cgproc);
+	ir_proc_destroy(irproc);
+	ir_lblock_destroy(lblock);
+	return rc;
+}
+
 
 /** Create code generator.
  *
@@ -8517,7 +8586,7 @@ error:
 	return rc;
 }
 
-/** Generate code for sizeof expression.
+/** Generate code for sizeof(typename) expression.
  *
  * @param cgexpr Code generator for expression
  * @param esizeof AST sizeof expression
@@ -8525,7 +8594,7 @@ error:
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_esizeof(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
+static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgtype_t *stype = NULL;
@@ -8536,9 +8605,6 @@ static int cgen_esizeof(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	cgen_rd_flags_t flags;
 	unsigned sz;
 	int rc;
-
-	(void)lblock;
-	(void)eres;
 
 	/* Declaration specifiers */
 	rc = cgen_dspecs(cgexpr->cgen, esizeof->atypename->dspecs,
@@ -8583,6 +8649,55 @@ error:
 	cgtype_destroy(stype);
 	cgtype_destroy(etype);
 	return rc;
+}
+
+/** Generate code for 'sizeof <expression>' expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param esizeof AST sizeof expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_esizeof_expr(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgtype_t *etype = NULL;
+	unsigned sz;
+	int rc;
+
+	rc = cgen_szexpr_type(cgexpr->cgen, esizeof->bexpr, &etype);
+	if (rc != EOK)
+		goto error;
+
+	sz = cgen_type_sizeof(cgexpr->cgen, etype);
+
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, sz, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(etype);
+	return EOK;
+error:
+	cgtype_destroy(etype);
+	return rc;
+}
+
+/** Generate code for sizeof expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param esizeof AST sizeof expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_esizeof(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	if (esizeof->atypename != NULL)
+		return cgen_esizeof_typename(cgexpr, esizeof, lblock, eres);
+	else
+		return cgen_esizeof_expr(cgexpr, esizeof, lblock, eres);
 }
 
 /** Generate code for cast expression.
