@@ -379,8 +379,16 @@ static int z80_isel_call_rsize(z80_isel_proc_t *isproc, ir_instr_t *instr,
 
 	cproc = (ir_proc_t *)decln->ext;
 	if (cproc->rtype != NULL) {
-		assert(cproc->rtype->tetype == irt_int);
-		*rsize = cproc->rtype->t.tint.width / 8;
+		switch (cproc->rtype->tetype) {
+		case irt_int:
+			*rsize = cproc->rtype->t.tint.width / 8;
+			break;
+		case irt_ptr:
+			*rsize = cproc->rtype->t.tptr.width / 8;
+			break;
+		default:
+			assert(false);
+		}
 	} else {
 		*rsize = 2;
 	}
@@ -2787,6 +2795,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned bits;
 	uint16_t rvoff;
 	unsigned rvavr = 0;
+	unsigned rvbits;
 	unsigned i;
 	int rc;
 
@@ -2827,9 +2836,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		goto error;
 
 	/* 64-bit return value? */
-	if (proc->rtype != NULL) {
-		assert(proc->rtype->tetype == irt_int);
-
+	if (proc->rtype != NULL && proc->rtype->tetype == irt_int) {
 		if (proc->rtype->t.tint.width == 64) {
 			/* Allocate local variable to hold the return value */
 			rc = z80_isel_alloc_retvar(isproc, 8, &rvoff);
@@ -2918,9 +2925,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	}
 
 	/* 64-bit return value? Pass hidden argument. */
-	if (proc->rtype != NULL) {
-		assert(proc->rtype->tetype == irt_int);
-
+	if (proc->rtype != NULL && proc->rtype->tetype == irt_int) {
 		if (proc->rtype->t.tint.width == 64) {
 			rc = z80_isel_call_set_arg(isproc, argloc, rvavr,
 			    "%_retvar", lblock);
@@ -2951,9 +2956,18 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	/* Get return value */
 
 	if (proc->rtype != NULL) {
-		assert(proc->rtype->tetype == irt_int);
+		switch (proc->rtype->tetype) {
+		case irt_int:
+			rvbits = proc->rtype->t.tint.width;
+			break;
+		case irt_ptr:
+			rvbits = proc->rtype->t.tptr.width;
+			break;
+		default:
+			assert(false);
+		}
 
-		switch (proc->rtype->t.tint.width) {
+		switch (rvbits) {
 		case 8:
 			rc = z80_isel_call_get_retv_8(isproc, proc, label,
 			    destvr, lblock);
