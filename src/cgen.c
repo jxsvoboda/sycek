@@ -8528,20 +8528,61 @@ error:
 static int cgen_esizeof(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	cgtype_t *stype = NULL;
+	cgtype_t *etype = NULL;
 	ast_tok_t *atok;
-	comp_tok_t *tok;
+	comp_tok_t *ctok;
+	ast_sclass_type_t sctype;
+	cgen_rd_flags_t flags;
+	unsigned sz;
+	int rc;
 
 	(void)lblock;
 	(void)eres;
 
-	(void)cgen_type_sizeof;
+	/* Declaration specifiers */
+	rc = cgen_dspecs(cgexpr->cgen, esizeof->atypename->dspecs,
+	    &sctype, &flags, &stype);
+	if (rc != EOK)
+		goto error;
 
-	atok = ast_tree_first_tok(&esizeof->node);
-	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": This expression type is not implemented.\n");
-	cgexpr->cgen->error = true; // TODO
-	return EINVAL;
+	if ((flags & cgrd_def) != 0) {
+		atok = ast_tree_first_tok(&esizeof->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Struct/union/enum definition inside sizeof().\n");
+		++cgexpr->cgen->warnings;
+	}
+
+	if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&esizeof->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		cgexpr->cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Declarator */
+	rc = cgen_decl(cgexpr->cgen, stype, esizeof->atypename->decl, NULL,
+	    &etype);
+	if (rc != EOK)
+		goto error;
+
+	sz = cgen_type_sizeof(cgexpr->cgen, etype);
+
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, sz, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(stype);
+	cgtype_destroy(etype);
+	return EOK;
+error:
+	cgtype_destroy(stype);
+	cgtype_destroy(etype);
+	return rc;
 }
 
 /** Generate code for cast expression.

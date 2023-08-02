@@ -377,6 +377,7 @@ It can detect the following types of problems and style issues:
  * definition of struct/union/enum inside parameter list will not be visible
    outside of function declaration/definition
  * struct/union/enum definition inside a cast
+ * struct/union/enum definition inside sizeof()
  * mixing arguments with and without an identifier
  * useless type in empty declaration
  * multiple declarations of function/variable/struct/union

@@ -6169,7 +6169,10 @@ static ast_tok_t *ast_esizeof_first_tok(ast_esizeof_t *esizeof)
  */
 static ast_tok_t *ast_esizeof_last_tok(ast_esizeof_t *esizeof)
 {
-	return ast_tree_last_tok(esizeof->bexpr);
+	if (esizeof->atypename != NULL)
+		return &esizeof->trparen;
+	else
+		return ast_tree_last_tok(esizeof->bexpr);
 }
 
 /** Create AST cast expression.

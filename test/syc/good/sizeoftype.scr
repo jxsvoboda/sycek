@@ -1,0 +1,12 @@
+mapfile "sizeoftype.map";
+ldbin "sizeoftype.bin", 0x8000;
+
+/* sizeof(long) */
+verify word ptr (@_sl), 0;
+call @_set_sl;
+verify word ptr (@_sl), 4;
+
+/* sizeof(long *) */
+verify word ptr (@_sp), 0;
+call @_set_sp;
+verify word ptr (@_sp), 2;

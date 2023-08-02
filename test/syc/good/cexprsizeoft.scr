@@ -1,0 +1,8 @@
+mapfile "cexprsizeoft.map";
+ldbin "cexprsizeoft.bin", 0x8000;
+
+/* sizeof(long) */
+verify word ptr (@_sl), 4;
+
+/* sizeof(long *) */
+verify word ptr (@_sp), 2;

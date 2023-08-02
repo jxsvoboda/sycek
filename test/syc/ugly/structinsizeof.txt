@@ -1,0 +1,3 @@
+<test/syc/ugly/structinsizeof.c:9:27-29:id:foo>: Warning: Definition of 'struct foo' in a non-global scope.
+<test/syc/ugly/structinsizeof.c:9:20-25:'struct'>: Warning: Struct/union/enum definition inside sizeof().
+<test/syc/ugly/structinsizeof.c:9:27-29:id:foo>: Warning: 'foo' is defined, but not used.
