@@ -1,0 +1,1 @@
+<test/syc/bad/cmpeqintptr.c:10:15-16:'=='>: Comparison of invalid types int and ^int.

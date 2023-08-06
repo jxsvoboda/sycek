@@ -1,0 +1,1 @@
+<test/syc/bad/cmpgtnc.c:8:18:'>'>: Pointers being compared are not constant.

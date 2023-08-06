@@ -245,7 +245,7 @@ These are NOT supported yet:
  * Floating point
  * Integer promotion
  * Division and modulus (`/`, `%`)
- * Pointer difference, pointer comparison
+ * Pointer difference
  * Character and string literals
  * Variadic functions
  * Function pointers

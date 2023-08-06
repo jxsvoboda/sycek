@@ -1,0 +1,6 @@
+<test/syc/ugly/cmpincomptr.c:10:15:'<'>: Warning: Comparison of incompatible pointer types ^int and ^long.
+<test/syc/ugly/cmpincomptr.c:12:15-16:'<='>: Warning: Comparison of incompatible pointer types ^int and ^long.
+<test/syc/ugly/cmpincomptr.c:14:15:'>'>: Warning: Comparison of incompatible pointer types ^int and ^long.
+<test/syc/ugly/cmpincomptr.c:16:15-16:'>='>: Warning: Comparison of incompatible pointer types ^int and ^long.
+<test/syc/ugly/cmpincomptr.c:18:15-16:'=='>: Warning: Comparison of incompatible pointer types ^int and ^long.
+<test/syc/ugly/cmpincomptr.c:20:15-16:'!='>: Warning: Comparison of incompatible pointer types ^int and ^long.

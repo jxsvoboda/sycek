@@ -1,0 +1,1 @@
+<test/syc/bad/cmpltintptr.c:10:15:'<'>: Comparison of invalid types int and ^int.

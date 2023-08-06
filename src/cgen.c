@@ -241,6 +241,23 @@ static bool cgen_type_is_integer(cgen_t *cgen, cgtype_t *cgtype)
 	}
 }
 
+/** Determine if type is of an integral type (int or enum).
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is an integer type
+ */
+static bool cgen_type_is_integral(cgen_t *cgen, cgtype_t *cgtype)
+{
+	if (cgen_type_is_integer(cgen, cgtype))
+		return true;
+
+	if (cgtype->ntype == cgn_enum)
+		return true;
+
+	return false;
+}
+
 /** Determine if record is defined (or just declared).
  *
  * @param record Record definition
@@ -1539,6 +1556,45 @@ static void cgen_error_use_void_value(cgen_t *cgen, ast_tok_t *atok)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: comparison of invalid types.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ * @param ltype Left operand type
+ * @param rtype Right operand type
+ */
+static void cgen_error_cmp_invalid(cgen_t *cgen, ast_tok_t *atok,
+    cgtype_t *ltype, cgtype_t *rtype)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Comparison of invalid types ");
+	(void) cgtype_print(ltype, stderr);
+	fprintf(stderr, " and ");
+	(void) cgtype_print(rtype, stderr);
+	fprintf(stderr, ".\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: Pointers being compared are not constant.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_error_cmp_ptr_nc(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Pointers being compared are not constant.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate error: scalar type required.
  *
  * @param cgen Code generator
@@ -1972,6 +2028,28 @@ static void cgen_warn_case_value_not_in_enum(cgen_t *cgen, ast_tok_t *atok,
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Warning: Case value is not in ");
 	(void) cgtype_print(cgtype, stderr);
+	fprintf(stderr, ".\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: comparison of incompatible pointer types.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ * @param ltype Left operand type
+ * @param rtype Right operand type
+ */
+static void cgen_warn_cmp_incom_ptr(cgen_t *cgen, ast_tok_t *atok,
+    cgtype_t *ltype, cgtype_t *rtype)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Comparison of incompatible pointer types ");
+	(void) cgtype_print(ltype, stderr);
+	fprintf(stderr, " and ");
+	(void) cgtype_print(rtype, stderr);
 	fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
@@ -5811,16 +5889,18 @@ error:
 	return rc;
 }
 
-/** Generate code for less than expression.
+/** Generate code for integer less than expression.
  *
  * @param cgexpr Code generator for expression
- * @param ebinop AST binary operator expression (less than)
+ * @param atok Operator token
+ * @param ares Left operand result
+ * @param bres Right operand result
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
-    ir_lblock_t *lblock, cgen_eres_t *eres)
+static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
+    cgen_eres_t *bres, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -5837,21 +5917,12 @@ static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Perform usual arithmetic conversions */
+	rc = cgen_uac(cgexpr, ares, bres, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (lres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
+	assert(lres.cgtype->ntype == cgn_basic);
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
@@ -5865,13 +5936,13 @@ static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
 	if ((flags & cguac_neg2u) != 0)
-		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -5934,16 +6005,169 @@ error:
 	return rc;
 }
 
-/** Generate code for less than or equal expression.
+/** Generate code for pointer less than expression.
  *
  * @param cgexpr Code generator for expression
- * @param ebinop AST binary operator expression (less than or equal)
+ * @param atok Operator token
+ * @param lres Left operand result
+ * @param rres Right operand result
+ * @param ebinop AST binary operator expression (less than)
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+static int cgen_lt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_basic_t *btype = NULL;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	int rc;
+
+	/* Warn for incompatible pointer types */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
+		    rres->cgtype);
+	}
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_ltu;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+
+	if (lres->cvknown && rres->cvknown && lres->cvsymbol == NULL &&
+	    rres->cvsymbol == NULL) {
+		eres->cvknown = true;
+		eres->cvint = (uint64_t)lres->cvint <
+		    (uint64_t)rres->cvint ? 1 : 0;
+	}
+
+	/* In a constant expression the result must be known */
+	if (cgexpr->cexpr && eres->cvknown == false) {
+		cgen_error_cmp_ptr_nc(cgexpr->cgen, atok);
+		return EINVAL;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for less than expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (less than)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_lt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	if (lres.cgtype->ntype == cgn_pointer &&
+	    rres.cgtype->ntype == cgn_pointer) {
+		rc = cgen_lt_ptr(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else if (cgen_type_is_integral(cgexpr->cgen, lres.cgtype) &&
+	    cgen_type_is_integral(cgexpr->cgen, rres.cgtype)) {
+		rc = cgen_lt_int(cgexpr, &ebinop->top, &lres, &rres,
+		    lblock, eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cgen_error_cmp_invalid(cgexpr->cgen, &ebinop->top,
+		    lres.cgtype, rres.cgtype);
+		rc = EINVAL;
+		goto error;
+	}
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for integer less than or equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param atok Operator token
+ * @param ares Left operand result
+ * @param bres Right operand result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *ares, cgen_eres_t *bres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -5960,21 +6184,12 @@ static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Perform usual arithmetic conversions */
+	rc = cgen_uac(cgexpr, ares, bres, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (lres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
+	assert(lres.cgtype->ntype == cgn_basic);
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
@@ -5988,13 +6203,13 @@ static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
 	if ((flags & cguac_neg2u) != 0)
-		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6057,16 +6272,169 @@ error:
 	return rc;
 }
 
-/** Generate code for greater than expression.
+/** Generate code for pointer less than or equal expression.
  *
  * @param cgexpr Code generator for expression
- * @param ebinop AST binary operator expression (greater than)
+ * @param atok Operator token
+ * @param lres Left operand result
+ * @param rres Right operand result
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_gt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+static int cgen_lteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_basic_t *btype = NULL;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	int rc;
+
+	/* Warn for incompatible pointer types */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
+		    rres->cgtype);
+	}
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_lteu;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+
+	if (lres->cvknown && rres->cvknown && lres->cvsymbol == NULL &&
+	    rres->cvsymbol == NULL) {
+		eres->cvknown = true;
+		eres->cvint = (uint64_t)lres->cvint <=
+		    (uint64_t)rres->cvint ? 1 : 0;
+	}
+
+	/* In a constant expression the result must be known */
+	if (cgexpr->cexpr && eres->cvknown == false) {
+		cgen_error_cmp_ptr_nc(cgexpr->cgen, atok);
+		return EINVAL;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for less than or equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (less than or equal)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_lteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	if (lres.cgtype->ntype == cgn_pointer &&
+	    rres.cgtype->ntype == cgn_pointer) {
+		rc = cgen_lteq_ptr(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else if (cgen_type_is_integral(cgexpr->cgen, lres.cgtype) &&
+	    cgen_type_is_integral(cgexpr->cgen, rres.cgtype)) {
+		rc = cgen_lteq_int(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cgen_error_cmp_invalid(cgexpr->cgen, &ebinop->top,
+		    lres.cgtype, rres.cgtype);
+		rc = EINVAL;
+		goto error;
+	}
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for integer greater than expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param atok Operator token
+ * @param ares Left operand result
+ * @param bres Right operand result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *ares, cgen_eres_t *bres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -6083,36 +6451,32 @@ static int cgen_gt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Perform usual arithmetic conversions */
+	rc = cgen_uac(cgexpr, ares, bres, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (!cgen_type_is_integer(cgexpr->cgen, lres.cgtype) ||
-	    !cgen_type_is_integer(cgexpr->cgen, rres.cgtype)) {
+	assert(lres.cgtype->ntype == cgn_basic);
+	bits = cgen_basic_type_bits(cgexpr->cgen,
+	    (cgtype_basic_t *)lres.cgtype->ext);
+	if (bits == 0) {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	bits = cgen_basic_type_bits(cgexpr->cgen,
-	    (cgtype_basic_t *)lres.cgtype->ext);
-
 	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
 	if ((flags & cguac_neg2u) != 0)
-		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6175,16 +6539,169 @@ error:
 	return rc;
 }
 
-/** Generate code for greater than or equal expression.
+/** Generate code for pointer greater than expression.
  *
  * @param cgexpr Code generator for expression
- * @param ebinop AST binary operator expression (greater than or equal)
+ * @param atok Operator token
+ * @param lres Left operand result
+ * @param rres Right operand result
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+static int cgen_gt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_basic_t *btype = NULL;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	int rc;
+
+	/* Warn for incompatible pointer types */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
+		    rres->cgtype);
+	}
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_gtu;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+
+	if (lres->cvknown && rres->cvknown && lres->cvsymbol == NULL &&
+	    rres->cvsymbol == NULL) {
+		eres->cvknown = true;
+		eres->cvint = (uint64_t)lres->cvint >
+		    (uint64_t)rres->cvint ? 1 : 0;
+	}
+
+	/* In a constant expression the result must be known */
+	if (cgexpr->cexpr && eres->cvknown == false) {
+		cgen_error_cmp_ptr_nc(cgexpr->cgen, atok);
+		return EINVAL;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for greater than expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (greater than)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_gt(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	if (lres.cgtype->ntype == cgn_pointer &&
+	    rres.cgtype->ntype == cgn_pointer) {
+		rc = cgen_gt_ptr(cgexpr, &ebinop->top, &lres, &rres,
+		    lblock, eres);
+		if (rc != EOK)
+			goto error;
+	} else if (cgen_type_is_integral(cgexpr->cgen, lres.cgtype) &&
+	    cgen_type_is_integral(cgexpr->cgen, rres.cgtype)) {
+		rc = cgen_gt_int(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cgen_error_cmp_invalid(cgexpr->cgen, &ebinop->top,
+		    lres.cgtype, rres.cgtype);
+		rc = EINVAL;
+		goto error;
+	}
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for integer greater than or equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param atok Operator token
+ * @param ares Left operand result
+ * @param bres Right operand result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *ares, cgen_eres_t *bres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -6201,21 +6718,12 @@ static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Perform usual arithmetic conversions */
+	rc = cgen_uac(cgexpr, ares, bres, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (lres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
+	assert(lres.cgtype->ntype == cgn_basic);
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
@@ -6229,13 +6737,13 @@ static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
 	if ((flags & cguac_neg2u) != 0)
-		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6298,16 +6806,169 @@ error:
 	return rc;
 }
 
-/** Generate code for equal expression.
+/** Generate code for pointer greater than or equal expression.
  *
  * @param cgexpr Code generator for expression
- * @param ebinop AST binary operator expression (equal)
+ * @param atok Operator token
+ * @param lres Left operand result
+ * @param rres Right operand result
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+static int cgen_gteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_basic_t *btype = NULL;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	int rc;
+
+	/* Warn for incompatible pointer types */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
+		    rres->cgtype);
+	}
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_gteu;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+
+	if (lres->cvknown && rres->cvknown && lres->cvsymbol == NULL &&
+	    rres->cvsymbol == NULL) {
+		eres->cvknown = true;
+		eres->cvint = (uint64_t)lres->cvint >=
+		    (uint64_t)rres->cvint ? 1 : 0;
+	}
+
+	/* In a constant expression the result must be known */
+	if (cgexpr->cexpr && eres->cvknown == false) {
+		cgen_error_cmp_ptr_nc(cgexpr->cgen, atok);
+		return EINVAL;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for greater than or equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (greater than or equal)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_gteq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	if (lres.cgtype->ntype == cgn_pointer &&
+	    rres.cgtype->ntype == cgn_pointer) {
+		rc = cgen_gteq_ptr(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else if (cgen_type_is_integral(cgexpr->cgen, lres.cgtype) &&
+	    cgen_type_is_integral(cgexpr->cgen, rres.cgtype)) {
+		rc = cgen_gteq_int(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cgen_error_cmp_invalid(cgexpr->cgen, &ebinop->top,
+		    lres.cgtype, rres.cgtype);
+		rc = EINVAL;
+		goto error;
+	}
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for integer equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param atok Operator token
+ * @param ares Left operand result
+ * @param bres Right operand result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *ares, cgen_eres_t *bres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -6323,21 +6984,12 @@ static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Perform usual arithmetic conversions */
+	rc = cgen_uac(cgexpr, ares, bres, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (lres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
+	assert(lres.cgtype->ntype == cgn_basic);
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
@@ -6348,13 +7000,13 @@ static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
 	if ((flags & cguac_neg2u) != 0)
-		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6412,16 +7064,169 @@ error:
 	return rc;
 }
 
-/** Generate code for not equal expression.
+/** Generate code for pointer equal expression.
  *
  * @param cgexpr Code generator for expression
- * @param ebinop AST binary operator expression (not equal)
+ * @param atok Operator token
+ * @param lres Left operand result
+ * @param rres Right operand result
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
-static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+static int cgen_eq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_basic_t *btype = NULL;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	int rc;
+
+	/* Warn for incompatible pointer types */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
+		    rres->cgtype);
+	}
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_eq;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+
+	if (lres->cvknown && rres->cvknown && lres->cvsymbol == NULL &&
+	    rres->cvsymbol == NULL) {
+		eres->cvknown = true;
+		eres->cvint = (uint64_t)lres->cvint >=
+		    (uint64_t)rres->cvint ? 1 : 0;
+	}
+
+	/* In a constant expression the result must be known */
+	if (cgexpr->cexpr && eres->cvknown == false) {
+		cgen_error_cmp_ptr_nc(cgexpr->cgen, atok);
+		return EINVAL;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (equal)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	if (lres.cgtype->ntype == cgn_pointer &&
+	    rres.cgtype->ntype == cgn_pointer) {
+		rc = cgen_eq_ptr(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else if (cgen_type_is_integral(cgexpr->cgen, lres.cgtype) &&
+	    cgen_type_is_integral(cgexpr->cgen, rres.cgtype)) {
+		rc = cgen_eq_int(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cgen_error_cmp_invalid(cgexpr->cgen, &ebinop->top,
+		    lres.cgtype, rres.cgtype);
+		rc = EINVAL;
+		goto error;
+	}
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for integer not equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param atok Operator token
+ * @param ares Left operand result
+ * @param bres Right operand result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *ares, cgen_eres_t *bres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -6437,21 +7242,12 @@ static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&lres);
 	cgen_eres_init(&rres);
 
-	/* Evaluate and perform usual arithmetic conversions on operands */
-	// XXX Only If both operands have arithmetic type
-	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
-	    &lres, &rres, &flags);
+	/* Perform usual arithmetic conversions */
+	rc = cgen_uac(cgexpr, ares, bres, lblock, &lres, &rres, &flags);
 	if (rc != EOK)
 		goto error;
 
-	/* Check the type */
-	if (lres.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
+	assert(lres.cgtype->ntype == cgn_basic);
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
@@ -6462,13 +7258,13 @@ static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	if ((flags & cguac_mix2u) != 0)
-		cgen_warn_cmp_sign_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
 	if ((flags & cguac_neg2u) != 0)
-		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
 	if ((flags & cguac_enuminc) != 0)
-		cgen_warn_cmp_enum_inc(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
-		cgen_warn_cmp_enum_mix(cgexpr->cgen, &ebinop->top);
+		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6523,6 +7319,156 @@ error:
 	cgen_eres_fini(&rres);
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for pointer not equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param atok Operator token
+ * @param lres Left operand result
+ * @param rres Right operand result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_neq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_basic_t *btype = NULL;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	int rc;
+
+	/* Warn for incompatible pointer types */
+	assert(lres->cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lres->cgtype->ext;
+	assert(rres->cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
+		    rres->cgtype);
+	}
+
+	rc = cgtype_basic_create(cgelm_logic, &btype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_neq;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+
+	if (lres->cvknown && rres->cvknown && lres->cvsymbol == NULL &&
+	    rres->cvsymbol == NULL) {
+		eres->cvknown = true;
+		eres->cvint = (uint64_t)lres->cvint !=
+		    (uint64_t)rres->cvint ? 1 : 0;
+	}
+
+	/* In a constant expression the result must be known */
+	if (cgexpr->cexpr && eres->cvknown == false) {
+		cgen_error_cmp_ptr_nc(cgexpr->cgen, atok);
+		return EINVAL;
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code for not equal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (not equal)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_neq(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate left operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate right operand */
+	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	if (lres.cgtype->ntype == cgn_pointer &&
+	    rres.cgtype->ntype == cgn_pointer) {
+		rc = cgen_neq_ptr(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else if (cgen_type_is_integral(cgexpr->cgen, lres.cgtype) &&
+	    cgen_type_is_integral(cgexpr->cgen, rres.cgtype)) {
+		rc = cgen_neq_int(cgexpr, &ebinop->top, &lres, &rres, lblock,
+		    eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cgen_error_cmp_invalid(cgexpr->cgen, &ebinop->top,
+		    lres.cgtype, rres.cgtype);
+		rc = EINVAL;
+		goto error;
+	}
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
 	return rc;
 }
 

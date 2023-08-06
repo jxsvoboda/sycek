@@ -1,0 +1,1 @@
+<test/syc/bad/cmpneqintrptr.c:10:15-16:'!='>: Comparison of invalid types int and ^int.

@@ -1,0 +1,1 @@
+<test/syc/bad/cmpltnc.c:8:18:'<'>: Pointers being compared are not constant.
