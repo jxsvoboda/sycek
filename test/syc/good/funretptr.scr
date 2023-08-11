@@ -1,0 +1,12 @@
+mapfile "funretptr.map";
+ldbin "funretptr.bin", 0x8000;
+
+ld word ptr (@_p), 0x1234;
+ld HL, 0;
+call @_ret_ptr;
+verify HL, 0x1234;
+
+ld word ptr (@_p), 0x1234;
+ld word ptr (@_r), 0;
+call @_call_ptr;
+verify word ptr (@_r), 0x1234;

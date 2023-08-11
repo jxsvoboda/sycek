@@ -12691,6 +12691,8 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 				rc = EINVAL;
 				goto error;
 			}
+		} else if (cgproc->rtype->ntype == cgn_enum) {
+			bits = cgen_enum_bits;
 		} else if (cgproc->rtype->ntype == cgn_pointer) {
 			bits = cgen_pointer_bits;
 		} else {
