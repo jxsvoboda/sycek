@@ -236,6 +236,7 @@ Specifically, these language features are supported:
  * Global and local variable initialization
  * Constant expressions
  * Sizeof
+ * Character literals
 
 These are NOT supported yet:
 
@@ -246,7 +247,7 @@ These are NOT supported yet:
  * Integer promotion
  * Division and modulus (`/`, `%`)
  * Pointer difference
- * Character and string literals
+ * String literals
  * Variadic functions
  * Function pointers
  * Ternary operator

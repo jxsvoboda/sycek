@@ -163,3 +163,49 @@ bool is_bad_ctrl(char c)
 
 	return false;
 }
+
+/** Get the value of a hexadecimal digit.
+ *
+ * @param c Hexadecimal digit
+ * @return Digit value
+ */
+unsigned cc_hexdigit_val(char c)
+{
+	/* Note: this will work in non-ASCII environments */
+
+	if (is_num(c)) {
+		return c - '0';
+	} else if (c >= 'a' && c <= 'f') {
+		return 10 + (c - 'a');
+	} else {
+		assert(c >= 'A');
+		assert(c <= 'F');
+		return 10 + (c - 'A');
+	}
+}
+
+/** Get the value of a decimal digit.
+ *
+ * @param c Hexadecimal digit
+ * @return Digit value
+ */
+unsigned cc_decdigit_val(char c)
+{
+	assert(is_num(c));
+
+	/* Note: this will work in non-ASCII environments */
+	return c - '0';
+}
+
+/** Get the value of an octal digit.
+ *
+ * @param c Hexadecimal digit
+ * @return Digit value
+ */
+unsigned cc_octdigit_val(char c)
+{
+	assert(is_octdigit(c));
+
+	/* Note: this will work in non-ASCII environments */
+	return c - '0';
+}

@@ -1,0 +1,1 @@
+<test/syc/bad/charlitmulti.c:5:9-12:char>: Multiple characters in character constant.

@@ -39,5 +39,8 @@ extern bool is_idbegin(char);
 extern bool is_idcnt(char);
 extern bool is_print(char);
 extern bool is_bad_ctrl(char);
+extern unsigned cc_hexdigit_val(char);
+extern unsigned cc_decdigit_val(char);
+extern unsigned cc_octdigit_val(char);
 
 #endif

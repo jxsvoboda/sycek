@@ -100,7 +100,9 @@ static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
 
 enum {
 	cgen_pointer_bits = 16,
-	cgen_enum_bits = 16
+	cgen_enum_bits = 16,
+	cgen_char_max = 255,
+	cgen_lchar_max = 65535
 };
 
 /** Return the bit width of an arithmetic type.
@@ -464,12 +466,7 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 
 		/* Hexadecimal */
 		while (is_hexdigit(*text)) {
-			if (is_num(*text))
-				nval = val * 16 + (*text - '0');
-			else if (*text >= 'a' && *text <= 'f')
-				nval = val * 16 + 10 + (*text - 'a');
-			else
-				nval = val * 16 + 10 + (*text - 'A');
+			nval = val * 16 + cc_hexdigit_val(*text);
 
 			/* Verify to check for overflow */
 			verif = nval / 16;
@@ -483,7 +480,7 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		++text;
 		/* Octal */
 		while (is_octdigit(*text)) {
-			nval = val * 8 + (*text - '0');
+			nval = val * 8 + cc_octdigit_val(*text);
 
 			/* Verify to check for overflow */
 			verif = nval / 8;
@@ -496,7 +493,7 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	} else {
 		/* Decimal */
 		while (is_num(*text)) {
-			nval = val * 10 + (*text - '0');
+			nval = val * 10 + cc_decdigit_val(*text);
 
 			/* Verify to check for overflow */
 			verif = nval / 10;
@@ -563,6 +560,167 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		return EINVAL;
 
 	*rval = val;
+	*rtype = elmtype;
+	return EOK;
+}
+
+/** Get value of character literal token.
+ *
+ * @param cgen Code generator
+ * @param tlit Literal token
+ * @param rval Place to store value
+ * @param rtype Place to store elementary type
+ * @return EOK on success, EINVAL if token format is invalid
+ */
+static int cgen_charlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
+    cgtype_elmtype_t *rtype)
+{
+	const char *text = tlit->tok.text;
+	cgtype_elmtype_t elmtype;
+	bool llong;
+	unsigned i;
+	unsigned val;
+	uint32_t max;
+	char c;
+
+	(void)cgen;
+
+	/* Long character literal? */
+	llong = false;
+	max = cgen_char_max;
+
+	if (text[0] == 'L' && text[1] == '\'') {
+		++text;
+		llong = true;
+		max = cgen_lchar_max;
+	}
+
+	if (*text != '\'')
+		return EINVAL;
+	++text;
+
+	if (*text == '\0')
+		return EINVAL;
+
+	/* Character */
+	if (*text == '\\') {
+		/* Escape sequence */
+		++text;
+		switch (*text) {
+		case '\'':
+		case '"':
+		case '?':
+		case '\\':
+			c = *text++;
+			break;
+		case 'a':
+			c = '\a';
+			++text;
+			break;
+		case 'b':
+			c = '\b';
+			++text;
+			break;
+		case 'f':
+			c = '\f';
+			++text;
+			break;
+		case 'n':
+			c = '\n';
+			++text;
+			break;
+		case 'r':
+			c = '\r';
+			++text;
+			break;
+		case 't':
+			c = '\t';
+			++text;
+			break;
+		case 'v':
+			c = '\v';
+			++text;
+			break;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+			/* Octal escape sequence */
+			val = 0;
+			i = 0;
+			while (i < 3 && is_octdigit(*text)) {
+				val = val * 8 + (*text - '0');
+				++text;
+				++i;
+			}
+			if (val > max) {
+				lexer_dprint_tok(&tlit->tok, stderr);
+				fprintf(stderr, ": Octal escape sequence "
+				    "out of range.\n");
+				++cgen->warnings;
+			}
+			c = (char)val;
+			break;
+		case 'x':
+			++text;
+
+			/* Hexadecimal escape sequence */
+			if (!is_hexdigit(*text)) {
+				lexer_dprint_tok(&tlit->tok, stderr);
+				fprintf(stderr, ": Invalid hexadecimal "
+				    "sequence.\n");
+				cgen->error = true; // TODO
+				return EINVAL;
+			}
+			val = 0;
+			while (is_hexdigit(*text)) {
+				val = val * 16 + cc_hexdigit_val(*text);
+				++text;
+			}
+			c = (char)val;
+			if (val > max) {
+				lexer_dprint_tok(&tlit->tok, stderr);
+				fprintf(stderr, ": Hexadecimal escape sequence "
+				    "out of range.\n");
+				++cgen->warnings;
+			}
+			break;
+		default:
+			lexer_dprint_tok(&tlit->tok, stderr);
+			fprintf(stderr, ": Unknown escape sequence '\\%c'.\n",
+			    *text);
+			++cgen->warnings;
+			c = *text++;
+			break;
+		}
+	} else {
+		c = *text++;
+	}
+
+	if (*text != '\'') {
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Multiple characters in character "
+		    "constant.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+	++text;
+
+	if (*text != '\0')
+		return EINVAL;
+
+	/* Long? */
+	if (llong) {
+		elmtype = cgelm_int;
+	} else {
+		elmtype = cgelm_char;
+	}
+
+	*rval = (int64_t)c;
 	*rtype = elmtype;
 	return EOK;
 }
@@ -3912,6 +4070,30 @@ static int cgen_eint(cgen_expr_t *cgexpr, ast_eint_t *eint,
 		cgexpr->cgen->error = true; // TODO
 		return rc;
 	}
+
+	return cgen_const_int(cgexpr->cgproc, elmtype, val, lblock, eres);
+}
+
+/** Generate code for character literal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param echar AST character literal expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_echar(cgen_expr_t *cgexpr, ast_echar_t *echar,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	comp_tok_t *lit;
+	int64_t val;
+	cgtype_elmtype_t elmtype;
+	int rc;
+
+	lit = (comp_tok_t *) echar->tlit.data;
+	rc = cgen_charlit_val(cgexpr->cgen, lit, &val, &elmtype);
+	if (rc != EOK)
+		return rc;
 
 	return cgen_const_int(cgexpr->cgproc, elmtype, val, lblock, eres);
 }
@@ -10719,6 +10901,9 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 		rc = cgen_eint(cgexpr, (ast_eint_t *) expr->ext, lblock, eres);
 		break;
 	case ant_echar:
+		rc = cgen_echar(cgexpr, (ast_echar_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_estring:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
