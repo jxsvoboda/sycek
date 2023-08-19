@@ -434,6 +434,7 @@ static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 		return 0;
 
 	/* Sum up sizes of all preceding elements */
+	off = 0;
 	e = cgen_record_first(elem->record);
 	while (e != elem) {
 		off += cgen_type_sizeof(cgen, e->cgtype);
