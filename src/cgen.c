@@ -260,6 +260,25 @@ static bool cgen_type_is_integral(cgen_t *cgen, cgtype_t *cgtype)
 	return false;
 }
 
+/** Determine if type is lotif type.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is an integer type
+ */
+static bool cgen_type_is_logic(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_basic_t *tbasic;
+
+	(void) cgen;
+
+	if (cgtype->ntype != cgn_basic)
+		return false;
+
+	tbasic = (cgtype_basic_t *)cgtype->ext;
+	return tbasic->elmtype == cgelm_logic;
+}
+
 /** Determine if record is defined (or just declared).
  *
  * @param record Record definition
@@ -293,6 +312,7 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 {
 	cgtype_record_t *trecord;
 	cgtype_enum_t *tenum;
+	cgtype_array_t *tarray;
 
 	(void)cgen;
 
@@ -310,6 +330,9 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 	case cgn_func:
 		assert(false);
 		return false;
+	case cgn_array:
+		tarray = (cgtype_array_t *)cgtype->ext;
+		return tarray->have_size == false;
 	}
 
 	assert(false);
@@ -366,6 +389,7 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 {
 	cgtype_basic_t *tbasic;
 	cgtype_record_t *trecord;
+	cgtype_array_t *tarray;
 
 	switch (cgtype->ntype) {
 	case cgn_basic:
@@ -380,7 +404,11 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 		trecord = (cgtype_record_t *)cgtype->ext;
 		return cgen_record_size(cgen, trecord->record);
 	case cgn_enum:
-		return cgen_enum_bits;
+		return cgen_enum_bits / 8;
+	case cgn_array:
+		tarray = (cgtype_array_t *)cgtype->ext;
+		assert(tarray->have_size);
+		return cgen_type_sizeof(cgen, tarray->etype) * tarray->asize;
 	}
 
 	assert(false);
@@ -2212,6 +2240,18 @@ static void cgen_warn_cmp_incom_ptr(cgen_t *cgen, ast_tok_t *atok,
 	++cgen->warnings;
 }
 
+/** Generate warning: truth value used as an integer.
+ *
+ * @param cgen Code generator
+ * @param ctok Operator token
+ */
+static void cgen_warn_truth_as_int(cgen_t *cgen, comp_tok_t *ctok)
+{
+	lexer_dprint_tok(&ctok->tok, stderr);
+	fprintf(stderr, ": Warning: Truth value used as an integer.\n");
+	++cgen->warnings;
+}
+
 /** Generate code for record definition.
  *
  * @param cgen Code generator
@@ -3642,9 +3682,6 @@ static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
 	cgtype_t *btype_copy = NULL;
 	int rc;
 
-	(void)cgen;
-	(void)dptr;
-
 	rc = cgtype_clone(btype, &btype_copy);
 	if (rc != EOK)
 		goto error;
@@ -3661,6 +3698,75 @@ static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
 	cgtype_destroy(&ptrtype->cgtype);
 	return EOK;
 error:
+	cgtype_destroy(btype_copy);
+	return rc;
+}
+
+/** Generate code for array declarator.
+ *
+ * Base type (@a stype) determined by the declaration specifiers is
+ * further modified by the declarator and returned as @a *rdtype.
+ *
+ * @param cgen Code generator
+ * @param btype Type derived from declaration specifiers
+ * @param darray Array declarator
+ * @param aslist Attribute specifier list
+ * @param rdtype Place to store pointer to the declared type
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
+    ast_aslist_t *aslist, cgtype_t **rdtype)
+{
+	cgtype_array_t *arrtype;
+	cgtype_t *btype_copy = NULL;
+	ast_tok_t *tok;
+	comp_tok_t *ctok;
+	cgen_eres_t szres;
+	bool have_size;
+	uint64_t asize;
+	int rc;
+
+	cgen_eres_init(&szres);
+
+	if (darray->asize != NULL) {
+		/* Array has a size specification */
+		rc = cgen_intexpr_val(cgen, darray->asize, &szres);
+		if (rc != EOK)
+			goto error;
+
+		/* Truth value should not be used */
+		if (cgen_type_is_logic(cgen, szres.cgtype)) {
+			tok = ast_tree_first_tok(darray->asize);
+			ctok = (comp_tok_t *)tok->data;
+			cgen_warn_truth_as_int(cgen, ctok);
+		}
+
+		have_size = true;
+		asize = szres.cvint;
+	} else {
+		/* Array size not specified */
+		have_size = false;
+		asize = 0;
+	}
+
+	rc = cgtype_clone(btype, &btype_copy);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_array_create(btype_copy, have_size, asize, &arrtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_decl(cgen, &arrtype->cgtype, darray->bdecl, aslist,
+	    rdtype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(&arrtype->cgtype);
+	cgen_eres_fini(&szres);
+	return EOK;
+error:
+	cgen_eres_fini(&szres);
 	cgtype_destroy(btype_copy);
 	return rc;
 }
@@ -3695,6 +3801,10 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 		break;
 	case ant_dptr:
 		rc = cgen_decl_ptr(cgen, stype, (ast_dptr_t *) decl->ext,
+		    aslist, &dtype);
+		break;
+	case ant_darray:
+		rc = cgen_decl_array(cgen, stype, (ast_darray_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	default:
@@ -12244,9 +12354,7 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (ares->cgtype->ntype == cgn_basic &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype == cgelm_logic &&
 	    expl != cgen_explicit) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Truth value used as an integer.\n");
-		++cgexpr->cgen->warnings;
+		cgen_warn_truth_as_int(cgexpr->cgen, ctok);
 	}
 
 	/* Converting between two integer types */
@@ -12383,6 +12491,7 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	case cgn_pointer:
 		break;
 	case cgn_record:
+	case cgn_array:
 		cgen_error_need_scalar(cgexpr->cgen, atok);
 		return EINVAL;
 	}
@@ -14625,6 +14734,8 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 {
 	cgtype_basic_t *tbasic;
 	cgtype_record_t *trecord;
+	cgtype_array_t *tarray;
+	ir_texpr_t *iretexpr = NULL;
 	unsigned bits;
 	int rc;
 
@@ -14668,6 +14779,20 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 		rc = ir_texpr_int_create(cgen_enum_bits, rirtexpr);
 		if (rc != EOK)
 			goto error;
+	} else if (cgtype->ntype == cgn_array) {
+		/* Array */
+		tarray = (cgtype_array_t *)cgtype->ext;
+		rc = cgen_cgtype(cgen, tarray->etype, &iretexpr);
+		if (rc != EOK)
+			goto error;
+
+		assert(tarray->have_size);
+
+		rc = ir_texpr_array_create(tarray->asize, iretexpr, rirtexpr);
+		if (rc != EOK)
+			goto error;
+
+		iretexpr = NULL;
 	} else {
 		fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
 		cgen->error = true; // TODO
@@ -14677,6 +14802,8 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 
 	return EOK;
 error:
+	if (iretexpr != NULL)
+		ir_texpr_destroy(iretexpr);
 	return rc;
 }
 
@@ -15287,7 +15414,9 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock
 	ir_texpr_t *vtype = NULL;
 	cgtype_record_t *cgrec;
 	cgen_rec_elem_t *elem;
+	cgtype_array_t *cgarr;
 	unsigned bits;
+	unsigned i;
 	int rc;
 
 	if (stype->ntype == cgn_basic) {
@@ -15340,6 +15469,15 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock
 			goto error;
 
 		dentry = NULL;
+	} else if (stype->ntype == cgn_array) {
+		cgarr = (cgtype_array_t *)stype->ext;
+		assert(cgarr->have_size);
+
+		for (i = 0; i < cgarr->asize; i++) {
+			rc = cgen_init_dentries(cgen, cgarr->etype, dblock);
+			if (rc != EOK)
+				goto error;
+		}
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgen->error = true; // TODO
@@ -15559,6 +15697,11 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 
 			dentry = NULL;
 
+		} else if (stype->ntype == cgn_record ||
+		    stype->ntype == cgn_array) {
+			rc = cgen_init_dentries(cgen, stype, var->dblock);
+			if (rc != EOK)
+				goto error;
 		} else if (stype->ntype == cgn_record) {
 			rc = cgen_init_dentries(cgen, stype, var->dblock);
 			if (rc != EOK)
@@ -15866,8 +16009,8 @@ static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
 
 		dentry = NULL;
 
-	} else if (cgtype->ntype == cgn_record ||
-	    cgtype->ntype == cgn_enum) {
+	} else if (cgtype->ntype == cgn_record || cgtype->ntype == cgn_enum ||
+	    cgtype->ntype == cgn_array) {
 		rc = cgen_init_dentries(cgen, cgtype, var->dblock);
 		if (rc != EOK)
 			goto error;

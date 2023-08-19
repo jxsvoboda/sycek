@@ -2314,6 +2314,77 @@ static void ir_texpr_ptr_destroy(ir_texpr_t *texpr)
 	free(texpr);
 }
 
+/** Create IR array type expression.
+ *
+ * @param asize Array size (number of elements)
+ * @param etexpr Element type expression (ownership transferred)
+ * @param rtexpr Place to store pointer to new type expression
+ * @return EOK on success or an error code
+ */
+int ir_texpr_array_create(uint64_t asize, ir_texpr_t *etexpr,
+    ir_texpr_t **rtexpr)
+{
+	ir_texpr_t *texpr;
+
+	texpr = calloc(1, sizeof(ir_texpr_t));
+	if (texpr == NULL)
+		return ENOMEM;
+
+	texpr->tetype = irt_array;
+	texpr->t.tarray.asize = asize;
+	texpr->t.tarray.etexpr = etexpr;
+	*rtexpr = texpr;
+	return EOK;
+}
+
+/** Print IR array type expression.
+ *
+ * @param texpr IR array type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_array_print(ir_texpr_t *texpr, FILE *f)
+{
+	int rv;
+	int rc;
+
+	assert(texpr->tetype == irt_array);
+
+	rv = fprintf(f, "[%" PRIu64 "] ", texpr->t.tarray.asize);
+	if (rv < 0)
+		return EIO;
+
+	rc = ir_texpr_print(texpr->t.tarray.etexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Clone IR array type expression.
+ *
+ * @param texpr IR pointer type expression
+ * @param rcopy Place to store pointer to the copy
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_array_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
+{
+	assert(texpr->tetype == irt_array);
+	return ir_texpr_array_create(texpr->t.tarray.asize,
+	    texpr->t.tarray.etexpr, rcopy);
+}
+
+/** Destroy array type expression.
+ *
+ * @param texpr Array type expression
+ */
+static void ir_texpr_array_destroy(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_array);
+	ir_texpr_destroy(texpr->t.tarray.etexpr);
+	free(texpr);
+}
+
 /** Create IR identifer type expression.
  *
  * @param ident Identifier
@@ -2397,6 +2468,8 @@ int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
 		return ir_texpr_int_print(texpr, f);
 	case irt_ptr:
 		return ir_texpr_ptr_print(texpr, f);
+	case irt_array:
+		return ir_texpr_array_print(texpr, f);
 	case irt_ident:
 		return ir_texpr_ident_print(texpr, f);
 	}
@@ -2418,6 +2491,8 @@ int ir_texpr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 		return ir_texpr_int_clone(texpr, rcopy);
 	case irt_ptr:
 		return ir_texpr_ptr_clone(texpr, rcopy);
+	case irt_array:
+		return ir_texpr_array_clone(texpr, rcopy);
 	case irt_ident:
 		return ir_texpr_ident_clone(texpr, rcopy);
 	}
@@ -2441,6 +2516,9 @@ void ir_texpr_destroy(ir_texpr_t *texpr)
 		break;
 	case irt_ptr:
 		ir_texpr_ptr_destroy(texpr);
+		break;
+	case irt_array:
+		ir_texpr_array_destroy(texpr);
 		break;
 	case irt_ident:
 		ir_texpr_ident_destroy(texpr);

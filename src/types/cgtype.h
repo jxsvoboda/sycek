@@ -28,6 +28,7 @@
 #define TYPES_CGTYPE_H
 
 #include <adt/list.h>
+#include <stdint.h>
 
 /** Code generator type node type */
 typedef enum {
@@ -40,7 +41,9 @@ typedef enum {
 	/** Record type */
 	cgn_record,
 	/** Enum type */
-	cgn_enum
+	cgn_enum,
+	/** Array type */
+	cgn_array
 } cgtype_ntype_t;
 
 /** Elementary types */
@@ -149,5 +152,17 @@ typedef struct {
 	/** Code generator enum definition */
 	struct cgen_enum *cgenum;
 } cgtype_enum_t;
+
+/** Array type */
+typedef struct {
+	/** Base type object */
+	cgtype_t cgtype;
+	/** Array element type */
+	cgtype_t *etype;
+	/** @c true iff array has a specified size */
+	bool have_size;
+	/** Array size (only valid if @c have_size is @c true) */
+	uint64_t asize;
+} cgtype_array_t;
 
 #endif

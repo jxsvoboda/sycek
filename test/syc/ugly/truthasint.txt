@@ -6,3 +6,4 @@
 <test/syc/ugly/truthasint.c:16:11:'='>: Warning: Truth value used as an integer.
 <test/syc/ugly/truthasint.c:17:11:'='>: Warning: Truth value used as an integer.
 <test/syc/ugly/truthasint.c:18:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthasint.c:24:7:num:1>: Warning: Truth value used as an integer.

@@ -3991,7 +3991,7 @@ int ast_darray_create(ast_darray_t **rdarray)
 
 /** Print AST array declarator.
  *
- * @param block Block
+ * @param darray Array declarator
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
@@ -4006,6 +4006,15 @@ static int ast_darray_print(ast_darray_t *darray, FILE *f)
 	rc = ast_tree_print(darray->bdecl, f);
 	if (rc != EOK)
 		return rc;
+
+	if (darray->asize != NULL) {
+		if (fprintf(f, ",") < 0)
+			return EIO;
+
+		rc = ast_tree_print(darray->asize, f);
+		if (rc != EOK)
+			return rc;
+	}
 
 	if (fprintf(f, ")") < 0)
 		return EIO;

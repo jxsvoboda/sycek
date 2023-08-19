@@ -28,6 +28,7 @@
 #define CGTYPE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <types/cgenum.h>
 #include <types/cgrec.h>
@@ -43,6 +44,7 @@ extern cgtype_func_arg_t *cgtype_func_prev(cgtype_func_arg_t *);
 extern int cgtype_pointer_create(cgtype_t *, cgtype_pointer_t **);
 extern int cgtype_record_create(cgen_record_t *, cgtype_record_t **);
 extern int cgtype_enum_create(cgen_enum_t *, cgtype_enum_t **);
+extern int cgtype_array_create(cgtype_t *, bool, uint64_t, cgtype_array_t **);
 extern int cgtype_clone(cgtype_t *, cgtype_t **);
 extern int cgtype_compose(cgtype_t *, cgtype_t *, cgtype_t **);
 extern void cgtype_destroy(cgtype_t *);

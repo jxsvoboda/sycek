@@ -19,3 +19,6 @@ int foo(void)
 
 	return 0;
 }
+
+/* Declare array whose dimension is a truth value */
+int d[1 < 0];

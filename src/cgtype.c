@@ -31,6 +31,7 @@
 #include <cgrec.h>
 #include <cgtype.h>
 #include <charcls.h>
+#include <inttypes.h>
 #include <merrno.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -793,6 +794,137 @@ static void cgtype_enum_destroy(cgtype_enum_t *tenum)
 	free(tenum);
 }
 
+/** Create array type.
+ *
+ * @param etype Array element type (ownership transferred)
+ * @param have_size @c true iff array has a specified size
+ * @param asize Array size
+ * @param rarray Place to store pointer to new array type
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int cgtype_array_create(cgtype_t *etype, bool have_size, uint64_t asize,
+    cgtype_array_t **rarray)
+{
+	cgtype_array_t *array;
+
+	array = calloc(1, sizeof(cgtype_array_t));
+	if (array == NULL)
+		return ENOMEM;
+
+	array->cgtype.ntype = cgn_array;
+	array->cgtype.ext = array;
+	array->etype = etype;
+	array->have_size = have_size;
+	array->asize = asize;
+	*rarray = array;
+	return EOK;
+}
+
+/** Print array type.
+ *
+ * @param array Array type
+ * @param f Output stream
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int cgtype_array_print(cgtype_array_t *array, FILE *f)
+{
+	int rv;
+
+	if (array->have_size) {
+		rv = fputs("[]", f);
+		if (rv < 0)
+			return EIO;
+	} else {
+		rv = fprintf(f, "[%" PRIu64 "]", array->asize);
+		if (rv < 0)
+			return EIO;
+	}
+
+	return cgtype_print(array->etype, f);
+}
+
+/** Clone array type.
+ *
+ * @param orig Original array type
+ * @param rcopy Place to store pointer to copy
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int cgtype_array_clone(cgtype_array_t *orig, cgtype_t **rcopy)
+{
+	cgtype_array_t *copy = NULL;
+	cgtype_t *ecopy = NULL;
+	int rc;
+
+	rc = cgtype_clone(orig->etype, &ecopy);
+	if (rc != EOK)
+		return rc;
+
+	rc = cgtype_array_create(ecopy, orig->have_size, orig->asize, &copy);
+	if (rc != EOK) {
+		cgtype_destroy(ecopy);
+		return rc;
+	}
+
+	*rcopy = &copy->cgtype;
+	return EOK;
+}
+
+/** Compose array types.
+ *
+ * @param a First array type
+ * @param b Second array type
+ * @param rcomp Place to store pointer to composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+static int cgtype_array_compose(cgtype_array_t *a, cgtype_array_t *b,
+    cgtype_t **rcomp)
+{
+	cgtype_array_t *comp = NULL;
+	cgtype_t *ecomp = NULL;
+	bool have_size;
+	uint64_t asize;
+	int rc;
+
+	rc = cgtype_compose(a->etype, b->etype, &ecomp);
+	if (rc != EOK)
+		return rc;
+
+	have_size = false;
+	asize = 0;
+
+	if (a->have_size) {
+		have_size = true;
+		asize = a->asize;
+	}
+
+	if (b->have_size) {
+		have_size = true;
+		asize = b->asize;
+	}
+
+	rc = cgtype_array_create(ecomp, have_size, asize, &comp);
+	if (rc != EOK) {
+		cgtype_destroy(ecomp);
+		return rc;
+	}
+
+	*rcomp = &comp->cgtype;
+	return EOK;
+}
+
+/** Destroy array type.
+ *
+ * @param array Array type
+ */
+static void cgtype_array_destroy(cgtype_array_t *array)
+{
+	cgtype_destroy(array->etype);
+	free(array);
+}
+
 /** Deep clone of code generator type.
  *
  * It's easier to deep clone types than to manage sharing nodes. Let's
@@ -822,6 +954,9 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 		    rcopy);
 	case cgn_enum:
 		return cgtype_enum_clone((cgtype_enum_t *) orig->ext,
+		    rcopy);
+	case cgn_array:
+		return cgtype_array_clone((cgtype_array_t *) orig->ext,
 		    rcopy);
 	}
 
@@ -861,6 +996,9 @@ int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 	case cgn_enum:
 		return cgtype_enum_compose((cgtype_enum_t *) a->ext,
 		    (cgtype_enum_t *) b->ext, rcomp);
+	case cgn_array:
+		return cgtype_array_compose((cgtype_array_t *) a->ext,
+		    (cgtype_array_t *) b->ext, rcomp);
 	}
 
 	assert(false);
@@ -892,6 +1030,9 @@ void cgtype_destroy(cgtype_t *cgtype)
 	case cgn_enum:
 		cgtype_enum_destroy((cgtype_enum_t *) cgtype->ext);
 		break;
+	case cgn_array:
+		cgtype_array_destroy((cgtype_array_t *) cgtype->ext);
+		break;
 	}
 }
 
@@ -916,6 +1057,8 @@ int cgtype_print(cgtype_t *cgtype, FILE *f)
 		return cgtype_record_print((cgtype_record_t *) cgtype->ext, f);
 	case cgn_enum:
 		return cgtype_enum_print((cgtype_enum_t *) cgtype->ext, f);
+	case cgn_array:
+		return cgtype_array_print((cgtype_array_t *) cgtype->ext, f);
 	}
 
 	assert(false);
@@ -1036,27 +1179,14 @@ int cgtype_int_construct(bool sign, cgtype_int_rank_t rank, cgtype_t **rtype)
  */
 bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 {
-	if (sptr->tgtype->ntype != dptr->tgtype->ntype)
+	cgtype_t *ctgtype;
+	int rc;
+
+	rc = cgtype_compose(sptr->tgtype, dptr->tgtype, &ctgtype);
+	if (rc != EOK)
 		return false;
 
-	switch (sptr->tgtype->ntype) {
-	case cgn_basic:
-		return ((cgtype_basic_t *)sptr->tgtype->ext)->elmtype ==
-		    ((cgtype_basic_t *)dptr->tgtype->ext)->elmtype;
-	case cgn_pointer:
-		return cgtype_ptr_compatible(
-		    (cgtype_pointer_t *)sptr->tgtype->ext,
-		    (cgtype_pointer_t *)dptr->tgtype->ext);
-	case cgn_func:
-		assert(false);
-		return false;
-	case cgn_record:
-		return ((cgtype_record_t *)sptr->tgtype->ext)->record ==
-		    ((cgtype_record_t *)dptr->tgtype->ext)->record;
-	case cgn_enum:
-		return ((cgtype_enum_t *)sptr->tgtype->ext)->cgenum ==
-		    ((cgtype_enum_t *)dptr->tgtype->ext)->cgenum;
-	}
+	cgtype_destroy(ctgtype);
 	return true;
 }
 

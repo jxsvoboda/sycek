@@ -224,6 +224,26 @@ static void z80_isel_texpr_ptr_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 	*rsize = (texpr->t.tptr.width + 7) / 8;
 }
 
+/** Get size of type described by IR array type expression in bytes.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR array type expression
+ * @param rsize Place to store size in bytes
+ */
+static void z80_isel_texpr_array_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
+    size_t *rsize)
+{
+	size_t esize;
+
+	assert(texpr->tetype == irt_array);
+
+	/* Element size */
+	z80_isel_texpr_sizeof(isel, texpr->t.tarray.etexpr, &esize);
+
+	/* Array size */
+	*rsize = texpr->t.tarray.asize * esize;
+}
+
 /** Get size of type described by IR identifier type expression in bytes.
  *
  * @param isel Instruction selector
@@ -282,6 +302,9 @@ static int z80_isel_texpr_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 		return EOK;
 	case irt_ptr:
 		z80_isel_texpr_ptr_sizeof(isel, texpr, rsize);
+		return EOK;
+	case irt_array:
+		z80_isel_texpr_array_sizeof(isel, texpr, rsize);
 		return EOK;
 	case irt_ident:
 		return z80_isel_texpr_ident_sizeof(isel, texpr, rsize);
