@@ -4473,7 +4473,16 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 static int cgen_eparen(cgen_expr_t *cgexpr, ast_eparen_t *eparen,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	return cgen_expr(cgexpr, eparen->bexpr, lblock, eres);
+	int rc;
+
+	rc = cgen_expr(cgexpr, eparen->bexpr, lblock, eres);
+	if (rc != EOK)
+		return rc;
+
+	eres->tfirst = &eparen->tlparen;
+	eres->tlast = &eparen->trparen;
+
+	return EOK;
 }
 
 /** Generate code to return integer constant.
