@@ -1,0 +1,13 @@
+<test/syc/ugly/truthmixcmp.c:10:27:'<'>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:11:21:'<'>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:16:27-28:'<='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:17:21-22:'<='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:22:27:'>'>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:23:21:'>'>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:28:27-28:'>='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:29:21-22:'>='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:34:27-28:'=='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:35:21-22:'=='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:40:27-28:'!='>: Warning: Comparison of truth value and non-truth type.
+'<test/syc/ugly/truthmixcmp.c:41:21-22:'!='>: Warning: Comparison of truth value and non-truth type.
+'

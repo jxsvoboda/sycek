@@ -1,9 +1,9 @@
-<test/syc/ugly/truthasint.c:11:11:'='>: Warning: Truth value used as an integer.
-<test/syc/ugly/truthasint.c:12:11:'='>: Warning: Truth value used as an integer.
-<test/syc/ugly/truthasint.c:13:11:'='>: Warning: Truth value used as an integer.
-<test/syc/ugly/truthasint.c:14:11:'='>: Warning: Truth value used as an integer.
 <test/syc/ugly/truthasint.c:15:11:'='>: Warning: Truth value used as an integer.
 <test/syc/ugly/truthasint.c:16:11:'='>: Warning: Truth value used as an integer.
 <test/syc/ugly/truthasint.c:17:11:'='>: Warning: Truth value used as an integer.
 <test/syc/ugly/truthasint.c:18:11:'='>: Warning: Truth value used as an integer.
-<test/syc/ugly/truthasint.c:24:7:num:1>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthasint.c:19:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthasint.c:20:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthasint.c:21:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthasint.c:22:11:'='>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthasint.c:26:7:num:1>: Warning: Truth value used as an integer.

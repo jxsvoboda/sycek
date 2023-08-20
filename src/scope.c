@@ -450,7 +450,7 @@ scope_member_t *scope_lookup_local(scope_t *scope, const char *ident)
 	member = scope_first(scope);
 	while (member != NULL) {
 		if (strcmp(member->tident->text, ident) == 0 &&
-		    member->mtype != sm_record)
+		    member->mtype != sm_record && member->mtype != sm_enum)
 			return member;
 
 		member = scope_next(member);

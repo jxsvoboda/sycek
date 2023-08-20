@@ -2016,6 +2016,38 @@ static void cgen_warn_bitop_enum_mix(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: suspicious arithmetic operation involving truth values.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_arith_truth(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Suspicious arithmetic operation "
+	    "involving truth values.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: comparison of truth value and non-truth type.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_cmp_truth_mix(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Comparison of truth value and "
+	    "non-truth type.\n'");
+	++cgen->warnings;
+}
+
 /** Generate warning: bitwise operation on signed integers.
  *
  * @param cgen Code generator
@@ -4583,6 +4615,10 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	/* Unsigned addition of mixed-signed numbers is OK */
 	(void)flags;
 
+	/* Warn if truth value involved in addition */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, optok);
+
 	/* Check the type */
 	if (res1.cgtype->ntype != cgn_basic) {
 		fprintf(stderr, "Unimplemented variable type.\n");
@@ -4957,6 +4993,10 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 
 	/* Unsigned subtraction of mixed-signed numbers is OK */
 	(void)flags;
+
+	/* Warn if truth value involved in subtraction */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, optok);
 
 	/* Check the type */
 	if (res1.cgtype->ntype != cgn_basic) {
@@ -6044,6 +6084,10 @@ static int cgen_bo_times(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
 	/* Multiply the two operands */
 	rc = cgen_mul(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
@@ -6105,6 +6149,11 @@ static int cgen_bo_shl(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if (conv1 || conv2)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in left shift */
+	if (cgen_type_is_logic(cgexpr->cgen, lires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, rires.cgtype))
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
 	rc = cgen_shl(cgexpr, &ebinop->top, &lires, &rires, lblock, eres);
@@ -6171,6 +6220,11 @@ static int cgen_bo_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if (conv1 || conv2)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in right shift */
+	if (cgen_type_is_logic(cgexpr->cgen, lires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, rires.cgtype))
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift right */
 	rc = cgen_shr(cgexpr, ebinop, &lires, &rires, lblock, eres);
@@ -6245,6 +6299,8 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
+	if ((flags & cguac_truthmix) != 0)
+		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6512,6 +6568,8 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
+	if ((flags & cguac_truthmix) != 0)
+		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -6779,6 +6837,8 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
+	if ((flags & cguac_truthmix) != 0)
+		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -7046,6 +7106,8 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
+	if ((flags & cguac_truthmix) != 0)
+		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -7309,6 +7371,8 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
+	if ((flags & cguac_truthmix) != 0)
+		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -7567,6 +7631,8 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
+	if ((flags & cguac_truthmix) != 0)
+		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
 	if (rc != EOK)
@@ -7826,6 +7892,9 @@ static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise AND */
 	rc = cgen_band(cgexpr, &lres, &rres, lblock, &bres);
@@ -7913,6 +7982,9 @@ static int cgen_bo_bxor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise XOR */
 	rc = cgen_bxor(cgexpr, &lres, &rres, lblock, &bres);
@@ -8000,6 +8072,9 @@ static int cgen_bo_bor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise OR */
 	rc = cgen_bor(cgexpr, &lres, &rres, lblock, &bres);
@@ -8864,6 +8939,10 @@ static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if ((flags & cguac_enum) != 0)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
 	/* Multiply the two operands */
 	rc = cgen_mul(cgexpr, &ebinop->top, &ares, &bres, lblock, &ores);
 	if (rc != EOK)
@@ -8955,6 +9034,11 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if (conv1 || conv2)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in left shift */
+	if (cgen_type_is_logic(cgexpr->cgen, aires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
 	rc = cgen_shl(cgexpr, &ebinop->top, &aires, &bires, lblock, &ores);
@@ -9051,6 +9135,11 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (conv1 || conv2)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
+	/* Warn if truth value involved in right shift */
+	if (cgen_type_is_logic(cgexpr->cgen, aires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
 	/* Shift right */
 	rc = cgen_shr(cgexpr, ebinop, &aires, &bires, lblock, &ores);
 	if (rc != EOK)
@@ -9144,6 +9233,9 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise AND the two operands */
 	rc = cgen_band(cgexpr, &ares, &bres, lblock, &ores);
@@ -9242,6 +9334,9 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise XOR the two operands */
 	rc = cgen_bxor(cgexpr, &ares, &bres, lblock, &ores);
@@ -9340,6 +9435,9 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	/* One enum, one not */
 	if ((flags & cguac_enummix) != 0)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise OR the two operands */
 	rc = cgen_bor(cgexpr, &ares, &bres, lblock, &ores);
@@ -10475,6 +10573,10 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		if (conv)
 			cgen_warn_arith_enum(cgexpr->cgen, &eusign->tsign);
 
+		/* Warn if truth value involved in unary minus */
+		if (cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+			cgen_warn_arith_truth(cgexpr->cgen, &eusign->tsign);
+
 		/* neg %<dest>, %<bires> */
 
 		rc = ir_instr_create(&instr);
@@ -10777,6 +10879,9 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	/* Signed integer (not enum) operand */
 	if (is_signed && !conv && !bires.cvknown)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebnot->tbnot);
+	/* Warn if truth value involved in bitwise negation */
+	if (cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+		cgen_warn_arith_truth(cgexpr->cgen, &ebnot->tbnot);
 	/* Negative constant operand */
 	if (bires.cvknown && cgen_cvint_is_negative(cgexpr->cgen, is_signed,
 	    bires.cvint)) {
@@ -11509,6 +11614,8 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	bool neg2;
 	int rc;
 
+	*flags = cguac_none;
+
 	cgen_eres_init(&ir1);
 	cgen_eres_init(&ir2);
 	cgen_eres_init(&pr1);
@@ -11537,6 +11644,15 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	bt1 = (cgtype_basic_t *)ir1.cgtype->ext;
 	bt2 = (cgtype_basic_t *)ir2.cgtype->ext;
 
+	/* Always warn for logic type in UAC */
+
+	if (bt1->elmtype == cgelm_logic || bt2->elmtype == cgelm_logic)
+		*flags |= cguac_truth;
+	if (bt1->elmtype == cgelm_logic && bt2->elmtype != cgelm_logic)
+		*flags |= cguac_truthmix;
+	if (bt1->elmtype != cgelm_logic && bt2->elmtype == cgelm_logic)
+		*flags |= cguac_truthmix;
+
 	/* Get rank, bits and signedness of both operands */
 
 	rank1 = cgtype_int_rank(ir1.cgtype);
@@ -11556,8 +11672,6 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	rrank = rank1 > rank2 ? rank1 : rank2;
 
 	/* Determine resulting signedness */
-
-	*flags = cguac_none;
 
 	if (sign1 == sign2) {
 		rsign = sign1;

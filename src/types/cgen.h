@@ -244,10 +244,14 @@ typedef enum {
 	cguac_enuminc = 0x8,
 	/** Enum type and non-enum type */
 	cguac_enummix = 0x10,
+	/** One of the operands was a truth value */
+	cguac_truth = 0x20,
+	/** One of the operands was a truth value, the other was not */
+	cguac_truthmix = 0x40,
 	/** Any of the operands was signed integer (not constant) */
-	cguac_signed = 0x20,
+	cguac_signed = 0x80,
 	/** Any of the operands was a negative constant */
-	cguac_negative = 0x40
+	cguac_negative = 0x100
 } cgen_uac_flags_t;
 
 /** Record declaration flags */

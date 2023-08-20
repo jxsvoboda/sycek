@@ -345,6 +345,8 @@ It can detect the following types of problems and style issues:
  * out of order declaration specifiers (such as `int long unsigned`,
    `int typedef`, `volatile restrict const`).
  * truth value used as an integer
+ * suspicious arithmetic operation involving truth values
+ * comparison of truth value and non-truth type
  * using anything but `_Bool` or a thruth value where a truth value is
    expected
  * computed expression value is not used
@@ -408,7 +410,7 @@ to compile (by ignoring warnings).
 
 For example:
 
-    int i = 1 < 0;
+    int i = 1 < 0;	// Truth value used as an integer
 
 will produce a warning, because we are converting a truth value (produced
 by the comparison operator,) and implicitly converting it to an int.
@@ -416,13 +418,33 @@ by the comparison operator,) and implicitly converting it to an int.
 Conversely:
 
     int i;
-    if (i) {
+    if (i) {	// Integer used as a truth value
 	    return;
     }
 
 will produce a warning, because we use int in a place where a truth value
 is expected. (Should be changed to e.g. `if (i != 0)` or, if i is supposed
 to be a boolean variable, its type needs to be changed to `bool`.
+
+Attempting to use a truth value in an arithmetic or bitwise operation
+will also produce warning, e.g.
+
+    if ((0 < 1) + (0 < 1))	// Suspicious arithmetic operation...
+	    break;
+    if (~(0 < 1))	// Suspicious arithmetic operation...
+	    break;
+
+It is allowed to use equality and comparison operators on truth values
+
+    if ((0 < 1) == (0 < 1))	// OK
+	    break;
+    if ((0 < 1) < (0 < 1))	// OK
+	    break;
+
+Comparing a truth value with a different type will produce a warning
+
+    if ((0 < 1) == 1)	// Comparison of truth value and non-truth type
+	    break;
 
 ### Strict enum types
 

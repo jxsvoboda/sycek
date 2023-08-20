@@ -6,7 +6,11 @@ int a;
 int b;
 int c;
 
-int foo(void)
+/*
+ * Truth value assigned to integer variable.
+ * Check that all relevant operators produce a truth value.
+ */
+void convint(void)
 {
 	c = !(a < b);
 	c = a < b;
@@ -16,8 +20,6 @@ int foo(void)
 	c = a >= b;
 	c = (a < b) || (a > b);
 	c = (a < b) && (a > b);
-
-	return 0;
 }
 
 /* Declare array whose dimension is a truth value */
