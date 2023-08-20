@@ -277,11 +277,14 @@ static void ir_lexer_get_pos(ir_lexer_t *lexer, src_pos_t *pos)
 static int ir_lexer_advance(ir_lexer_t *lexer, size_t nchars, ir_lexer_tok_t *tok)
 {
 	char *p;
+	char *ntext;
 
 	while (nchars > 0) {
-		tok->text = realloc(tok->text, tok->text_size + 2);
-		if (tok->text == NULL)
+		ntext = realloc(tok->text, tok->text_size + 2);
+		if (ntext == NULL)
 			return ENOMEM;
+
+		tok->text = ntext;
 
 		p = ir_lexer_chars(lexer);
 		tok->text[tok->text_size] = p[0];

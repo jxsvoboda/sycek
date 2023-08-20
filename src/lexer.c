@@ -154,11 +154,14 @@ static void lexer_get_pos(lexer_t *lexer, src_pos_t *pos)
 static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 {
 	char *p;
+	char *ntext;
 
 	while (nchars > 0) {
-		tok->text = realloc(tok->text, tok->text_size + 2);
-		if (tok->text == NULL)
+		ntext = realloc(tok->text, tok->text_size + 2);
+		if (ntext == NULL)
 			return ENOMEM;
+
+		tok->text = ntext;
 
 		p = lexer_chars(lexer);
 		tok->text[tok->text_size] = p[0];
