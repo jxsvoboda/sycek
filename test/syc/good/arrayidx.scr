@@ -1,0 +1,32 @@
+mapfile "arrayidx.map";
+ldbin "arrayidx.bin", 0x8000;
+
+ld word ptr (@_a), 0x1;
+ld word ptr (@_idx), 0;
+call @_arrayread;
+verify word ptr (@_r), 0x1;
+
+ld word ptr (@_a + 2), 0x2;
+ld word ptr (@_idx), 1;
+call @_arrayread;
+verify word ptr (@_r), 0x2;
+
+ld word ptr (@_a + 18), 0x3;
+ld word ptr (@_idx), 9;
+call @_arrayread;
+verify word ptr (@_r), 0x3;
+
+ld word ptr (@_r), 0x4;
+ld word ptr (@_idx), 0;
+call @_arraywrite;
+verify word ptr (@_a), 0x4;
+
+ld word ptr (@_r), 0x5;
+ld word ptr (@_idx), 1;
+call @_arraywrite;
+verify word ptr (@_a + 2), 0x5;
+
+ld word ptr (@_r), 0x6;
+ld word ptr (@_idx), 9;
+call @_arraywrite;
+verify word ptr (@_a + 18), 0x6;

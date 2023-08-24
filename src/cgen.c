@@ -4731,7 +4731,7 @@ error:
 	return rc;
 }
 
-/** Generate code for addition of pointer and integer.
+/** Generate code for addition of pointer/array and integer.
  *
  * @param cgexpr Code generator for expression
  * @param optok Operand token (for printing diagnostics)
@@ -4741,7 +4741,7 @@ error:
  * @param eres Place to store result of addition
  * @return EOK on success or an error code
  */
-static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
+static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
     cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
     cgen_eres_t *eres)
 {
@@ -4749,14 +4749,18 @@ static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t lval;
 	cgen_eres_t cres;
 	cgtype_t *idxtype = NULL;
 	cgtype_t *cgtype = NULL;
 	ir_texpr_t *elemte = NULL;
 	cgtype_pointer_t *ptrt;
+	cgtype_array_t *arrt;
+	cgtype_t *etype;
 	bool idx_signed;
 	int rc;
 
+	cgen_eres_init(&lval);
 	cgen_eres_init(&cres);
 
 	idx_signed = cgen_type_is_signed(cgexpr->cgen, rres->cgtype);
@@ -4774,27 +4778,69 @@ static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_destroy(idxtype);
 	idxtype = NULL;
 
-	/* Check the type */
-	assert(lres->cgtype->ntype == cgn_pointer);
-	ptrt = (cgtype_pointer_t *)lres->cgtype->ext;
+	/*
+	 * If the left operand is a pointer, we need to convert it
+	 * to rvalue. We leave an array as an lvalue. In either case
+	 * we end up with the base address stored in the result variable.
+	 */
+	if (lres->cgtype->ntype == cgn_pointer) {
+		/* Value of left hand expression */
+		rc = cgen_eres_rvalue(cgexpr, lres, lblock, &lval);
+		if (rc != EOK)
+			goto error;
 
-	rc = cgtype_clone(lres->cgtype, &cgtype);
-	if (rc != EOK)
-		goto error;
+		ptrt = (cgtype_pointer_t *)lval.cgtype->ext;
 
-	/* Check type for completeness */
-	if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
-		lexer_dprint_tok(&optok->tok, stderr);
-		fprintf(stderr, " : Indexing pointer to incomplete type.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
+		/* Check type for completeness */
+		if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
+			lexer_dprint_tok(&optok->tok, stderr);
+			fprintf(stderr, " : Indexing pointer to incomplete type.\n");
+			cgexpr->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		/* Generate IR type expression for the element type */
+		rc = cgen_cgtype(cgexpr->cgen, ptrt->tgtype, &elemte);
+		if (rc != EOK)
+			goto error;
+
+		/* Result type is the same as the base pointer type */
+		rc = cgtype_clone(lval.cgtype, &cgtype);
+		if (rc != EOK)
+			goto error;
+
+	} else {
+		assert(lres->cgtype->ntype == cgn_array);
+
+		rc = cgen_eres_clone(lres, &lval);
+		if (rc != EOK)
+			goto error;
+
+		arrt = (cgtype_array_t *)lval.cgtype->ext;
+
+		/* Generate IR type expression for the element type */
+		rc = cgen_cgtype(cgexpr->cgen, arrt->etype, &elemte);
+		if (rc != EOK)
+			goto error;
+
+		/* Create a private copy of element type */
+		rc = cgtype_clone(arrt->etype, &etype);
+		if (rc != EOK)
+			goto error;
+
+		/*
+		 * Result type is a pointer to the array element type.
+		 * Note that ownership of etype is transferred to ptrt.
+		 */
+		rc = cgtype_pointer_create(etype, &ptrt);
+		if (rc != EOK) {
+			cgtype_destroy(etype);
+			goto error;
+		}
+
+		cgtype = &ptrt->cgtype;
 	}
-
-	/* Generate IR type expression for the element type */
-	rc = cgen_cgtype(cgexpr->cgen, ptrt->tgtype, &elemte);
-	if (rc != EOK)
-		goto error;
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -4804,7 +4850,7 @@ static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres->varname, &larg);
+	rc = ir_oper_var_create(lval.varname, &larg);
 	if (rc != EOK)
 		goto error;
 
@@ -4827,10 +4873,12 @@ static int cgen_add_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	cgen_eres_fini(&lval);
 	cgen_eres_fini(&cres);
 
 	return EOK;
 error:
+	cgen_eres_fini(&lval);
 	cgen_eres_fini(&cres);
 	ir_instr_destroy(instr);
 	if (dest != NULL)
@@ -4863,8 +4911,8 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool r_int;
 	bool l_enum;
 	bool r_enum;
-	bool l_ptr;
-	bool r_ptr;
+	bool l_ptra;
+	bool r_ptra;
 
 	ctok = (comp_tok_t *)optok->data;
 
@@ -4883,11 +4931,13 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		    eres);
 	}
 
-	l_ptr = lres->cgtype->ntype == cgn_pointer;
-	r_ptr = rres->cgtype->ntype == cgn_pointer;
+	l_ptra = lres->cgtype->ntype == cgn_pointer ||
+	    lres->cgtype->ntype == cgn_array;
+	r_ptra = rres->cgtype->ntype == cgn_pointer ||
+	    rres->cgtype->ntype == cgn_array;
 
-	/* Pointer + pointer */
-	if (l_ptr && r_ptr) {
+	/* Pointer/array + pointer/array */
+	if (l_ptra && r_ptra) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Cannot add ");
 		(void) cgtype_print(lres->cgtype, stderr);
@@ -4899,18 +4949,18 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		return EINVAL;
 	}
 
-	/* Pointer + integer */
-	if (l_ptr && r_int)
-		return cgen_add_ptr_int(cgexpr, ctok, lres, rres, lblock, eres);
+	/* Pointer/array + integer */
+	if (l_ptra && r_int)
+		return cgen_add_ptra_int(cgexpr, ctok, lres, rres, lblock, eres);
 
-	/* Integer + pointer */
-	if (l_int && r_ptr) {
+	/* Integer + pointer/array */
+	if (l_int && r_ptra) {
 		/* Produce a style warning and switch the operands */
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
 		++cgexpr->cgen->warnings;
-		return cgen_add_ptr_int(cgexpr, ctok, rres, lres, lblock, eres);
+		return cgen_add_ptra_int(cgexpr, ctok, rres, lres, lblock, eres);
 	}
 
 	/* Integer + enum */
@@ -4936,14 +4986,14 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		return cgen_add_int(cgexpr, optok, lres, rres, lblock, eres);
 	}
 
-	/* Integer + pointer */
-	if (l_int && r_ptr) {
+	/* Integer + pointer/array */
+	if (l_int && r_ptra) {
 		/* Produce a style warning and switch the operands */
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
 		++cgexpr->cgen->warnings;
-		return cgen_add_ptr_int(cgexpr, ctok, rres, lres, lblock, eres);
+		return cgen_add_ptra_int(cgexpr, ctok, rres, lres, lblock, eres);
 	}
 
 	fprintf(stderr, "Unimplemented addition of ");
@@ -5985,12 +6035,12 @@ static int cgen_bo_plus(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	rc = cgen_expr(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
@@ -9815,8 +9865,8 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 	comp_tok_t *ctok;
 	cgtype_pointer_t *ptrtype;
 	cgtype_t *cgtype;
-	bool b_ptr;
-	bool i_ptr;
+	bool b_ptra;
+	bool i_ptra;
 	bool b_int;
 	bool i_int;
 	int rc;
@@ -9825,25 +9875,32 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 	cgen_eres_init(&ires);
 	cgen_eres_init(&sres);
 
+	/*
+	 * In this case we must allow for the expression results
+	 * to be either lvalue (e.g. an array) or rvalue (e.g. array index).
+	 */
+
 	/* Evaluate base operand */
-	rc = cgen_expr_rvalue(cgexpr, eindex->bexpr, lblock, &bres);
+	rc = cgen_expr(cgexpr, eindex->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate index operand */
-	rc = cgen_expr_rvalue(cgexpr, eindex->iexpr, lblock, &ires);
+	rc = cgen_expr(cgexpr, eindex->iexpr, lblock, &ires);
 	if (rc != EOK)
 		goto error;
 
 	b_int = cgen_type_is_integer(cgexpr->cgen, bres.cgtype);
 	i_int = cgen_type_is_integer(cgexpr->cgen, ires.cgtype);
 
-	b_ptr = bres.cgtype->ntype == cgn_pointer;
-	i_ptr = ires.cgtype->ntype == cgn_pointer;
+	b_ptra = bres.cgtype->ntype == cgn_pointer ||
+	    bres.cgtype->ntype == cgn_array;
+	i_ptra = ires.cgtype->ntype == cgn_pointer ||
+	    ires.cgtype->ntype == cgn_array;
 
 	ctok = (comp_tok_t *) eindex->tlbracket.data;
 
-	if (!b_ptr && !i_ptr) {
+	if (!b_ptra && !i_ptra) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Subscripted object is neither pointer nor array.\n");
 		cgexpr->cgen->error = true; // TODO
@@ -9851,7 +9908,7 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 		goto error;
 	}
 
-	if ((b_ptr && !i_int) || (i_ptr && !b_int)) {
+	if ((b_ptra && !i_int) || (i_ptra && !b_int)) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Subscript index is not an integer.\n");
 		cgexpr->cgen->error = true; // TODO
