@@ -1,0 +1,1 @@
+<test/syc/bad/arrayfundef.c:8:8-10:id:foo>: Function returning an array.

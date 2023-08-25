@@ -1829,6 +1829,23 @@ static void cgen_error_cast_array(cgen_t *cgen, comp_tok_t *ctok)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: function returning an array.
+ *
+ * @param cgen Code generator
+ * @param atok Token
+ */
+static void cgen_error_fun_ret_array(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *)atok->data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Function returning an array.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate error: expression is not constant.
  *
  * @param cgen Code generator
@@ -15306,6 +15323,13 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	assert(ctype->ntype == cgn_func);
 	dtfunc = (cgtype_func_t *)ctype->ext;
 
+	if (dtfunc->rtype->ntype == cgn_array) {
+		/* Function returning array */
+		cgen_error_fun_ret_array(cgen, aident);
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Insert identifier into module scope */
 	rc = scope_insert_gsym(cgen->scope, &ident->tok, ctype, symbol);
 	if (rc == ENOMEM)
@@ -15630,10 +15654,20 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 	comp_tok_t *ident;
 	symbol_t *symbol;
 	cgtype_t *ctype = NULL;
+	cgtype_func_t *dtfunc;
 	int rc;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
+
+	assert(ftype->ntype == cgn_func);
+	dtfunc = (cgtype_func_t *)ftype->ext;
+
+	if (dtfunc->rtype->ntype == cgn_array) {
+		/* Function returning array */
+		cgen_error_fun_ret_array(cgen, aident);
+		return EINVAL;
+	}
 
 	/*
 	 * All we do here is create a symbol. At the end of processing the
