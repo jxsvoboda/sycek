@@ -8767,8 +8767,8 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	/* Value of right hand expression */
-	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	/* Evaluate right hand expression */
+	rc = cgen_expr(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 
@@ -12571,6 +12571,80 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	return cgen_eres_clone(ares, cres);
 }
 
+/** Convert array to the specified type.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_array(cgen_expr_t *cgexpr, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t pres;
+	cgtype_t *etype = NULL;
+	cgtype_pointer_t *ptrt = NULL;
+	cgtype_array_t *arrt;
+	int rc;
+
+	assert(ares->cgtype->ntype == cgn_array);
+	arrt = (cgtype_array_t *)ares->cgtype->ext;
+
+	cgen_eres_init(&pres);
+
+	rc = cgtype_clone(arrt->etype, &etype);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Create pointer type whose target is the array element type.
+	 * Note that ownership of etype is transferred to ptrt.
+	 */
+	rc = cgtype_pointer_create(etype, &ptrt);
+	if (rc != EOK)
+		goto error;
+
+	etype = NULL;
+
+	/* Clone the result except.. */
+	rc = cgen_eres_clone(ares, &pres);
+	if (rc != EOK)
+		goto error;
+
+	/* Replace the type with the pointer type */
+	cgtype_destroy(pres.cgtype);
+	pres.cgtype = &ptrt->cgtype;
+	ptrt = NULL;
+
+	/*
+	 * Make it an rvalue .. it's the value of the pointer, not the
+	 * address.
+	 */
+	pres.valtype = cgen_rvalue;
+
+	/* Continue conversion */
+	rc = cgen_type_convert(cgexpr, ctok, &pres, dtype, expl, lblock,
+	    cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&pres);
+error:
+	if (etype != NULL)
+		cgtype_destroy(etype);
+	if (ptrt != NULL)
+		cgtype_destroy(&ptrt->cgtype);
+	cgen_eres_fini(&pres);
+	return rc;
+}
+
 /** Convert expression result to the specified type.
  *
  * @param cgexpr Code generator for expression
@@ -12597,6 +12671,12 @@ static int cgen_type_convert(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (cgtype_is_void(dtype)) {
 		return cgen_type_convert_to_void(cgexpr, ctok, ares,
 		    dtype, cres);
+	}
+
+	/* Source type is an array */
+	if (ares->cgtype->ntype == cgn_array) {
+		return cgen_type_convert_array(cgexpr, ctok, ares, dtype, expl,
+		    lblock, cres);
 	}
 
 	rc = cgen_eres_rvalue(cgexpr, ares, lblock, &rres);

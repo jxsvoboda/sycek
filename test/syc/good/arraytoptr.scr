@@ -1,0 +1,10 @@
+mapfile "arraytoptr.map";
+ldbin "arraytoptr.bin", 0x8000;
+
+ld word ptr (@_p), 0;
+call @_cast_array_ptr;
+verify word ptr (@_p), @_a;
+
+ld word ptr (@_p), 0;
+call @_index_array_ptr;
+verify word ptr (@_p), @_a + 2;

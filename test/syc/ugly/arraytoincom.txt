@@ -1,0 +1,1 @@
+<test/syc/ugly/arraytoincom.c:11:11:'='>: Warning: Converting from ^int to incompatible pointer type ^long.
