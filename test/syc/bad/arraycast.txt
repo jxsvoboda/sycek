@@ -1,0 +1,1 @@
+<test/syc/bad/arraycast.c:10:13:'('>: Casting to an array type.

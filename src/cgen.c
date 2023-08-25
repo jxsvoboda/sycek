@@ -1799,6 +1799,36 @@ static void cgen_error_need_scalar(cgen_t *cgen, ast_tok_t *atok)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: assignment to an array.
+ *
+ * @param cgen Code generator
+ * @param atok Token
+ */
+static void cgen_error_assign_array(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *)atok->data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Assignment to an array.\n");
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: casting to an array type.
+ *
+ * @param cgen Code generator
+ * @param ctok Token
+ */
+static void cgen_error_cast_array(cgen_t *cgen, comp_tok_t *ctok)
+{
+	lexer_dprint_tok(&ctok->tok, stderr);
+	fprintf(stderr, ": Casting to an array type.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate error: expression is not constant.
  *
  * @param cgen Code generator
@@ -8774,6 +8804,12 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	ctok = (comp_tok_t *) ebinop->top.data;
 
+	if (lres.cgtype->ntype == cgn_array) {
+		cgen_error_assign_array(cgexpr->cgen, &ebinop->top);
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Convert expression result to the destination type */
 	rc = cgen_type_convert(cgexpr, ctok, &rres, lres.cgtype,
 	    cgen_implicit, lblock, &cres);
@@ -12677,6 +12713,13 @@ static int cgen_type_convert(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (ares->cgtype->ntype == cgn_array) {
 		return cgen_type_convert_array(cgexpr, ctok, ares, dtype, expl,
 		    lblock, cres);
+	}
+
+	/* Destination type is an array */
+	if (dtype->ntype == cgn_array) {
+		assert(expl == cgen_explicit);
+		cgen_error_cast_array(cgexpr->cgen, ctok);
+		return EINVAL;
 	}
 
 	rc = cgen_eres_rvalue(cgexpr, ares, lblock, &rres);

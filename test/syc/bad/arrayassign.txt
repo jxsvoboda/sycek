@@ -1,0 +1,1 @@
+<test/syc/bad/arrayassign.c:10:11:'='>: Assignment to an array.
