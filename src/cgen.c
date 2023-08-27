@@ -2522,7 +2522,7 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 		/* Check type for completeness */
 		if (cgen_type_is_incomplete(cgen, dtype)) {
 			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, " : Record member has incomplete type.\n");
+			fprintf(stderr, ": Record member has incomplete type.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -4865,7 +4865,7 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 		/* Check type for completeness */
 		if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
 			lexer_dprint_tok(&optok->tok, stderr);
-			fprintf(stderr, " : Indexing pointer to incomplete type.\n");
+			fprintf(stderr, ": Indexing pointer to incomplete type.\n");
 			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -5340,7 +5340,7 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	/* Check type for completeness */
 	if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
 		lexer_dprint_tok(&optok->tok, stderr);
-		fprintf(stderr, " : Indexing pointer to incomplete type.\n");
+		fprintf(stderr, ": Indexing pointer to incomplete type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -15047,7 +15047,7 @@ static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
 		/* Check type for completeness */
 		if (cgen_type_is_incomplete(cgen, stype)) {
 			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, " : Argument %u has incomplete type.\n",
+			fprintf(stderr, ": Argument %u has incomplete type.\n",
 			    argidx);
 			cgen->error = true; // TODO
 			rc = EINVAL;
@@ -15499,7 +15499,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	/* Check return type for completeness */
 	if (cgen_type_is_incomplete(cgen, dtfunc->rtype)) {
 		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, " : Function returns incomplete type '");
+		fprintf(stderr, ": Function returns incomplete type '");
 		cgtype_print(dtfunc->rtype, stderr);
 		fprintf(stderr, "'.\n");
 		cgen->error = true; // TODO
@@ -16330,6 +16330,13 @@ static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
 	ir_texpr_t *vtype = NULL;
 	ir_var_t *var = NULL;
 	unsigned bits;
+
+	if (cgen_type_is_incomplete(cgen,cgtype)) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Variable has incomplete type.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
 
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)

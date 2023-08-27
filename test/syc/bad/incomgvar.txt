@@ -1,0 +1,1 @@
+<test/syc/bad/incomgvar.c:5:5:id:a>: Variable has incomplete type.

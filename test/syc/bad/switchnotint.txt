@@ -1,1 +1,2 @@
 <test/syc/bad/switchnotint.c:13:17:id:z>: Switch expression does not have integer type.
+<test/syc/bad/switchnotint.c:9:10:id:z>: Variable has incomplete type.

@@ -1,1 +1,1 @@
-<test/syc/bad/incomptrsub.c:9:9-10:'--'> : Indexing pointer to incomplete type.
+<test/syc/bad/incomptrsub.c:9:9-10:'--'>: Indexing pointer to incomplete type.
