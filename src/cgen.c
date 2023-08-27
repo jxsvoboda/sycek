@@ -2332,6 +2332,30 @@ static void cgen_warn_truth_as_int(cgen_t *cgen, comp_tok_t *ctok)
 	++cgen->warnings;
 }
 
+/** Generate warning: array index is negative.
+ *
+ * @param cgen Code generator
+ * @param tok Operator token
+ */
+static void cgen_warn_array_index_negative(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Array index is negative.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: array index is out of bounds.
+ *
+ * @param cgen Code generator
+ * @param tok Operator token
+ */
+static void cgen_warn_array_index_oob(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Array index is out of bounds.\n");
+	++cgen->warnings;
+}
+
 /** Generate code for record definition.
  *
  * @param cgen Code generator
@@ -4859,12 +4883,25 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 
 	} else {
 		assert(lres->cgtype->ntype == cgn_array);
+		arrt = (cgtype_array_t *)lres->cgtype->ext;
+
+		if (cres.cvknown) {
+			if (cgen_cvint_is_negative(cgexpr->cgen,
+			    idx_signed, cres.cvint)) {
+				cgen_warn_array_index_negative(cgexpr->cgen,
+				    optok);
+			} else if ((uint64_t)cres.cvint >=
+			    (uint64_t)arrt->asize) {
+				cgen_warn_array_index_oob(cgexpr->cgen, optok);
+			}
+
+		} else {
+			/* TODO Optional run-time check */
+		}
 
 		rc = cgen_eres_clone(lres, &lval);
 		if (rc != EOK)
 			goto error;
-
-		arrt = (cgtype_array_t *)lval.cgtype->ext;
 
 		/* Generate IR type expression for the element type */
 		rc = cgen_cgtype(cgexpr->cgen, arrt->etype, &elemte);

@@ -396,6 +396,7 @@ It can detect the following types of problems and style issues:
  * case value is not in enum
  * case expression is <type>, switch expression is of type <type>
  * enumeration value 'x' not handled in switch
+ * array index is negative / out of bounds
 
 ### Strict truth type
 
