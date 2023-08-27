@@ -14538,7 +14538,12 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	cgen_eres_t lres;
 	int rc;
 
-	(void) lblock;
+	if (cgen_type_is_incomplete(cgproc->cgen, dtype)) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Variable has incomplete type.\n");
+		cgproc->cgen->error = true; // TODO
+		return EINVAL;
+	}
 
 	cgen_eres_init(&cres);
 	cgen_eres_init(&ires);
@@ -16331,7 +16336,7 @@ static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
 	ir_var_t *var = NULL;
 	unsigned bits;
 
-	if (cgen_type_is_incomplete(cgen,cgtype)) {
+	if (cgen_type_is_incomplete(cgen, cgtype)) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Variable has incomplete type.\n");
 		cgen->error = true; // TODO
