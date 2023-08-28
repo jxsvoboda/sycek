@@ -97,6 +97,7 @@ static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
+static int cgen_fun_arg_passed_type(cgen_t *, cgtype_t *, cgtype_t **);
 
 enum {
 	cgen_pointer_bits = 16,
@@ -9761,6 +9762,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	cgtype_t *rtype = NULL;
 	cgtype_func_t *ftype;
 	cgtype_func_arg_t *farg;
+	cgtype_t *argtype = NULL;
 	int rc;
 
 	cgen_eres_init(&ares);
@@ -9850,7 +9852,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 			goto error;
 		}
 
-		rc = cgen_expr_rvalue(cgexpr, earg->arg, lblock, &ares);
+		rc = cgen_expr(cgexpr, earg->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
 
@@ -9862,10 +9864,19 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		 * variadic, convert it to its declared type.
 		 * XXX Otherwise it should be simply promoted.
 		 */
-		rc = cgen_type_convert(cgexpr, tok, &ares, farg->atype,
+
+		rc = cgen_fun_arg_passed_type(cgexpr->cgen, farg->atype,
+		    &argtype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_type_convert(cgexpr, tok, &ares, argtype,
 		    cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;
+
+		cgtype_destroy(argtype);
+		argtype = NULL;
 
 		rc = ir_oper_var_create(cres.varname, &arg);
 		if (rc != EOK)
@@ -9924,6 +9935,8 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	return EOK;
 error:
 	ir_instr_destroy(instr);
+	if (argtype != NULL)
+		cgtype_destroy(argtype);
 	if (dest != NULL)
 		ir_oper_destroy(&dest->oper);
 	if (fun != NULL)
@@ -15007,6 +15020,84 @@ error:
 	return rc;
 }
 
+/** Adjust type when passing to a function.
+ *
+ * Arrays are passed as pointers, other types are unchanged.
+ *
+ * @param cgen Code generator
+ * @param stype Specified type
+ * @param ptype Place to store passed type
+ */
+static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
+    cgtype_t **ptype)
+{
+	cgtype_t *etype = NULL;
+	cgtype_array_t *arrt;
+	cgtype_pointer_t *ptrt;
+	int rc;
+
+	(void)cgen;
+
+	if (stype->ntype == cgn_array) {
+		/* An array is really passed as a pointer */
+
+		arrt = (cgtype_array_t *)stype->ext;
+
+		rc = cgtype_clone(arrt->etype, &etype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgtype_pointer_create(etype, &ptrt);
+		if (rc != EOK) {
+			cgtype_destroy(etype);
+			goto error;
+		}
+
+		*ptype = &ptrt->cgtype;
+		etype = NULL;
+	} else {
+		/* Other types are passed as themselves */
+		rc = cgtype_clone(stype, ptype);
+		if (rc != EOK)
+			goto error;
+	}
+
+	return EOK;
+error:
+	if (etype != NULL)
+		cgtype_destroy(etype);
+	return rc;
+}
+
+/** Code generate function argument type.
+ *
+ * @param cgen Code generator
+ * @param stype Specified type
+ * @param atype Place to store IR type expression
+ */
+static int cgen_fun_arg_type(cgen_t *cgen, cgtype_t *stype,
+    ir_texpr_t **atype)
+{
+	cgtype_t *argtype = NULL;
+	int rc;
+
+	/* Determine how argument should be passed */
+	rc = cgen_fun_arg_passed_type(cgen, stype, &argtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_cgtype(cgen, argtype, atype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(argtype);
+	return EOK;
+error:
+	if (argtype != NULL)
+		cgtype_destroy(argtype);
+	return rc;
+}
+
 /** Generate code for function arguments definition.
  *
  * Add arguments to IR procedure based on CG function type.
@@ -15059,7 +15150,8 @@ static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
 			goto error;
 		}
 
-		rc = cgen_cgtype(cgen, stype, &atype);
+		/* Generate argument type */
+		rc = cgen_fun_arg_type(cgen, stype, &atype);
 		if (rc != EOK)
 			goto error;
 
@@ -15281,6 +15373,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	cgtype_t *ctype = NULL;
+	cgtype_t *ptype = NULL;
 	cgtype_func_t *dtfunc;
 	cgtype_func_arg_t *dtarg;
 	ast_aspec_t *aspec;
@@ -15474,9 +15567,14 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 			goto error;
 		}
 
+		/* Convert argument type */
+		rc = cgen_fun_arg_passed_type(cgproc->cgen, stype, &ptype);
+		if (rc != EOK)
+			goto error;
+
 		/* Insert identifier into argument scope */
 		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
-		    stype, arg_ident);
+		    ptype, arg_ident);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
 				lexer_dprint_tok(&tok->tok, stderr);
@@ -15488,6 +15586,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 			}
 			goto error;
 		}
+
+		cgtype_destroy(ptype);
+		ptype = NULL;
 
 		free(arg_ident);
 		arg_ident = NULL;
@@ -15573,6 +15674,8 @@ error:
 		free(arg_ident);
 	if (atype != NULL)
 		ir_texpr_destroy(atype);
+	if (ptype != NULL)
+		cgtype_destroy(ptype);
 	if (dtype != NULL)
 		cgtype_destroy(dtype);
 	if (ctype != NULL)

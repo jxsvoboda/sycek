@@ -1,0 +1,10 @@
+mapfile "arrayarg.map";
+ldbin "arrayarg.bin", 0x8000;
+
+ld word ptr (@_i), 9;
+ld word ptr (@_v), 42;
+call @_callwrite;
+verify word ptr (@_a + 18), 42;
+
+call @_callsize;
+verify word ptr (@_s), 2;

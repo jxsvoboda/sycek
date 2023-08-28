@@ -233,6 +233,7 @@ Specifically, these language features are supported:
  * Basic support for pointers
  * Typedef
  * Struct, union, enum
+ * Arrays
  * Global and local variable initialization
  * Constant expressions
  * Sizeof
@@ -241,7 +242,6 @@ Specifically, these language features are supported:
 These are NOT supported yet:
 
  * Complex initializers
- * Arrays
  * Bit fields
  * Floating point
  * Integer promotion
