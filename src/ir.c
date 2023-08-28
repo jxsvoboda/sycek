@@ -2369,9 +2369,15 @@ static int ir_texpr_array_print(ir_texpr_t *texpr, FILE *f)
  */
 static int ir_texpr_array_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 {
+	ir_texpr_t *ecopy = NULL;
+	int rc;
+
 	assert(texpr->tetype == irt_array);
-	return ir_texpr_array_create(texpr->t.tarray.asize,
-	    texpr->t.tarray.etexpr, rcopy);
+	rc = ir_texpr_clone(texpr->t.tarray.etexpr, &ecopy);
+	if (rc != EOK)
+		return rc;
+
+	return ir_texpr_array_create(texpr->t.tarray.asize, ecopy, rcopy);
 }
 
 /** Destroy array type expression.
