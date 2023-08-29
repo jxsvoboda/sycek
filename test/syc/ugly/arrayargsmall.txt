@@ -1,0 +1,1 @@
+<test/syc/ugly/arrayargsmall.c:15:13:id:a>: Warning: Array passed to function is too small (expected dimension 20, actual dimension 10).

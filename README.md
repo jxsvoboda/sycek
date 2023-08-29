@@ -397,6 +397,7 @@ It can detect the following types of problems and style issues:
  * case expression is <type>, switch expression is of type <type>
  * enumeration value 'x' not handled in switch
  * array index is negative / out of bounds
+ * array passed to function is too small
 
 ### Strict truth type
 

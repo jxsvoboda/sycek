@@ -35,6 +35,7 @@
 #include <comp.h>
 #include <cgen.h>
 #include <cgtype.h>
+#include <inttypes.h>
 #include <ir.h>
 #include <labels.h>
 #include <lexer.h>
@@ -9734,6 +9735,35 @@ static int cgen_ecomma(cgen_expr_t *cgexpr, ast_ecomma_t *ecomma,
 	return cgen_expr(cgexpr, ecomma->rarg, lblock, eres);
 }
 
+/** Check dimension of array passed to function.
+ *
+ * @param cgen Code generator
+ * @param ftype Formal argument type
+ * @param atype Actual argument type
+ */
+static void cgen_check_passed_array_dim(cgen_t *cgen, comp_tok_t *tok,
+    cgtype_t *ftype, cgtype_t *atype)
+{
+	cgtype_array_t *farray;
+	cgtype_array_t *aarray;
+
+	(void)cgen;
+
+	assert(ftype->ntype == cgn_array);
+	farray = (cgtype_array_t *)ftype->ext;
+
+	assert(atype->ntype == cgn_array);
+	aarray = (cgtype_array_t *)atype->ext;
+
+	if (aarray->asize < farray->asize) {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Array passed to function is too "
+		    "small (expected dimension %" PRId64 ", actual dimension %"
+		    PRId64 ").\n", farray->asize, aarray->asize);
+		++cgen->warnings;
+	}
+}
+
 /** Generate code for call expression.
  *
  * @param cgexpr Code generator for expression
@@ -9864,6 +9894,13 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		 * variadic, convert it to its declared type.
 		 * XXX Otherwise it should be simply promoted.
 		 */
+
+		/* Check dimension of passed array */
+		if (farg->atype->ntype == cgn_array &&
+		    ares.cgtype->ntype == cgn_array) {
+			cgen_check_passed_array_dim(cgexpr->cgen, tok,
+			    farg->atype, ares.cgtype);
+		}
 
 		rc = cgen_fun_arg_passed_type(cgexpr->cgen, farg->atype,
 		    &argtype);
