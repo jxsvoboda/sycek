@@ -1,0 +1,7 @@
+mapfile "initsa.map";
+ldbin "initsa.bin", 0x8000;
+
+verify word ptr (@_a), 1;
+verify word ptr (@_a + 2), 2;
+verify word ptr (@_a + 4), 3;
+verify word ptr (@_a + 6), 4;

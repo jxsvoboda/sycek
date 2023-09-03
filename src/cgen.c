@@ -16089,6 +16089,40 @@ error:
 	return rc;
 }
 
+/** Generate data entries for initializing a record type.
+ *
+ * @param cgen Code generator
+ * @param trecord Record type
+ * @param itok Initialization token (for printing diagnostics)
+ * @param elem Compound initializer element pointer
+ * @param dblock Data block to which data should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
+    comp_tok_t *itok, ast_cinit_elem_t **elem, ir_dblock_t *dblock)
+{
+	cgen_rec_elem_t *relem;
+	int rc;
+
+	relem = cgen_record_first(trecord->record);
+	while (relem != NULL) {
+		rc = cgen_init_dentries_cinit(cgen, relem->cgtype, itok,
+		    elem, dblock);
+		if (rc != EOK)
+			goto error;
+
+		/* In case of union, only initialize the first element. */
+		if (trecord->record->rtype == cgr_union)
+			break;
+
+		relem = cgen_record_next(relem);
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate data entries for initializing a CG type from a compound initializer
  * element.
  *
@@ -16106,33 +16140,32 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *i
 	ir_texpr_t *vtype = NULL;
 	ast_node_t *init;
 	cgtype_record_t *cgrec;
-	cgen_rec_elem_t *relem;
 	cgtype_array_t *cgarr;
 	ast_cinit_elem_t *melem;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	int rc;
 
-	if (stype->ntype == cgn_record) {
-		cgrec = (cgtype_record_t *)stype->ext;
-		relem = cgen_record_first(cgrec->record);
-		while (relem != NULL) {
-			rc = cgen_init_dentries_cinit(cgen, relem->cgtype, itok,
-			    elem, dblock);
-			if (rc != EOK)
-				goto error;
-
-			relem = cgen_record_next(relem);
-		}
-
-	} else if (stype->ntype == cgn_array) {
-		cgarr = (cgtype_array_t *)stype->ext;
+	if (stype->ntype == cgn_array || stype->ntype == cgn_record) {
 		if (*elem != NULL && (*elem)->init->ntype == ant_cinit) {
 			melem = ast_cinit_first((ast_cinit_t *)(*elem)->init->ext);
-			rc = cgen_init_dentries_array(cgen, cgarr, itok,
-			    &melem, dblock);
-			if (rc != EOK)
-				goto error;
+
+			if (stype->ntype == cgn_array) {
+				cgarr = (cgtype_array_t *)stype->ext;
+
+				rc = cgen_init_dentries_array(cgen, cgarr, itok,
+				    &melem, dblock);
+				if (rc != EOK)
+					goto error;
+			} else {
+				cgrec = (cgtype_record_t *)stype->ext;
+
+				rc = cgen_init_dentries_record(cgen, cgrec,
+				    itok, &melem, dblock);
+				if (rc != EOK)
+					goto error;
+
+			}
 
 			if (melem != NULL) {
 				atok = ast_tree_first_tok(melem->init);
@@ -16153,11 +16186,21 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *i
 				++cgen->warnings;
 			}
 
-			rc = cgen_init_dentries_array(cgen, cgarr, itok,
-			    elem, dblock);
-			if (rc != EOK)
-				goto error;
+			if (stype->ntype == cgn_array) {
+				cgarr = (cgtype_array_t *)stype->ext;
 
+				rc = cgen_init_dentries_array(cgen, cgarr, itok,
+				    elem, dblock);
+				if (rc != EOK)
+					goto error;
+			} else {
+				cgrec = (cgtype_record_t *)stype->ext;
+
+				rc = cgen_init_dentries_record(cgen, cgrec,
+				    itok, elem, dblock);
+				if (rc != EOK)
+					goto error;
+			}
 		}
 	} else {
 		/* Scalar type */
@@ -16196,33 +16239,32 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 	ir_dentry_t *dentry = NULL;
 	ir_texpr_t *vtype = NULL;
 	cgtype_record_t *cgrec;
-	cgen_rec_elem_t *elem;
 	ast_cinit_elem_t *celem;
 	cgtype_array_t *cgarr;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	int rc;
 
-	if (stype->ntype == cgn_record) {
-		cgrec = (cgtype_record_t *)stype->ext;
-		elem = cgen_record_first(cgrec->record);
-		while (elem != NULL) {
-			rc = cgen_init_dentries(cgen, elem->cgtype, itok, NULL,
-			    dblock);
-			if (rc != EOK)
-				goto error;
-
-			elem = cgen_record_next(elem);
-		}
-	} else if (stype->ntype == cgn_array) {
+	if (stype->ntype == cgn_array || stype->ntype == cgn_record) {
 		if (init == NULL || init->ntype == ant_cinit) {
 			celem = init != NULL ?
 			    ast_cinit_first((ast_cinit_t *)init->ext) : NULL;
-			cgarr = (cgtype_array_t *)stype->ext;
-			rc = cgen_init_dentries_array(cgen, cgarr, itok,
-			    &celem, dblock);
-			if (rc != EOK)
-				goto error;
+
+			if (stype->ntype == cgn_array) {
+				cgarr = (cgtype_array_t *)stype->ext;
+
+				rc = cgen_init_dentries_array(cgen, cgarr, itok,
+				    &celem, dblock);
+				if (rc != EOK)
+					goto error;
+			} else {
+				cgrec = (cgtype_record_t *)stype->ext;
+
+				rc = cgen_init_dentries_record(cgen, cgrec,
+				    itok, &celem, dblock);
+				if (rc != EOK)
+					goto error;
+			}
 
 			if (celem != NULL) {
 				atok = ast_tree_first_tok(celem->init);

@@ -238,10 +238,10 @@ Specifically, these language features are supported:
  * Constant expressions
  * Sizeof
  * Character literals
+ * Structure and array initializers (C89-style)
 
 These are NOT supported yet:
 
- * Complex initializers
  * Bit fields
  * Floating point
  * Integer promotion
@@ -253,6 +253,7 @@ These are NOT supported yet:
  * Ternary operator
  * Lvalue arguments
  * Passing or returning struct/union by value
+ * C99-style qualified struct/array initialization
  * Variable-length arrays
  * Alignof
 

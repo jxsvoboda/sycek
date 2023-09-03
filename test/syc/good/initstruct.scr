@@ -1,0 +1,5 @@
+mapfile "initstruct.map";
+ldbin "initstruct.bin", 0x8000;
+
+verify word ptr (@_a), 1;
+verify word ptr (@_a + 2), 2;
