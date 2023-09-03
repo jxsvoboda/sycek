@@ -1,0 +1,2 @@
+<test/syc/bad/initinvarr.c:7:12:num:1>: Invalid initializer.
+'

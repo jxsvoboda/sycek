@@ -1,0 +1,3 @@
+<test/syc/ugly/initbrscal.c:10:9:'{'>: Warning: Excess braces around scalar initializer.
+<test/syc/ugly/initbrscal.c:11:9:'{'>: Warning: Excess braces around scalar initializer.
+<test/syc/ugly/initbrscal.c:11:11:'{'>: Warning: Excess braces around scalar initializer.

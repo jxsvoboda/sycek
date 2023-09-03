@@ -398,6 +398,8 @@ It can detect the following types of problems and style issues:
  * enumeration value 'x' not handled in switch
  * array index is negative / out of bounds
  * array passed to function is too small
+ * excess braces around scalar initializer
+ * initialization is not fully bracketed
 
 ### Strict truth type
 

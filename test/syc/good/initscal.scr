@@ -1,0 +1,10 @@
+mapfile "initscal.map";
+ldbin "initscal.bin", 0x8000;
+
+verify word ptr (@_a), 42;
+
+verify word ptr (@_p), @_a;
+
+verify word ptr (@_q), 0x8000;
+
+verify word ptr (@_f), 1;

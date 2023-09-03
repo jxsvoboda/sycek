@@ -1,0 +1,2 @@
+<test/syc/bad/initexarray2.c:13:35:num:3>: Excess initializer.
+'

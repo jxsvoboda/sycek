@@ -1,0 +1,22 @@
+mapfile "initarray.map";
+ldbin "initarray.bin", 0x8000;
+
+verify word ptr (@_a), 1;
+verify word ptr (@_a + 2), 2;
+verify word ptr (@_a + 4), 3;
+verify word ptr (@_a + 6), 4;
+
+verify word ptr (@_b), 1;
+verify word ptr (@_b + 2), 2;
+verify word ptr (@_b + 4), 0;
+verify word ptr (@_b + 6), 0;
+
+verify word ptr (@_c), 1;
+verify word ptr (@_c + 2), 2;
+verify word ptr (@_c + 4), 3;
+verify word ptr (@_c + 6), 4;
+
+verify word ptr (@_d), 1;
+verify word ptr (@_d + 2), 0;
+verify word ptr (@_d + 4), 3;
+verify word ptr (@_d + 6), 0;

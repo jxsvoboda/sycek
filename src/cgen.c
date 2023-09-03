@@ -99,6 +99,8 @@ static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
 static int cgen_fun_arg_passed_type(cgen_t *, cgtype_t *, cgtype_t **);
+static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, comp_tok_t *,
+    ast_cinit_elem_t **, ir_dblock_t *);
 
 enum {
 	cgen_pointer_bits = 16,
@@ -15921,26 +15923,77 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 	return EOK;
 }
 
-/** Generate data entries for initializing a CG type.
+/** Generate data entries for initializing a scalar type.
  *
  * @param cgen Code generator
- * @param stype Variable type
+ * @param tbasic Basic variable type
+ * @param itok Initialization token (for printing diagnostics)
+ * @param init Initializer or @c NULL
  * @param dblock Data block to which data should be appended
  * @return EOK on success or an error code
  */
-static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock)
+static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
+    comp_tok_t *itok, ast_node_t *init, ir_dblock_t *dblock)
 {
 	ir_dentry_t *dentry = NULL;
-	ir_texpr_t *vtype = NULL;
-	cgtype_record_t *cgrec;
-	cgen_rec_elem_t *elem;
-	cgtype_array_t *cgarr;
+	cgen_eres_t eres;
+	ast_cinit_t *cinit;
+	ast_cinit_elem_t *elem;
+	cgtype_basic_t *tbasic;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
 	unsigned bits;
-	unsigned i;
+	symbol_t *initsym;
+	int64_t initval;
+	char *sident = NULL;
 	int rc;
 
+	cgen_eres_init(&eres);
+
+	if (init != NULL) {
+		if (init->ntype == ant_cinit) {
+			cinit = (ast_cinit_t *)init->ext;
+
+			ctok = (comp_tok_t *)cinit->tlbrace.data;
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Excess braces around "
+			    "scalar initializer.\n");
+			++cgen->warnings;
+
+			elem = ast_cinit_first(cinit);
+
+			rc = cgen_init_dentries_scalar(cgen, stype, itok,
+			    elem->init, dblock);
+			if (rc != EOK)
+				goto error;
+
+			elem = ast_cinit_next(elem);
+			if (elem != NULL) {
+				atok = ast_tree_first_tok(elem->init);
+				ctok = (comp_tok_t *)atok->data;
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Excess initializer.\n'");
+				cgen->error = true; // XXX
+				return EINVAL;
+			}
+			return EOK;
+		} else {
+			rc = cgen_constexpr_val(cgen, init, itok, stype, &eres);
+			if (rc != EOK)
+				goto error;
+		}
+
+		initval = eres.cvint;
+		initsym = eres.cvsymbol;
+	} else {
+		initval = 0;
+		initsym = NULL;
+	}
+
 	if (stype->ntype == cgn_basic) {
-		bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
+		tbasic = (cgtype_basic_t *)stype->ext;
+
+		bits = cgen_basic_type_bits(cgen, tbasic);
 		if (bits == 0) {
 			fprintf(stderr, "Unimplemented variable type.\n");
 			cgen->error = true; // TODO
@@ -15948,39 +16001,40 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock
 			goto error;
 		}
 
-		rc = ir_dentry_create_int(bits, 0, &dentry);
+		rc = ir_dentry_create_int(bits, initval, &dentry);
 		if (rc != EOK)
 			goto error;
 
 		rc = ir_dblock_append(dblock, dentry);
 		if (rc != EOK)
 			goto error;
-
-		dentry = NULL;
-
 	} else if (stype->ntype == cgn_pointer) {
-		rc = ir_dentry_create_int(16, 0, &dentry);
-		if (rc != EOK)
-			goto error;
+
+		if (initsym != NULL) {
+			rc = cgen_gprefix(initsym->ident->tok.text,
+			    &sident);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_dentry_create_ptr(16, sident, initval, &dentry);
+			if (rc != EOK)
+				goto error;
+
+			free(sident);
+			sident = NULL;
+		} else {
+			rc = ir_dentry_create_int(16, initval, &dentry);
+			if (rc != EOK)
+				goto error;
+		}
 
 		rc = ir_dblock_append(dblock, dentry);
 		if (rc != EOK)
 			goto error;
 
 		dentry = NULL;
-
-	} else if (stype->ntype == cgn_record) {
-		cgrec = (cgtype_record_t *)stype->ext;
-		elem = cgen_record_first(cgrec->record);
-		while (elem != NULL) {
-			rc = cgen_init_dentries(cgen, elem->cgtype, dblock);
-			if (rc != EOK)
-				goto error;
-
-			elem = cgen_record_next(elem);
-		}
 	} else if (stype->ntype == cgn_enum) {
-		rc = ir_dentry_create_int(16, 0, &dentry);
+		rc = ir_dentry_create_int(16, initval, &dentry);
 		if (rc != EOK)
 			goto error;
 
@@ -15989,20 +16043,207 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, ir_dblock_t *dblock
 			goto error;
 
 		dentry = NULL;
-	} else if (stype->ntype == cgn_array) {
-		cgarr = (cgtype_array_t *)stype->ext;
-		assert(cgarr->have_size);
-
-		for (i = 0; i < cgarr->asize; i++) {
-			rc = cgen_init_dentries(cgen, cgarr->etype, dblock);
-			if (rc != EOK)
-				goto error;
-		}
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	dentry = NULL;
+	cgen_eres_fini(&eres);
+	return EOK;
+error:
+	if (sident != NULL)
+		free(sident);
+	cgen_eres_fini(&eres);
+	ir_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Generate data entries for initializing an array type.
+ *
+ * @param cgen Code generator
+ * @param tarray Array type
+ * @param itok Initialization token (for printing diagnostics)
+ * @param elem Compound initializer element pointer
+ * @param dblock Data block to which data should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_init_dentries_array(cgen_t *cgen, cgtype_array_t *tarray,
+    comp_tok_t *itok, ast_cinit_elem_t **elem, ir_dblock_t *dblock)
+{
+	uint64_t i;
+	int rc;
+
+	assert(tarray->have_size);
+	for (i = 0; i < tarray->asize; i++) {
+		rc = cgen_init_dentries_cinit(cgen, tarray->etype, itok, elem,
+		    dblock);
+		if (rc != EOK)
+			goto error;
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Generate data entries for initializing a CG type from a compound initializer
+ * element.
+ *
+ * @param cgen Code generator
+ * @param stype Variable type
+ * @param itok Initialization token (for printing diagnostics)
+ * @param elem Compound initializer element pointer
+ * @param dblock Data block to which data should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
+    ast_cinit_elem_t **elem, ir_dblock_t *dblock)
+{
+	ir_dentry_t *dentry = NULL;
+	ir_texpr_t *vtype = NULL;
+	ast_node_t *init;
+	cgtype_record_t *cgrec;
+	cgen_rec_elem_t *relem;
+	cgtype_array_t *cgarr;
+	ast_cinit_elem_t *melem;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+	int rc;
+
+	if (stype->ntype == cgn_record) {
+		cgrec = (cgtype_record_t *)stype->ext;
+		relem = cgen_record_first(cgrec->record);
+		while (relem != NULL) {
+			rc = cgen_init_dentries_cinit(cgen, relem->cgtype, itok,
+			    elem, dblock);
+			if (rc != EOK)
+				goto error;
+
+			relem = cgen_record_next(relem);
+		}
+
+	} else if (stype->ntype == cgn_array) {
+		cgarr = (cgtype_array_t *)stype->ext;
+		if (*elem != NULL && (*elem)->init->ntype == ant_cinit) {
+			melem = ast_cinit_first((ast_cinit_t *)(*elem)->init->ext);
+			rc = cgen_init_dentries_array(cgen, cgarr, itok,
+			    &melem, dblock);
+			if (rc != EOK)
+				goto error;
+
+			if (melem != NULL) {
+				atok = ast_tree_first_tok(melem->init);
+				ctok = (comp_tok_t *)atok->data;
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Excess initializer.\n'");
+				cgen->error = true; // XXX
+				return EINVAL;
+			}
+			*elem = ast_cinit_next(*elem);
+		} else {
+			if (*elem != NULL) {
+				atok = ast_tree_first_tok((*elem)->init);
+				ctok = (comp_tok_t *)atok->data;
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Warning: Initialization is not "
+				    "fully bracketed.\n");
+				++cgen->warnings;
+			}
+
+			rc = cgen_init_dentries_array(cgen, cgarr, itok,
+			    elem, dblock);
+			if (rc != EOK)
+				goto error;
+
+		}
+	} else {
+		/* Scalar type */
+		if (*elem != NULL)
+			init = (*elem)->init;
+		else
+			init = NULL;
+
+		rc = cgen_init_dentries_scalar(cgen, stype, itok, init, dblock);
+		if (rc != EOK)
+			goto error;
+
+		if (*elem != NULL)
+			*elem = ast_cinit_next(*elem);
+	}
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
+	ir_texpr_destroy(vtype);
+	return rc;
+}
+
+/** Generate data entries for initializing a CG type.
+ *
+ * @param cgen Code generator
+ * @param stype Variable type
+ * @param itok Initialization token (for printing diagnostics)
+ * @param init Initializer or @c NULL
+ * @param dblock Data block to which data should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
+    ast_node_t *init, ir_dblock_t *dblock)
+{
+	ir_dentry_t *dentry = NULL;
+	ir_texpr_t *vtype = NULL;
+	cgtype_record_t *cgrec;
+	cgen_rec_elem_t *elem;
+	ast_cinit_elem_t *celem;
+	cgtype_array_t *cgarr;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+	int rc;
+
+	if (stype->ntype == cgn_record) {
+		cgrec = (cgtype_record_t *)stype->ext;
+		elem = cgen_record_first(cgrec->record);
+		while (elem != NULL) {
+			rc = cgen_init_dentries(cgen, elem->cgtype, itok, NULL,
+			    dblock);
+			if (rc != EOK)
+				goto error;
+
+			elem = cgen_record_next(elem);
+		}
+	} else if (stype->ntype == cgn_array) {
+		if (init == NULL || init->ntype == ant_cinit) {
+			celem = init != NULL ?
+			    ast_cinit_first((ast_cinit_t *)init->ext) : NULL;
+			cgarr = (cgtype_array_t *)stype->ext;
+			rc = cgen_init_dentries_array(cgen, cgarr, itok,
+			    &celem, dblock);
+			if (rc != EOK)
+				goto error;
+
+			if (celem != NULL) {
+				atok = ast_tree_first_tok(celem->init);
+				ctok = (comp_tok_t *)atok->data;
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Excess initializer.\n'");
+				cgen->error = true; // XXX
+				return EINVAL;
+			}
+		} else {
+			atok = ast_tree_first_tok(init);
+			ctok = (comp_tok_t *)atok->data;
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Invalid initializer.\n'");
+			cgen->error = true; // XXX
+			return EINVAL;
+		}
+	} else {
+		rc = cgen_init_dentries_scalar(cgen, stype, itok, init, dblock);
+		if (rc != EOK)
+			goto error;
 	}
 
 	return EOK;
@@ -16028,21 +16269,15 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	comp_tok_t *ident;
 	char *pident = NULL;
 	char *sident = NULL;
-	symbol_t *initsym;
-	int64_t initval;
 	ir_texpr_t *vtype = NULL;
-	unsigned bits;
 	symbol_t *symbol;
 	scope_member_t *member;
 	cgtype_t *ctype;
 	cgtype_enum_t *tenum;
-	cgen_eres_t eres;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
-
-	cgen_eres_init(&eres);
 
 	/* Mark enum as named, because it has an instance. */
 	if (stype->ntype == cgn_enum) {
@@ -16139,15 +16374,6 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		/* Mark the symbol as defined */
 		symbol->flags |= sf_defined;
 
-		/* Evaluate constant expression */
-		rc = cgen_constexpr_val(cgen, entry->init,
-		    (comp_tok_t *)entry->tassign.data, stype, &eres);
-		if (rc != EOK)
-			goto error;
-
-		initval = eres.cvint;
-		initsym = eres.cvsymbol;
-
 		/* Create initialized IR variable */
 
 		rc = cgen_gprefix(ident->tok.text, &pident);
@@ -16171,80 +16397,20 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		vtype = NULL;
 		dblock = NULL;
 
-		if (stype->ntype == cgn_basic) {
-			bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)stype->ext);
-			if (bits == 0) {
-				lexer_dprint_tok(&ident->tok, stderr);
-				fprintf(stderr, ": Unimplemented variable type.\n");
-				cgen->error = true; // TODO
-				rc = EINVAL;
-				goto error;
-			}
-
-			rc = ir_dentry_create_int(bits, initval, &dentry);
-			if (rc != EOK)
-				goto error;
-
-			rc = ir_dblock_append(var->dblock, dentry);
-			if (rc != EOK)
-				goto error;
-
-			dentry = NULL;
-
-		} else if (stype->ntype == cgn_pointer) {
-			if (initsym != NULL) {
-				rc = cgen_gprefix(initsym->ident->tok.text,
-				    &sident);
-				if (rc != EOK)
-					goto error;
-
-				rc = ir_dentry_create_ptr(16, sident, initval,
-				    &dentry);
-				if (rc != EOK)
-					goto error;
-
-				free(sident);
-				sident = NULL;
-			} else {
-				rc = ir_dentry_create_int(16, initval, &dentry);
-				if (rc != EOK)
-					goto error;
-			}
-
-			rc = ir_dblock_append(var->dblock, dentry);
-			if (rc != EOK)
-				goto error;
-
-			dentry = NULL;
-
-		} else if (stype->ntype == cgn_record ||
-		    stype->ntype == cgn_array) {
-			rc = cgen_init_dentries(cgen, stype, var->dblock);
-			if (rc != EOK)
-				goto error;
-		} else if (stype->ntype == cgn_record) {
-			rc = cgen_init_dentries(cgen, stype, var->dblock);
-			if (rc != EOK)
-				goto error;
-		} else {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Unimplemented variable type.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
+		rc = cgen_init_dentries(cgen, stype,
+		    (comp_tok_t *)entry->tassign.data, entry->init, var->dblock);
+		if (rc != EOK)
 			goto error;
-		}
 
 		ir_module_append(cgen->irmod, &var->decln);
 		var = NULL;
 	}
 
-	cgen_eres_fini(&eres);
 	cgtype_destroy(ctype);
 	return EOK;
 error:
 	if (sident != NULL)
 		free(sident);
-	cgen_eres_fini(&eres);
 	cgtype_destroy(ctype);
 	ir_var_destroy(var);
 	ir_dentry_destroy(dentry);
@@ -16538,7 +16704,7 @@ static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
 
 	} else if (cgtype->ntype == cgn_record || cgtype->ntype == cgn_enum ||
 	    cgtype->ntype == cgn_array) {
-		rc = cgen_init_dentries(cgen, cgtype, var->dblock);
+		rc = cgen_init_dentries(cgen, cgtype, NULL, NULL, var->dblock);
 		if (rc != EOK)
 			goto error;
 	} else {

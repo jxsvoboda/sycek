@@ -1,0 +1,3 @@
+<test/syc/bad/initexcscal.c:9:9:'{'>: Warning: Excess braces around scalar initializer.
+<test/syc/bad/initexcscal.c:9:14:num:2>: Excess initializer.
+'
