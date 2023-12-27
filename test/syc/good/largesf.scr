@@ -1,0 +1,23 @@
+mapfile "largesf.map";
+ldbin "largesf.bin", 0x8000;
+
+call @_foo;
+verify dword ptr (@_v1), 1;
+verify dword ptr (@_v2), 2;
+verify dword ptr (@_v3), 3;
+verify dword ptr (@_v4), 4;
+verify dword ptr (@_v5), 5;
+verify dword ptr (@_v6), 6;
+verify dword ptr (@_v7), 7;
+verify dword ptr (@_v8), 8;
+verify dword ptr (@_v9), 9;
+verify dword ptr (@_v10), 10;
+verify dword ptr (@_v11), 11;
+verify dword ptr (@_v12), 12;
+verify dword ptr (@_v13), 13;
+verify byte ptr (@_v14), 14;
+
+verify word ptr (@_ba1), 10;
+verify word ptr (@_ba2), 20;
+verify word ptr (@_ba3), 30;
+verify word ptr (@_ba4), 40;

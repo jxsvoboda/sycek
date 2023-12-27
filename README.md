@@ -257,6 +257,10 @@ These are NOT supported yet:
  * Variable-length arrays
  * Alignof
 
+Supported features not related to language coverage:
+ * Large stack frames (i.e. containing more than 128 bytes of virtual register
+   storage)
+
 syc only starts after preprocessing stage (i.e. there must not be any
 preprocessor directives in the C source file) and outputs an .asm
 file in the end. This is supposed to be consumed by a Z80 assembler,

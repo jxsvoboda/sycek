@@ -43,6 +43,10 @@ typedef struct {
 	z80ic_proc_t *vrproc;
 	/** Next label number to allocate */
 	unsigned next_label;
+	/** Stack frame size */
+	size_t sfsize;
+	/** Current stack pointer adjustment (last SF entry - SP) */
+	size_t spadj;
 } z80_ralloc_proc_t;
 
 /** Z80 data access using index register
