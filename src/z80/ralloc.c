@@ -120,6 +120,75 @@ static unsigned z80_ralloc_vroff(z80ic_vr_part_t part)
 	}
 }
 
+/** Set up index register for accessing virtual register on the stack.
+ *
+ * Note: If part is z80ic_vrp_r16l, the higher register part must also
+ * be within the reach of the index register.
+ *
+ * @param idxacc Index access structure
+ * @param vregno Virtual register number
+ * @param part   Virtual register part
+ * @param lblock Labeled block to which to append the instructions
+ *
+ * @return EOK on success or an error code
+ */
+static int z80_idxacc_setup_vr(z80_idxacc_t *idxacc, unsigned vregno,
+    z80ic_vr_part_t part, z80ic_lblock_t *lblock)
+{
+	unsigned vroff;
+
+	(void)lblock;
+
+	vroff = z80_ralloc_vroff(part);
+
+	/*
+	 * The stack frame structure is as follows:
+	 *   IX-0/IX-1: saved IX
+	 *   IX-2/IX-3: vr0
+	 *   IX-3/IX-4: vr1
+	 *   ....
+	 */
+	idxacc->disp = z80_ralloc_disp(-2 * (1 + (long) vregno) + vroff);
+
+	return EOK;
+}
+
+/** Tear down index register access.
+ *
+ * @param idxacc Index access structure
+ * @param lblock Labeled block to which to append the instructions
+ * @return EOK on success or an error code
+ */
+static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80ic_lblock_t *lblock)
+{
+	(void)lblock;
+	idxacc->disp = 0;
+	return EOK;
+}
+
+/** Get displacement to use for index register access.
+ *
+ * @param idxacc Index access structure
+ * @return Displacement
+ */
+static int8_t z80_idxacc_disp(z80_idxacc_t *idxacc)
+{
+	return idxacc->disp;
+}
+
+/** Get displacement to use for index register access to higher register part.
+ *
+ * Note that z80_idxacc_setup_vr() must have been called with
+ * z80ic_vrp_r16l for this to work correctly.
+ *
+ * @param idxacc Index access structure
+ * @return Displacement
+ */
+static int8_t z80_idxacc_disp_r16h(z80_idxacc_t *idxacc)
+{
+	return idxacc->disp + 1;
+}
+
 /** Create new local label.
  *
  * Allocate a new number for local label(s).
@@ -405,10 +474,15 @@ static int z80_ralloc_fill_reg(z80_ralloc_proc_t *raproc, const char *label,
 {
 	z80ic_ld_r_iixd_t *ld = NULL;
 	z80ic_oper_reg_t *oreg = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vregno, part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* ld r, (IX+d) */
 
@@ -416,8 +490,7 @@ static int z80_ralloc_fill_reg(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(part);
-	ld->disp = z80_ralloc_disp(-2 * (1 + (long) vregno) + vroff);
+	ld->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_oper_reg_create(reg, &oreg);
 	if (rc != EOK)
@@ -431,6 +504,12 @@ static int z80_ralloc_fill_reg(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	ld = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (ld != NULL)
@@ -485,10 +564,15 @@ static int z80_ralloc_spill_reg(z80_ralloc_proc_t *raproc, const char *label,
 {
 	z80ic_ld_iixd_r_t *ld = NULL;
 	z80ic_oper_reg_t *oreg = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vregno, part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* ld (IX+d), r */
 
@@ -496,8 +580,7 @@ static int z80_ralloc_spill_reg(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(part);
-	ld->disp = z80_ralloc_disp(-2 * (1 + (long) vregno) + vroff);
+	ld->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_oper_reg_create(reg, &oreg);
 	if (rc != EOK)
@@ -511,6 +594,12 @@ static int z80_ralloc_spill_reg(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	ld = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (ld != NULL)
@@ -1152,11 +1241,16 @@ static int z80_ralloc_ld_vr_n(z80_ralloc_proc_t *raproc, const char *label,
 {
 	z80ic_ld_iixd_n_t *ld = NULL;
 	z80ic_oper_imm8_t *imm = NULL;
-	unsigned vregno;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrld->dest->vregno,
+	    vrld->dest->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* ld (IX+d), n */
 
@@ -1164,9 +1258,7 @@ static int z80_ralloc_ld_vr_n(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vregno = vrld->dest->vregno;
-	vroff = z80_ralloc_vroff(vrld->dest->part);
-	ld->disp = z80_ralloc_disp(-2 * (1 + (long) vregno) + vroff);
+	ld->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_oper_imm8_create(vrld->imm8->imm8, &imm);
 	if (rc != EOK)
@@ -1180,6 +1272,12 @@ static int z80_ralloc_ld_vr_n(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	ld = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (ld != NULL)
@@ -1878,10 +1976,16 @@ static int z80_ralloc_add_a_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_add_a_vr_t *vradd, z80ic_lblock_t *lblock)
 {
 	z80ic_add_a_iixd_t *add = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vradd->src->vregno,
+	    vradd->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* add A, (IX+d) */
 
@@ -1889,14 +1993,19 @@ static int z80_ralloc_add_a_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vradd->src->part);
-	add->disp = z80_ralloc_disp(-2 * (1 + (long) vradd->src->vregno) + vroff);
+	add->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &add->instr);
 	if (rc != EOK)
 		goto error;
 
 	add = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (add != NULL)
@@ -1916,10 +2025,16 @@ static int z80_ralloc_adc_a_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_adc_a_vr_t *vradc, z80ic_lblock_t *lblock)
 {
 	z80ic_adc_a_iixd_t *adc = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vradc->src->vregno,
+	    vradc->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* adc A, (IX+d) */
 
@@ -1927,14 +2042,19 @@ static int z80_ralloc_adc_a_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vradc->src->part);
-	adc->disp = z80_ralloc_disp(-2 * (1 + (long) vradc->src->vregno) + vroff);
+	adc->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &adc->instr);
 	if (rc != EOK)
 		goto error;
 
 	adc = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (adc != NULL)
@@ -1954,10 +2074,16 @@ static int z80_ralloc_sub_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_sub_vr_t *vrsub, z80ic_lblock_t *lblock)
 {
 	z80ic_sub_iixd_t *sub = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrsub->src->vregno,
+	    vrsub->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* sub (IX+d) */
 
@@ -1965,14 +2091,19 @@ static int z80_ralloc_sub_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrsub->src->part);
-	sub->disp = z80_ralloc_disp(-2 * (1 + (long) vrsub->src->vregno) + vroff);
+	sub->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &sub->instr);
 	if (rc != EOK)
 		goto error;
 
 	sub = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (sub != NULL)
@@ -1993,10 +2124,16 @@ static int z80_ralloc_sbc_a_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_sbc_a_vr_t *vrsbc, z80ic_lblock_t *lblock)
 {
 	z80ic_sbc_a_iixd_t *sbc = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrsbc->src->vregno,
+	    vrsbc->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* sbc A, (IX+d) */
 
@@ -2004,14 +2141,19 @@ static int z80_ralloc_sbc_a_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrsbc->src->part);
-	sbc->disp = z80_ralloc_disp(-2 * (1 + (long) vrsbc->src->vregno) + vroff);
+	sbc->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &sbc->instr);
 	if (rc != EOK)
 		goto error;
 
 	sbc = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (sbc != NULL)
@@ -2031,10 +2173,16 @@ static int z80_ralloc_and_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_and_vr_t *vrand, z80ic_lblock_t *lblock)
 {
 	z80ic_and_iixd_t *and = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrand->src->vregno,
+	    vrand->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* and (IX+d) */
 
@@ -2042,14 +2190,19 @@ static int z80_ralloc_and_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrand->src->part);
-	and->disp = z80_ralloc_disp(-2 * (1 + (long) vrand->src->vregno) + vroff);
+	and->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &and->instr);
 	if (rc != EOK)
 		goto error;
 
 	and = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (and != NULL)
@@ -2069,10 +2222,16 @@ static int z80_ralloc_or_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_or_vr_t *vror, z80ic_lblock_t *lblock)
 {
 	z80ic_or_iixd_t *or = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vror->src->vregno,
+	    vror->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* or (IX+d) */
 
@@ -2080,14 +2239,19 @@ static int z80_ralloc_or_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vror->src->part);
-	or->disp = z80_ralloc_disp(-2 * (1 + (long) vror->src->vregno) + vroff);
+	or->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &or->instr);
 	if (rc != EOK)
 		goto error;
 
 	or = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (or != NULL)
@@ -2107,10 +2271,16 @@ static int z80_ralloc_xor_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_xor_vr_t *vrxor, z80ic_lblock_t *lblock)
 {
 	z80ic_xor_iixd_t *xor = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrxor->src->vregno,
+	    vrxor->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* xor (IX+d) */
 
@@ -2118,14 +2288,19 @@ static int z80_ralloc_xor_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrxor->src->part);
-	xor->disp = z80_ralloc_disp(-2 * (1 + (long) vrxor->src->vregno) + vroff);
+	xor->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &xor->instr);
 	if (rc != EOK)
 		goto error;
 
 	xor = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (xor != NULL)
@@ -2145,10 +2320,16 @@ static int z80_ralloc_inc_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_inc_vr_t *vrinc, z80ic_lblock_t *lblock)
 {
 	z80ic_inc_iixd_t *inc = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrinc->vr->vregno,
+	    vrinc->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* inc (IX+d) */
 
@@ -2156,14 +2337,19 @@ static int z80_ralloc_inc_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrinc->vr->part);
-	inc->disp = z80_ralloc_disp(-2 * (1 + (long) vrinc->vr->vregno) + vroff);
+	inc->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &inc->instr);
 	if (rc != EOK)
 		goto error;
 
 	inc = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (inc != NULL)
@@ -2183,10 +2369,16 @@ static int z80_ralloc_dec_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_dec_vr_t *vrdec, z80ic_lblock_t *lblock)
 {
 	z80ic_dec_iixd_t *dec = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrdec->vr->vregno,
+	    vrdec->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* dec (IX+d) */
 
@@ -2194,14 +2386,19 @@ static int z80_ralloc_dec_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrdec->vr->part);
-	dec->disp = z80_ralloc_disp(-2 * (1 + (long) vrdec->vr->vregno) + vroff);
+	dec->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &dec->instr);
 	if (rc != EOK)
 		goto error;
 
 	dec = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (dec != NULL)
@@ -2374,7 +2571,7 @@ static int z80_ralloc_inc_vrr(z80_ralloc_proc_t *raproc, const char *label,
 	z80ic_inc_iixd_t *inc = NULL;
 	z80ic_jp_cc_nn_t *jp = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	unsigned lblno;
 	char *nocarry_lbl = NULL;
 	int rc;
@@ -2386,14 +2583,19 @@ static int z80_ralloc_inc_vrr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrinc->vrr->vregno,
+	    z80ic_vrp_r16l, lblock);
+	if (rc != EOK)
+		goto error;
+
 	/* inc (IX+d) */
 
 	rc = z80ic_inc_iixd_create(&inc);
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(z80ic_vrp_r16l);
-	inc->disp = z80_ralloc_disp(-2 * (1 + (long) vrinc->vrr->vregno) + vroff);
+	inc->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &inc->instr);
 	if (rc != EOK)
@@ -2427,8 +2629,7 @@ static int z80_ralloc_inc_vrr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(z80ic_vrp_r16h);
-	inc->disp = z80_ralloc_disp(-2 * (1 + (long) vrinc->vrr->vregno) + vroff);
+	inc->disp = z80_idxacc_disp_r16h(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
 	if (rc != EOK)
@@ -2442,6 +2643,13 @@ static int z80_ralloc_inc_vrr(z80_ralloc_proc_t *raproc, const char *label,
 
 	inc = NULL;
 	free(nocarry_lbl);
+	nocarry_lbl = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (inc != NULL)
@@ -2467,10 +2675,16 @@ static int z80_ralloc_rl_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_rl_vr_t *vr_rl, z80ic_lblock_t *lblock)
 {
 	z80ic_rl_iixd_t *rl = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vr_rl->vr->vregno,
+	    vr_rl->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* rl (IX+d) */
 
@@ -2478,14 +2692,19 @@ static int z80_ralloc_rl_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vr_rl->vr->part);
-	rl->disp = z80_ralloc_disp(-2 * (1 + (long) vr_rl->vr->vregno) + vroff);
+	rl->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &rl->instr);
 	if (rc != EOK)
 		goto error;
 
 	rl = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (rl != NULL)
@@ -2505,10 +2724,16 @@ static int z80_ralloc_rr_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_rr_vr_t *vr_rr, z80ic_lblock_t *lblock)
 {
 	z80ic_rr_iixd_t *rr = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vr_rr->vr->vregno,
+	    vr_rr->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* rr (IX+d) */
 
@@ -2516,14 +2741,19 @@ static int z80_ralloc_rr_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vr_rr->vr->part);
-	rr->disp = z80_ralloc_disp(-2 * (1 + (long) vr_rr->vr->vregno) + vroff);
+	rr->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &rr->instr);
 	if (rc != EOK)
 		goto error;
 
 	rr = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (rr != NULL)
@@ -2544,10 +2774,16 @@ static int z80_ralloc_sla_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_sla_vr_t *vrsla, z80ic_lblock_t *lblock)
 {
 	z80ic_sla_iixd_t *sla = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrsla->vr->vregno,
+	    vrsla->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* sla (IX+d) */
 
@@ -2555,14 +2791,19 @@ static int z80_ralloc_sla_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrsla->vr->part);
-	sla->disp = z80_ralloc_disp(-2 * (1 + (long) vrsla->vr->vregno) + vroff);
+	sla->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &sla->instr);
 	if (rc != EOK)
 		goto error;
 
 	sla = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (sla != NULL)
@@ -2583,10 +2824,16 @@ static int z80_ralloc_sra_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_sra_vr_t *vrsra, z80ic_lblock_t *lblock)
 {
 	z80ic_sra_iixd_t *sra = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrsra->vr->vregno,
+	    vrsra->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* sra (IX+d) */
 
@@ -2594,14 +2841,19 @@ static int z80_ralloc_sra_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrsra->vr->part);
-	sra->disp = z80_ralloc_disp(-2 * (1 + (long) vrsra->vr->vregno) + vroff);
+	sra->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &sra->instr);
 	if (rc != EOK)
 		goto error;
 
 	sra = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (sra != NULL)
@@ -2622,10 +2874,16 @@ static int z80_ralloc_srl_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_srl_vr_t *vrsrl, z80ic_lblock_t *lblock)
 {
 	z80ic_srl_iixd_t *srl = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrsrl->vr->vregno,
+	    vrsrl->vr->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* srl (IX+d) */
 
@@ -2633,14 +2891,19 @@ static int z80_ralloc_srl_vr(z80_ralloc_proc_t *raproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	vroff = z80_ralloc_vroff(vrsrl->vr->part);
-	srl->disp = z80_ralloc_disp(-2 * (1 + (long) vrsrl->vr->vregno) + vroff);
+	srl->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &srl->instr);
 	if (rc != EOK)
 		goto error;
 
 	srl = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (srl != NULL)
@@ -2660,10 +2923,16 @@ static int z80_ralloc_bit_b_vr(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_bit_b_vr_t *vrbit, z80ic_lblock_t *lblock)
 {
 	z80ic_bit_b_iixd_t *bit = NULL;
-	unsigned vroff;
+	z80_idxacc_t idxacc;
 	int rc;
 
 	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, vrbit->src->vregno,
+	    vrbit->src->part, lblock);
+	if (rc != EOK)
+		goto error;
 
 	/* bit b, (IX+d) */
 
@@ -2672,14 +2941,19 @@ static int z80_ralloc_bit_b_vr(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	bit->bit = vrbit->bit;
-	vroff = z80_ralloc_vroff(vrbit->src->part);
-	bit->disp = z80_ralloc_disp(-2 * (1 + (long) vrbit->src->vregno) + vroff);
+	bit->disp = z80_idxacc_disp(&idxacc);
 
 	rc = z80ic_lblock_append(lblock, label, &bit->instr);
 	if (rc != EOK)
 		goto error;
 
 	bit = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, lblock);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	if (bit != NULL)

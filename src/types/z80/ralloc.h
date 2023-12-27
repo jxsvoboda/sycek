@@ -27,6 +27,7 @@
 #ifndef TYPES_Z80_RALLOC_H
 #define TYPES_Z80_RALLOC_H
 
+#include <stdint.h>
 #include <types/z80/z80ic.h>
 
 /** Z80 register allocator */
@@ -43,5 +44,20 @@ typedef struct {
 	/** Next label number to allocate */
 	unsigned next_label;
 } z80_ralloc_proc_t;
+
+/** Z80 data access using index register
+ *
+ * If the register allocator wants to access a location on the stack
+ * (e.g. stack frame entry / spilled virtual register, or an
+ * argument stored on the stack), we may need to set up an index register,
+ * then emit a specific instruction using HL, IX or IY, then possibly
+ * restore any modified registers.
+ *
+ * This structure tracks the index register setup.
+ */
+typedef struct {
+	/** Displacement */
+	int8_t disp;
+} z80_idxacc_t;
 
 #endif
