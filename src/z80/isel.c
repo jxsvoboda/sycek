@@ -2824,6 +2824,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned rvavr = 0;
 	unsigned rvbits;
 	unsigned i;
+	unsigned stack_bytes;
 	int rc;
 
 	assert(irinstr->itype == iri_call);
@@ -3031,7 +3032,11 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			return rc;
 
-		for (i = 0; i < entry->stack_sz; i++) {
+		/* Stack is padded to entire words */
+		stack_bytes = (entry->stack_sz & 1) != 0 ?
+		    entry->stack_sz + 1 : entry->stack_sz;
+
+		for (i = 0; i < stack_bytes; i++) {
 
 			/* inc SP */
 

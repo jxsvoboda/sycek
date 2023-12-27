@@ -3625,7 +3625,7 @@ static int z80_ralloc_proc(z80_ralloc_t *ralloc, z80ic_proc_t *vrproc,
 	 * either our computation is incorrect, or the generated code
 	 * is incorrect (unbalanced).
 	 */
-	/* assert(raproc->spadj == 0); */
+	assert(raproc->spadj == 0);
 
 	z80_ralloc_proc_destroy(raproc);
 	z80ic_module_append(icmod, &icproc->decln);
