@@ -1,0 +1,830 @@
+<test/syc/ugly/xlim.c:10:9:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:10:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:11:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:12:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:13:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:14:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:15:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:16:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:18:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:19:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:20:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:21:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:22:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:23:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:24:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:25:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:27:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:28:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:29:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:30:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:31:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:32:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:33:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:34:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:36:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:37:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:38:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:39:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:40:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:41:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:42:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:43:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:45:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:46:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:47:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:48:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:49:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:50:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:51:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:52:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:54:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:55:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:56:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:57:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:58:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:59:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:60:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:61:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:63:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:64:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:65:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:66:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:67:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:68:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:69:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:70:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:72:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:73:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:74:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:75:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:76:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:77:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:78:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:10:79:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:9:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:10:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:11:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:12:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:13:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:14:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:15:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:16:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:18:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:19:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:20:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:21:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:22:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:23:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:24:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:25:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:27:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:28:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:29:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:30:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:31:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:32:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:33:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:34:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:36:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:37:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:38:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:39:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:40:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:41:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:42:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:43:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:45:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:46:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:47:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:48:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:49:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:50:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:51:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:52:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:54:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:55:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:56:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:57:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:58:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:59:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:60:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:61:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:63:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:64:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:65:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:66:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:67:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:68:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:69:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:70:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:72:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:73:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:74:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:75:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:76:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:77:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:11:78:'{'>: Warning: Gratuitous nested block.
+<test/syc/ugly/xlim.c:31:1-6:'static'>: Warning: Unimplemented storage class specifier.
+<test/syc/ugly/xlim.c:32:1-6:'static'>: Warning: Unimplemented storage class specifier.
+<test/syc/ugly/xlim.c:557:13-14:id:b0>: Warning: 'b0' is defined, but not used.
+<test/syc/ugly/xlim.c:557:21-22:id:b1>: Warning: 'b1' is defined, but not used.
+<test/syc/ugly/xlim.c:557:29-30:id:b2>: Warning: 'b2' is defined, but not used.
+<test/syc/ugly/xlim.c:557:37-38:id:b3>: Warning: 'b3' is defined, but not used.
+<test/syc/ugly/xlim.c:557:45-46:id:b4>: Warning: 'b4' is defined, but not used.
+<test/syc/ugly/xlim.c:557:53-54:id:b5>: Warning: 'b5' is defined, but not used.
+<test/syc/ugly/xlim.c:557:61-62:id:b6>: Warning: 'b6' is defined, but not used.
+<test/syc/ugly/xlim.c:557:69-70:id:b7>: Warning: 'b7' is defined, but not used.
+<test/syc/ugly/xlim.c:558:13-14:id:b8>: Warning: 'b8' is defined, but not used.
+<test/syc/ugly/xlim.c:558:21-22:id:b9>: Warning: 'b9' is defined, but not used.
+<test/syc/ugly/xlim.c:558:29-31:id:b10>: Warning: 'b10' is defined, but not used.
+<test/syc/ugly/xlim.c:558:38-40:id:b11>: Warning: 'b11' is defined, but not used.
+<test/syc/ugly/xlim.c:558:47-49:id:b12>: Warning: 'b12' is defined, but not used.
+<test/syc/ugly/xlim.c:558:56-58:id:b13>: Warning: 'b13' is defined, but not used.
+<test/syc/ugly/xlim.c:558:65-67:id:b14>: Warning: 'b14' is defined, but not used.
+<test/syc/ugly/xlim.c:558:74-76:id:b15>: Warning: 'b15' is defined, but not used.
+<test/syc/ugly/xlim.c:559:13-15:id:b16>: Warning: 'b16' is defined, but not used.
+<test/syc/ugly/xlim.c:559:22-24:id:b17>: Warning: 'b17' is defined, but not used.
+<test/syc/ugly/xlim.c:559:31-33:id:b18>: Warning: 'b18' is defined, but not used.
+<test/syc/ugly/xlim.c:559:40-42:id:b19>: Warning: 'b19' is defined, but not used.
+<test/syc/ugly/xlim.c:559:49-51:id:b20>: Warning: 'b20' is defined, but not used.
+<test/syc/ugly/xlim.c:559:58-60:id:b21>: Warning: 'b21' is defined, but not used.
+<test/syc/ugly/xlim.c:559:67-69:id:b22>: Warning: 'b22' is defined, but not used.
+<test/syc/ugly/xlim.c:559:76-78:id:b23>: Warning: 'b23' is defined, but not used.
+<test/syc/ugly/xlim.c:560:13-15:id:b24>: Warning: 'b24' is defined, but not used.
+<test/syc/ugly/xlim.c:560:22-24:id:b25>: Warning: 'b25' is defined, but not used.
+<test/syc/ugly/xlim.c:560:31-33:id:b26>: Warning: 'b26' is defined, but not used.
+<test/syc/ugly/xlim.c:560:40-42:id:b27>: Warning: 'b27' is defined, but not used.
+<test/syc/ugly/xlim.c:560:49-51:id:b28>: Warning: 'b28' is defined, but not used.
+<test/syc/ugly/xlim.c:560:58-60:id:b29>: Warning: 'b29' is defined, but not used.
+<test/syc/ugly/xlim.c:560:67-69:id:b30>: Warning: 'b30' is defined, but not used.
+<test/syc/ugly/xlim.c:560:76-78:id:b31>: Warning: 'b31' is defined, but not used.
+<test/syc/ugly/xlim.c:561:13-15:id:b32>: Warning: 'b32' is defined, but not used.
+<test/syc/ugly/xlim.c:561:22-24:id:b33>: Warning: 'b33' is defined, but not used.
+<test/syc/ugly/xlim.c:561:31-33:id:b34>: Warning: 'b34' is defined, but not used.
+<test/syc/ugly/xlim.c:561:40-42:id:b35>: Warning: 'b35' is defined, but not used.
+<test/syc/ugly/xlim.c:561:49-51:id:b36>: Warning: 'b36' is defined, but not used.
+<test/syc/ugly/xlim.c:561:58-60:id:b37>: Warning: 'b37' is defined, but not used.
+<test/syc/ugly/xlim.c:561:67-69:id:b38>: Warning: 'b38' is defined, but not used.
+<test/syc/ugly/xlim.c:561:76-78:id:b39>: Warning: 'b39' is defined, but not used.
+<test/syc/ugly/xlim.c:562:13-15:id:b40>: Warning: 'b40' is defined, but not used.
+<test/syc/ugly/xlim.c:562:22-24:id:b41>: Warning: 'b41' is defined, but not used.
+<test/syc/ugly/xlim.c:562:31-33:id:b42>: Warning: 'b42' is defined, but not used.
+<test/syc/ugly/xlim.c:562:40-42:id:b43>: Warning: 'b43' is defined, but not used.
+<test/syc/ugly/xlim.c:562:49-51:id:b44>: Warning: 'b44' is defined, but not used.
+<test/syc/ugly/xlim.c:562:58-60:id:b45>: Warning: 'b45' is defined, but not used.
+<test/syc/ugly/xlim.c:562:67-69:id:b46>: Warning: 'b46' is defined, but not used.
+<test/syc/ugly/xlim.c:562:76-78:id:b47>: Warning: 'b47' is defined, but not used.
+<test/syc/ugly/xlim.c:563:13-15:id:b48>: Warning: 'b48' is defined, but not used.
+<test/syc/ugly/xlim.c:563:22-24:id:b49>: Warning: 'b49' is defined, but not used.
+<test/syc/ugly/xlim.c:563:31-33:id:b50>: Warning: 'b50' is defined, but not used.
+<test/syc/ugly/xlim.c:563:40-42:id:b51>: Warning: 'b51' is defined, but not used.
+<test/syc/ugly/xlim.c:563:49-51:id:b52>: Warning: 'b52' is defined, but not used.
+<test/syc/ugly/xlim.c:563:58-60:id:b53>: Warning: 'b53' is defined, but not used.
+<test/syc/ugly/xlim.c:563:67-69:id:b54>: Warning: 'b54' is defined, but not used.
+<test/syc/ugly/xlim.c:563:76-78:id:b55>: Warning: 'b55' is defined, but not used.
+<test/syc/ugly/xlim.c:564:13-15:id:b56>: Warning: 'b56' is defined, but not used.
+<test/syc/ugly/xlim.c:564:22-24:id:b57>: Warning: 'b57' is defined, but not used.
+<test/syc/ugly/xlim.c:564:31-33:id:b58>: Warning: 'b58' is defined, but not used.
+<test/syc/ugly/xlim.c:564:40-42:id:b59>: Warning: 'b59' is defined, but not used.
+<test/syc/ugly/xlim.c:564:49-51:id:b60>: Warning: 'b60' is defined, but not used.
+<test/syc/ugly/xlim.c:564:58-60:id:b61>: Warning: 'b61' is defined, but not used.
+<test/syc/ugly/xlim.c:564:67-69:id:b62>: Warning: 'b62' is defined, but not used.
+<test/syc/ugly/xlim.c:564:76-78:id:b63>: Warning: 'b63' is defined, but not used.
+<test/syc/ugly/xlim.c:565:13-15:id:b64>: Warning: 'b64' is defined, but not used.
+<test/syc/ugly/xlim.c:565:22-24:id:b65>: Warning: 'b65' is defined, but not used.
+<test/syc/ugly/xlim.c:565:31-33:id:b66>: Warning: 'b66' is defined, but not used.
+<test/syc/ugly/xlim.c:565:40-42:id:b67>: Warning: 'b67' is defined, but not used.
+<test/syc/ugly/xlim.c:565:49-51:id:b68>: Warning: 'b68' is defined, but not used.
+<test/syc/ugly/xlim.c:565:58-60:id:b69>: Warning: 'b69' is defined, but not used.
+<test/syc/ugly/xlim.c:565:67-69:id:b70>: Warning: 'b70' is defined, but not used.
+<test/syc/ugly/xlim.c:565:76-78:id:b71>: Warning: 'b71' is defined, but not used.
+<test/syc/ugly/xlim.c:566:13-15:id:b72>: Warning: 'b72' is defined, but not used.
+<test/syc/ugly/xlim.c:566:22-24:id:b73>: Warning: 'b73' is defined, but not used.
+<test/syc/ugly/xlim.c:566:31-33:id:b74>: Warning: 'b74' is defined, but not used.
+<test/syc/ugly/xlim.c:566:40-42:id:b75>: Warning: 'b75' is defined, but not used.
+<test/syc/ugly/xlim.c:566:49-51:id:b76>: Warning: 'b76' is defined, but not used.
+<test/syc/ugly/xlim.c:566:58-60:id:b77>: Warning: 'b77' is defined, but not used.
+<test/syc/ugly/xlim.c:566:67-69:id:b78>: Warning: 'b78' is defined, but not used.
+<test/syc/ugly/xlim.c:566:76-78:id:b79>: Warning: 'b79' is defined, but not used.
+<test/syc/ugly/xlim.c:567:13-15:id:b80>: Warning: 'b80' is defined, but not used.
+<test/syc/ugly/xlim.c:567:22-24:id:b81>: Warning: 'b81' is defined, but not used.
+<test/syc/ugly/xlim.c:567:31-33:id:b82>: Warning: 'b82' is defined, but not used.
+<test/syc/ugly/xlim.c:567:40-42:id:b83>: Warning: 'b83' is defined, but not used.
+<test/syc/ugly/xlim.c:567:49-51:id:b84>: Warning: 'b84' is defined, but not used.
+<test/syc/ugly/xlim.c:567:58-60:id:b85>: Warning: 'b85' is defined, but not used.
+<test/syc/ugly/xlim.c:567:67-69:id:b86>: Warning: 'b86' is defined, but not used.
+<test/syc/ugly/xlim.c:567:76-78:id:b87>: Warning: 'b87' is defined, but not used.
+<test/syc/ugly/xlim.c:568:13-15:id:b88>: Warning: 'b88' is defined, but not used.
+<test/syc/ugly/xlim.c:568:22-24:id:b89>: Warning: 'b89' is defined, but not used.
+<test/syc/ugly/xlim.c:568:31-33:id:b90>: Warning: 'b90' is defined, but not used.
+<test/syc/ugly/xlim.c:568:40-42:id:b91>: Warning: 'b91' is defined, but not used.
+<test/syc/ugly/xlim.c:568:49-51:id:b92>: Warning: 'b92' is defined, but not used.
+<test/syc/ugly/xlim.c:568:58-60:id:b93>: Warning: 'b93' is defined, but not used.
+<test/syc/ugly/xlim.c:568:67-69:id:b94>: Warning: 'b94' is defined, but not used.
+<test/syc/ugly/xlim.c:568:76-78:id:b95>: Warning: 'b95' is defined, but not used.
+<test/syc/ugly/xlim.c:569:13-15:id:b96>: Warning: 'b96' is defined, but not used.
+<test/syc/ugly/xlim.c:569:22-24:id:b97>: Warning: 'b97' is defined, but not used.
+<test/syc/ugly/xlim.c:569:31-33:id:b98>: Warning: 'b98' is defined, but not used.
+<test/syc/ugly/xlim.c:569:40-42:id:b99>: Warning: 'b99' is defined, but not used.
+<test/syc/ugly/xlim.c:569:49-52:id:b100>: Warning: 'b100' is defined, but not used.
+<test/syc/ugly/xlim.c:569:59-62:id:b101>: Warning: 'b101' is defined, but not used.
+<test/syc/ugly/xlim.c:569:69-72:id:b102>: Warning: 'b102' is defined, but not used.
+<test/syc/ugly/xlim.c:569:79-82:id:b103>: Warning: 'b103' is defined, but not used.
+<test/syc/ugly/xlim.c:570:13-16:id:b104>: Warning: 'b104' is defined, but not used.
+<test/syc/ugly/xlim.c:570:23-26:id:b105>: Warning: 'b105' is defined, but not used.
+<test/syc/ugly/xlim.c:570:33-36:id:b106>: Warning: 'b106' is defined, but not used.
+<test/syc/ugly/xlim.c:570:43-46:id:b107>: Warning: 'b107' is defined, but not used.
+<test/syc/ugly/xlim.c:570:53-56:id:b108>: Warning: 'b108' is defined, but not used.
+<test/syc/ugly/xlim.c:570:63-66:id:b109>: Warning: 'b109' is defined, but not used.
+<test/syc/ugly/xlim.c:570:73-76:id:b110>: Warning: 'b110' is defined, but not used.
+<test/syc/ugly/xlim.c:570:83-86:id:b111>: Warning: 'b111' is defined, but not used.
+<test/syc/ugly/xlim.c:571:13-16:id:b112>: Warning: 'b112' is defined, but not used.
+<test/syc/ugly/xlim.c:571:23-26:id:b113>: Warning: 'b113' is defined, but not used.
+<test/syc/ugly/xlim.c:571:33-36:id:b114>: Warning: 'b114' is defined, but not used.
+<test/syc/ugly/xlim.c:571:43-46:id:b115>: Warning: 'b115' is defined, but not used.
+<test/syc/ugly/xlim.c:571:53-56:id:b116>: Warning: 'b116' is defined, but not used.
+<test/syc/ugly/xlim.c:571:63-66:id:b117>: Warning: 'b117' is defined, but not used.
+<test/syc/ugly/xlim.c:571:73-76:id:b118>: Warning: 'b118' is defined, but not used.
+<test/syc/ugly/xlim.c:571:83-86:id:b119>: Warning: 'b119' is defined, but not used.
+<test/syc/ugly/xlim.c:572:13-16:id:b120>: Warning: 'b120' is defined, but not used.
+<test/syc/ugly/xlim.c:572:23-26:id:b121>: Warning: 'b121' is defined, but not used.
+<test/syc/ugly/xlim.c:572:33-36:id:b122>: Warning: 'b122' is defined, but not used.
+<test/syc/ugly/xlim.c:572:43-46:id:b123>: Warning: 'b123' is defined, but not used.
+<test/syc/ugly/xlim.c:572:53-56:id:b124>: Warning: 'b124' is defined, but not used.
+<test/syc/ugly/xlim.c:572:63-66:id:b125>: Warning: 'b125' is defined, but not used.
+<test/syc/ugly/xlim.c:572:73-76:id:b126>: Warning: 'b126' is defined, but not used.
+<test/syc/ugly/xlim.c:572:83-86:id:b127>: Warning: 'b127' is defined, but not used.
+<test/syc/ugly/xlim.c:573:13-16:id:b128>: Warning: 'b128' is defined, but not used.
+<test/syc/ugly/xlim.c:573:23-26:id:b129>: Warning: 'b129' is defined, but not used.
+<test/syc/ugly/xlim.c:573:33-36:id:b130>: Warning: 'b130' is defined, but not used.
+<test/syc/ugly/xlim.c:573:43-46:id:b131>: Warning: 'b131' is defined, but not used.
+<test/syc/ugly/xlim.c:573:53-56:id:b132>: Warning: 'b132' is defined, but not used.
+<test/syc/ugly/xlim.c:573:63-66:id:b133>: Warning: 'b133' is defined, but not used.
+<test/syc/ugly/xlim.c:573:73-76:id:b134>: Warning: 'b134' is defined, but not used.
+<test/syc/ugly/xlim.c:573:83-86:id:b135>: Warning: 'b135' is defined, but not used.
+<test/syc/ugly/xlim.c:574:13-16:id:b136>: Warning: 'b136' is defined, but not used.
+<test/syc/ugly/xlim.c:574:23-26:id:b137>: Warning: 'b137' is defined, but not used.
+<test/syc/ugly/xlim.c:574:33-36:id:b138>: Warning: 'b138' is defined, but not used.
+<test/syc/ugly/xlim.c:574:43-46:id:b139>: Warning: 'b139' is defined, but not used.
+<test/syc/ugly/xlim.c:574:53-56:id:b140>: Warning: 'b140' is defined, but not used.
+<test/syc/ugly/xlim.c:574:63-66:id:b141>: Warning: 'b141' is defined, but not used.
+<test/syc/ugly/xlim.c:574:73-76:id:b142>: Warning: 'b142' is defined, but not used.
+<test/syc/ugly/xlim.c:574:83-86:id:b143>: Warning: 'b143' is defined, but not used.
+<test/syc/ugly/xlim.c:575:13-16:id:b144>: Warning: 'b144' is defined, but not used.
+<test/syc/ugly/xlim.c:575:23-26:id:b145>: Warning: 'b145' is defined, but not used.
+<test/syc/ugly/xlim.c:575:33-36:id:b146>: Warning: 'b146' is defined, but not used.
+<test/syc/ugly/xlim.c:575:43-46:id:b147>: Warning: 'b147' is defined, but not used.
+<test/syc/ugly/xlim.c:575:53-56:id:b148>: Warning: 'b148' is defined, but not used.
+<test/syc/ugly/xlim.c:575:63-66:id:b149>: Warning: 'b149' is defined, but not used.
+<test/syc/ugly/xlim.c:575:73-76:id:b150>: Warning: 'b150' is defined, but not used.
+<test/syc/ugly/xlim.c:575:83-86:id:b151>: Warning: 'b151' is defined, but not used.
+<test/syc/ugly/xlim.c:576:13-16:id:b152>: Warning: 'b152' is defined, but not used.
+<test/syc/ugly/xlim.c:576:23-26:id:b153>: Warning: 'b153' is defined, but not used.
+<test/syc/ugly/xlim.c:576:33-36:id:b154>: Warning: 'b154' is defined, but not used.
+<test/syc/ugly/xlim.c:576:43-46:id:b155>: Warning: 'b155' is defined, but not used.
+<test/syc/ugly/xlim.c:576:53-56:id:b156>: Warning: 'b156' is defined, but not used.
+<test/syc/ugly/xlim.c:576:63-66:id:b157>: Warning: 'b157' is defined, but not used.
+<test/syc/ugly/xlim.c:576:73-76:id:b158>: Warning: 'b158' is defined, but not used.
+<test/syc/ugly/xlim.c:576:83-86:id:b159>: Warning: 'b159' is defined, but not used.
+<test/syc/ugly/xlim.c:577:13-16:id:b160>: Warning: 'b160' is defined, but not used.
+<test/syc/ugly/xlim.c:577:23-26:id:b161>: Warning: 'b161' is defined, but not used.
+<test/syc/ugly/xlim.c:577:33-36:id:b162>: Warning: 'b162' is defined, but not used.
+<test/syc/ugly/xlim.c:577:43-46:id:b163>: Warning: 'b163' is defined, but not used.
+<test/syc/ugly/xlim.c:577:53-56:id:b164>: Warning: 'b164' is defined, but not used.
+<test/syc/ugly/xlim.c:577:63-66:id:b165>: Warning: 'b165' is defined, but not used.
+<test/syc/ugly/xlim.c:577:73-76:id:b166>: Warning: 'b166' is defined, but not used.
+<test/syc/ugly/xlim.c:577:83-86:id:b167>: Warning: 'b167' is defined, but not used.
+<test/syc/ugly/xlim.c:578:13-16:id:b168>: Warning: 'b168' is defined, but not used.
+<test/syc/ugly/xlim.c:578:23-26:id:b169>: Warning: 'b169' is defined, but not used.
+<test/syc/ugly/xlim.c:578:33-36:id:b170>: Warning: 'b170' is defined, but not used.
+<test/syc/ugly/xlim.c:578:43-46:id:b171>: Warning: 'b171' is defined, but not used.
+<test/syc/ugly/xlim.c:578:53-56:id:b172>: Warning: 'b172' is defined, but not used.
+<test/syc/ugly/xlim.c:578:63-66:id:b173>: Warning: 'b173' is defined, but not used.
+<test/syc/ugly/xlim.c:578:73-76:id:b174>: Warning: 'b174' is defined, but not used.
+<test/syc/ugly/xlim.c:578:83-86:id:b175>: Warning: 'b175' is defined, but not used.
+<test/syc/ugly/xlim.c:579:13-16:id:b176>: Warning: 'b176' is defined, but not used.
+<test/syc/ugly/xlim.c:579:23-26:id:b177>: Warning: 'b177' is defined, but not used.
+<test/syc/ugly/xlim.c:579:33-36:id:b178>: Warning: 'b178' is defined, but not used.
+<test/syc/ugly/xlim.c:579:43-46:id:b179>: Warning: 'b179' is defined, but not used.
+<test/syc/ugly/xlim.c:579:53-56:id:b180>: Warning: 'b180' is defined, but not used.
+<test/syc/ugly/xlim.c:579:63-66:id:b181>: Warning: 'b181' is defined, but not used.
+<test/syc/ugly/xlim.c:579:73-76:id:b182>: Warning: 'b182' is defined, but not used.
+<test/syc/ugly/xlim.c:579:83-86:id:b183>: Warning: 'b183' is defined, but not used.
+<test/syc/ugly/xlim.c:580:13-16:id:b184>: Warning: 'b184' is defined, but not used.
+<test/syc/ugly/xlim.c:580:23-26:id:b185>: Warning: 'b185' is defined, but not used.
+<test/syc/ugly/xlim.c:580:33-36:id:b186>: Warning: 'b186' is defined, but not used.
+<test/syc/ugly/xlim.c:580:43-46:id:b187>: Warning: 'b187' is defined, but not used.
+<test/syc/ugly/xlim.c:580:53-56:id:b188>: Warning: 'b188' is defined, but not used.
+<test/syc/ugly/xlim.c:580:63-66:id:b189>: Warning: 'b189' is defined, but not used.
+<test/syc/ugly/xlim.c:580:73-76:id:b190>: Warning: 'b190' is defined, but not used.
+<test/syc/ugly/xlim.c:580:83-86:id:b191>: Warning: 'b191' is defined, but not used.
+<test/syc/ugly/xlim.c:581:13-16:id:b192>: Warning: 'b192' is defined, but not used.
+<test/syc/ugly/xlim.c:581:23-26:id:b193>: Warning: 'b193' is defined, but not used.
+<test/syc/ugly/xlim.c:581:33-36:id:b194>: Warning: 'b194' is defined, but not used.
+<test/syc/ugly/xlim.c:581:43-46:id:b195>: Warning: 'b195' is defined, but not used.
+<test/syc/ugly/xlim.c:581:53-56:id:b196>: Warning: 'b196' is defined, but not used.
+<test/syc/ugly/xlim.c:581:63-66:id:b197>: Warning: 'b197' is defined, but not used.
+<test/syc/ugly/xlim.c:581:73-76:id:b198>: Warning: 'b198' is defined, but not used.
+<test/syc/ugly/xlim.c:581:83-86:id:b199>: Warning: 'b199' is defined, but not used.
+<test/syc/ugly/xlim.c:582:13-16:id:b200>: Warning: 'b200' is defined, but not used.
+<test/syc/ugly/xlim.c:582:23-26:id:b201>: Warning: 'b201' is defined, but not used.
+<test/syc/ugly/xlim.c:582:33-36:id:b202>: Warning: 'b202' is defined, but not used.
+<test/syc/ugly/xlim.c:582:43-46:id:b203>: Warning: 'b203' is defined, but not used.
+<test/syc/ugly/xlim.c:582:53-56:id:b204>: Warning: 'b204' is defined, but not used.
+<test/syc/ugly/xlim.c:582:63-66:id:b205>: Warning: 'b205' is defined, but not used.
+<test/syc/ugly/xlim.c:582:73-76:id:b206>: Warning: 'b206' is defined, but not used.
+<test/syc/ugly/xlim.c:582:83-86:id:b207>: Warning: 'b207' is defined, but not used.
+<test/syc/ugly/xlim.c:583:13-16:id:b208>: Warning: 'b208' is defined, but not used.
+<test/syc/ugly/xlim.c:583:23-26:id:b209>: Warning: 'b209' is defined, but not used.
+<test/syc/ugly/xlim.c:583:33-36:id:b210>: Warning: 'b210' is defined, but not used.
+<test/syc/ugly/xlim.c:583:43-46:id:b211>: Warning: 'b211' is defined, but not used.
+<test/syc/ugly/xlim.c:583:53-56:id:b212>: Warning: 'b212' is defined, but not used.
+<test/syc/ugly/xlim.c:583:63-66:id:b213>: Warning: 'b213' is defined, but not used.
+<test/syc/ugly/xlim.c:583:73-76:id:b214>: Warning: 'b214' is defined, but not used.
+<test/syc/ugly/xlim.c:583:83-86:id:b215>: Warning: 'b215' is defined, but not used.
+<test/syc/ugly/xlim.c:584:13-16:id:b216>: Warning: 'b216' is defined, but not used.
+<test/syc/ugly/xlim.c:584:23-26:id:b217>: Warning: 'b217' is defined, but not used.
+<test/syc/ugly/xlim.c:584:33-36:id:b218>: Warning: 'b218' is defined, but not used.
+<test/syc/ugly/xlim.c:584:43-46:id:b219>: Warning: 'b219' is defined, but not used.
+<test/syc/ugly/xlim.c:584:53-56:id:b220>: Warning: 'b220' is defined, but not used.
+<test/syc/ugly/xlim.c:584:63-66:id:b221>: Warning: 'b221' is defined, but not used.
+<test/syc/ugly/xlim.c:584:73-76:id:b222>: Warning: 'b222' is defined, but not used.
+<test/syc/ugly/xlim.c:584:83-86:id:b223>: Warning: 'b223' is defined, but not used.
+<test/syc/ugly/xlim.c:585:13-16:id:b224>: Warning: 'b224' is defined, but not used.
+<test/syc/ugly/xlim.c:585:23-26:id:b225>: Warning: 'b225' is defined, but not used.
+<test/syc/ugly/xlim.c:585:33-36:id:b226>: Warning: 'b226' is defined, but not used.
+<test/syc/ugly/xlim.c:585:43-46:id:b227>: Warning: 'b227' is defined, but not used.
+<test/syc/ugly/xlim.c:585:53-56:id:b228>: Warning: 'b228' is defined, but not used.
+<test/syc/ugly/xlim.c:585:63-66:id:b229>: Warning: 'b229' is defined, but not used.
+<test/syc/ugly/xlim.c:585:73-76:id:b230>: Warning: 'b230' is defined, but not used.
+<test/syc/ugly/xlim.c:585:83-86:id:b231>: Warning: 'b231' is defined, but not used.
+<test/syc/ugly/xlim.c:586:13-16:id:b232>: Warning: 'b232' is defined, but not used.
+<test/syc/ugly/xlim.c:586:23-26:id:b233>: Warning: 'b233' is defined, but not used.
+<test/syc/ugly/xlim.c:586:33-36:id:b234>: Warning: 'b234' is defined, but not used.
+<test/syc/ugly/xlim.c:586:43-46:id:b235>: Warning: 'b235' is defined, but not used.
+<test/syc/ugly/xlim.c:586:53-56:id:b236>: Warning: 'b236' is defined, but not used.
+<test/syc/ugly/xlim.c:586:63-66:id:b237>: Warning: 'b237' is defined, but not used.
+<test/syc/ugly/xlim.c:586:73-76:id:b238>: Warning: 'b238' is defined, but not used.
+<test/syc/ugly/xlim.c:586:83-86:id:b239>: Warning: 'b239' is defined, but not used.
+<test/syc/ugly/xlim.c:587:13-16:id:b240>: Warning: 'b240' is defined, but not used.
+<test/syc/ugly/xlim.c:587:23-26:id:b241>: Warning: 'b241' is defined, but not used.
+<test/syc/ugly/xlim.c:587:33-36:id:b242>: Warning: 'b242' is defined, but not used.
+<test/syc/ugly/xlim.c:587:43-46:id:b243>: Warning: 'b243' is defined, but not used.
+<test/syc/ugly/xlim.c:587:53-56:id:b244>: Warning: 'b244' is defined, but not used.
+<test/syc/ugly/xlim.c:587:63-66:id:b245>: Warning: 'b245' is defined, but not used.
+<test/syc/ugly/xlim.c:587:73-76:id:b246>: Warning: 'b246' is defined, but not used.
+<test/syc/ugly/xlim.c:587:83-86:id:b247>: Warning: 'b247' is defined, but not used.
+<test/syc/ugly/xlim.c:588:13-16:id:b248>: Warning: 'b248' is defined, but not used.
+<test/syc/ugly/xlim.c:588:23-26:id:b249>: Warning: 'b249' is defined, but not used.
+<test/syc/ugly/xlim.c:588:33-36:id:b250>: Warning: 'b250' is defined, but not used.
+<test/syc/ugly/xlim.c:588:43-46:id:b251>: Warning: 'b251' is defined, but not used.
+<test/syc/ugly/xlim.c:588:53-56:id:b252>: Warning: 'b252' is defined, but not used.
+<test/syc/ugly/xlim.c:588:63-66:id:b253>: Warning: 'b253' is defined, but not used.
+<test/syc/ugly/xlim.c:588:73-76:id:b254>: Warning: 'b254' is defined, but not used.
+<test/syc/ugly/xlim.c:588:83-86:id:b255>: Warning: 'b255' is defined, but not used.
+<test/syc/ugly/xlim.c:589:13-16:id:b256>: Warning: 'b256' is defined, but not used.
+<test/syc/ugly/xlim.c:589:23-26:id:b257>: Warning: 'b257' is defined, but not used.
+<test/syc/ugly/xlim.c:589:33-36:id:b258>: Warning: 'b258' is defined, but not used.
+<test/syc/ugly/xlim.c:589:43-46:id:b259>: Warning: 'b259' is defined, but not used.
+<test/syc/ugly/xlim.c:589:53-56:id:b260>: Warning: 'b260' is defined, but not used.
+<test/syc/ugly/xlim.c:589:63-66:id:b261>: Warning: 'b261' is defined, but not used.
+<test/syc/ugly/xlim.c:589:73-76:id:b262>: Warning: 'b262' is defined, but not used.
+<test/syc/ugly/xlim.c:589:83-86:id:b263>: Warning: 'b263' is defined, but not used.
+<test/syc/ugly/xlim.c:590:13-16:id:b264>: Warning: 'b264' is defined, but not used.
+<test/syc/ugly/xlim.c:590:23-26:id:b265>: Warning: 'b265' is defined, but not used.
+<test/syc/ugly/xlim.c:590:33-36:id:b266>: Warning: 'b266' is defined, but not used.
+<test/syc/ugly/xlim.c:590:43-46:id:b267>: Warning: 'b267' is defined, but not used.
+<test/syc/ugly/xlim.c:590:53-56:id:b268>: Warning: 'b268' is defined, but not used.
+<test/syc/ugly/xlim.c:590:63-66:id:b269>: Warning: 'b269' is defined, but not used.
+<test/syc/ugly/xlim.c:590:73-76:id:b270>: Warning: 'b270' is defined, but not used.
+<test/syc/ugly/xlim.c:590:83-86:id:b271>: Warning: 'b271' is defined, but not used.
+<test/syc/ugly/xlim.c:591:13-16:id:b272>: Warning: 'b272' is defined, but not used.
+<test/syc/ugly/xlim.c:591:23-26:id:b273>: Warning: 'b273' is defined, but not used.
+<test/syc/ugly/xlim.c:591:33-36:id:b274>: Warning: 'b274' is defined, but not used.
+<test/syc/ugly/xlim.c:591:43-46:id:b275>: Warning: 'b275' is defined, but not used.
+<test/syc/ugly/xlim.c:591:53-56:id:b276>: Warning: 'b276' is defined, but not used.
+<test/syc/ugly/xlim.c:591:63-66:id:b277>: Warning: 'b277' is defined, but not used.
+<test/syc/ugly/xlim.c:591:73-76:id:b278>: Warning: 'b278' is defined, but not used.
+<test/syc/ugly/xlim.c:591:83-86:id:b279>: Warning: 'b279' is defined, but not used.
+<test/syc/ugly/xlim.c:592:13-16:id:b280>: Warning: 'b280' is defined, but not used.
+<test/syc/ugly/xlim.c:592:23-26:id:b281>: Warning: 'b281' is defined, but not used.
+<test/syc/ugly/xlim.c:592:33-36:id:b282>: Warning: 'b282' is defined, but not used.
+<test/syc/ugly/xlim.c:592:43-46:id:b283>: Warning: 'b283' is defined, but not used.
+<test/syc/ugly/xlim.c:592:53-56:id:b284>: Warning: 'b284' is defined, but not used.
+<test/syc/ugly/xlim.c:592:63-66:id:b285>: Warning: 'b285' is defined, but not used.
+<test/syc/ugly/xlim.c:592:73-76:id:b286>: Warning: 'b286' is defined, but not used.
+<test/syc/ugly/xlim.c:592:83-86:id:b287>: Warning: 'b287' is defined, but not used.
+<test/syc/ugly/xlim.c:593:13-16:id:b288>: Warning: 'b288' is defined, but not used.
+<test/syc/ugly/xlim.c:593:23-26:id:b289>: Warning: 'b289' is defined, but not used.
+<test/syc/ugly/xlim.c:593:33-36:id:b290>: Warning: 'b290' is defined, but not used.
+<test/syc/ugly/xlim.c:593:43-46:id:b291>: Warning: 'b291' is defined, but not used.
+<test/syc/ugly/xlim.c:593:53-56:id:b292>: Warning: 'b292' is defined, but not used.
+<test/syc/ugly/xlim.c:593:63-66:id:b293>: Warning: 'b293' is defined, but not used.
+<test/syc/ugly/xlim.c:593:73-76:id:b294>: Warning: 'b294' is defined, but not used.
+<test/syc/ugly/xlim.c:593:83-86:id:b295>: Warning: 'b295' is defined, but not used.
+<test/syc/ugly/xlim.c:594:13-16:id:b296>: Warning: 'b296' is defined, but not used.
+<test/syc/ugly/xlim.c:594:23-26:id:b297>: Warning: 'b297' is defined, but not used.
+<test/syc/ugly/xlim.c:594:33-36:id:b298>: Warning: 'b298' is defined, but not used.
+<test/syc/ugly/xlim.c:594:43-46:id:b299>: Warning: 'b299' is defined, but not used.
+<test/syc/ugly/xlim.c:594:53-56:id:b300>: Warning: 'b300' is defined, but not used.
+<test/syc/ugly/xlim.c:594:63-66:id:b301>: Warning: 'b301' is defined, but not used.
+<test/syc/ugly/xlim.c:594:73-76:id:b302>: Warning: 'b302' is defined, but not used.
+<test/syc/ugly/xlim.c:594:83-86:id:b303>: Warning: 'b303' is defined, but not used.
+<test/syc/ugly/xlim.c:595:13-16:id:b304>: Warning: 'b304' is defined, but not used.
+<test/syc/ugly/xlim.c:595:23-26:id:b305>: Warning: 'b305' is defined, but not used.
+<test/syc/ugly/xlim.c:595:33-36:id:b306>: Warning: 'b306' is defined, but not used.
+<test/syc/ugly/xlim.c:595:43-46:id:b307>: Warning: 'b307' is defined, but not used.
+<test/syc/ugly/xlim.c:595:53-56:id:b308>: Warning: 'b308' is defined, but not used.
+<test/syc/ugly/xlim.c:595:63-66:id:b309>: Warning: 'b309' is defined, but not used.
+<test/syc/ugly/xlim.c:595:73-76:id:b310>: Warning: 'b310' is defined, but not used.
+<test/syc/ugly/xlim.c:595:83-86:id:b311>: Warning: 'b311' is defined, but not used.
+<test/syc/ugly/xlim.c:596:13-16:id:b312>: Warning: 'b312' is defined, but not used.
+<test/syc/ugly/xlim.c:596:23-26:id:b313>: Warning: 'b313' is defined, but not used.
+<test/syc/ugly/xlim.c:596:33-36:id:b314>: Warning: 'b314' is defined, but not used.
+<test/syc/ugly/xlim.c:596:43-46:id:b315>: Warning: 'b315' is defined, but not used.
+<test/syc/ugly/xlim.c:596:53-56:id:b316>: Warning: 'b316' is defined, but not used.
+<test/syc/ugly/xlim.c:596:63-66:id:b317>: Warning: 'b317' is defined, but not used.
+<test/syc/ugly/xlim.c:596:73-76:id:b318>: Warning: 'b318' is defined, but not used.
+<test/syc/ugly/xlim.c:596:83-86:id:b319>: Warning: 'b319' is defined, but not used.
+<test/syc/ugly/xlim.c:597:13-16:id:b320>: Warning: 'b320' is defined, but not used.
+<test/syc/ugly/xlim.c:597:23-26:id:b321>: Warning: 'b321' is defined, but not used.
+<test/syc/ugly/xlim.c:597:33-36:id:b322>: Warning: 'b322' is defined, but not used.
+<test/syc/ugly/xlim.c:597:43-46:id:b323>: Warning: 'b323' is defined, but not used.
+<test/syc/ugly/xlim.c:597:53-56:id:b324>: Warning: 'b324' is defined, but not used.
+<test/syc/ugly/xlim.c:597:63-66:id:b325>: Warning: 'b325' is defined, but not used.
+<test/syc/ugly/xlim.c:597:73-76:id:b326>: Warning: 'b326' is defined, but not used.
+<test/syc/ugly/xlim.c:597:83-86:id:b327>: Warning: 'b327' is defined, but not used.
+<test/syc/ugly/xlim.c:598:13-16:id:b328>: Warning: 'b328' is defined, but not used.
+<test/syc/ugly/xlim.c:598:23-26:id:b329>: Warning: 'b329' is defined, but not used.
+<test/syc/ugly/xlim.c:598:33-36:id:b330>: Warning: 'b330' is defined, but not used.
+<test/syc/ugly/xlim.c:598:43-46:id:b331>: Warning: 'b331' is defined, but not used.
+<test/syc/ugly/xlim.c:598:53-56:id:b332>: Warning: 'b332' is defined, but not used.
+<test/syc/ugly/xlim.c:598:63-66:id:b333>: Warning: 'b333' is defined, but not used.
+<test/syc/ugly/xlim.c:598:73-76:id:b334>: Warning: 'b334' is defined, but not used.
+<test/syc/ugly/xlim.c:598:83-86:id:b335>: Warning: 'b335' is defined, but not used.
+<test/syc/ugly/xlim.c:599:13-16:id:b336>: Warning: 'b336' is defined, but not used.
+<test/syc/ugly/xlim.c:599:23-26:id:b337>: Warning: 'b337' is defined, but not used.
+<test/syc/ugly/xlim.c:599:33-36:id:b338>: Warning: 'b338' is defined, but not used.
+<test/syc/ugly/xlim.c:599:43-46:id:b339>: Warning: 'b339' is defined, but not used.
+<test/syc/ugly/xlim.c:599:53-56:id:b340>: Warning: 'b340' is defined, but not used.
+<test/syc/ugly/xlim.c:599:63-66:id:b341>: Warning: 'b341' is defined, but not used.
+<test/syc/ugly/xlim.c:599:73-76:id:b342>: Warning: 'b342' is defined, but not used.
+<test/syc/ugly/xlim.c:599:83-86:id:b343>: Warning: 'b343' is defined, but not used.
+<test/syc/ugly/xlim.c:600:13-16:id:b344>: Warning: 'b344' is defined, but not used.
+<test/syc/ugly/xlim.c:600:23-26:id:b345>: Warning: 'b345' is defined, but not used.
+<test/syc/ugly/xlim.c:600:33-36:id:b346>: Warning: 'b346' is defined, but not used.
+<test/syc/ugly/xlim.c:600:43-46:id:b347>: Warning: 'b347' is defined, but not used.
+<test/syc/ugly/xlim.c:600:53-56:id:b348>: Warning: 'b348' is defined, but not used.
+<test/syc/ugly/xlim.c:600:63-66:id:b349>: Warning: 'b349' is defined, but not used.
+<test/syc/ugly/xlim.c:600:73-76:id:b350>: Warning: 'b350' is defined, but not used.
+<test/syc/ugly/xlim.c:600:83-86:id:b351>: Warning: 'b351' is defined, but not used.
+<test/syc/ugly/xlim.c:601:13-16:id:b352>: Warning: 'b352' is defined, but not used.
+<test/syc/ugly/xlim.c:601:23-26:id:b353>: Warning: 'b353' is defined, but not used.
+<test/syc/ugly/xlim.c:601:33-36:id:b354>: Warning: 'b354' is defined, but not used.
+<test/syc/ugly/xlim.c:601:43-46:id:b355>: Warning: 'b355' is defined, but not used.
+<test/syc/ugly/xlim.c:601:53-56:id:b356>: Warning: 'b356' is defined, but not used.
+<test/syc/ugly/xlim.c:601:63-66:id:b357>: Warning: 'b357' is defined, but not used.
+<test/syc/ugly/xlim.c:601:73-76:id:b358>: Warning: 'b358' is defined, but not used.
+<test/syc/ugly/xlim.c:601:83-86:id:b359>: Warning: 'b359' is defined, but not used.
+<test/syc/ugly/xlim.c:602:13-16:id:b360>: Warning: 'b360' is defined, but not used.
+<test/syc/ugly/xlim.c:602:23-26:id:b361>: Warning: 'b361' is defined, but not used.
+<test/syc/ugly/xlim.c:602:33-36:id:b362>: Warning: 'b362' is defined, but not used.
+<test/syc/ugly/xlim.c:602:43-46:id:b363>: Warning: 'b363' is defined, but not used.
+<test/syc/ugly/xlim.c:602:53-56:id:b364>: Warning: 'b364' is defined, but not used.
+<test/syc/ugly/xlim.c:602:63-66:id:b365>: Warning: 'b365' is defined, but not used.
+<test/syc/ugly/xlim.c:602:73-76:id:b366>: Warning: 'b366' is defined, but not used.
+<test/syc/ugly/xlim.c:602:83-86:id:b367>: Warning: 'b367' is defined, but not used.
+<test/syc/ugly/xlim.c:603:13-16:id:b368>: Warning: 'b368' is defined, but not used.
+<test/syc/ugly/xlim.c:603:23-26:id:b369>: Warning: 'b369' is defined, but not used.
+<test/syc/ugly/xlim.c:603:33-36:id:b370>: Warning: 'b370' is defined, but not used.
+<test/syc/ugly/xlim.c:603:43-46:id:b371>: Warning: 'b371' is defined, but not used.
+<test/syc/ugly/xlim.c:603:53-56:id:b372>: Warning: 'b372' is defined, but not used.
+<test/syc/ugly/xlim.c:603:63-66:id:b373>: Warning: 'b373' is defined, but not used.
+<test/syc/ugly/xlim.c:603:73-76:id:b374>: Warning: 'b374' is defined, but not used.
+<test/syc/ugly/xlim.c:603:83-86:id:b375>: Warning: 'b375' is defined, but not used.
+<test/syc/ugly/xlim.c:604:13-16:id:b376>: Warning: 'b376' is defined, but not used.
+<test/syc/ugly/xlim.c:604:23-26:id:b377>: Warning: 'b377' is defined, but not used.
+<test/syc/ugly/xlim.c:604:33-36:id:b378>: Warning: 'b378' is defined, but not used.
+<test/syc/ugly/xlim.c:604:43-46:id:b379>: Warning: 'b379' is defined, but not used.
+<test/syc/ugly/xlim.c:604:53-56:id:b380>: Warning: 'b380' is defined, but not used.
+<test/syc/ugly/xlim.c:604:63-66:id:b381>: Warning: 'b381' is defined, but not used.
+<test/syc/ugly/xlim.c:604:73-76:id:b382>: Warning: 'b382' is defined, but not used.
+<test/syc/ugly/xlim.c:604:83-86:id:b383>: Warning: 'b383' is defined, but not used.
+<test/syc/ugly/xlim.c:605:13-16:id:b384>: Warning: 'b384' is defined, but not used.
+<test/syc/ugly/xlim.c:605:23-26:id:b385>: Warning: 'b385' is defined, but not used.
+<test/syc/ugly/xlim.c:605:33-36:id:b386>: Warning: 'b386' is defined, but not used.
+<test/syc/ugly/xlim.c:605:43-46:id:b387>: Warning: 'b387' is defined, but not used.
+<test/syc/ugly/xlim.c:605:53-56:id:b388>: Warning: 'b388' is defined, but not used.
+<test/syc/ugly/xlim.c:605:63-66:id:b389>: Warning: 'b389' is defined, but not used.
+<test/syc/ugly/xlim.c:605:73-76:id:b390>: Warning: 'b390' is defined, but not used.
+<test/syc/ugly/xlim.c:605:83-86:id:b391>: Warning: 'b391' is defined, but not used.
+<test/syc/ugly/xlim.c:606:13-16:id:b392>: Warning: 'b392' is defined, but not used.
+<test/syc/ugly/xlim.c:606:23-26:id:b393>: Warning: 'b393' is defined, but not used.
+<test/syc/ugly/xlim.c:606:33-36:id:b394>: Warning: 'b394' is defined, but not used.
+<test/syc/ugly/xlim.c:606:43-46:id:b395>: Warning: 'b395' is defined, but not used.
+<test/syc/ugly/xlim.c:606:53-56:id:b396>: Warning: 'b396' is defined, but not used.
+<test/syc/ugly/xlim.c:606:63-66:id:b397>: Warning: 'b397' is defined, but not used.
+<test/syc/ugly/xlim.c:606:73-76:id:b398>: Warning: 'b398' is defined, but not used.
+<test/syc/ugly/xlim.c:606:83-86:id:b399>: Warning: 'b399' is defined, but not used.
+<test/syc/ugly/xlim.c:607:13-16:id:b400>: Warning: 'b400' is defined, but not used.
+<test/syc/ugly/xlim.c:607:23-26:id:b401>: Warning: 'b401' is defined, but not used.
+<test/syc/ugly/xlim.c:607:33-36:id:b402>: Warning: 'b402' is defined, but not used.
+<test/syc/ugly/xlim.c:607:43-46:id:b403>: Warning: 'b403' is defined, but not used.
+<test/syc/ugly/xlim.c:607:53-56:id:b404>: Warning: 'b404' is defined, but not used.
+<test/syc/ugly/xlim.c:607:63-66:id:b405>: Warning: 'b405' is defined, but not used.
+<test/syc/ugly/xlim.c:607:73-76:id:b406>: Warning: 'b406' is defined, but not used.
+<test/syc/ugly/xlim.c:607:83-86:id:b407>: Warning: 'b407' is defined, but not used.
+<test/syc/ugly/xlim.c:608:13-16:id:b408>: Warning: 'b408' is defined, but not used.
+<test/syc/ugly/xlim.c:608:23-26:id:b409>: Warning: 'b409' is defined, but not used.
+<test/syc/ugly/xlim.c:608:33-36:id:b410>: Warning: 'b410' is defined, but not used.
+<test/syc/ugly/xlim.c:608:43-46:id:b411>: Warning: 'b411' is defined, but not used.
+<test/syc/ugly/xlim.c:608:53-56:id:b412>: Warning: 'b412' is defined, but not used.
+<test/syc/ugly/xlim.c:608:63-66:id:b413>: Warning: 'b413' is defined, but not used.
+<test/syc/ugly/xlim.c:608:73-76:id:b414>: Warning: 'b414' is defined, but not used.
+<test/syc/ugly/xlim.c:608:83-86:id:b415>: Warning: 'b415' is defined, but not used.
+<test/syc/ugly/xlim.c:609:13-16:id:b416>: Warning: 'b416' is defined, but not used.
+<test/syc/ugly/xlim.c:609:23-26:id:b417>: Warning: 'b417' is defined, but not used.
+<test/syc/ugly/xlim.c:609:33-36:id:b418>: Warning: 'b418' is defined, but not used.
+<test/syc/ugly/xlim.c:609:43-46:id:b419>: Warning: 'b419' is defined, but not used.
+<test/syc/ugly/xlim.c:609:53-56:id:b420>: Warning: 'b420' is defined, but not used.
+<test/syc/ugly/xlim.c:609:63-66:id:b421>: Warning: 'b421' is defined, but not used.
+<test/syc/ugly/xlim.c:609:73-76:id:b422>: Warning: 'b422' is defined, but not used.
+<test/syc/ugly/xlim.c:609:83-86:id:b423>: Warning: 'b423' is defined, but not used.
+<test/syc/ugly/xlim.c:610:13-16:id:b424>: Warning: 'b424' is defined, but not used.
+<test/syc/ugly/xlim.c:610:23-26:id:b425>: Warning: 'b425' is defined, but not used.
+<test/syc/ugly/xlim.c:610:33-36:id:b426>: Warning: 'b426' is defined, but not used.
+<test/syc/ugly/xlim.c:610:43-46:id:b427>: Warning: 'b427' is defined, but not used.
+<test/syc/ugly/xlim.c:610:53-56:id:b428>: Warning: 'b428' is defined, but not used.
+<test/syc/ugly/xlim.c:610:63-66:id:b429>: Warning: 'b429' is defined, but not used.
+<test/syc/ugly/xlim.c:610:73-76:id:b430>: Warning: 'b430' is defined, but not used.
+<test/syc/ugly/xlim.c:610:83-86:id:b431>: Warning: 'b431' is defined, but not used.
+<test/syc/ugly/xlim.c:611:13-16:id:b432>: Warning: 'b432' is defined, but not used.
+<test/syc/ugly/xlim.c:611:23-26:id:b433>: Warning: 'b433' is defined, but not used.
+<test/syc/ugly/xlim.c:611:33-36:id:b434>: Warning: 'b434' is defined, but not used.
+<test/syc/ugly/xlim.c:611:43-46:id:b435>: Warning: 'b435' is defined, but not used.
+<test/syc/ugly/xlim.c:611:53-56:id:b436>: Warning: 'b436' is defined, but not used.
+<test/syc/ugly/xlim.c:611:63-66:id:b437>: Warning: 'b437' is defined, but not used.
+<test/syc/ugly/xlim.c:611:73-76:id:b438>: Warning: 'b438' is defined, but not used.
+<test/syc/ugly/xlim.c:611:83-86:id:b439>: Warning: 'b439' is defined, but not used.
+<test/syc/ugly/xlim.c:612:13-16:id:b440>: Warning: 'b440' is defined, but not used.
+<test/syc/ugly/xlim.c:612:23-26:id:b441>: Warning: 'b441' is defined, but not used.
+<test/syc/ugly/xlim.c:612:33-36:id:b442>: Warning: 'b442' is defined, but not used.
+<test/syc/ugly/xlim.c:612:43-46:id:b443>: Warning: 'b443' is defined, but not used.
+<test/syc/ugly/xlim.c:612:53-56:id:b444>: Warning: 'b444' is defined, but not used.
+<test/syc/ugly/xlim.c:612:63-66:id:b445>: Warning: 'b445' is defined, but not used.
+<test/syc/ugly/xlim.c:612:73-76:id:b446>: Warning: 'b446' is defined, but not used.
+<test/syc/ugly/xlim.c:612:83-86:id:b447>: Warning: 'b447' is defined, but not used.
+<test/syc/ugly/xlim.c:613:13-16:id:b448>: Warning: 'b448' is defined, but not used.
+<test/syc/ugly/xlim.c:613:23-26:id:b449>: Warning: 'b449' is defined, but not used.
+<test/syc/ugly/xlim.c:613:33-36:id:b450>: Warning: 'b450' is defined, but not used.
+<test/syc/ugly/xlim.c:613:43-46:id:b451>: Warning: 'b451' is defined, but not used.
+<test/syc/ugly/xlim.c:613:53-56:id:b452>: Warning: 'b452' is defined, but not used.
+<test/syc/ugly/xlim.c:613:63-66:id:b453>: Warning: 'b453' is defined, but not used.
+<test/syc/ugly/xlim.c:613:73-76:id:b454>: Warning: 'b454' is defined, but not used.
+<test/syc/ugly/xlim.c:613:83-86:id:b455>: Warning: 'b455' is defined, but not used.
+<test/syc/ugly/xlim.c:614:13-16:id:b456>: Warning: 'b456' is defined, but not used.
+<test/syc/ugly/xlim.c:614:23-26:id:b457>: Warning: 'b457' is defined, but not used.
+<test/syc/ugly/xlim.c:614:33-36:id:b458>: Warning: 'b458' is defined, but not used.
+<test/syc/ugly/xlim.c:614:43-46:id:b459>: Warning: 'b459' is defined, but not used.
+<test/syc/ugly/xlim.c:614:53-56:id:b460>: Warning: 'b460' is defined, but not used.
+<test/syc/ugly/xlim.c:614:63-66:id:b461>: Warning: 'b461' is defined, but not used.
+<test/syc/ugly/xlim.c:614:73-76:id:b462>: Warning: 'b462' is defined, but not used.
+<test/syc/ugly/xlim.c:614:83-86:id:b463>: Warning: 'b463' is defined, but not used.
+<test/syc/ugly/xlim.c:615:13-16:id:b464>: Warning: 'b464' is defined, but not used.
+<test/syc/ugly/xlim.c:615:23-26:id:b465>: Warning: 'b465' is defined, but not used.
+<test/syc/ugly/xlim.c:615:33-36:id:b466>: Warning: 'b466' is defined, but not used.
+<test/syc/ugly/xlim.c:615:43-46:id:b467>: Warning: 'b467' is defined, but not used.
+<test/syc/ugly/xlim.c:615:53-56:id:b468>: Warning: 'b468' is defined, but not used.
+<test/syc/ugly/xlim.c:615:63-66:id:b469>: Warning: 'b469' is defined, but not used.
+<test/syc/ugly/xlim.c:615:73-76:id:b470>: Warning: 'b470' is defined, but not used.
+<test/syc/ugly/xlim.c:615:83-86:id:b471>: Warning: 'b471' is defined, but not used.
+<test/syc/ugly/xlim.c:616:13-16:id:b472>: Warning: 'b472' is defined, but not used.
+<test/syc/ugly/xlim.c:616:23-26:id:b473>: Warning: 'b473' is defined, but not used.
+<test/syc/ugly/xlim.c:616:33-36:id:b474>: Warning: 'b474' is defined, but not used.
+<test/syc/ugly/xlim.c:616:43-46:id:b475>: Warning: 'b475' is defined, but not used.
+<test/syc/ugly/xlim.c:616:53-56:id:b476>: Warning: 'b476' is defined, but not used.
+<test/syc/ugly/xlim.c:616:63-66:id:b477>: Warning: 'b477' is defined, but not used.
+<test/syc/ugly/xlim.c:616:73-76:id:b478>: Warning: 'b478' is defined, but not used.
+<test/syc/ugly/xlim.c:616:83-86:id:b479>: Warning: 'b479' is defined, but not used.
+<test/syc/ugly/xlim.c:617:13-16:id:b480>: Warning: 'b480' is defined, but not used.
+<test/syc/ugly/xlim.c:617:23-26:id:b481>: Warning: 'b481' is defined, but not used.
+<test/syc/ugly/xlim.c:617:33-36:id:b482>: Warning: 'b482' is defined, but not used.
+<test/syc/ugly/xlim.c:617:43-46:id:b483>: Warning: 'b483' is defined, but not used.
+<test/syc/ugly/xlim.c:617:53-56:id:b484>: Warning: 'b484' is defined, but not used.
+<test/syc/ugly/xlim.c:617:63-66:id:b485>: Warning: 'b485' is defined, but not used.
+<test/syc/ugly/xlim.c:617:73-76:id:b486>: Warning: 'b486' is defined, but not used.
+<test/syc/ugly/xlim.c:617:83-86:id:b487>: Warning: 'b487' is defined, but not used.
+<test/syc/ugly/xlim.c:618:13-16:id:b488>: Warning: 'b488' is defined, but not used.
+<test/syc/ugly/xlim.c:618:23-26:id:b489>: Warning: 'b489' is defined, but not used.
+<test/syc/ugly/xlim.c:618:33-36:id:b490>: Warning: 'b490' is defined, but not used.
+<test/syc/ugly/xlim.c:618:43-46:id:b491>: Warning: 'b491' is defined, but not used.
+<test/syc/ugly/xlim.c:618:53-56:id:b492>: Warning: 'b492' is defined, but not used.
+<test/syc/ugly/xlim.c:618:63-66:id:b493>: Warning: 'b493' is defined, but not used.
+<test/syc/ugly/xlim.c:618:73-76:id:b494>: Warning: 'b494' is defined, but not used.
+<test/syc/ugly/xlim.c:618:83-86:id:b495>: Warning: 'b495' is defined, but not used.
+<test/syc/ugly/xlim.c:619:13-16:id:b496>: Warning: 'b496' is defined, but not used.
+<test/syc/ugly/xlim.c:619:23-26:id:b497>: Warning: 'b497' is defined, but not used.
+<test/syc/ugly/xlim.c:619:33-36:id:b498>: Warning: 'b498' is defined, but not used.
+<test/syc/ugly/xlim.c:619:43-46:id:b499>: Warning: 'b499' is defined, but not used.
+<test/syc/ugly/xlim.c:619:53-56:id:b500>: Warning: 'b500' is defined, but not used.
+<test/syc/ugly/xlim.c:619:63-66:id:b501>: Warning: 'b501' is defined, but not used.
+<test/syc/ugly/xlim.c:619:73-76:id:b502>: Warning: 'b502' is defined, but not used.
+<test/syc/ugly/xlim.c:619:83-86:id:b503>: Warning: 'b503' is defined, but not used.
+<test/syc/ugly/xlim.c:620:13-16:id:b504>: Warning: 'b504' is defined, but not used.
+<test/syc/ugly/xlim.c:620:23-26:id:b505>: Warning: 'b505' is defined, but not used.
+<test/syc/ugly/xlim.c:620:33-36:id:b506>: Warning: 'b506' is defined, but not used.
+<test/syc/ugly/xlim.c:620:43-46:id:b507>: Warning: 'b507' is defined, but not used.
+<test/syc/ugly/xlim.c:620:53-56:id:b508>: Warning: 'b508' is defined, but not used.
+<test/syc/ugly/xlim.c:620:63-66:id:b509>: Warning: 'b509' is defined, but not used.
+<test/syc/ugly/xlim.c:620:73-76:id:b510>: Warning: 'b510' is defined, but not used.
+<test/syc/ugly/xlim.c:620:83-86:id:b511>: Warning: 'b511' is defined, but not used.
+<test/syc/ugly/xlim.c:625:16-17:id:a1>: Warning: 'a1' is defined, but not used.
+<test/syc/ugly/xlim.c:625:25-26:id:a2>: Warning: 'a2' is defined, but not used.
+<test/syc/ugly/xlim.c:625:34-35:id:a3>: Warning: 'a3' is defined, but not used.
+<test/syc/ugly/xlim.c:625:43-44:id:a4>: Warning: 'a4' is defined, but not used.
+<test/syc/ugly/xlim.c:625:52-53:id:a5>: Warning: 'a5' is defined, but not used.
+<test/syc/ugly/xlim.c:625:61-62:id:a6>: Warning: 'a6' is defined, but not used.
+<test/syc/ugly/xlim.c:625:70-71:id:a7>: Warning: 'a7' is defined, but not used.
+<test/syc/ugly/xlim.c:625:79-80:id:a8>: Warning: 'a8' is defined, but not used.
+<test/syc/ugly/xlim.c:626:10-11:id:a9>: Warning: 'a9' is defined, but not used.
+<test/syc/ugly/xlim.c:626:19-21:id:a10>: Warning: 'a10' is defined, but not used.
+<test/syc/ugly/xlim.c:626:29-31:id:a11>: Warning: 'a11' is defined, but not used.
+<test/syc/ugly/xlim.c:626:39-41:id:a12>: Warning: 'a12' is defined, but not used.
+<test/syc/ugly/xlim.c:626:49-51:id:a13>: Warning: 'a13' is defined, but not used.
+<test/syc/ugly/xlim.c:626:59-61:id:a14>: Warning: 'a14' is defined, but not used.
+<test/syc/ugly/xlim.c:626:69-71:id:a15>: Warning: 'a15' is defined, but not used.
+<test/syc/ugly/xlim.c:626:79-81:id:a16>: Warning: 'a16' is defined, but not used.
+<test/syc/ugly/xlim.c:627:10-12:id:a17>: Warning: 'a17' is defined, but not used.
+<test/syc/ugly/xlim.c:627:20-22:id:a18>: Warning: 'a18' is defined, but not used.
+<test/syc/ugly/xlim.c:627:30-32:id:a19>: Warning: 'a19' is defined, but not used.
+<test/syc/ugly/xlim.c:627:40-42:id:a20>: Warning: 'a20' is defined, but not used.
+<test/syc/ugly/xlim.c:627:50-52:id:a21>: Warning: 'a21' is defined, but not used.
+<test/syc/ugly/xlim.c:627:60-62:id:a22>: Warning: 'a22' is defined, but not used.
+<test/syc/ugly/xlim.c:627:70-72:id:a23>: Warning: 'a23' is defined, but not used.
+<test/syc/ugly/xlim.c:627:80-82:id:a24>: Warning: 'a24' is defined, but not used.
+<test/syc/ugly/xlim.c:628:10-12:id:a25>: Warning: 'a25' is defined, but not used.
+<test/syc/ugly/xlim.c:628:20-22:id:a26>: Warning: 'a26' is defined, but not used.
+<test/syc/ugly/xlim.c:628:30-32:id:a27>: Warning: 'a27' is defined, but not used.
+<test/syc/ugly/xlim.c:628:40-42:id:a28>: Warning: 'a28' is defined, but not used.
+<test/syc/ugly/xlim.c:628:50-52:id:a29>: Warning: 'a29' is defined, but not used.
+<test/syc/ugly/xlim.c:628:60-62:id:a30>: Warning: 'a30' is defined, but not used.
+<test/syc/ugly/xlim.c:628:70-72:id:a31>: Warning: 'a31' is defined, but not used.
+<test/syc/ugly/xlim.c:628:80-82:id:a32>: Warning: 'a32' is defined, but not used.
+<test/syc/ugly/xlim.c:629:10-12:id:a33>: Warning: 'a33' is defined, but not used.
+<test/syc/ugly/xlim.c:629:20-22:id:a34>: Warning: 'a34' is defined, but not used.
+<test/syc/ugly/xlim.c:629:30-32:id:a35>: Warning: 'a35' is defined, but not used.
+<test/syc/ugly/xlim.c:629:40-42:id:a36>: Warning: 'a36' is defined, but not used.
+<test/syc/ugly/xlim.c:629:50-52:id:a37>: Warning: 'a37' is defined, but not used.
+<test/syc/ugly/xlim.c:629:60-62:id:a38>: Warning: 'a38' is defined, but not used.
+<test/syc/ugly/xlim.c:629:70-72:id:a39>: Warning: 'a39' is defined, but not used.
+<test/syc/ugly/xlim.c:629:80-82:id:a40>: Warning: 'a40' is defined, but not used.
+<test/syc/ugly/xlim.c:630:10-12:id:a41>: Warning: 'a41' is defined, but not used.
+<test/syc/ugly/xlim.c:630:20-22:id:a42>: Warning: 'a42' is defined, but not used.
+<test/syc/ugly/xlim.c:630:30-32:id:a43>: Warning: 'a43' is defined, but not used.
+<test/syc/ugly/xlim.c:630:40-42:id:a44>: Warning: 'a44' is defined, but not used.
+<test/syc/ugly/xlim.c:630:50-52:id:a45>: Warning: 'a45' is defined, but not used.
+<test/syc/ugly/xlim.c:630:60-62:id:a46>: Warning: 'a46' is defined, but not used.
+<test/syc/ugly/xlim.c:630:70-72:id:a47>: Warning: 'a47' is defined, but not used.
+<test/syc/ugly/xlim.c:630:80-82:id:a48>: Warning: 'a48' is defined, but not used.
+<test/syc/ugly/xlim.c:631:10-12:id:a49>: Warning: 'a49' is defined, but not used.
+<test/syc/ugly/xlim.c:631:20-22:id:a50>: Warning: 'a50' is defined, but not used.
+<test/syc/ugly/xlim.c:631:30-32:id:a51>: Warning: 'a51' is defined, but not used.
+<test/syc/ugly/xlim.c:631:40-42:id:a52>: Warning: 'a52' is defined, but not used.
+<test/syc/ugly/xlim.c:631:50-52:id:a53>: Warning: 'a53' is defined, but not used.
+<test/syc/ugly/xlim.c:631:60-62:id:a54>: Warning: 'a54' is defined, but not used.
+<test/syc/ugly/xlim.c:631:70-72:id:a55>: Warning: 'a55' is defined, but not used.
+<test/syc/ugly/xlim.c:631:80-82:id:a56>: Warning: 'a56' is defined, but not used.
+<test/syc/ugly/xlim.c:632:10-12:id:a57>: Warning: 'a57' is defined, but not used.
+<test/syc/ugly/xlim.c:632:20-22:id:a58>: Warning: 'a58' is defined, but not used.
+<test/syc/ugly/xlim.c:632:30-32:id:a59>: Warning: 'a59' is defined, but not used.
+<test/syc/ugly/xlim.c:632:40-42:id:a60>: Warning: 'a60' is defined, but not used.
+<test/syc/ugly/xlim.c:632:50-52:id:a61>: Warning: 'a61' is defined, but not used.
+<test/syc/ugly/xlim.c:632:60-62:id:a62>: Warning: 'a62' is defined, but not used.
+<test/syc/ugly/xlim.c:632:70-72:id:a63>: Warning: 'a63' is defined, but not used.
+<test/syc/ugly/xlim.c:632:80-82:id:a64>: Warning: 'a64' is defined, but not used.
+<test/syc/ugly/xlim.c:633:10-12:id:a65>: Warning: 'a65' is defined, but not used.
+<test/syc/ugly/xlim.c:633:20-22:id:a66>: Warning: 'a66' is defined, but not used.
+<test/syc/ugly/xlim.c:633:30-32:id:a67>: Warning: 'a67' is defined, but not used.
+<test/syc/ugly/xlim.c:633:40-42:id:a68>: Warning: 'a68' is defined, but not used.
+<test/syc/ugly/xlim.c:633:50-52:id:a69>: Warning: 'a69' is defined, but not used.
+<test/syc/ugly/xlim.c:633:60-62:id:a70>: Warning: 'a70' is defined, but not used.
+<test/syc/ugly/xlim.c:633:70-72:id:a71>: Warning: 'a71' is defined, but not used.
+<test/syc/ugly/xlim.c:633:80-82:id:a72>: Warning: 'a72' is defined, but not used.
+<test/syc/ugly/xlim.c:634:10-12:id:a73>: Warning: 'a73' is defined, but not used.
+<test/syc/ugly/xlim.c:634:20-22:id:a74>: Warning: 'a74' is defined, but not used.
+<test/syc/ugly/xlim.c:634:30-32:id:a75>: Warning: 'a75' is defined, but not used.
+<test/syc/ugly/xlim.c:634:40-42:id:a76>: Warning: 'a76' is defined, but not used.
+<test/syc/ugly/xlim.c:634:50-52:id:a77>: Warning: 'a77' is defined, but not used.
+<test/syc/ugly/xlim.c:634:60-62:id:a78>: Warning: 'a78' is defined, but not used.
+<test/syc/ugly/xlim.c:634:70-72:id:a79>: Warning: 'a79' is defined, but not used.
+<test/syc/ugly/xlim.c:634:80-82:id:a80>: Warning: 'a80' is defined, but not used.
+<test/syc/ugly/xlim.c:635:10-12:id:a81>: Warning: 'a81' is defined, but not used.
+<test/syc/ugly/xlim.c:635:20-22:id:a82>: Warning: 'a82' is defined, but not used.
+<test/syc/ugly/xlim.c:635:30-32:id:a83>: Warning: 'a83' is defined, but not used.
+<test/syc/ugly/xlim.c:635:40-42:id:a84>: Warning: 'a84' is defined, but not used.
+<test/syc/ugly/xlim.c:635:50-52:id:a85>: Warning: 'a85' is defined, but not used.
+<test/syc/ugly/xlim.c:635:60-62:id:a86>: Warning: 'a86' is defined, but not used.
+<test/syc/ugly/xlim.c:635:70-72:id:a87>: Warning: 'a87' is defined, but not used.
+<test/syc/ugly/xlim.c:635:80-82:id:a88>: Warning: 'a88' is defined, but not used.
+<test/syc/ugly/xlim.c:636:10-12:id:a89>: Warning: 'a89' is defined, but not used.
+<test/syc/ugly/xlim.c:636:20-22:id:a90>: Warning: 'a90' is defined, but not used.
+<test/syc/ugly/xlim.c:636:30-32:id:a91>: Warning: 'a91' is defined, but not used.
+<test/syc/ugly/xlim.c:636:40-42:id:a92>: Warning: 'a92' is defined, but not used.
+<test/syc/ugly/xlim.c:636:50-52:id:a93>: Warning: 'a93' is defined, but not used.
+<test/syc/ugly/xlim.c:636:60-62:id:a94>: Warning: 'a94' is defined, but not used.
+<test/syc/ugly/xlim.c:636:70-72:id:a95>: Warning: 'a95' is defined, but not used.
+<test/syc/ugly/xlim.c:636:80-82:id:a96>: Warning: 'a96' is defined, but not used.
+<test/syc/ugly/xlim.c:637:10-12:id:a97>: Warning: 'a97' is defined, but not used.
+<test/syc/ugly/xlim.c:637:20-22:id:a98>: Warning: 'a98' is defined, but not used.
+<test/syc/ugly/xlim.c:637:30-32:id:a99>: Warning: 'a99' is defined, but not used.
+<test/syc/ugly/xlim.c:637:40-43:id:a100>: Warning: 'a100' is defined, but not used.
+<test/syc/ugly/xlim.c:637:51-54:id:a101>: Warning: 'a101' is defined, but not used.
+<test/syc/ugly/xlim.c:637:62-65:id:a102>: Warning: 'a102' is defined, but not used.
+<test/syc/ugly/xlim.c:637:73-76:id:a103>: Warning: 'a103' is defined, but not used.
+<test/syc/ugly/xlim.c:637:84-87:id:a104>: Warning: 'a104' is defined, but not used.
+<test/syc/ugly/xlim.c:638:10-13:id:a105>: Warning: 'a105' is defined, but not used.
+<test/syc/ugly/xlim.c:638:21-24:id:a106>: Warning: 'a106' is defined, but not used.
+<test/syc/ugly/xlim.c:638:32-35:id:a107>: Warning: 'a107' is defined, but not used.
+<test/syc/ugly/xlim.c:638:43-46:id:a108>: Warning: 'a108' is defined, but not used.
+<test/syc/ugly/xlim.c:638:54-57:id:a109>: Warning: 'a109' is defined, but not used.
+<test/syc/ugly/xlim.c:638:65-68:id:a110>: Warning: 'a110' is defined, but not used.
+<test/syc/ugly/xlim.c:638:76-79:id:a111>: Warning: 'a111' is defined, but not used.
+<test/syc/ugly/xlim.c:638:87-90:id:a112>: Warning: 'a112' is defined, but not used.
+<test/syc/ugly/xlim.c:639:10-13:id:a113>: Warning: 'a113' is defined, but not used.
+<test/syc/ugly/xlim.c:639:21-24:id:a114>: Warning: 'a114' is defined, but not used.
+<test/syc/ugly/xlim.c:639:32-35:id:a115>: Warning: 'a115' is defined, but not used.
+<test/syc/ugly/xlim.c:639:43-46:id:a116>: Warning: 'a116' is defined, but not used.
+<test/syc/ugly/xlim.c:639:54-57:id:a117>: Warning: 'a117' is defined, but not used.
+<test/syc/ugly/xlim.c:639:65-68:id:a118>: Warning: 'a118' is defined, but not used.
+<test/syc/ugly/xlim.c:639:76-79:id:a119>: Warning: 'a119' is defined, but not used.
+<test/syc/ugly/xlim.c:639:87-90:id:a120>: Warning: 'a120' is defined, but not used.
+<test/syc/ugly/xlim.c:640:10-13:id:a121>: Warning: 'a121' is defined, but not used.
+<test/syc/ugly/xlim.c:640:21-24:id:a122>: Warning: 'a122' is defined, but not used.
+<test/syc/ugly/xlim.c:640:32-35:id:a123>: Warning: 'a123' is defined, but not used.
+<test/syc/ugly/xlim.c:640:43-46:id:a124>: Warning: 'a124' is defined, but not used.
+<test/syc/ugly/xlim.c:640:54-57:id:a125>: Warning: 'a125' is defined, but not used.
+<test/syc/ugly/xlim.c:640:65-68:id:a126>: Warning: 'a126' is defined, but not used.
+<test/syc/ugly/xlim.c:640:76-79:id:a127>: Warning: 'a127' is defined, but not used.
+<test/syc/ugly/xlim.c:1072:16-18:id:ns2>: Warning: Definition of 'struct ns2' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1072:29-31:id:ns3>: Warning: Definition of 'struct ns3' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1072:42-44:id:ns4>: Warning: Definition of 'struct ns4' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1072:55-57:id:ns5>: Warning: Definition of 'struct ns5' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1072:68-70:id:ns6>: Warning: Definition of 'struct ns6' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1073:16-18:id:ns7>: Warning: Definition of 'struct ns7' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1073:29-31:id:ns8>: Warning: Definition of 'struct ns8' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1073:42-44:id:ns9>: Warning: Definition of 'struct ns9' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1073:55-58:id:ns10>: Warning: Definition of 'struct ns10' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1073:69-72:id:ns11>: Warning: Definition of 'struct ns11' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1074:16-19:id:ns12>: Warning: Definition of 'struct ns12' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1074:30-33:id:ns13>: Warning: Definition of 'struct ns13' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1074:44-47:id:ns14>: Warning: Definition of 'struct ns14' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1074:58-61:id:ns15>: Warning: Definition of 'struct ns15' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1074:72-75:id:ns16>: Warning: Definition of 'struct ns16' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1075:16-19:id:ns17>: Warning: Definition of 'struct ns17' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1075:30-33:id:ns18>: Warning: Definition of 'struct ns18' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1075:44-47:id:ns19>: Warning: Definition of 'struct ns19' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1075:58-61:id:ns20>: Warning: Definition of 'struct ns20' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1075:72-75:id:ns21>: Warning: Definition of 'struct ns21' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1076:16-19:id:ns22>: Warning: Definition of 'struct ns22' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1076:30-33:id:ns23>: Warning: Definition of 'struct ns23' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1076:44-47:id:ns24>: Warning: Definition of 'struct ns24' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1076:58-61:id:ns25>: Warning: Definition of 'struct ns25' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1076:72-75:id:ns26>: Warning: Definition of 'struct ns26' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1077:16-19:id:ns27>: Warning: Definition of 'struct ns27' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1077:30-33:id:ns28>: Warning: Definition of 'struct ns28' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1077:44-47:id:ns29>: Warning: Definition of 'struct ns29' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1077:58-61:id:ns30>: Warning: Definition of 'struct ns30' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1077:72-75:id:ns31>: Warning: Definition of 'struct ns31' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1078:16-19:id:ns32>: Warning: Definition of 'struct ns32' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1078:30-33:id:ns33>: Warning: Definition of 'struct ns33' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1078:44-47:id:ns34>: Warning: Definition of 'struct ns34' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1078:58-61:id:ns35>: Warning: Definition of 'struct ns35' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1078:72-75:id:ns36>: Warning: Definition of 'struct ns36' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1079:16-19:id:ns37>: Warning: Definition of 'struct ns37' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1079:30-33:id:ns38>: Warning: Definition of 'struct ns38' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1079:44-47:id:ns39>: Warning: Definition of 'struct ns39' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1079:58-61:id:ns40>: Warning: Definition of 'struct ns40' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1079:72-75:id:ns41>: Warning: Definition of 'struct ns41' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1080:16-19:id:ns42>: Warning: Definition of 'struct ns42' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1080:30-33:id:ns43>: Warning: Definition of 'struct ns43' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1080:44-47:id:ns44>: Warning: Definition of 'struct ns44' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1080:58-61:id:ns45>: Warning: Definition of 'struct ns45' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1080:72-75:id:ns46>: Warning: Definition of 'struct ns46' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1081:16-19:id:ns47>: Warning: Definition of 'struct ns47' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1081:30-33:id:ns48>: Warning: Definition of 'struct ns48' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1081:44-47:id:ns49>: Warning: Definition of 'struct ns49' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1081:58-61:id:ns50>: Warning: Definition of 'struct ns50' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1081:72-75:id:ns51>: Warning: Definition of 'struct ns51' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1082:16-19:id:ns52>: Warning: Definition of 'struct ns52' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1082:30-33:id:ns53>: Warning: Definition of 'struct ns53' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1082:44-47:id:ns54>: Warning: Definition of 'struct ns54' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1082:58-61:id:ns55>: Warning: Definition of 'struct ns55' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1082:72-75:id:ns56>: Warning: Definition of 'struct ns56' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1083:16-19:id:ns57>: Warning: Definition of 'struct ns57' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1083:30-33:id:ns58>: Warning: Definition of 'struct ns58' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1083:44-47:id:ns59>: Warning: Definition of 'struct ns59' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1083:58-61:id:ns60>: Warning: Definition of 'struct ns60' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1083:72-75:id:ns61>: Warning: Definition of 'struct ns61' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1084:16-19:id:ns62>: Warning: Definition of 'struct ns62' inside another struct/union definition.
+<test/syc/ugly/xlim.c:1084:30-33:id:ns63>: Warning: Definition of 'struct ns63' inside another struct/union definition.
