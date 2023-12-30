@@ -1,0 +1,1 @@
+<test/syc/bad/initialstr.c:5:13-20:str>: Cannot initialize array of int from string.

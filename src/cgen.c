@@ -716,7 +716,6 @@ static int cgen_escseq(cgen_t *cgen, comp_tok_t *tlit, const char **cp,
 	return EOK;
 }
 
-
 /** Get value of character literal token.
  *
  * @param cgen Code generator
@@ -16273,6 +16272,7 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 	cgtype_int_rank_t rrank;
 	uint32_t value;
 	uint32_t max;
+	uint64_t idx;
 	bool wide;
 	int rc;
 
@@ -16297,6 +16297,9 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 		goto error;
 	}
 
+	assert(tarray->have_size);
+
+	idx = 0;
 	lit = ast_estring_first(estring);
 	while (lit != NULL) {
 		wide = false;
@@ -16348,6 +16351,15 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 				++text;
 			}
 
+			if (idx >= tarray->asize) {
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Excess initializer "
+				    "characters in string.\n");
+				cgen->error = true; // XXX
+				rc = EINVAL;
+				goto error;
+			}
+
 			rc = ir_dentry_create_int(wide ? cgen_lchar_bits :
 			    cgen_char_bits, value, &dentry);
 			if (rc != EOK)
@@ -16356,20 +16368,27 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 			rc = ir_dblock_append(dblock, dentry);
 			if (rc != EOK)
 				goto error;
+
+			dentry = NULL;
+			++idx;
 		}
 
 		lit = ast_estring_next(lit);
 	}
 
-	/* Null character terminator */
+	/* Pad with zeroes up to the size of the array */
+	while (idx < tarray->asize) {
+		rc = ir_dentry_create_int(wide ? cgen_lchar_bits :
+		    cgen_char_bits, 0, &dentry);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_dentry_create_int(8, '\0', &dentry);
-	if (rc != EOK)
-		goto error;
+		rc = ir_dblock_append(dblock, dentry);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_dblock_append(dblock, dentry);
-	if (rc != EOK)
-		goto error;
+		++idx;
+	}
 
 	return EOK;
 error:

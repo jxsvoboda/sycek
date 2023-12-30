@@ -1,0 +1,1 @@
+<test/syc/bad/initexstr.c:9:13-20:str>: Excess initializer characters in string.

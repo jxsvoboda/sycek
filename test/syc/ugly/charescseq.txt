@@ -1,5 +1,5 @@
-<test/syc/ugly/charescseq.c:6:14-19:char>: Octal escape sequence out of range.
-<test/syc/ugly/charescseq.c:9:14-20:char>: Hexadecimal escape sequence out of range.
-<test/syc/ugly/charescseq.c:12:12-15:char>: Unknown escape sequence '\$'.
-<test/syc/ugly/charescseq.c:15:15-24:char>: Hexadecimal escape sequence out of range.
-<test/syc/ugly/charescseq.c:18:13-17:char>: Unknown escape sequence '\$'.
+<test/syc/ugly/charescseq.c:6:14-19:char>: Warning: Octal escape sequence out of range.
+<test/syc/ugly/charescseq.c:9:14-20:char>: Warning: Hexadecimal escape sequence out of range.
+<test/syc/ugly/charescseq.c:12:12-15:char>: Warning: Unknown escape sequence '\$'.
+<test/syc/ugly/charescseq.c:15:15-24:char>: Warning: Hexadecimal escape sequence out of range.
+<test/syc/ugly/charescseq.c:18:13-17:char>: Warning: Unknown escape sequence '\$'.

@@ -1,0 +1,1 @@
+<test/syc/bad/initcalwstr.c:5:14-22:str>: Cannot initialize array of char from wide string.
