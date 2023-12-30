@@ -105,7 +105,9 @@ static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, comp_tok_t *,
 enum {
 	cgen_pointer_bits = 16,
 	cgen_enum_bits = 16,
+	cgen_char_bits = 8,
 	cgen_char_max = 255,
+	cgen_lchar_bits = 16,
 	cgen_lchar_max = 65535
 };
 
@@ -597,6 +599,124 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	return EOK;
 }
 
+/** Process escape sequence.
+ *
+ * @param cgen Code generator
+ * @param tlit Literal token
+ * @param cp Pointer to character pointer
+ * @param max Maximum allowed character value
+ * @param rval Place to store value
+ * @return EOK on success, EINVAL if token format is invalid
+ */
+static int cgen_escseq(cgen_t *cgen, comp_tok_t *tlit, const char **cp,
+    uint32_t max, uint32_t *rval)
+{
+	const char *text = *cp;
+	unsigned i;
+	unsigned val;
+	uint32_t c;
+
+	assert(*text == '\\');
+	++text;
+
+	switch (*text) {
+	case '\'':
+	case '"':
+	case '?':
+	case '\\':
+		c = *text++;
+		break;
+	case 'a':
+		c = '\a';
+		++text;
+		break;
+	case 'b':
+		c = '\b';
+		++text;
+		break;
+	case 'f':
+		c = '\f';
+		++text;
+		break;
+	case 'n':
+		c = '\n';
+		++text;
+		break;
+	case 'r':
+		c = '\r';
+		++text;
+		break;
+	case 't':
+		c = '\t';
+		++text;
+		break;
+	case 'v':
+		c = '\v';
+		++text;
+		break;
+	case '0':
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+		/* Octal escape sequence */
+		val = 0;
+		i = 0;
+		while (i < 3 && is_octdigit(*text)) {
+			val = val * 8 + (*text - '0');
+			++text;
+			++i;
+		}
+		if (val > max) {
+			lexer_dprint_tok(&tlit->tok, stderr);
+			fprintf(stderr, ": Warning: Octal escape sequence "
+			    "out of range.\n");
+			++cgen->warnings;
+		}
+		c = (uint32_t)val;
+		break;
+	case 'x':
+		++text;
+
+		/* Hexadecimal escape sequence */
+		if (!is_hexdigit(*text)) {
+			lexer_dprint_tok(&tlit->tok, stderr);
+			fprintf(stderr, ": Invalid hexadecimal "
+			    "sequence.\n");
+			cgen->error = true; // TODO
+			return EINVAL;
+		}
+		val = 0;
+		while (is_hexdigit(*text)) {
+			val = val * 16 + cc_hexdigit_val(*text);
+			++text;
+		}
+		c = (uint32_t)val;
+		if (val > max) {
+			lexer_dprint_tok(&tlit->tok, stderr);
+			fprintf(stderr, ": Warning: Hexadecimal escape sequence "
+			    "out of range.\n");
+			++cgen->warnings;
+		}
+		break;
+	default:
+		lexer_dprint_tok(&tlit->tok, stderr);
+		fprintf(stderr, ": Warning: Unknown escape sequence '\\%c'.\n",
+		    *text);
+		++cgen->warnings;
+		c = *text++;
+		break;
+	}
+
+	*cp = text;
+	*rval = c;
+	return EOK;
+}
+
+
 /** Get value of character literal token.
  *
  * @param cgen Code generator
@@ -611,12 +731,9 @@ static int cgen_charlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	const char *text = tlit->tok.text;
 	cgtype_elmtype_t elmtype;
 	bool llong;
-	unsigned i;
-	unsigned val;
 	uint32_t max;
-	char c;
-
-	(void)cgen;
+	uint32_t c;
+	int rc;
 
 	/* Long character literal? */
 	llong = false;
@@ -638,98 +755,9 @@ static int cgen_charlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	/* Character */
 	if (*text == '\\') {
 		/* Escape sequence */
-		++text;
-		switch (*text) {
-		case '\'':
-		case '"':
-		case '?':
-		case '\\':
-			c = *text++;
-			break;
-		case 'a':
-			c = '\a';
-			++text;
-			break;
-		case 'b':
-			c = '\b';
-			++text;
-			break;
-		case 'f':
-			c = '\f';
-			++text;
-			break;
-		case 'n':
-			c = '\n';
-			++text;
-			break;
-		case 'r':
-			c = '\r';
-			++text;
-			break;
-		case 't':
-			c = '\t';
-			++text;
-			break;
-		case 'v':
-			c = '\v';
-			++text;
-			break;
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-			/* Octal escape sequence */
-			val = 0;
-			i = 0;
-			while (i < 3 && is_octdigit(*text)) {
-				val = val * 8 + (*text - '0');
-				++text;
-				++i;
-			}
-			if (val > max) {
-				lexer_dprint_tok(&tlit->tok, stderr);
-				fprintf(stderr, ": Octal escape sequence "
-				    "out of range.\n");
-				++cgen->warnings;
-			}
-			c = (char)val;
-			break;
-		case 'x':
-			++text;
-
-			/* Hexadecimal escape sequence */
-			if (!is_hexdigit(*text)) {
-				lexer_dprint_tok(&tlit->tok, stderr);
-				fprintf(stderr, ": Invalid hexadecimal "
-				    "sequence.\n");
-				cgen->error = true; // TODO
-				return EINVAL;
-			}
-			val = 0;
-			while (is_hexdigit(*text)) {
-				val = val * 16 + cc_hexdigit_val(*text);
-				++text;
-			}
-			c = (char)val;
-			if (val > max) {
-				lexer_dprint_tok(&tlit->tok, stderr);
-				fprintf(stderr, ": Hexadecimal escape sequence "
-				    "out of range.\n");
-				++cgen->warnings;
-			}
-			break;
-		default:
-			lexer_dprint_tok(&tlit->tok, stderr);
-			fprintf(stderr, ": Unknown escape sequence '\\%c'.\n",
-			    *text);
-			++cgen->warnings;
-			c = *text++;
-			break;
-		}
+		rc = cgen_escseq(cgen, tlit, &text, max, &c);
+		if (rc != EOK)
+			return rc;
 	} else {
 		c = *text++;
 	}
@@ -16224,6 +16252,131 @@ error:
 	return rc;
 }
 
+/** Generate data entries for initializing a CG type from a string initializer
+ * element.
+ *
+ * @param cgen Code generator
+ * @param stype Variable type
+ * @param itok Initialization token (for printing diagnostics)
+ * @param estring String initializer
+ * @param dblock Data block to which data should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
+    comp_tok_t *itok, ast_estring_t *estring, ir_dblock_t *dblock)
+{
+	ast_estring_lit_t *lit;
+	ir_dentry_t *dentry = NULL;
+	comp_tok_t *ctok;
+	const char *text;
+	cgtype_array_t *tarray;
+	cgtype_int_rank_t rrank;
+	uint32_t value;
+	uint32_t max;
+	bool wide;
+	int rc;
+
+	(void)itok;
+
+	if (stype->ntype != cgn_array) {
+		fprintf(stderr, ": Cannot initialize variable of type ");
+		(void) cgtype_print(stype, stderr);
+		fprintf(stderr, " from (wide) string.\n");
+		cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	tarray = (cgtype_array_t *)stype->ext;
+	if (!cgen_type_is_integer(cgen, tarray->etype)) {
+		fprintf(stderr, ": Cannot initialize array of ");
+		(void) cgtype_print(tarray->etype, stderr);
+		fprintf(stderr, " from (wide) string.\n");
+		cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	lit = ast_estring_first(estring);
+	while (lit != NULL) {
+		wide = false;
+
+		ctok = (comp_tok_t *)lit->tlit.data;
+		text = ctok->tok.text;
+		if (*text == 'L' && text[1] == '"') {
+			++text;
+			wide = true;
+		}
+
+		max = wide ? cgen_lchar_max : cgen_char_max;
+		rrank = wide ? cgir_int : cgir_char;
+
+		if (cgtype_int_rank(tarray->etype) != rrank) {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Cannot initialize array of ");
+			(void) cgtype_print(tarray->etype, stderr);
+			fprintf(stderr, " from %s.\n", wide ? "wide string" :
+			    "string");
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		}
+
+		if (*text != '"') {
+			rc = EINVAL;
+			goto error;
+		}
+
+		++text;
+
+		while (*text != '"') {
+			if (*text == '\0') {
+				lexer_dprint_tok(&ctok->tok, stderr);
+				fprintf(stderr, ": Unexpected end of string literal.\n'");
+				cgen->error = true; // XXX
+				rc = EINVAL;
+				goto error;
+			}
+
+			if (*text == '\\') {
+				rc = cgen_escseq(cgen, ctok, &text,
+				    max, &value);
+				if (rc != EOK)
+					goto error;
+			} else {
+				value = *text;
+				++text;
+			}
+
+			rc = ir_dentry_create_int(wide ? cgen_lchar_bits :
+			    cgen_char_bits, value, &dentry);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_dblock_append(dblock, dentry);
+			if (rc != EOK)
+				goto error;
+		}
+
+		lit = ast_estring_next(lit);
+	}
+
+	/* Null character terminator */
+
+	rc = ir_dentry_create_int(8, '\0', &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_append(dblock, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
+	return rc;
+}
+
 /** Generate data entries for initializing a CG type.
  *
  * @param cgen Code generator
@@ -16274,6 +16427,11 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 				cgen->error = true; // XXX
 				return EINVAL;
 			}
+		} else if (init->ntype == ant_estring) {
+			rc = cgen_init_dentries_string(cgen, stype, itok,
+			    (ast_estring_t *)init->ext, dblock);
+			if (rc != EOK)
+				goto error;
 		} else {
 			atok = ast_tree_first_tok(init);
 			ctok = (comp_tok_t *)atok->data;

@@ -11,8 +11,11 @@ int bsq = '\'';
 /* Character literal containing escaped double quote character */
 int bsdq = '\"';
 
+/* Character literal containing literal double quote character */
+int justdq = '"';
+
 /* Character literal containing escaped question mark character */
-int bsqm = '?';
+int bsqm = '\?';
 
 /* Character literal containing escaped backslash character */
 int bsbs = '\\';
@@ -44,7 +47,7 @@ int bso1 = '\1';
 /* Character literal containing 2-digit octal escape sequence */
 int bso2 = '\12';
 
-/* Character literal containing 2-digit octal escape sequence */
+/* Character literal containing 3-digit octal escape sequence */
 int bso3 = '\123';
 
 /* Character literal containing hexadecimal escape sequence */
@@ -59,8 +62,11 @@ int lbsq = L'\'';
 /* Long character literal containing escaped double quote character */
 int lbsdq = L'\"';
 
+/* Long character literal containing literal double quote character */
+int ljustdq = '"';
+
 /* Long character literal containing escaped question mark character */
-int lbsqm = L'?';
+int lbsqm = L'\?';
 
 /* Long character literal containing escaped backslash character */
 int lbsbs = L'\\';
@@ -92,7 +98,7 @@ int lbso1 = L'\7';
 /* Long character literal containing 2-digit octal escape sequence */
 int lbso2 = L'\77';
 
-/* Long character literal containing 2-digit octal escape sequence */
+/* Long character literal containing 3-digit octal escape sequence */
 int lbso3 = L'\777';
 
 /* Long character literal containing hexadecimal escape sequence */

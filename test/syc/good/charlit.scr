@@ -1,0 +1,38 @@
+mapfile "charlit.map";
+ldbin "charlit.bin", 0x8000;
+
+verify byte ptr (@_cchar), 0x61;
+verify byte ptr (@_bsq), 0x27;
+verify byte ptr (@_bsdq), 0x22;
+verify byte ptr (@_justdq), 0x22;
+verify byte ptr (@_bsqm), 0x3f;
+verify byte ptr (@_bsbs), 0x5c;
+verify byte ptr (@_bsa), 0x07;
+verify byte ptr (@_bsb), 0x08;
+verify byte ptr (@_bsf), 0x0c;
+verify byte ptr (@_bsn), 0x0a;
+verify byte ptr (@_bsr), 0x0d;
+verify byte ptr (@_bst), 0x09;
+verify byte ptr (@_bsv), 0x0b;
+verify byte ptr (@_bso1), 0x01;
+verify byte ptr (@_bso2), 0x0a;
+verify byte ptr (@_bso3), 0x53;
+verify byte ptr (@_bsh), 0x12;
+
+verify word ptr (@_lcchar), 0x0061;
+verify word ptr (@_lbsq), 0x0027;
+verify word ptr (@_lbsdq), 0x0022;
+verify word ptr (@_ljustdq), 0x0022;
+verify word ptr (@_lbsqm), 0x003f;
+verify word ptr (@_lbsbs), 0x005c;
+verify word ptr (@_lbsa), 0x0007;
+verify word ptr (@_lbsb), 0x0008;
+verify word ptr (@_lbsf), 0x000c;
+verify word ptr (@_lbsn), 0x000a;
+verify word ptr (@_lbsr), 0x000d;
+verify word ptr (@_lbst), 0x0009;
+verify word ptr (@_lbsv), 0x000b;
+verify word ptr (@_lbso1), 0x0007;
+verify word ptr (@_lbso2), 0x003f;
+verify word ptr (@_lbso3), 0x01ff;
+verify word ptr (@_lbsh), 0x1234;
