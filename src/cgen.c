@@ -16101,14 +16101,31 @@ static int cgen_init_dentries_array(cgen_t *cgen, cgtype_array_t *tarray,
     comp_tok_t *itok, ast_cinit_elem_t **elem, ir_dblock_t *dblock)
 {
 	uint64_t i;
+	size_t entries;
 	int rc;
 
-	assert(tarray->have_size);
-	for (i = 0; i < tarray->asize; i++) {
-		rc = cgen_init_dentries_cinit(cgen, tarray->etype, itok, elem,
-		    dblock);
-		if (rc != EOK)
-			goto error;
+	if (tarray->have_size) {
+		/* Size of array is known. Process that number of entries. */
+		for (i = 0; i < tarray->asize; i++) {
+			rc = cgen_init_dentries_cinit(cgen, tarray->etype, itok,
+			    elem, dblock);
+			if (rc != EOK)
+				goto error;
+		}
+	} else {
+		/* Size of array is not known. Process and count all entries. */
+		entries = 0;
+		while (*elem != NULL) {
+			rc = cgen_init_dentries_cinit(cgen, tarray->etype, itok,
+			    elem, dblock);
+			if (rc != EOK)
+				goto error;
+			++entries;
+		}
+
+		/* Fix up array type */
+		tarray->have_size = true;
+		tarray->asize = entries;
 	}
 
 	return EOK;
@@ -16297,8 +16314,6 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 		goto error;
 	}
 
-	assert(tarray->have_size);
-
 	idx = 0;
 	lit = ast_estring_first(estring);
 	while (lit != NULL) {
@@ -16351,7 +16366,7 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 				++text;
 			}
 
-			if (idx >= tarray->asize) {
+			if (tarray->have_size && idx >= tarray->asize) {
 				lexer_dprint_tok(&ctok->tok, stderr);
 				fprintf(stderr, ": Excess initializer "
 				    "characters in string.\n");
@@ -16374,6 +16389,12 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 		}
 
 		lit = ast_estring_next(lit);
+	}
+
+	/* Fill in array size now if not known. */
+	if (!tarray->have_size) {
+		tarray->have_size = true;
+		tarray->asize = idx + 1;
 	}
 
 	/* Pad with zeroes up to the size of the array */
@@ -16603,23 +16624,32 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		if (rc != EOK)
 			goto error;
 
-		rc = cgen_cgtype(cgen, stype, &vtype);
-		if (rc != EOK)
-			goto error;
 
-		rc = ir_var_create(pident, vtype, dblock, &var);
+		rc = ir_var_create(pident, NULL, dblock, &var);
 		if (rc != EOK)
 			goto error;
 
 		free(pident);
 		pident = NULL;
-		vtype = NULL;
 		dblock = NULL;
+
+		/*
+		 * Generate data entries. This can also fill in unknown
+		 * array sizes in stype.
+		 */
 
 		rc = cgen_init_dentries(cgen, stype,
 		    (comp_tok_t *)entry->tassign.data, entry->init, var->dblock);
 		if (rc != EOK)
 			goto error;
+
+		/* Now that stype is finalized, generate IR variable type */
+		rc = cgen_cgtype(cgen, stype, &vtype);
+		if (rc != EOK)
+			goto error;
+
+		var->vtype = vtype;
+		vtype = NULL;
 
 		ir_module_append(cgen->irmod, &var->decln);
 		var = NULL;

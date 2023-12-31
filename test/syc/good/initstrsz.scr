@@ -1,0 +1,18 @@
+mapfile "initstrsz.map";
+ldbin "initstrsz.bin", 0x8000;
+
+verify byte ptr (@_a), 0x48;
+verify byte ptr (@_a + 1), 0x65;
+verify byte ptr (@_a + 2), 0x6c;
+verify byte ptr (@_a + 3), 0x6c;
+verify byte ptr (@_a + 4), 0x6f;
+verify byte ptr (@_a + 5), 0x21;
+verify byte ptr (@_a + 6), 0;
+
+verify word ptr (@_wa), 0x48;
+verify word ptr (@_wa + 2), 0x65;
+verify word ptr (@_wa + 4), 0x6c;
+verify word ptr (@_wa + 6), 0x6c;
+verify word ptr (@_wa + 8), 0x6f;
+verify word ptr (@_wa + 10), 0x21;
+verify word ptr (@_wa + 12), 0;
