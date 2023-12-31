@@ -3884,6 +3884,14 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 		asize = 0;
 	}
 
+	if (cgen_type_is_incomplete(cgen, btype)) {
+		ctok = (comp_tok_t *)darray->tlbracket.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Array element has incomplete type.\n");
+		cgen->error = true; // TODO
+		return EINVAL;
+	}
+
 	rc = cgtype_clone(btype, &btype_copy);
 	if (rc != EOK)
 		goto error;
@@ -16623,7 +16631,6 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		rc = ir_dblock_create(&dblock);
 		if (rc != EOK)
 			goto error;
-
 
 		rc = ir_var_create(pident, NULL, dblock, &var);
 		if (rc != EOK)
