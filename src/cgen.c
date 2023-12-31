@@ -1215,7 +1215,7 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	cgexpr.cgen = cgproc->cgen;
 	cgexpr.cgproc = cgproc;
 
-	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, &eres);
+	rc = cgen_expr(&cgexpr, expr, irproc->lblock, &eres);
 	if (rc != EOK)
 		goto error;
 
@@ -16606,18 +16606,6 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		}
 	}
 
-	/* Copy type to symbol */
-	if (symbol->cgtype == NULL) {
-		rc = cgtype_clone(stype, &symbol->cgtype);
-		if (rc != EOK)
-			goto error;
-	}
-
-	/* Insert identifier into module scope */
-	rc = scope_insert_gsym(cgen->scope, &ident->tok, stype, symbol);
-	if (rc == ENOMEM)
-		goto error;
-
 	if (entry->init != NULL) {
 		/* Mark the symbol as defined */
 		symbol->flags |= sf_defined;
@@ -16642,16 +16630,16 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 
 		/*
 		 * Generate data entries. This can also fill in unknown
-		 * array sizes in stype.
+		 * array sizes in ctype.
 		 */
 
-		rc = cgen_init_dentries(cgen, stype,
+		rc = cgen_init_dentries(cgen, ctype,
 		    (comp_tok_t *)entry->tassign.data, entry->init, var->dblock);
 		if (rc != EOK)
 			goto error;
 
 		/* Now that stype is finalized, generate IR variable type */
-		rc = cgen_cgtype(cgen, stype, &vtype);
+		rc = cgen_cgtype(cgen, ctype, &vtype);
 		if (rc != EOK)
 			goto error;
 
@@ -16661,6 +16649,18 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 		ir_module_append(cgen->irmod, &var->decln);
 		var = NULL;
 	}
+
+	/* Copy type to symbol */
+	if (symbol->cgtype == NULL) {
+		rc = cgtype_clone(ctype, &symbol->cgtype);
+		if (rc != EOK)
+			goto error;
+	}
+
+	/* Insert identifier into module scope */
+	rc = scope_insert_gsym(cgen->scope, &ident->tok, ctype, symbol);
+	if (rc == ENOMEM)
+		goto error;
 
 	cgtype_destroy(ctype);
 	return EOK;

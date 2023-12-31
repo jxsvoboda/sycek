@@ -1,0 +1,5 @@
+mapfile "sizeofarray.map";
+ldbin "sizeofarray.bin", 0x8000;
+
+verify byte ptr (@_sza), 6;
+verify byte ptr (@_szi2), 4;
