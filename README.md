@@ -239,7 +239,7 @@ Specifically, these language features are supported:
  * Sizeof
  * Character literals
  * Structure and array initializers (C89-style)
- * String initializers
+ * String initializers, string literals
 
 These are NOT supported yet:
 
@@ -248,7 +248,6 @@ These are NOT supported yet:
  * Integer promotion
  * Division and modulus (`/`, `%`)
  * Pointer difference
- * String literals
  * Variadic functions
  * Function pointers
  * Ternary operator

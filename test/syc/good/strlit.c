@@ -2,8 +2,15 @@
  * String literal in expression
  */
 
-void f(void)
+char *p;
+int sz;
+
+void strptr(void)
 {
-	int a = sizeof("Hello");
-	int b = sizeof("world!");
+	p = "Hello";
+}
+
+void strsize(void)
+{
+	sz = sizeof("world");
 }

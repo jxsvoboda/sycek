@@ -158,7 +158,8 @@ symbol_t *symbols_lookup(symbols_t *symbols, const char *ident)
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
-		if (strcmp(symbol->ident->tok.text, ident) == 0)
+		if (symbol->ident != NULL &&
+		    strcmp(symbol->ident->tok.text, ident) == 0)
 			return symbol;
 
 		symbol = symbols_next(symbol);

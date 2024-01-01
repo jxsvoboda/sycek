@@ -4378,7 +4378,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	int rv;
 
 	++cgexpr->cgen->str_cnt;
-	rv = asprintf(&pident, "@@str.%u", cgexpr->cgen->str_cnt);
+	rv = asprintf(&pident, "@_Str_%u", cgexpr->cgen->str_cnt);
 	if (rv < 0) {
 		rc = ENOMEM;
 		goto error;

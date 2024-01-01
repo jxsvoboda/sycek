@@ -1,0 +1,8 @@
+mapfile "strlit.map";
+ldbin "strlit.bin", 0x8000;
+
+call @_strptr;
+verify dword ptr (@_p), @__Str_1;
+
+call @_strsize;
+verify dword ptr (@_sz), 6;
