@@ -454,6 +454,19 @@ static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 	return off;
 }
 
+/** Determine if string literal is wide.
+ *
+ * @param lit String literal
+ * @return @c true iff string literal is wide
+ */
+static bool cgen_estring_lit_is_wide(ast_estring_lit_t *lit)
+{
+	comp_tok_t *tlit;
+
+	tlit = (comp_tok_t *)lit->tlit.data;
+	return tlit->tok.text[0] == 'L';
+}
+
 /** Prefix identifier with '@' global variable prefix.
  *
  * @param ident Identifier
@@ -4374,8 +4387,15 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	char *pident = NULL;
 	cgtype_basic_t *btype = NULL;
 	cgtype_array_t *atype = NULL;
+	ast_estring_lit_t *lit;
+	bool wide;
 	int rc;
 	int rv;
+
+	/* Determine if string is wide */
+	lit = ast_estring_first(estring);
+	assert(lit != NULL);
+	wide = cgen_estring_lit_is_wide(lit);
 
 	++cgexpr->cgen->str_cnt;
 	rv = asprintf(&pident, "@_Str_%u", cgexpr->cgen->str_cnt);
@@ -4385,7 +4405,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	}
 
 	/* Create array element type */
-	rc = cgtype_basic_create(cgelm_char, &btype);
+	rc = cgtype_basic_create(wide ? cgelm_int : cgelm_char, &btype);
 	if (rc != EOK)
 		goto error;
 

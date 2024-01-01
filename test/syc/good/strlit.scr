@@ -2,7 +2,13 @@ mapfile "strlit.map";
 ldbin "strlit.bin", 0x8000;
 
 call @_strptr;
-verify dword ptr (@_p), @__Str_1;
+verify word ptr (@_p), @__Str_1;
 
 call @_strsize;
-verify dword ptr (@_sz), 6;
+verify word ptr (@_sz), 6;
+
+call @_wstrptr;
+verify word ptr (@_wp), @__Str_3;
+
+call @_wstrsize;
+verify word ptr (@_wsz), 12;
