@@ -32,7 +32,8 @@
 
 extern int symbols_create(symbols_t **);
 extern void symbols_destroy(symbols_t *);
-extern int symbols_insert(symbols_t *, symbol_type_t, comp_tok_t *);
+extern int symbols_insert(symbols_t *, symbol_type_t, comp_tok_t *,
+    const char *, symbol_t **);
 extern symbol_t *symbols_first(symbols_t *);
 extern symbol_t *symbols_next(symbol_t *);
 extern symbol_t *symbols_lookup(symbols_t *, const char *);

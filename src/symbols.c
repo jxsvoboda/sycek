@@ -63,6 +63,7 @@ void symbols_destroy(symbols_t *symbols)
 	while (symbol != NULL) {
 		list_remove(&symbol->lsyms);
 		cgtype_destroy(symbol->cgtype);
+		free(symbol->irident);
 		free(symbol);
 		symbol = symbols_first(symbols);
 	}
@@ -70,22 +71,28 @@ void symbols_destroy(symbols_t *symbols)
 	free(symbols);
 }
 
-/** Symbol to symbol index.
+/** Insert new symbol to symbol index.
  *
  * @param symbols Symbol index
  * @param stype Symbol type
- * @param tok Identifier token that declared or defined symbol
+ * @param tok Identifier token that declared or defined symbol or @c NULL
+ *            for anonymous symbol
+ * @param irident IR identifier
+ * @param rsymbol Place to store pointer to new symbol or @c NULL
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         symbol is already present
  */
-int symbols_insert(symbols_t *symbols, symbol_type_t stype, comp_tok_t *tok)
+int symbols_insert(symbols_t *symbols, symbol_type_t stype, comp_tok_t *tok,
+    const char *irident, symbol_t **rsymbol)
 {
 	symbol_t *symbol;
 
-	symbol = symbols_lookup(symbols, tok->tok.text);
-	if (symbol != NULL) {
-		/* Identifier already exists */
-		return EEXIST;
+	if (tok != NULL) {
+		symbol = symbols_lookup(symbols, tok->tok.text);
+		if (symbol != NULL) {
+			/* Identifier already exists */
+			return EEXIST;
+		}
 	}
 
 	symbol = calloc(1, sizeof(symbol_t));
@@ -94,8 +101,16 @@ int symbols_insert(symbols_t *symbols, symbol_type_t stype, comp_tok_t *tok)
 
 	symbol->ident = tok;
 	symbol->stype = stype;
+	symbol->irident = strdup(irident);
+	if (symbol->irident == NULL) {
+		free(symbol);
+		return ENOMEM;
+	}
+
 	symbol->symbols = symbols;
 	list_append(&symbol->lsyms, &symbols->syms);
+	if (rsymbol != NULL)
+		*rsymbol = symbol;
 	return EOK;
 }
 

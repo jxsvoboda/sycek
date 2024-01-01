@@ -59,8 +59,10 @@ typedef struct symbol {
 	symbols_t *symbols;
 	/** Link to symbols_t.syms */
 	link_t lsyms;
-	/** Identifier token */
+	/** Identifier token or @c NULL if anonymous */
 	struct comp_tok *ident;
+	/** IR identifier */
+	char *irident;
 	/** Symbol type */
 	symbol_type_t stype;
 	/** Symbol flags */

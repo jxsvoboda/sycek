@@ -239,6 +239,7 @@ Specifically, these language features are supported:
  * Sizeof
  * Character literals
  * Structure and array initializers (C89-style)
+ * String initializers
 
 These are NOT supported yet:
 

@@ -56,6 +56,8 @@ typedef struct {
 	unsigned arglist_cnt;
 	/** Anonymous tag counter */
 	unsigned anon_tag_cnt;
+	/** String counter */
+	unsigned str_cnt;
 	/** Output IR module */
 	struct ir_module *irmod;
 } cgen_t;
