@@ -31,11 +31,11 @@
 
 /** Symbols */
 typedef struct symbols {
-	/** Scope members */
+	/** Symbols */
 	list_t syms; /* of symbol_t */
 } symbols_t;
 
-/** Scope member type */
+/** Symbol type */
 typedef enum {
 	/** Variable */
 	st_var,
@@ -50,7 +50,9 @@ typedef enum {
 	/** Symbol is defined (note: a symbol, if it exists, is always declared) */
 	sf_defined = 0x1,
 	/** Symbol is used */
-	st_used = 0x2
+	sf_used = 0x2,
+	/** Symbol is static / not visible to other modules */
+	sf_static = 0x4
 } symbol_flags_t;
 
 /** Symbol */

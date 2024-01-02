@@ -1163,7 +1163,7 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 	cgexpr.cgproc = cgproc;
 	cgexpr.cexpr = true;
 
-	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, &bres);
+	rc = cgen_expr(&cgexpr, expr, irproc->lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -4423,6 +4423,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 		goto error;
 
 	symbol->flags |= sf_defined;
+	symbol->flags |= sf_static;
 
 	/* Generate a new IR array */
 	rc = ir_dblock_create(&dblock);
@@ -11716,7 +11717,8 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	} else if (res->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		fprintf(stderr, "Unimplemented variable type.YYY\n");
+		abort();
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13340,7 +13342,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	if (areturn->arg != NULL) {
 		/* Evaluate the return value */
 
-		rc = cgen_expr_rvalue(&cgproc->cgexpr, areturn->arg, lblock, &ares);
+		rc = cgen_expr(&cgproc->cgexpr, areturn->arg, lblock, &ares);
 		if (rc != EOK)
 			goto error;
 	}
@@ -14705,8 +14707,8 @@ static int cgen_stexpr(cgen_proc_t *cgproc, ast_stexpr_t *stexpr,
 
 	cgen_eres_init(&ares);
 
-	/* Compute the value of the expression (e.g. read volatile variable) */
-	rc = cgen_expr_rvalue(&cgproc->cgexpr, stexpr->expr, lblock, &ares);
+	/* Compute the value of the expression (may have side effects) */
+	rc = cgen_expr(&cgproc->cgexpr, stexpr->expr, lblock, &ares);
 	if (rc != EOK)
 		goto error;
 
@@ -14803,7 +14805,7 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 			goto error;
 
 		/* Value of initializer expression */
-		rc = cgen_expr_rvalue(&cgproc->cgexpr, iexpr, lblock, &ires);
+		rc = cgen_expr(&cgproc->cgexpr, iexpr, lblock, &ires);
 		if (rc != EOK)
 			goto error;
 
@@ -15544,10 +15546,12 @@ static int cgen_fundef_attr(cgen_proc_t *cgproc, ast_aspec_attr_t *attr)
  *
  * @param cgen Code generator
  * @param gdecln Global declaration that is a function definition
+ * @param sctype Storace class specifier type
  * @param btype Type derived from declaration specifiers
  * @return EOK on success or an error code
  */
-static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
+static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
+    ast_sclass_type_t sctype, cgtype_t *btype)
 {
 	ir_proc_t *proc = NULL;
 	ir_lblock_t *lblock = NULL;
@@ -15574,11 +15578,23 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 	ast_aspec_t *aspec;
 	ast_aspec_attr_t *attr;
 	scope_t *prev_scope = NULL;
+	bool vstatic = false;
+	bool old_static;
 	int rc;
 	int rv;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
+
+	if (sctype == asc_static) {
+		vstatic = true;
+	} else if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&gdecln->dspecs->node);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		++cgen->warnings;
+	}
 
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
@@ -15593,6 +15609,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 			goto error;
 
 		assert(symbol != NULL);
+		if (vstatic)
+			symbol->flags |= sf_static;
 	} else {
 		if (symbol->stype != st_fun) {
 			/* Already declared as a different type of symbol */
@@ -15611,6 +15629,25 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln, cgtype_t *btype)
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
+		}
+
+		/* Check if static did not change */
+		old_static = (symbol->flags & sf_static) != 0;
+		if (vstatic && !old_static) {
+			/* Non-static previously declared as static */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Static '%s' was previously "
+			    "declared as non-static.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		} else if (!vstatic && old_static) {
+			/* Non-static previously declared as static */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: non-static '%s' was "
+			    "previously declared as static.\n",
+			    ident->tok.text);
+			++cgen->warnings;
 		}
 	}
 
@@ -15987,21 +16024,37 @@ error:
  *
  * @param cgen Code generator
  * @param ftype Function type
+ * @param sctype Storace class specifier type
  * @param gdecln Global declaration that is a function definition
  * @return EOK on success or an error code
  */
-static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
+static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
+    ast_gdecln_t *gdecln)
 {
 	ast_tok_t *aident;
 	comp_tok_t *ident;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	symbol_t *symbol;
 	cgtype_t *ctype = NULL;
 	cgtype_func_t *dtfunc;
 	char *pident = NULL;
+	bool vstatic = false;
+	bool old_static;
 	int rc;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
+
+	if (sctype == asc_static) {
+		vstatic = true;
+	} else if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&gdecln->dspecs->node);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		++cgen->warnings;
+	}
 
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
@@ -16031,6 +16084,9 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 		    &symbol);
 		if (rc != EOK)
 			goto error;
+
+		if (vstatic)
+			symbol->flags |= sf_static;
 
 		rc = cgtype_clone(ftype, &symbol->cgtype);
 		if (rc != EOK)
@@ -16079,6 +16135,25 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_gdecln_t *gdecln)
 		} else {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		}
+
+		/* Check if static did not change */
+		old_static = (symbol->flags & sf_static) != 0;
+		if (vstatic && !old_static) {
+			/* Non-static previously declared as static */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Static '%s' was previously "
+			    "declared as non-static.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		} else if (!vstatic && old_static) {
+			/* Non-static previously declared as static */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: non-static '%s' was "
+			    "previously declared as static.\n",
 			    ident->tok.text);
 			++cgen->warnings;
 		}
@@ -16639,10 +16714,13 @@ error:
  *
  * @param cgen Code generator
  * @param stype Variable type
+ * @param sctype Storace class specifier type
  * @param entry Init-declarator list entry that declares a variable
+ * @param gdecln Global declaration (for diagnostics)
  * @return EOK on success or an error code
  */
-static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
+static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
+    ast_idlist_entry_t *entry, ast_gdecln_t *gdecln)
 {
 	ir_var_t *var = NULL;
 	ir_dblock_t *dblock = NULL;
@@ -16656,10 +16734,24 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 	scope_member_t *member;
 	cgtype_t *ctype;
 	cgtype_enum_t *tenum;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+	bool vstatic = false;
+	bool old_static;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
 	ident = (comp_tok_t *) aident->data;
+
+	if (sctype == asc_static) {
+		vstatic = true;
+	} else if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&gdecln->dspecs->node);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		++cgen->warnings;
+	}
 
 	rc = cgen_gprefix(ident->tok.text, &pident);
 	if (rc != EOK)
@@ -16679,6 +16771,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 			goto error;
 
 		assert(symbol != NULL);
+		if (vstatic)
+			symbol->flags |= sf_static;
 
 		rc = cgtype_clone(stype, &ctype);
 		if (rc != EOK)
@@ -16741,6 +16835,25 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_idlist_entry_t *entry)
 				    ident->tok.text);
 				++cgen->warnings;
 			}
+		}
+
+		/* Check if static did not change */
+		old_static = (symbol->flags & sf_static) != 0;
+		if (vstatic && !old_static) {
+			/* Non-static previously declared as static */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Static '%s' was previously "
+			    "declared as non-static.\n", ident->tok.text);
+			cgen->error = true; // XXX
+			rc = EINVAL;
+			goto error;
+		} else if (!vstatic && old_static) {
+			/* Non-static previously declared as static */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: non-static '%s' was "
+			    "previously declared as static.\n",
+			    ident->tok.text);
+			++cgen->warnings;
 		}
 	}
 
@@ -16838,18 +16951,10 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->body != NULL) {
-		rc = cgen_fundef(cgen, gdecln, stype);
+		rc = cgen_fundef(cgen, gdecln, sctype, stype);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {
-		if (sctype != asc_none) {
-			atok = ast_tree_first_tok(&gdecln->dspecs->node);
-			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
-			++cgen->warnings;
-		}
-
 		/* Possibly variable declarations */
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
@@ -16861,7 +16966,8 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 
 			if (ast_decl_is_vardecln(entry->decl)) {
 				/* Variable declaration */
-				rc = cgen_vardef(cgen, dtype, entry);
+				rc = cgen_vardef(cgen, dtype, sctype, entry,
+				    gdecln);
 				if (rc != EOK)
 					goto error;
 			} else if (entry->decl->ntype == ant_dnoident) {
@@ -16891,7 +16997,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 				}
 			} else {
 				/* Assuming it's a function declaration */
-				rc = cgen_fundecl(cgen, dtype, gdecln);
+				rc = cgen_fundecl(cgen, dtype, sctype, gdecln);
 				if (rc != EOK)
 					goto error;
 			}

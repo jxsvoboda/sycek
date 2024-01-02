@@ -1,0 +1,1 @@
+<test/syc/bad/staticfdefafterns.c:6:12-14:id:foo>: Static 'foo' was previously declared as non-static.

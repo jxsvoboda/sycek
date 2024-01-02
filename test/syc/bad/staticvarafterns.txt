@@ -1,0 +1,2 @@
+<test/syc/bad/staticvarafterns.c:6:12:id:x>: Warning: Multiple declarations of 'x'.
+<test/syc/bad/staticvarafterns.c:6:12:id:x>: Static 'x' was previously declared as non-static.

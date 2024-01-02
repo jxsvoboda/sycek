@@ -1,0 +1,5 @@
+<test/syc/ugly/nonstaticafters.c:13:5-7:id:foo>: Warning: non-static 'foo' was previously declared as static.
+<test/syc/ugly/nonstaticafters.c:17:5-7:id:bar>: Warning: Multiple declarations of 'bar'.
+<test/syc/ugly/nonstaticafters.c:17:5-7:id:bar>: Warning: non-static 'bar' was previously declared as static.
+<test/syc/ugly/nonstaticafters.c:19:5:id:x>: Warning: Multiple declarations of 'x'.
+<test/syc/ugly/nonstaticafters.c:19:5:id:x>: Warning: non-static 'x' was previously declared as static.

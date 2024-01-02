@@ -125,8 +125,6 @@
 <test/syc/ugly/xlim.c:11:76:'{'>: Warning: Gratuitous nested block.
 <test/syc/ugly/xlim.c:11:77:'{'>: Warning: Gratuitous nested block.
 <test/syc/ugly/xlim.c:11:78:'{'>: Warning: Gratuitous nested block.
-<test/syc/ugly/xlim.c:31:1-6:'static'>: Warning: Unimplemented storage class specifier.
-<test/syc/ugly/xlim.c:32:1-6:'static'>: Warning: Unimplemented storage class specifier.
 <test/syc/ugly/xlim.c:557:13-14:id:b0>: Warning: 'b0' is defined, but not used.
 <test/syc/ugly/xlim.c:557:21-22:id:b1>: Warning: 'b1' is defined, but not used.
 <test/syc/ugly/xlim.c:557:29-30:id:b2>: Warning: 'b2' is defined, but not used.
