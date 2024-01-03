@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -8951,6 +8951,8 @@ static int z80_isel_var(z80_isel_t *isel, ir_var_t *irvar,
 	ir_dblock_entry_t *entry;
 	z80ic_var_t *icvar = NULL;
 	z80ic_dblock_t *dblock = NULL;
+	z80ic_global_t *icglobal;
+	z80ic_extern_t *icextern;
 	char *ident = NULL;
 	int rc;
 
@@ -8962,21 +8964,40 @@ static int z80_isel_var(z80_isel_t *isel, ir_var_t *irvar,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_var_create(ident, dblock, &icvar);
-	if (rc != EOK)
-		goto error;
-
-	entry = ir_dblock_first(irvar->dblock);
-	while (entry != NULL) {
-		rc = z80_isel_dentry(isel, entry->dentry, dblock);
+	if (irvar->linkage == irl_global) {
+		/* Create GLOBAL symbol declaration */
+		rc = z80ic_global_create(ident, &icglobal);
 		if (rc != EOK)
 			goto error;
 
-		entry = ir_dblock_next(entry);
+		z80ic_module_append(icmod, &icglobal->decln);
+	} else if (irvar->linkage == irl_extern) {
+		/* Create EXTERN symbol declaration */
+		rc = z80ic_extern_create(ident, &icextern);
+		if (rc != EOK)
+			goto error;
+
+		z80ic_module_append(icmod, &icextern->decln);
+	}
+
+	if (irvar->linkage != irl_extern) {
+		rc = z80ic_var_create(ident, dblock, &icvar);
+		if (rc != EOK)
+			goto error;
+
+		entry = ir_dblock_first(irvar->dblock);
+		while (entry != NULL) {
+			rc = z80_isel_dentry(isel, entry->dentry, dblock);
+			if (rc != EOK)
+				goto error;
+
+			entry = ir_dblock_next(entry);
+		}
+
+		z80ic_module_append(icmod, &icvar->decln);
 	}
 
 	free(ident);
-	z80ic_module_append(icmod, &icvar->decln);
 	return EOK;
 error:
 	if (ident != NULL)
@@ -9325,10 +9346,24 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 {
 	z80_isel_proc_t *isproc = NULL;
 	ir_lblock_entry_t *entry;
+	z80ic_global_t *icglobal;
 	z80ic_proc_t *icproc = NULL;
 	z80ic_lblock_t *lblock = NULL;
 	char *ident = NULL;
 	int rc;
+
+	rc = z80_isel_mangle_global_ident(irproc->ident, &ident);
+	if (rc != EOK)
+		goto error;
+
+	/* Create GLOBAL symbol declaration if proc is global */
+	if (irproc->linkage == irl_global) {
+		rc = z80ic_global_create(ident, &icglobal);
+		if (rc != EOK)
+			goto error;
+
+		z80ic_module_append(icmod, &icglobal->decln);
+	}
 
 	rc = z80_isel_proc_create(isel, irproc, &isproc);
 	if (rc != EOK)
@@ -9343,10 +9378,6 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 		goto error;
 
 	rc = z80ic_lblock_create(&lblock);
-	if (rc != EOK)
-		goto error;
-
-	rc = z80_isel_mangle_global_ident(irproc->ident, &ident);
 	if (rc != EOK)
 		goto error;
 
@@ -9450,7 +9481,7 @@ static int z80_isel_proc(z80_isel_t *isel, ir_proc_t *irproc,
 {
 	int rc;
 
-	if ((irproc->flags & irp_extern) != 0)
+	if (irproc->linkage == irl_extern)
 		rc = z80_isel_proc_extern(isel, irproc, icmod);
 	else
 		rc = z80_isel_proc_def(isel, irproc, icmod);

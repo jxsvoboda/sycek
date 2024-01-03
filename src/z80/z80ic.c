@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -253,6 +253,9 @@ static void z80ic_decln_destroy(z80ic_decln_t *decln)
 	case z80icd_extern:
 		z80ic_extern_destroy((z80ic_extern_t *) decln->ext);
 		break;
+	case z80icd_global:
+		z80ic_global_destroy((z80ic_global_t *) decln->ext);
+		break;
 	case z80icd_var:
 		z80ic_var_destroy((z80ic_var_t *) decln->ext);
 		break;
@@ -274,6 +277,8 @@ int z80ic_decln_print(z80ic_decln_t *decln, FILE *f)
 	switch (decln->dtype) {
 	case z80icd_extern:
 		return z80ic_extern_print((z80ic_extern_t *) decln->ext, f);
+	case z80icd_global:
+		return z80ic_global_print((z80ic_global_t *) decln->ext, f);
 	case z80icd_var:
 		return z80ic_var_print((z80ic_var_t *) decln->ext, f);
 	case z80icd_proc:
@@ -342,6 +347,65 @@ void z80ic_extern_destroy(z80ic_extern_t *dextern)
 		free(dextern->ident);
 
 	free(dextern);
+}
+
+/** Create Z80 IC global declaration.
+ *
+ * @param ident Identifier (will be copied)
+ * @param rglobal Place to store pointer to new global declaration
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_global_create(const char *ident, z80ic_global_t **rglobal)
+{
+	z80ic_global_t *dglobal;
+
+	dglobal = calloc(1, sizeof(z80ic_global_t));
+	if (dglobal == NULL)
+		return ENOMEM;
+
+	dglobal->ident = strdup(ident);
+	if (dglobal->ident == NULL) {
+		free(dglobal);
+		return ENOMEM;
+	}
+
+	dglobal->decln.dtype = z80icd_global;
+	dglobal->decln.ext = (void *) dglobal;
+	*rglobal = dglobal;
+	return EOK;
+}
+
+/** Print Z80 IC global declaration.
+ *
+ * @param dglobal Z80 IC global declaration
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+int z80ic_global_print(z80ic_global_t *dglobal, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "\nGLOBAL %s\n", dglobal->ident);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC global declaration.
+ *
+ * @param dglobal Z80 IC global declaration or @c NULL
+ */
+void z80ic_global_destroy(z80ic_global_t *dglobal)
+{
+	if (dglobal == NULL)
+		return;
+
+	if (dglobal->ident != NULL)
+		free(dglobal->ident);
+
+	free(dglobal);
 }
 
 /** Create Z80 IC variable.

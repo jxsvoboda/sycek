@@ -52,7 +52,9 @@ typedef enum {
 	/** Symbol is used */
 	sf_used = 0x2,
 	/** Symbol is static / not visible to other modules */
-	sf_static = 0x4
+	sf_static = 0x4,
+	/** Extern variable */
+	sf_extern = 0x8
 } symbol_flags_t;
 
 /** Symbol */

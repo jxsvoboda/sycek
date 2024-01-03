@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1081,7 +1081,7 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create("foo", 0, lblock, &irproc);
+	rc = ir_proc_create("foo", irl_default, lblock, &irproc);
 	if (rc != EOK)
 		goto error;
 
@@ -1147,7 +1147,7 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create("foo", 0, lblock, &irproc);
+	rc = ir_proc_create("foo", irl_default, lblock, &irproc);
 	if (rc != EOK)
 		goto error;
 
@@ -1217,7 +1217,7 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create("foo", 0, lblock, &irproc);
+	rc = ir_proc_create("foo", irl_default, lblock, &irproc);
 	if (rc != EOK)
 		goto error;
 
@@ -4430,7 +4430,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_var_create(pident, NULL, dblock, &var);
+	rc = ir_var_create(pident, NULL, irl_default, dblock, &var);
 	if (rc != EOK)
 		goto error;
 
@@ -11717,7 +11717,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	} else if (res->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
-		fprintf(stderr, "Unimplemented variable type.YYY\n");
+		fprintf(stderr, "Unimplemented variable type.\n");
 		abort();
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -15580,6 +15580,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	scope_t *prev_scope = NULL;
 	bool vstatic = false;
 	bool old_static;
+	ir_linkage_t linkage;
 	int rc;
 	int rv;
 
@@ -15712,7 +15713,12 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create(pident, 0, lblock, &proc);
+	if ((symbol->flags & sf_static) != 0)
+		linkage = irl_default;
+	else
+		linkage = irl_global;
+
+	rc = ir_proc_create(pident, linkage, lblock, &proc);
 	if (rc != EOK)
 		goto error;
 
@@ -16260,14 +16266,16 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			if (rc != EOK)
 				goto error;
 
-			rc = ir_dentry_create_ptr(16, sident, initval, &dentry);
+			rc = ir_dentry_create_ptr(cgen_pointer_bits, sident,
+			    initval, &dentry);
 			if (rc != EOK)
 				goto error;
 
 			free(sident);
 			sident = NULL;
 		} else {
-			rc = ir_dentry_create_int(16, initval, &dentry);
+			rc = ir_dentry_create_int(cgen_pointer_bits, initval,
+			    &dentry);
 			if (rc != EOK)
 				goto error;
 		}
@@ -16278,7 +16286,7 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 
 		dentry = NULL;
 	} else if (stype->ntype == cgn_enum) {
-		rc = ir_dentry_create_int(16, initval, &dentry);
+		rc = ir_dentry_create_int(cgen_enum_bits, initval, &dentry);
 		if (rc != EOK)
 			goto error;
 
@@ -16737,7 +16745,9 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	bool vstatic = false;
+	bool vextern = false;
 	bool old_static;
+	bool old_extern;
 	int rc;
 
 	aident = ast_decl_get_ident(entry->decl);
@@ -16745,6 +16755,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 
 	if (sctype == asc_static) {
 		vstatic = true;
+	} else if (sctype == asc_extern) {
+		vextern = true;
 	} else if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
@@ -16773,6 +16785,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		assert(symbol != NULL);
 		if (vstatic)
 			symbol->flags |= sf_static;
+		if (vextern)
+			symbol->flags |= sf_extern;
 
 		rc = cgtype_clone(stype, &ctype);
 		if (rc != EOK)
@@ -16855,11 +16869,29 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			    ident->tok.text);
 			++cgen->warnings;
 		}
+
+		/* Check if extern did not change */
+		old_extern = (symbol->flags & sf_extern) != 0;
+		if (vextern && !old_extern) {
+			/* Non-extern previously declared as extern */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Extern '%s' was previously "
+			    "declared as non-extern.\n", ident->tok.text);
+			++cgen->warnings;
+		} else if (!vextern && old_extern && entry->init == NULL) {
+			/* Non-extern previously declared as extern */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: non-extern '%s' was "
+			    "previously declared as extern.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		}
 	}
 
 	if (entry->init != NULL) {
 		/* Mark the symbol as defined */
 		symbol->flags |= sf_defined;
+		symbol->flags &= ~sf_extern;
 
 		/* Create initialized IR variable */
 
@@ -16867,7 +16899,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		if (rc != EOK)
 			goto error;
 
-		rc = ir_var_create(pident, NULL, dblock, &var);
+		rc = ir_var_create(pident, NULL, vstatic ? irl_default :
+		    irl_global, dblock, &var);
 		if (rc != EOK)
 			goto error;
 
@@ -17062,34 +17095,34 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln)
 /** Generate definition from function symbol declaration.
  *
  * @param cgen Code generator
+ * @param symbol Symbol
  * @param ident Identifier torken
  * @param irident IR identifier
  * @param cgtype Function type
  * @return EOK on success or an error code
  */
-static int cgen_module_symdecl_fun(cgen_t *cgen, comp_tok_t *ident,
-    const char *irident, cgtype_t *cgtype)
+static int cgen_module_symdecl_fun(cgen_t *cgen, symbol_t *symbol)
 {
 	int rc;
 	ir_proc_t *proc = NULL;
 	ir_proc_attr_t *irattr;
 	cgtype_func_t *cgfunc;
 
-	rc = ir_proc_create(irident, irp_extern, NULL, &proc);
+	rc = ir_proc_create(symbol->irident, irl_extern, NULL, &proc);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_fun_args(cgen, ident, cgtype, proc);
+	rc = cgen_fun_args(cgen, symbol->ident, symbol->cgtype, proc);
 	if (rc != EOK)
 		goto error;
 
 	/* Generate IR return type */
-	rc = cgen_fun_rtype(cgen, cgtype, proc);
+	rc = cgen_fun_rtype(cgen, symbol->cgtype, proc);
 	if (rc != EOK)
 		goto error;
 
-	assert(cgtype->ntype == cgn_func);
-	cgfunc = (cgtype_func_t *)cgtype->ext;
+	assert(symbol->cgtype->ntype == cgn_func);
+	cgfunc = (cgtype_func_t *)symbol->cgtype->ext;
 
 	if (cgfunc->cconv == cgcc_usr) {
 		rc = ir_proc_attr_create("@usr", &irattr);
@@ -17112,87 +17145,101 @@ error:
 /** Generate definition from variable symbol declaration.
  *
  * @param cgen Code generator
- * @param ident Identifier torken or @c NULL
- * @param irident IR identifier
- * @param cgtype Variable
+ * @param symbol Symbol
  * @return EOK on success or an error code
  */
-static int cgen_module_symdecl_var(cgen_t *cgen, comp_tok_t *ident,
-    const char *irident, cgtype_t *cgtype)
+static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 {
 	int rc;
 	ir_proc_t *proc = NULL;
 	ir_dblock_t *dblock = NULL;
 	ir_dentry_t *dentry = NULL;
+	ir_linkage_t linkage;
 	ir_texpr_t *vtype = NULL;
 	ir_var_t *var = NULL;
+	cgtype_t *cgtype = symbol->cgtype;
 	unsigned bits;
 
 	if (cgen_type_is_incomplete(cgen, cgtype)) {
-		lexer_dprint_tok(&ident->tok, stderr);
+		lexer_dprint_tok(&symbol->ident->tok, stderr);
 		fprintf(stderr, ": Variable has incomplete type.\n");
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
 
-	rc = ir_dblock_create(&dblock);
-	if (rc != EOK)
-		goto error;
+	if ((symbol->flags & sf_extern) != 0)
+		linkage = irl_extern;
+	else if ((symbol->flags & sf_static) != 0)
+		linkage = irl_default;
+	else
+		linkage = irl_global;
+
+	if (linkage != irl_extern) {
+		rc = ir_dblock_create(&dblock);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = cgen_cgtype(cgen, cgtype, &vtype);
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_var_create(irident, vtype, dblock, &var);
+
+	rc = ir_var_create(symbol->irident, vtype, linkage, dblock, &var);
 	if (rc != EOK)
 		goto error;
 
 	vtype = NULL;
 	dblock = NULL;
 
-	if (cgtype->ntype == cgn_basic) {
-		bits = cgen_basic_type_bits(cgen, (cgtype_basic_t *)cgtype->ext);
+	if (linkage != irl_extern) {
+		if (cgtype->ntype == cgn_basic) {
+			bits = cgen_basic_type_bits(cgen,
+			    (cgtype_basic_t *)cgtype->ext);
 
-		if (bits == 0) {
-			lexer_dprint_tok(&ident->tok, stderr);
+			if (bits == 0) {
+				lexer_dprint_tok(&symbol->ident->tok, stderr);
+				fprintf(stderr,
+				    ": Unimplemented variable type.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+
+			rc = ir_dentry_create_int(bits, 0, &dentry);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_dblock_append(var->dblock, dentry);
+			if (rc != EOK)
+				goto error;
+
+			dentry = NULL;
+		} else if (cgtype->ntype == cgn_pointer) {
+			rc = ir_dentry_create_int(cgen_pointer_bits, 0, &dentry);
+			if (rc != EOK)
+				goto error;
+
+			rc = ir_dblock_append(var->dblock, dentry);
+			if (rc != EOK)
+				goto error;
+
+			dentry = NULL;
+
+		} else if (cgtype->ntype == cgn_record ||
+		    cgtype->ntype == cgn_enum ||
+		    cgtype->ntype == cgn_array) {
+			rc = cgen_init_dentries(cgen, cgtype, NULL, NULL,
+			    var->dblock);
+			if (rc != EOK)
+				goto error;
+		} else {
+			lexer_dprint_tok(&symbol->ident->tok, stderr);
 			fprintf(stderr, ": Unimplemented variable type.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
 		}
-
-		rc = ir_dentry_create_int(bits, 0, &dentry);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_dblock_append(var->dblock, dentry);
-		if (rc != EOK)
-			goto error;
-
-		dentry = NULL;
-
-	} else if (cgtype->ntype == cgn_pointer) {
-		rc = ir_dentry_create_int(16, 0, &dentry);
-		if (rc != EOK)
-			goto error;
-
-		rc = ir_dblock_append(var->dblock, dentry);
-		if (rc != EOK)
-			goto error;
-
-		dentry = NULL;
-
-	} else if (cgtype->ntype == cgn_record || cgtype->ntype == cgn_enum ||
-	    cgtype->ntype == cgn_array) {
-		rc = cgen_init_dentries(cgen, cgtype, NULL, NULL, var->dblock);
-		if (rc != EOK)
-			goto error;
-	} else {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": UUUUnimplemented variable type.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
 	}
 
 	ir_module_append(cgen->irmod, &var->decln);
@@ -17221,14 +17268,12 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 		if ((symbol->flags & sf_defined) == 0) {
 			switch (symbol->stype) {
 			case st_fun:
-				rc = cgen_module_symdecl_fun(cgen, symbol->ident,
-				    symbol->irident, symbol->cgtype);
+				rc = cgen_module_symdecl_fun(cgen, symbol);
 				if (rc != EOK)
 					goto error;
 				break;
 			case st_var:
-				rc = cgen_module_symdecl_var(cgen, symbol->ident,
-				    symbol->irident, symbol->cgtype);
+				rc = cgen_module_symdecl_var(cgen, symbol);
 				if (rc != EOK)
 					goto error;
 				break;

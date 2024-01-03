@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -44,7 +44,8 @@ extern int ir_module_print(ir_module_t *, FILE *);
 extern void ir_module_destroy(ir_module_t *);
 extern int ir_decln_print(ir_decln_t *, FILE *);
 extern const char *ir_decln_ident(ir_decln_t *);
-extern int ir_var_create(const char *, ir_texpr_t *, ir_dblock_t *, ir_var_t **);
+extern int ir_var_create(const char *, ir_texpr_t *, ir_linkage_t,
+    ir_dblock_t *, ir_var_t **);
 extern void ir_var_destroy(ir_var_t *);
 extern int ir_var_print(ir_var_t *, FILE *);
 extern int ir_dblock_create(ir_dblock_t **);
@@ -71,7 +72,7 @@ extern ir_record_elem_t *ir_record_prev(ir_record_elem_t *);
 extern int ir_record_append(ir_record_t *, const char *, ir_texpr_t *,
     ir_record_elem_t **);
 extern void ir_record_elem_destroy(ir_record_elem_t *);
-extern int ir_proc_create(const char *, ir_proc_flags_t, ir_lblock_t *,
+extern int ir_proc_create(const char *, ir_linkage_t, ir_lblock_t *,
     ir_proc_t **);
 extern void ir_proc_append_arg(ir_proc_t *, ir_proc_arg_t *);
 extern void ir_proc_append_attr(ir_proc_t *, ir_proc_attr_t *);

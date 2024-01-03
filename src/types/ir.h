@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -300,6 +300,16 @@ typedef struct ir_texpr {
 	} t;
 } ir_texpr_t;
 
+/** IR symbol linkage */
+typedef enum {
+	/** Default (module-scope) linkage */
+	irl_default,
+	/** Global linkage */
+	irl_global,
+	/** Extern linkage */
+	irl_extern
+} ir_linkage_t;
+
 /** IR variable definition */
 typedef struct {
 	/** Base object */
@@ -308,6 +318,8 @@ typedef struct {
 	char *ident;
 	/** Variable type */
 	ir_texpr_t *vtype;
+	/** Variable linkage */
+	ir_linkage_t linkage;
 	/** Data block containing variable data */
 	ir_dblock_t *dblock;
 } ir_var_t;
@@ -366,12 +378,6 @@ typedef struct {
 	char *ident;
 } ir_proc_attr_t;
 
-/** IR procedure flags */
-typedef enum {
-	/** Extern procedure declaration */
-	irp_extern = 0x1
-} ir_proc_flags_t;
-
 /** IR local variable */
 typedef struct {
 	/** Containing procedure definition */
@@ -396,8 +402,8 @@ typedef struct ir_proc {
 	ir_texpr_t *rtype;
 	/** Attributes */
 	list_t attrs; /* of ir_proc_attr_t */
-	/** Flags */
-	ir_proc_flags_t flags;
+	/** Linkage */
+	ir_linkage_t linkage;
 	/** Local variables */
 	list_t lvars;
 	/** Labeled block containing the implementation */

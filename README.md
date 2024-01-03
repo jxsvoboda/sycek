@@ -235,6 +235,7 @@ Specifically, these language features are supported:
  * Struct, union, enum
  * Arrays
  * Global and local variable initialization
+ * Static and non-static functions and global variables
  * Constant expressions
  * Sizeof
  * Character literals
@@ -405,6 +406,9 @@ It can detect the following types of problems and style issues:
  * array passed to function is too small
  * excess braces around scalar initializer
  * initialization is not fully bracketed
+ * non-static <variable> was previously declared as static
+ * extern <variable> was previously declared as non-extern
+ * non-extern <variable> was previously declared as extern
 
 ### Strict truth type
 

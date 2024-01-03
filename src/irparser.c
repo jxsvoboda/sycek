@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -807,6 +807,35 @@ static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 	}
 }
 
+/** Parse IR linkage.
+ *
+ * @param parser IR parser
+ * @param rlinkage Place to store linkage
+ */
+static void ir_parser_process_linkage(ir_parser_t *parser, ir_linkage_t *rlinkage)
+{
+	ir_lexer_toktype_t itt;
+	ir_linkage_t linkage;
+
+	itt = ir_parser_next_ttype(parser);
+	switch (itt) {
+	case itt_global:
+		linkage = irl_global;
+		break;
+	case itt_extern:
+		linkage = irl_extern;
+		break;
+	default:
+		linkage = irl_default;
+		break;
+	}
+
+	if (linkage != irl_default)
+		ir_parser_skip(parser);
+
+	*rlinkage = linkage;
+}
+
 /** Parse IR procedure declaration.
  *
  * @param parser IR parser
@@ -849,7 +878,7 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_proc_create(itok.text, 0, lblock, &proc);
+	rc = ir_proc_create(itok.text, irl_default, lblock, &proc);
 	if (rc != EOK)
 		goto error;
 
@@ -974,15 +1003,9 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 		ir_parser_skip(parser);
 	}
 
-	/* Extern */
+	/* Linkage */
 
-	itt = ir_parser_next_ttype(parser);
-	if (itt == itt_extern) {
-		ir_parser_skip(parser);
-		proc->flags |= irp_extern;
-		ir_lblock_destroy(proc->lblock);
-		proc->lblock = NULL;
-	}
+	ir_parser_process_linkage(parser, &proc->linkage);
 
 	/* Lvar */
 
@@ -1034,7 +1057,7 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 
 	/* Begin, end */
 
-	if ((proc->flags & irp_extern) == 0) {
+	if (proc->linkage != irl_extern) {
 		rc = ir_parser_match(parser, itt_begin);
 		if (rc != EOK)
 			goto error;
@@ -1467,6 +1490,7 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 {
 	ir_lexer_tok_t itok;
 	ir_var_t *var = NULL;
+	ir_linkage_t linkage;
 	ir_dblock_t *dblock = NULL;
 	ir_texpr_t *texpr = NULL;
 	char *ident = NULL;
@@ -1502,6 +1526,10 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 	if (rc != EOK)
 		goto error;
 
+	/* Linkage */
+
+	ir_parser_process_linkage(parser, &linkage);
+
 	/* Begin, end */
 
 	rc = ir_parser_match(parser, itt_begin);
@@ -1516,7 +1544,7 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_var_create(ident, texpr, dblock, &var);
+	rc = ir_var_create(ident, texpr, linkage, dblock, &var);
 	if (rc != EOK)
 		goto error;
 

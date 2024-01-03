@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int ir_linkage_print(ir_linkage_t, FILE *);
 static void ir_decln_destroy(ir_decln_t *);
 
 /** Instruction names */
@@ -361,13 +362,14 @@ const char *ir_decln_ident(ir_decln_t *decln)
  *
  * @param ident Identifier (will be copied)
  * @param vtype Variable type (ownership transferred)
- * @param dblock Data block
+ * @param linkate Linkage
+ * @param dblock Data block or @c NULL if not a definition
  * @param rvar Place to store pointer to new variable
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_var_create(const char *ident, ir_texpr_t *vtype, ir_dblock_t *dblock,
-    ir_var_t **rvar)
+int ir_var_create(const char *ident, ir_texpr_t *vtype, ir_linkage_t linkage,
+    ir_dblock_t *dblock, ir_var_t **rvar)
 {
 	ir_var_t *var;
 
@@ -381,8 +383,9 @@ int ir_var_create(const char *ident, ir_texpr_t *vtype, ir_dblock_t *dblock,
 		return ENOMEM;
 	}
 
-	assert(dblock != NULL);
+	assert(dblock != NULL || linkage == irl_extern);
 	var->vtype = vtype;
+	var->linkage = linkage;
 	var->dblock = dblock;
 	var->decln.dtype = ird_var;
 	var->decln.ext = (void *) var;
@@ -409,17 +412,35 @@ int ir_var_print(ir_var_t *var, FILE *f)
 	if (rc != EOK)
 		return rc;
 
-	rv = fprintf(f, "\nbegin\n");
-	if (rv < 0)
-		return EIO;
+	if (var->linkage != irl_default) {
+		rv = fputc(' ', f);
+		if (rv < 0)
+			return EIO;
 
-	rc = ir_dblock_print(var->dblock, f);
-	if (rc != EOK)
-		return EIO;
+		rc = ir_linkage_print(var->linkage, f);
+		if (rc != EOK)
+			return EIO;
+	}
 
-	rv = fprintf(f, "end");
-	if (rv < 0)
-		return EIO;
+	if (var->linkage != irl_extern) {
+		rv = fputs("\n", f);
+		if (rv < 0)
+			return EIO;
+	}
+
+	if (var->dblock != NULL) {
+		rv = fprintf(f, "begin\n");
+		if (rv < 0)
+			return EIO;
+
+		rc = ir_dblock_print(var->dblock, f);
+		if (rc != EOK)
+			return EIO;
+
+		rv = fprintf(f, "end");
+		if (rv < 0)
+			return EIO;
+	}
 
 	return EOK;
 }
@@ -965,16 +986,44 @@ void ir_record_elem_destroy(ir_record_elem_t *elem)
 	free(elem);
 }
 
+/** Print IR linkage.
+ *
+ * @param linkage IR linkage
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_linkage_print(ir_linkage_t linkage, FILE *f)
+{
+	int rv;
+
+	switch (linkage) {
+	case irl_default:
+		break;
+	case irl_global:
+		rv = fputs("global", f);
+		if (rv < 0)
+			return EIO;
+		break;
+	case irl_extern:
+		rv = fputs("extern", f);
+		if (rv < 0)
+			return EIO;
+		break;
+	}
+
+	return EOK;
+}
+
 /** Create IR procedure.
  *
  * @param ident Identifier (will be copied)
- * @parma flags Flags
+ * @parma linkage Linkage
  * @param lblock Labeled block (or @c NULL if not a definition)
  * @param rproc Place to store pointer to new procedure
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int ir_proc_create(const char *ident, ir_proc_flags_t flags,
+int ir_proc_create(const char *ident, ir_linkage_t linkage,
     ir_lblock_t *lblock, ir_proc_t **rproc)
 {
 	ir_proc_t *proc;
@@ -989,9 +1038,9 @@ int ir_proc_create(const char *ident, ir_proc_flags_t flags,
 		return ENOMEM;
 	}
 
-	proc->flags = flags;
+	proc->linkage = linkage;
 
-	assert(lblock != NULL || (flags & irp_extern) != 0);
+	assert(lblock != NULL || linkage == irl_extern);
 	proc->lblock = lblock;
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
@@ -1074,11 +1123,17 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 			return EIO;
 	}
 
-	if ((proc->flags & irp_extern) != 0) {
-		rv = fputs(" extern", f);
+	if (proc->linkage != irl_default) {
+		rv = fputc(' ', f);
 		if (rv < 0)
 			return EIO;
-	} else {
+
+		rc = ir_linkage_print(proc->linkage, f);
+		if (rc != EOK)
+			return EIO;
+	}
+
+	if (proc->linkage != irl_extern) {
 		rv = fputs("\n", f);
 		if (rv < 0)
 			return EIO;

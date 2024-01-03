@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -63,13 +63,13 @@ static int test_ir_module(void)
 
 	assert(lblock2 != NULL);
 
-	rc = ir_proc_create("@foo1", 0, lblock1, &proc1);
+	rc = ir_proc_create("@foo1", irl_default, lblock1, &proc1);
 	if (rc != EOK)
 		return rc;
 
 	assert(proc1 != NULL);
 
-	rc = ir_proc_create("@foo2", 0, lblock2, &proc2);
+	rc = ir_proc_create("@foo2", irl_default, lblock2, &proc2);
 	if (rc != EOK)
 		return rc;
 
@@ -133,7 +133,7 @@ static int test_ir_var(void)
 
 	assert(dblock != NULL);
 
-	rc = ir_var_create("@myvar", texpr, dblock, &var);
+	rc = ir_var_create("@myvar", texpr, irl_default, dblock, &var);
 	if (rc != EOK)
 		return rc;
 
@@ -238,7 +238,7 @@ static int test_ir_proc(void)
 
 	assert(lblock != NULL);
 
-	rc = ir_proc_create("@foo", 0, lblock, &proc);
+	rc = ir_proc_create("@foo", irl_default, lblock, &proc);
 	if (rc != EOK)
 		return rc;
 

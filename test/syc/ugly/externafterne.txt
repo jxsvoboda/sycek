@@ -1,0 +1,2 @@
+<test/syc/ugly/externafterne.c:6:12:id:x>: Warning: Multiple declarations of 'x'.
+<test/syc/ugly/externafterne.c:6:12:id:x>: Warning: Extern 'x' was previously declared as non-extern.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1686,6 +1686,8 @@ typedef struct z80ic_dblock {
 typedef enum {
 	/** Extern symbol declaration */
 	z80icd_extern,
+	/** Global symbol declaration */
+	z80icd_global,
 	/** Variable declaration */
 	z80icd_var,
 	/** Procedure declaration */
@@ -1754,6 +1756,14 @@ typedef struct {
 	/** Indentifier */
 	char *ident;
 } z80ic_extern_t;
+
+/** Z80 IC global symbol declaration */
+typedef struct {
+	/** Base object */
+	z80ic_decln_t decln;
+	/** Indentifier */
+	char *ident;
+} z80ic_global_t;
 
 /** Z80 IC module */
 typedef struct z80ic_module {

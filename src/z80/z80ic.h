@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -43,6 +43,9 @@ extern int z80ic_decln_print(z80ic_decln_t *, FILE *);
 extern int z80ic_extern_create(const char *, z80ic_extern_t **);
 extern void z80ic_extern_destroy(z80ic_extern_t *);
 extern int z80ic_extern_print(z80ic_extern_t *, FILE *);
+extern int z80ic_global_create(const char *, z80ic_global_t **);
+extern void z80ic_global_destroy(z80ic_global_t *);
+extern int z80ic_global_print(z80ic_global_t *, FILE *);
 extern int z80ic_var_create(const char *, z80ic_dblock_t *, z80ic_var_t **);
 extern void z80ic_var_destroy(z80ic_var_t *);
 extern int z80ic_var_print(z80ic_var_t *, FILE *);
