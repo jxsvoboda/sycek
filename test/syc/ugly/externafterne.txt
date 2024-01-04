@@ -1,2 +1,4 @@
 <test/syc/ugly/externafterne.c:6:12:id:x>: Warning: Multiple declarations of 'x'.
 <test/syc/ugly/externafterne.c:6:12:id:x>: Warning: Extern 'x' was previously declared as non-extern.
+<test/syc/ugly/externafterne.c:9:12-14:id:foo>: Warning: Multiple declarations of 'foo'.
+<test/syc/ugly/externafterne.c:9:12-14:id:foo>: Warning: Extern 'foo' was previously declared as non-extern.

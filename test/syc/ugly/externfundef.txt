@@ -1,0 +1,1 @@
+<test/syc/ugly/externfundef.c:5:1-6:'extern'>: Warning: Function definition should not use 'extern'.

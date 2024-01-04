@@ -407,8 +407,9 @@ It can detect the following types of problems and style issues:
  * excess braces around scalar initializer
  * initialization is not fully bracketed
  * non-static <variable> was previously declared as static
- * extern <variable> was previously declared as non-extern
- * non-extern <variable> was previously declared as extern
+ * extern <symbol> was previously declared as non-extern
+ * non-extern <symbol> was previously declared as extern
+ * function definition should not use 'extern'
 
 ### Strict truth type
 

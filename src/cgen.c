@@ -15589,6 +15589,12 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 
 	if (sctype == asc_static) {
 		vstatic = true;
+	} else if (sctype == asc_extern) {
+		atok = ast_tree_first_tok(&gdecln->dspecs->node);
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Function definition should not use 'extern'.\n");
+		++cgen->warnings;
 	} else if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
@@ -15652,8 +15658,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		}
 	}
 
-	/* Mark the symbol as defined */
+	/* Mark the symbol as defined and not extern */
 	symbol->flags |= sf_defined;
+	symbol->flags &= ~sf_extern;
 
 	/* Identifier-declarator list entry */
 	idle = ast_idlist_first(gdecln->idlist);
@@ -16047,6 +16054,8 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 	char *pident = NULL;
 	bool vstatic = false;
 	bool old_static;
+	bool vextern = false;
+	bool old_extern;
 	int rc;
 
 	aident = ast_gdecln_get_ident(gdecln);
@@ -16054,6 +16063,14 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 
 	if (sctype == asc_static) {
 		vstatic = true;
+	} else if (sctype == asc_extern) {
+		/*
+		 * XXX If we knew that we are not in a header,
+		 * we could print a warning here (since extern functions should
+		 * be declared in a header and non-extern function declarations
+		 * should not have extern storage class.
+		 */
+		vextern = true;
 	} else if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
@@ -16093,6 +16110,8 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 
 		if (vstatic)
 			symbol->flags |= sf_static;
+		if (vextern)
+			symbol->flags |= sf_extern;
 
 		rc = cgtype_clone(ftype, &symbol->cgtype);
 		if (rc != EOK)
@@ -16160,6 +16179,23 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Warning: non-static '%s' was "
 			    "previously declared as static.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+		}
+
+		/* Check if extern did not change */
+		old_extern = (symbol->flags & sf_extern) != 0;
+		if (vextern && !old_extern) {
+			/* Non-extern previously declared as extern */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: Extern '%s' was previously "
+			    "declared as non-extern.\n", ident->tok.text);
+			++cgen->warnings;
+		} else if (!vextern && old_extern) {
+			/* Non-extern previously declared as extern */
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Warning: non-extern '%s' was "
+			    "previously declared as extern.\n",
 			    ident->tok.text);
 			++cgen->warnings;
 		}
