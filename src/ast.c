@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -4794,7 +4794,8 @@ bool ast_decl_is_vardecln(ast_node_t *decl)
 		dptr = (ast_dptr_t *) decl->ext;
 		return ast_decl_is_vardecln(dptr->bdecl);
 	case ant_dfun:
-		return false;
+		/* If it's not a function, it's a pointer to a function */
+		return ast_decl_get_dfun(decl) == NULL;
 	case ant_darray: // XXX May need to treat function returning array
 		return true;
 	default:

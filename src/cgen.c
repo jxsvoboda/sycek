@@ -3598,6 +3598,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	cgtype_t *btype_copy = NULL;
+	cgtype_t *bdtype = NULL;
 	cgtype_t *stype = NULL;
 	cgtype_t *atype = NULL;
 	cgtype_basic_t *abasic;
@@ -3796,7 +3797,13 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	cgen->cur_scope = prev_scope;
 	scope_destroy(arg_scope);
 
-	*rdtype = &func->cgtype;
+	/* Modify type via base declarator */
+
+	rc = cgen_decl(cgen, &func->cgtype, dfun->bdecl, NULL, &bdtype);
+	if (rc != EOK)
+		goto error;
+
+	*rdtype = bdtype;
 	return EOK;
 error:
 	if (prev_scope != NULL) {
@@ -3931,6 +3938,32 @@ error:
 	return rc;
 }
 
+/** Generate code for parenthesized declarator.
+ *
+ * Base type (@a stype) determined by the declaration specifiers is
+ * further modified by the declarator and returned as @a *rdtype.
+ *
+ * @param cgen Code generator
+ * @param btype Type derived from declaration specifiers
+ * @param dparen Parenthesized declarator
+ * @param aslist Attribute specifier list
+ * @param rdtype Place to store pointer to the declared type
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_paren(cgen_t *cgen, cgtype_t *btype, ast_dparen_t *dparen,
+    ast_aslist_t *aslist, cgtype_t **rdtype)
+{
+	int rc;
+
+	rc = cgen_decl(cgen, btype, dparen->bdecl, aslist, rdtype);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate code for declarator.
  *
  * Base type (@a stype) determined by the declaration specifiers is
@@ -3965,6 +3998,10 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 		break;
 	case ant_darray:
 		rc = cgen_decl_array(cgen, stype, (ast_darray_t *) decl->ext,
+		    aslist, &dtype);
+		break;
+	case ant_dparen:
+		rc = cgen_decl_paren(cgen, stype, (ast_dparen_t *) decl->ext,
 		    aslist, &dtype);
 		break;
 	default:
@@ -17219,7 +17256,6 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 	rc = cgen_cgtype(cgen, cgtype, &vtype);
 	if (rc != EOK)
 		goto error;
-
 
 	rc = ir_var_create(symbol->irident, vtype, linkage, dblock, &var);
 	if (rc != EOK)
