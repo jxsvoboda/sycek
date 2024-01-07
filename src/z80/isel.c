@@ -8956,10 +8956,6 @@ static int z80_isel_var(z80_isel_t *isel, ir_var_t *irvar,
 	char *ident = NULL;
 	int rc;
 
-	rc = z80ic_dblock_create(&dblock);
-	if (rc != EOK)
-		goto error;
-
 	rc = z80_isel_mangle_global_ident(irvar->ident, &ident);
 	if (rc != EOK)
 		goto error;
@@ -8981,6 +8977,10 @@ static int z80_isel_var(z80_isel_t *isel, ir_var_t *irvar,
 	}
 
 	if (irvar->linkage != irl_extern) {
+		rc = z80ic_dblock_create(&dblock);
+		if (rc != EOK)
+			goto error;
+
 		rc = z80ic_var_create(ident, dblock, &icvar);
 		if (rc != EOK)
 			goto error;

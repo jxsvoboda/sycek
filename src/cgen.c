@@ -3812,6 +3812,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	if (rc != EOK)
 		goto error;
 
+	cgtype_destroy(&func->cgtype);
 	*rdtype = bdtype;
 	return EOK;
 error:
@@ -10400,6 +10401,43 @@ error:
 	return rc;
 }
 
+/** Generate code for sizeof() with processed type.
+ *
+ * Once we processed the typename or type of the expression, i.e.,
+ * the argument to sizeof(), this function handles the rest.
+ *
+ * @param cgexpr Code generator for expression
+ * @param etype Type for which we want to determine size
+ * @param ctok Token for printing diagnostics
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_esizeof_cgtype(cgen_expr_t *cgexpr, cgtype_t *etype,
+    comp_tok_t *ctok, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	unsigned sz;
+	int rc;
+
+	if (etype->ntype == cgn_func) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Sizeof operator applied to a function.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	sz = cgen_type_sizeof(cgexpr->cgen, etype);
+
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, sz, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate code for sizeof(typename) expression.
  *
  * @param cgexpr Code generator for expression
@@ -10417,7 +10455,6 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	comp_tok_t *ctok;
 	ast_sclass_type_t sctype;
 	cgen_rd_flags_t flags;
-	unsigned sz;
 	int rc;
 
 	/* Declaration specifiers */
@@ -10426,9 +10463,10 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	if (rc != EOK)
 		goto error;
 
+	atok = ast_tree_first_tok(&esizeof->atypename->node);
+	ctok = (comp_tok_t *) atok->data;
+
 	if ((flags & cgrd_def) != 0) {
-		atok = ast_tree_first_tok(&esizeof->atypename->node);
-		ctok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Struct/union/enum definition inside sizeof().\n");
 		++cgexpr->cgen->warnings;
@@ -10450,9 +10488,7 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	if (rc != EOK)
 		goto error;
 
-	sz = cgen_type_sizeof(cgexpr->cgen, etype);
-
-	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, sz, lblock, eres);
+	rc  = cgen_esizeof_cgtype(cgexpr, etype, ctok, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -10481,7 +10517,9 @@ static int cgen_esizeof_expr(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	ast_eident_t *eident;
 	comp_tok_t *ident;
 	scope_member_t *member;
-	unsigned sz;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+
 	int rc;
 
 	/*
@@ -10523,9 +10561,10 @@ static int cgen_esizeof_expr(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 			goto error;
 	}
 
-	sz = cgen_type_sizeof(cgexpr->cgen, etype);
+	atok = ast_tree_first_tok(esizeof->bexpr);
+	ctok = (comp_tok_t *) atok->data;
 
-	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, sz, lblock, eres);
+	rc  = cgen_esizeof_cgtype(cgexpr, etype, ctok, lblock, eres);
 	if (rc != EOK)
 		goto error;
 

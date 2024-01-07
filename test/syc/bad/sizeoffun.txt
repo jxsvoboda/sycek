@@ -1,0 +1,1 @@
+<test/syc/bad/sizeoffun.c:13:23:'('>: Sizeof operator applied to a function.
