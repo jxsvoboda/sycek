@@ -10367,6 +10367,7 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
 	cgen_eres_t bres;
 	cgtype_t *cgtype;
 	cgtype_pointer_t *ptrtype;
+	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -10375,6 +10376,14 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
 	rc = cgen_expr_lvalue(cgexpr, eaddr->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
+
+	if (bres.cgtype->ntype == cgn_func) {
+		ctok = (comp_tok_t *)eaddr->tamper.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Explicitly taking the address of "
+		    "a function is not necessary.\n");
+		++cgexpr->cgen->warnings;
+	}
 
 	/* Construct the type */
 	rc = cgtype_pointer_create(bres.cgtype, &ptrtype);
@@ -13030,6 +13039,78 @@ error:
 	return rc;
 }
 
+/** Convert function to the specified type.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_func(cgen_expr_t *cgexpr, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t pres;
+	cgtype_t *ftype = NULL;
+	cgtype_pointer_t *ptrt = NULL;
+	int rc;
+
+	assert(ares->cgtype->ntype == cgn_func);
+
+	cgen_eres_init(&pres);
+
+	rc = cgtype_clone(ares->cgtype, &ftype);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Create pointer type whose target is the function type.
+	 * Note that ownership of ftype is transferred to ptrt.
+	 */
+	rc = cgtype_pointer_create(ftype, &ptrt);
+	if (rc != EOK)
+		goto error;
+
+	ftype = NULL;
+
+	/* Clone the result except.. */
+	rc = cgen_eres_clone(ares, &pres);
+	if (rc != EOK)
+		goto error;
+
+	/* Replace the type with the pointer type */
+	cgtype_destroy(pres.cgtype);
+	pres.cgtype = &ptrt->cgtype;
+	ptrt = NULL;
+
+	/*
+	 * Make it an rvalue .. it's the value of the pointer, not the
+	 * address.
+	 */
+	pres.valtype = cgen_rvalue;
+
+	/* Continue conversion */
+	rc = cgen_type_convert(cgexpr, ctok, &pres, dtype, expl, lblock,
+	    cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&pres);
+error:
+	if (ftype != NULL)
+		cgtype_destroy(ftype);
+	if (ptrt != NULL)
+		cgtype_destroy(&ptrt->cgtype);
+	cgen_eres_fini(&pres);
+	return rc;
+}
+
 /** Convert expression result to the specified type.
  *
  * @param cgexpr Code generator for expression
@@ -13061,6 +13142,12 @@ static int cgen_type_convert(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	/* Source type is an array */
 	if (ares->cgtype->ntype == cgn_array) {
 		return cgen_type_convert_array(cgexpr, ctok, ares, dtype, expl,
+		    lblock, cres);
+	}
+
+	/* Source type is a function */
+	if (ares->cgtype->ntype == cgn_func) {
+		return cgen_type_convert_func(cgexpr, ctok, ares, dtype, expl,
 		    lblock, cres);
 	}
 

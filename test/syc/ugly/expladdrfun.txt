@@ -1,0 +1,1 @@
+<test/syc/ugly/expladdrfun.c:13:14:'&'>: Warning: Explicitly taking the address of a function is not necessary.
