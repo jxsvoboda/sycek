@@ -2567,6 +2567,15 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 		if (rc != EOK)
 			goto error;
 
+		/* Check for function type */
+		if (dtype->ntype == cgn_func) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Record member is a function.\n");
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
 		/* Check type for completeness */
 		if (cgen_type_is_incomplete(cgen, dtype)) {
 			lexer_dprint_tok(&ident->tok, stderr);

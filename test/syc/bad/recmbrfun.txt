@@ -1,0 +1,1 @@
+<test/syc/bad/recmbrfun.c:6:14:id:x>: Record member is a function.
