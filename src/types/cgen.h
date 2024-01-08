@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -58,6 +58,8 @@ typedef struct {
 	unsigned anon_tag_cnt;
 	/** String counter */
 	unsigned str_cnt;
+	/** Call signature counter */
+	unsigned callsign_cnt;
 	/** Output IR module */
 	struct ir_module *irmod;
 } cgen_t;

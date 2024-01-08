@@ -40,6 +40,8 @@ typedef enum {
 	iri_bnot,
 	/** Call */
 	iri_call,
+	/** Call indirect */
+	iri_calli,
 	/** Equal */
 	iri_eq,
 	/** Greater than */
@@ -307,7 +309,9 @@ typedef enum {
 	/** Global linkage */
 	irl_global,
 	/** Extern linkage */
-	irl_extern
+	irl_extern,
+	/** Calling signature */
+	irl_callsign
 } ir_linkage_t;
 
 /** IR variable definition */

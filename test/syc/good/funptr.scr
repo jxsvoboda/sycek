@@ -1,0 +1,6 @@
+mapfile "funptr.map";
+ldbin "funptr.bin", 0x8000;
+
+ld word ptr (@_i), 0;
+call @_main;
+verify word ptr (@_i), 3;

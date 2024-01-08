@@ -44,6 +44,7 @@ static const char *instr_name[] = {
 	[iri_and] = "and",
 	[iri_bnot] = "bnot",
 	[iri_call] = "call",
+	[iri_calli] = "calli",
 	[iri_eq] = "eq",
 	[iri_gt] = "gt",
 	[iri_gtu] = "gtu",
@@ -86,6 +87,7 @@ static bool instr_has_width[] = {
 	[iri_add] = true,
 	[iri_and] = true,
 	[iri_bnot] = true,
+	[iri_calli] = true,
 	[iri_eq] = true,
 	[iri_gt] = true,
 	[iri_gtu] = true,
@@ -1009,6 +1011,11 @@ static int ir_linkage_print(ir_linkage_t linkage, FILE *f)
 		if (rv < 0)
 			return EIO;
 		break;
+	case irl_callsign:
+		rv = fputs("callsign", f);
+		if (rv < 0)
+			return EIO;
+		break;
 	}
 
 	return EOK;
@@ -1040,7 +1047,8 @@ int ir_proc_create(const char *ident, ir_linkage_t linkage,
 
 	proc->linkage = linkage;
 
-	assert(lblock != NULL || linkage == irl_extern);
+	assert(lblock != NULL || linkage == irl_extern ||
+	    linkage == irl_callsign);
 	proc->lblock = lblock;
 	proc->decln.dtype = ird_proc;
 	proc->decln.ext = (void *) proc;
@@ -1133,7 +1141,7 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 			return EIO;
 	}
 
-	if (proc->linkage != irl_extern) {
+	if (proc->linkage != irl_extern && proc->linkage != irl_callsign) {
 		rv = fputs("\n", f);
 		if (rv < 0)
 			return EIO;

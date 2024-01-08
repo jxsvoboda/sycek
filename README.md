@@ -36,7 +36,8 @@ Sycek is available under an MIT-style license.
 
 Syc
 ---
-NOTE: This is a work in progress. Only a subset of C is implemented.
+NOTE: This is a work in progress. Some C language features are
+not implemented yet.
 
 `syc` is meant to work as a compiler, lint-like tool and static checker.
 Currently it can compile a subset of C for the Sinclair ZX Spectrum
@@ -230,7 +231,8 @@ Specifically, these language features are supported:
  * Most arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
    and integer type conversions, usual arithmetic conversions
- * Basic support for pointers
+ * Variable pointers
+ * Function pointers
  * Typedef
  * Struct, union, enum
  * Arrays
@@ -250,7 +252,6 @@ These are NOT supported yet:
  * Division and modulus (`/`, `%`)
  * Pointer difference
  * Variadic functions
- * Function pointers
  * Ternary operator
  * Lvalue arguments
  * Passing or returning struct/union by value

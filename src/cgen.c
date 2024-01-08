@@ -9974,6 +9974,113 @@ static void cgen_check_passed_array_dim(cgen_t *cgen, comp_tok_t *tok,
 	}
 }
 
+/** Generate call signature.
+ *
+ * An indirect call instruction needs to know the signature of the function
+ * being called. As pointers are opaque, we need to provide it separately.
+ *
+ * cgen_callsign() declares a 'procedure' with the callsign linkage.
+ * This is not a real procedure, it just serves as a function type
+ * declaration.
+ *
+ * E.g.:
+ *     proc @@callsign1() : int.16 callsign;
+ *     proc @@callsign2() : int.16 attr(usr);
+ *
+ * Then you need to pass the name of the callsignature as the type operand
+ * to icall:
+ *     icall %d, { }, @@callsign1
+ *
+ * This allows the compiler to know the type of the procedure's arguments,
+ * its return type and attributes (e.g. calling convention).
+ *
+ * cgen_callsign() creates an IR type expression containing the identifier
+ * of the call signature. This can be used directly as the icall's
+ * type operard.
+ *
+ * @param cgen Code generator
+ * @param ftype Function type
+ * @param rcstype Place to store pointer to type expression
+ * @return EOK on succes or an erro
+ */
+static int cgen_callsign(cgen_t *cgen, cgtype_func_t *ftype,
+    ir_texpr_t **rcstype)
+{
+	ir_proc_t *proc = NULL;
+	ir_proc_arg_t *parg = NULL;
+	ir_texpr_t *atype = NULL;
+	cgtype_func_arg_t *arg;
+	char *pident = NULL;
+	char *aident = NULL;
+	unsigned aidx;
+	int rc;
+	int rv;
+
+	++cgen->callsign_cnt;
+	rv = asprintf(&pident, "@@callsign_%u", cgen->callsign_cnt);
+	if (rv < 0) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	rc = ir_proc_create(pident, irl_callsign, NULL, &proc);
+	if (rc != EOK)
+		goto error;
+
+	aidx = 0;
+	arg = cgtype_func_first(ftype);
+	while (arg != NULL) {
+		rc = cgen_cgtype(cgen, arg->atype, &atype);
+		if (rc != EOK)
+			goto error;
+
+		rv = asprintf(&aident, "%%%u", aidx++);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		rc = ir_proc_arg_create(aident, atype, &parg);
+		if (rc != EOK)
+			goto error;
+
+		free(aident);
+		aident = NULL;
+		atype = NULL;
+
+		ir_proc_append_arg(proc, parg);
+		parg = NULL;
+		arg = cgtype_func_next(arg);
+	}
+
+	/* Return type */
+	rc = cgen_cgtype(cgen, ftype->rtype, &proc->rtype);
+	if (rc != EOK)
+		goto error;
+
+	ir_module_append(cgen->irmod, &proc->decln);
+	proc = NULL;
+
+	rc = ir_texpr_ident_create(pident, rcstype);
+	if (rc != EOK)
+		goto error;
+
+	free(pident);
+	return EOK;
+error:
+	if (aident != NULL)
+		free(aident);
+	if (pident != NULL)
+		free(pident);
+	if (proc != NULL)
+		ir_proc_destroy(proc);
+	if (parg != NULL)
+		ir_proc_arg_destroy(parg);
+	if (atype != NULL)
+		ir_texpr_destroy(atype);
+	return rc;
+}
+
 /** Generate code for call expression.
  *
  * @param cgexpr Code generator for expression
@@ -9994,45 +10101,68 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	ast_ecall_arg_t *earg;
 	cgen_eres_t ares;
 	cgen_eres_t cres;
+	cgen_eres_t fres;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *fun = NULL;
 	ir_oper_list_t *args = NULL;
 	ir_oper_var_t *arg = NULL;
 	cgtype_t *rtype = NULL;
+	cgtype_t *fetype;
 	cgtype_func_t *ftype;
 	cgtype_func_arg_t *farg;
 	cgtype_t *argtype = NULL;
+	ir_texpr_t *cstype = NULL;
 	int rc;
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&cres);
+	cgen_eres_init(&fres);
 
-	if (ecall->fexpr->ntype != ant_eident) {
-		atok = ast_tree_first_tok(ecall->fexpr);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Function call needs an identifier (not implemented).\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
+	/* Is it just an identifier? */
+	if (ecall->fexpr->ntype == ant_eident) {
+		/*
+		 * An optimized case for simple direct call.
+		 * (Alternatively, we could evaluate it as a constant
+		 * expression, but we'd have to drop the generated code.)
+		 */
+
+		eident = (ast_eident_t *) ecall->fexpr->ext;
+		ident = (comp_tok_t *) eident->tident.data;
+
+		/* Check if the identifier is declared */
+		member = scope_lookup(cgexpr->cgen->cur_scope, ident->tok.text);
+		if (member == NULL) {
+			lexer_dprint_tok(&ident->tok, stderr);
+			fprintf(stderr, ": Undeclared identifier '%s'.\n",
+			    ident->tok.text);
+			cgexpr->cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
+		fetype = member->cgtype;
+
+		/* Mark identifier as used */
+		member->used = true;
+
+		/* Called function IR identifier */
+		rc = cgen_gprefix(ident->tok.text, &pident);
+		if (rc != EOK)
+			goto error;
+	} else {
+		/*
+		 * Generic case: evaluate the function expression
+		 * Needed for indirect calls.
+		 */
+		rc = cgen_expr(cgexpr, ecall->fexpr, lblock, &fres);
+		if (rc != EOK)
+			goto error;
+
+		fetype = fres.cgtype;
 	}
 
-	eident = (ast_eident_t *) ecall->fexpr->ext;
-	ident = (comp_tok_t *) eident->tident.data;
-
-	/* Check if the identifier is declared */
-	member = scope_lookup(cgexpr->cgen->cur_scope, ident->tok.text);
-	if (member == NULL) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Undeclared identifier '%s'.\n",
-		    ident->tok.text);
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
-	}
-
-	if (member->cgtype->ntype != cgn_func) {
+	if (fetype->ntype != cgn_func) {
 		lexer_dprint_tok(&ident->tok, stderr);
 		fprintf(stderr, ": Called object '%s' is not a function.\n",
 		    ident->tok.text);
@@ -10041,25 +10171,13 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		goto error;
 	}
 
-	ftype = (cgtype_func_t *)member->cgtype->ext;
-
-	/* Mark identifier as used */
-
-	member->used = true;
-
-	rc = cgen_gprefix(ident->tok.text, &pident);
-	if (rc != EOK)
-		goto error;
+	ftype = (cgtype_func_t *)fetype->ext;
 
 	rc = cgtype_clone(ftype->rtype, &rtype);
 	if (rc != EOK)
 		goto error;
 
 	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
-
-	rc = ir_oper_var_create(pident, &fun);
 	if (rc != EOK)
 		goto error;
 
@@ -10151,7 +10269,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Too few arguments to function '%s'.\n",
-		    ident->tok.text);
+		    pident != NULL ? ident->tok.text : "<anonymous>");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -10163,25 +10281,57 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 			goto error;
 	}
 
-	free(pident);
+	/* Identifier of called function is known? */
+	if (pident != NULL) {
+		/* Direct call */
+		rc = ir_oper_var_create(pident, &fun);
+		if (rc != EOK)
+			goto error;
 
-	instr->itype = iri_call;
-	instr->dest = dest != NULL ? &dest->oper : NULL;
-	instr->op1 = &fun->oper;
-	instr->op2 = &args->oper;
+		instr->itype = iri_call;
+		instr->dest = dest != NULL ? &dest->oper : NULL;
+		instr->op1 = &fun->oper;
+		instr->op2 = &args->oper;
+	} else {
+		/* Indirect call */
+
+		/* Declare call signature */
+		rc = cgen_callsign(cgexpr->cgen, ftype, &cstype);
+		if (rc != EOK)
+			goto error;
+
+		/* Function address operand */
+		rc = ir_oper_var_create(fres.varname, &fun);
+		if (rc != EOK)
+			goto error;
+
+		instr->itype = iri_calli;
+		instr->width = cgen_pointer_bits;
+		instr->dest = dest != NULL ? &dest->oper : NULL;
+		instr->op1 = &fun->oper;
+		instr->op2 = &args->oper;
+		instr->opt = cstype;
+
+		cstype = NULL;
+	}
 
 	ir_lblock_append(lblock, NULL, instr);
 
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&cres);
+	free(pident);
 
 	eres->varname = dest ? dest->varname : NULL;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = rtype;
 	eres->valused = cgtype_is_void(ftype->rtype);
+
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&cres);
+	cgen_eres_fini(&fres);
 	return EOK;
 error:
 	ir_instr_destroy(instr);
+	if (cstype != NULL)
+		ir_texpr_destroy(cstype);
 	if (argtype != NULL)
 		cgtype_destroy(argtype);
 	if (dest != NULL)
@@ -10194,6 +10344,7 @@ error:
 		free(pident);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
+	cgen_eres_fini(&fres);
 	cgtype_destroy(rtype);
 	return rc;
 }

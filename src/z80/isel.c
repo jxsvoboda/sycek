@@ -2612,7 +2612,8 @@ static int z80_isel_retvar_ptr(z80_isel_proc_t *isproc, const char *varname,
 	return EOK;
 }
 
-/** Select Z80 IC instructions code for setting argument to procedure call.
+/** Select Z80 IC instructions code for setting stack part of argument to
+ * procedure call
  *
  * @param isproc Instruction selector for procedure
  * @param argloc Argument locations
@@ -2621,21 +2622,17 @@ static int z80_isel_retvar_ptr(z80_isel_proc_t *isproc, const char *varname,
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
-static int z80_isel_call_set_arg(z80_isel_proc_t *isproc, z80_argloc_t *argloc,
+static int z80_isel_call_set_arg_stack(z80_isel_proc_t *isproc, z80_argloc_t *argloc,
     unsigned argvr, const char *varname, z80ic_lblock_t *lblock)
 {
 	z80ic_oper_reg_t *reg = NULL;
 	z80ic_oper_vr_t *vr = NULL;
 	z80ic_oper_vrr_t *vrr = NULL;
-	z80ic_oper_r16_t *ldadest = NULL;
 	z80ic_ld_r16_vrr_t *ldarg = NULL;
-	z80ic_ld_r_vr_t *ldarg8 = NULL;
 	z80ic_push_vrr_t *push = NULL;
 	z80ic_push_vr_t *push8 = NULL;
 	z80_argloc_entry_t *entry;
-	z80ic_reg_t r;
 	unsigned vroff;
-	z80ic_r16_t argreg;
 	unsigned i;
 	int rc;
 
@@ -2704,6 +2701,66 @@ static int z80_isel_call_set_arg(z80_isel_proc_t *isproc, z80_argloc_t *argloc,
 			goto error;
 
 		push8 = NULL;
+		--vroff;
+	}
+
+	return EOK;
+error:
+	if (ldarg != NULL)
+		z80ic_instr_destroy(&ldarg->instr);
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_vrr_destroy(vrr);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for setting register part of argument
+ * to procedure call.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param argloc Argument locations
+ * @param argvr Virtual register base
+ * @param varname Variable name
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_call_set_arg_reg(z80_isel_proc_t *isproc, z80_argloc_t *argloc,
+    unsigned argvr, const char *varname, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_r16_t *ldadest = NULL;
+	z80ic_ld_r16_vrr_t *ldarg = NULL;
+	z80ic_ld_r_vr_t *ldarg8 = NULL;
+	z80ic_push_vrr_t *push = NULL;
+	z80_argloc_entry_t *entry;
+	z80ic_reg_t r;
+	unsigned vroff;
+	z80ic_r16_t argreg;
+	unsigned i;
+	int rc;
+
+	(void) isproc;
+
+	/** Find argument location */
+	rc = z80_argloc_find(argloc, varname, &entry);
+	assert(rc == EOK);
+	if (rc != EOK)
+		return rc;
+
+	vroff = entry->reg_entries + (entry->stack_sz + 1) / 2 - 1;
+
+	/* Skip over words */
+	for (i = 0; i + 1 < entry->stack_sz; i += 2) {
+		--vroff;
+	}
+
+	/* Skip over bytes */
+	for (; i < entry->stack_sz; i++) {
 		--vroff;
 	}
 
@@ -2793,7 +2850,106 @@ error:
 	return rc;
 }
 
-/** Select Z80 IC instructions code for IR call instruction.
+/** Select Z80 IC instructions to push return and call address for an
+ * indirect call.
+ *
+ * The idea with indirect call on Z80 when HL may be used is to simply:
+ *   push <return-address>
+ *   push <called-fun-address>
+ *   ret
+ *
+ * @param isproc Instruction selector for procedure
+ * @param retlabel Return label
+ * @param cfvr VR containing address of called function
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_calli_push_ra_ca(z80_isel_proc_t *isproc,
+    const char *retlabel, unsigned cfvr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_vrr_nn_t *ldimm = NULL;
+	z80ic_push_vrr_t *push = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	unsigned tvr;
+	int rc;
+
+	/* Allocate virtual register for temporary storage */
+	tvr = z80_isel_get_new_vregno(isproc);
+
+	/* ld tvr, retlabel */
+
+	rc = z80ic_ld_vrr_nn_create(&ldimm);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(tvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(retlabel, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldimm->dest = vrr;
+	ldimm->imm16 = imm;
+	vrr = NULL;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldimm->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldimm = NULL;
+
+	/* push tvr */
+
+	rc = z80ic_push_vrr_create(&push);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(tvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	push->src = vrr;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
+	push = NULL;
+
+	/* push cfvar */
+
+	rc = z80ic_push_vrr_create(&push);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(cfvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	push->src = vrr;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
+	push = NULL;
+error:
+	if (ldimm != NULL)
+		z80ic_instr_destroy(&ldimm->instr);
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_imm16_destroy(imm);
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR call/calli instructions.
  *
  * @param isproc Instruction selector for procedure
  * @param irinstr IR call instruction
@@ -2804,6 +2960,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
 	z80ic_call_nn_t *call = NULL;
+	z80ic_ret_t *ret = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	z80ic_inc_ss_t *inc = NULL;
 	z80ic_oper_ss_t *ainc = NULL;
@@ -2825,9 +2982,13 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned rvbits;
 	unsigned i;
 	unsigned stack_bytes;
+	unsigned lblno;
+	unsigned cfvr;
+	char *rlabel = NULL;
 	int rc;
 
-	assert(irinstr->itype == iri_call);
+	assert(irinstr->itype == iri_call || irinstr->itype == iri_calli);
+	assert(irinstr->itype != iri_calli || irinstr->width == 16);
 	assert(irinstr->op1->optype == iro_var);
 	assert(irinstr->op2->optype == iro_list);
 
@@ -2839,25 +3000,47 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	op1 = (ir_oper_var_t *) irinstr->op1->ext;
 	op2 = (ir_oper_list_t *) irinstr->op2->ext;
 
-	rc = z80_isel_mangle_global_ident(op1->varname, &varident);
-	if (rc != EOK)
-		goto error;
+	if (irinstr->itype == iri_call) {
+		rc = z80_isel_mangle_global_ident(op1->varname, &varident);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_module_find(isproc->isel->irmodule, op1->varname, &pdecln);
-	if (rc != EOK) {
-		fprintf(stderr, "Call to undefined procedure '%s'.\n",
-		    op1->varname);
-		goto error;
+		rc = ir_module_find(isproc->isel->irmodule, op1->varname, &pdecln);
+		if (rc != EOK) {
+			fprintf(stderr, "Call to undefined procedure '%s'.\n",
+			    op1->varname);
+			goto error;
+		}
+
+		if (pdecln->dtype != ird_proc) {
+			fprintf(stderr, "Calling object '%s' which is not a procedure.\n",
+			    op1->varname);
+			rc = EINVAL;
+			goto error;
+		}
+
+		proc = (ir_proc_t *)pdecln->ext;
+	} else {
+		assert(irinstr->opt->tetype == irt_ident);
+
+		rc = ir_module_find(isproc->isel->irmodule,
+		    irinstr->opt->t.tident.ident, &pdecln);
+		if (rc != EOK) {
+			fprintf(stderr, "Undefined call signature '%s'.\n",
+			    irinstr->opt->t.tident.ident);
+			goto error;
+		}
+
+		if (pdecln->dtype != ird_proc ||
+		    ((ir_proc_t *)pdecln->ext)->linkage != irl_callsign) {
+			fprintf(stderr, "Object '%s' is not a call signature.\n",
+			    op1->varname);
+			rc = EINVAL;
+			goto error;
+		}
+
+		proc = (ir_proc_t *)pdecln->ext;
 	}
-
-	if (pdecln->dtype != ird_proc) {
-		fprintf(stderr, "Calling object '%s' which is not a procedure.\n",
-		    op1->varname);
-		rc = EINVAL;
-		goto error;
-	}
-
-	proc = (ir_proc_t *)pdecln->ext;
 
 	rc = z80_argloc_create(&argloc);
 	if (rc != EOK)
@@ -2927,15 +3110,9 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	}
 
 	/*
+	 * Push stack parts of arguments to the stack.
 	 * Process arguments from last to the first. This ensures that
-	 * (1) the argument at the top of the stack has the lowest number,
-	 * (2) arguments passed by registers are loaded into those registers
-	 * just prior to the call instruction (thus not occupying the
-	 * registers longer than necessary).
-	 *
-	 * XXX We should explicitly process stack arguments first and
-	 * register arguments second, we might have a late register
-	 * entry in the form of an 8-bit argument.
+	 * the argument at the top of the stack has the lowest number.
 	 */
 	arg = ir_oper_list_last(op2);
 	while (arg != NULL) {
@@ -2944,7 +3121,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 		argvr = z80_isel_get_vregno(isproc, arg);
 
-		rc = z80_isel_call_set_arg(isproc, argloc, argvr,
+		rc = z80_isel_call_set_arg_stack(isproc, argloc, argvr,
 		    argvar->varname, lblock);
 		if (rc != EOK)
 			goto error;
@@ -2952,34 +3129,102 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		arg = ir_oper_list_prev(arg);
 	}
 
-	/* 64-bit return value? Pass hidden argument. */
+	/* 64-bit return value? Pass hidden argument. (stack part) */
 	if (proc->rtype != NULL && proc->rtype->tetype == irt_int) {
 		if (proc->rtype->t.tint.width == 64) {
-			rc = z80_isel_call_set_arg(isproc, argloc, rvavr,
+			rc = z80_isel_call_set_arg_stack(isproc, argloc, rvavr,
 			    "%_retvar", lblock);
 			if (rc != EOK)
 				goto error;
 		}
 	}
 
-	/* call NN */
+	if (irinstr->itype == iri_calli) {
+		/* Create return label */
+		lblno = z80_isel_new_label_num(isproc);
 
-	rc = z80ic_call_nn_create(&call);
-	if (rc != EOK)
-		goto error;
+		/* VR containing address of called function */
+		cfvr = z80_isel_get_vregno(isproc, irinstr->op1);
 
-	rc = z80ic_oper_imm16_create_symbol(varident, &imm);
-	if (rc != EOK)
-		goto error;
+		rc = z80_isel_create_label(isproc, "calli_ret", lblno, &rlabel);
+		if (rc != EOK)
+			goto error;
 
-	call->imm16 = imm;
-	imm = NULL;
+		/* Push return address and called function address */
+		rc = z80_isel_calli_push_ra_ca(isproc, rlabel, cfvr,
+		    lblock);
+		if (rc != EOK)
+			goto error;
+	}
 
-	rc = z80ic_lblock_append(lblock, label, &call->instr);
-	if (rc != EOK)
-		goto error;
+	/*
+	 * Fill registers with register parts of arguments.
+	 */
+	arg = ir_oper_list_last(op2);
+	while (arg != NULL) {
+		assert(arg->optype == iro_var);
+		argvar = (ir_oper_var_t *) arg->ext;
 
-	call = NULL;
+		argvr = z80_isel_get_vregno(isproc, arg);
+
+		rc = z80_isel_call_set_arg_reg(isproc, argloc, argvr,
+		    argvar->varname, lblock);
+		if (rc != EOK)
+			goto error;
+
+		arg = ir_oper_list_prev(arg);
+	}
+
+	/* 64-bit return value? Pass hidden argument. (register part) */
+	if (proc->rtype != NULL && proc->rtype->tetype == irt_int) {
+		if (proc->rtype->t.tint.width == 64) {
+			rc = z80_isel_call_set_arg_reg(isproc, argloc, rvavr,
+			    "%_retvar", lblock);
+			if (rc != EOK)
+				goto error;
+		}
+	}
+
+	if (irinstr->itype == iri_call) {
+		/* call NN */
+
+		rc = z80ic_call_nn_create(&call);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm16_create_symbol(varident, &imm);
+		if (rc != EOK)
+			goto error;
+
+		call->imm16 = imm;
+		imm = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &call->instr);
+		if (rc != EOK)
+			goto error;
+
+		call = NULL;
+	} else {
+		assert(irinstr->itype == iri_calli);
+
+		/* ret */
+
+		rc = z80ic_ret_create(&ret);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_lblock_append(lblock, label, &ret->instr);
+		if (rc != EOK)
+			goto error;
+
+		ret = NULL;
+
+		/* label calli_ret */
+
+		rc = z80ic_lblock_append(lblock, rlabel, NULL);
+		if (rc != EOK)
+			goto error;
+	}
 
 	/* Get return value */
 
@@ -3062,6 +3307,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	}
 
 	free(varident);
+	free(rlabel);
 	z80_argloc_destroy(argloc);
 	return EOK;
 error:
@@ -3075,6 +3321,8 @@ error:
 	z80ic_oper_ss_destroy(ainc);
 	if (argloc != NULL)
 		z80_argloc_destroy(argloc);
+	if (rlabel != NULL)
+		free(rlabel);
 
 	return rc;
 }
@@ -8705,6 +8953,7 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	case iri_bnot:
 		return z80_isel_bnot(isproc, label, irinstr, lblock);
 	case iri_call:
+	case iri_calli:
 		return z80_isel_call(isproc, label, irinstr, lblock);
 	case iri_eq:
 		return z80_isel_eq(isproc, label, irinstr, lblock);
@@ -9351,6 +9600,12 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 	z80ic_lblock_t *lblock = NULL;
 	char *ident = NULL;
 	int rc;
+
+	/* Call signature? */
+	if (irproc->linkage == irl_callsign) {
+		/* No need to emit anything */
+		return EOK;
+	}
 
 	rc = z80_isel_mangle_global_ident(irproc->ident, &ident);
 	if (rc != EOK)

@@ -1317,15 +1317,20 @@ static int z80_ralloc_ret(z80_ralloc_proc_t *raproc, const char *label,
     z80ic_ret_t *vrret, z80ic_lblock_t *lblock)
 {
 	z80ic_ret_t *ret = NULL;
+	bool is_calli;
 	int rc;
 
-	(void) raproc;
 	(void) vrret;
 
-	/* Insert epilogue to free the stack frame */
-	rc = z80_ralloc_sffree(lblock);
-	if (rc != EOK)
-		goto error;
+	/* Is this really an indirect call? */
+	is_calli = raproc->spadj > 0;
+
+	if (!is_calli) {
+		/* Insert epilogue to free the stack frame */
+		rc = z80_ralloc_sffree(lblock);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = z80ic_ret_create(&ret);
 	if (rc != EOK)
@@ -1336,6 +1341,16 @@ static int z80_ralloc_ret(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	ret = NULL;
+
+	if (is_calli) {
+		/*
+		 * This ret is used for an indirect call. It removes
+		 * the top two words from the stack before returning.
+		 */
+		assert(raproc->spadj >= 4);
+		raproc->spadj -= 4;
+	}
+
 	return EOK;
 error:
 	if (ret != NULL)
