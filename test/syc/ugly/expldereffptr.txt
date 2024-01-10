@@ -1,0 +1,1 @@
+<test/syc/ugly/expldereffptr.c:13:10:'*'>: Warning: Explicitly dereferencing function pointer is not necessary.

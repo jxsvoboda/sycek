@@ -10119,6 +10119,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	cgen_eres_t ares;
 	cgen_eres_t cres;
 	cgen_eres_t fres;
+	cgen_eres_t frres;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *fun = NULL;
@@ -10135,6 +10136,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	cgen_eres_init(&ares);
 	cgen_eres_init(&cres);
 	cgen_eres_init(&fres);
+	cgen_eres_init(&frres);
 
 	/*
 	 * Evaluate the function expression
@@ -10149,29 +10151,42 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		fptype = (cgtype_pointer_t *)fres.cgtype->ext;
 		assert(fptype->tgtype->ntype == cgn_func);
 		ftype = (cgtype_func_t *)fptype->tgtype->ext;
+
+		/* Need to convert it to rvalue */
+		rc = cgen_eres_rvalue(cgexpr, &fres, lblock, &frres);
+		if (rc != EOK)
+			goto error;
 	} else if (fres.cgtype->ntype == cgn_func) {
 		/* It's a function */
 		ftype = (cgtype_func_t *)fres.cgtype->ext;
+
+		rc = cgen_eres_clone(&fres, &frres);
+		if (rc != EOK)
+			goto error;
 	} else {
+		if (fres.cvknown)
+			cident = fres.cvsymbol->ident->tok.text;
+
 		tok = (comp_tok_t *)ecall->tlparen.data;
 		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Called object is not a function.\n");
+		fprintf(stderr, ": Called object '%s' is not a function.\n",
+		    cident);
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	rc = cgtype_clone(ftype->rtype, &rtype);
-	if (rc != EOK)
-		goto error;
-
-	/* Is the function name known at compile time? */
-	if (fres.cvknown) {
-		cident = fres.cvsymbol->ident->tok.text;
+	/* Is the symbol name known at compile time? */
+	if (frres.cvknown) {
+		cident = frres.cvsymbol->ident->tok.text;
 		rc = cgen_gprefix(cident, &pident);
 		if (rc != EOK)
 			goto error;
 	}
+
+	rc = cgtype_clone(ftype->rtype, &rtype);
+	if (rc != EOK)
+		goto error;
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -10297,7 +10312,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 			goto error;
 
 		/* Function address operand */
-		rc = ir_oper_var_create(fres.varname, &fun);
+		rc = ir_oper_var_create(frres.varname, &fun);
 		if (rc != EOK)
 			goto error;
 
@@ -10323,6 +10338,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&fres);
+	cgen_eres_fini(&frres);
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -10341,6 +10357,7 @@ error:
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&fres);
+	cgen_eres_fini(&frres);
 	cgtype_destroy(rtype);
 	return rc;
 }
@@ -10463,10 +10480,8 @@ static int cgen_ederef(cgen_expr_t *cgexpr, ast_ederef_t *ederef,
 
 	/* Evaluate expression as rvalue */
 	rc = cgen_expr_rvalue(cgexpr, ederef->bexpr, lblock, &bres);
-	if (rc != EOK) {
-		printf("error\n");
+	if (rc != EOK)
 		goto error;
-	}
 
 	/* Check that we are dereferencing a pointer */
 	if (bres.cgtype->ntype != cgn_pointer) {
@@ -10480,6 +10495,14 @@ static int cgen_ederef(cgen_expr_t *cgexpr, ast_ederef_t *ederef,
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
+	}
+
+	if (cgen_type_is_fptr(cgexpr->cgen, bres.cgtype)) {
+		tok = (comp_tok_t *)ederef->tasterisk.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Warning: Explicitly dereferencing function "
+		    "pointer is not necessary.\n");
+		++cgexpr->cgen->warnings;
 	}
 
 	/* Resulting type is the pointer target type */

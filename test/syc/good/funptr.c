@@ -13,5 +13,5 @@ int i;
 
 void main(void)
 {
-	i = (*fp)(1, 2);
+	i = fp(1, 2);
 }

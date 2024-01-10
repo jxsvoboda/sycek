@@ -411,6 +411,8 @@ It can detect the following types of problems and style issues:
  * extern <symbol> was previously declared as non-extern
  * non-extern <symbol> was previously declared as extern
  * function definition should not use 'extern'
+ * explicitly taking the address of a function is not necessary
+ * explicitly dereferencing function pointer is not necessary
 
 ### Strict truth type
 
