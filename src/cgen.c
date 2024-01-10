@@ -270,7 +270,7 @@ static bool cgen_type_is_integral(cgen_t *cgen, cgtype_t *cgtype)
 	return false;
 }
 
-/** Determine if type is lotif type.
+/** Determine if type is logic type.
  *
  * @param cgen Code generator
  * @param cgtype Code generator type
@@ -287,6 +287,25 @@ static bool cgen_type_is_logic(cgen_t *cgen, cgtype_t *cgtype)
 
 	tbasic = (cgtype_basic_t *)cgtype->ext;
 	return tbasic->elmtype == cgelm_logic;
+}
+
+/** Determine if type is a function pointer type.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is a function pointer type
+ */
+static bool cgen_type_is_fptr(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_pointer_t *tptr;
+
+	(void) cgen;
+
+	if (cgtype->ntype != cgn_pointer)
+		return false;
+
+	tptr = (cgtype_pointer_t *)cgtype->ext;
+	return tptr->tgtype->ntype == cgn_func;
 }
 
 /** Determine if record is defined (or just declared).
@@ -10094,9 +10113,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 {
 	ast_tok_t *atok;
 	comp_tok_t *tok;
-	comp_tok_t *ident;
-	ast_eident_t *eident;
-	scope_member_t *member;
+	char *cident = "<anonymous>";
 	char *pident = NULL;
 	ast_ecall_arg_t *earg;
 	cgen_eres_t ares;
@@ -10108,7 +10125,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	ir_oper_list_t *args = NULL;
 	ir_oper_var_t *arg = NULL;
 	cgtype_t *rtype = NULL;
-	cgtype_t *fetype;
+	cgtype_pointer_t *fptype;
 	cgtype_func_t *ftype;
 	cgtype_func_arg_t *farg;
 	cgtype_t *argtype = NULL;
@@ -10119,63 +10136,42 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	cgen_eres_init(&cres);
 	cgen_eres_init(&fres);
 
-	/* Is it just an identifier? */
-	if (ecall->fexpr->ntype == ant_eident) {
-		/*
-		 * An optimized case for simple direct call.
-		 * (Alternatively, we could evaluate it as a constant
-		 * expression, but we'd have to drop the generated code.)
-		 */
+	/*
+	 * Evaluate the function expression
+	 */
+	rc = cgen_expr(cgexpr, ecall->fexpr, lblock, &fres);
+	if (rc != EOK)
+		goto error;
 
-		eident = (ast_eident_t *) ecall->fexpr->ext;
-		ident = (comp_tok_t *) eident->tident.data;
-
-		/* Check if the identifier is declared */
-		member = scope_lookup(cgexpr->cgen->cur_scope, ident->tok.text);
-		if (member == NULL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Undeclared identifier '%s'.\n",
-			    ident->tok.text);
-			cgexpr->cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
-
-		fetype = member->cgtype;
-
-		/* Mark identifier as used */
-		member->used = true;
-
-		/* Called function IR identifier */
-		rc = cgen_gprefix(ident->tok.text, &pident);
-		if (rc != EOK)
-			goto error;
+	/* Is the result a function pointer? */
+	if (cgen_type_is_fptr(cgexpr->cgen, fres.cgtype)) {
+		assert(fres.cgtype->ntype == cgn_pointer);
+		fptype = (cgtype_pointer_t *)fres.cgtype->ext;
+		assert(fptype->tgtype->ntype == cgn_func);
+		ftype = (cgtype_func_t *)fptype->tgtype->ext;
+	} else if (fres.cgtype->ntype == cgn_func) {
+		/* It's a function */
+		ftype = (cgtype_func_t *)fres.cgtype->ext;
 	} else {
-		/*
-		 * Generic case: evaluate the function expression
-		 * Needed for indirect calls.
-		 */
-		rc = cgen_expr(cgexpr, ecall->fexpr, lblock, &fres);
-		if (rc != EOK)
-			goto error;
-
-		fetype = fres.cgtype;
-	}
-
-	if (fetype->ntype != cgn_func) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Called object '%s' is not a function.\n",
-		    ident->tok.text);
+		tok = (comp_tok_t *)ecall->tlparen.data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Called object is not a function.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
-	ftype = (cgtype_func_t *)fetype->ext;
-
 	rc = cgtype_clone(ftype->rtype, &rtype);
 	if (rc != EOK)
 		goto error;
+
+	/* Is the function name known at compile time? */
+	if (fres.cvknown) {
+		cident = fres.cvsymbol->ident->tok.text;
+		rc = cgen_gprefix(cident, &pident);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -10203,8 +10199,8 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 			tok = (comp_tok_t *) atok->data;
 
 			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Too many arguments to function '%s'.\n",
-			    ident->tok.text);
+			fprintf(stderr, ": Too many arguments to function "
+			    "'%s'.\n", cident);
 			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -10269,7 +10265,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Too few arguments to function '%s'.\n",
-		    pident != NULL ? ident->tok.text : "<anonymous>");
+		    cident);
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
