@@ -59,6 +59,7 @@ typedef enum {
 	itt_bnot,
 	itt_call,
 	itt_calli,
+	itt_copy,
 	itt_end,
 	itt_eq,
 	itt_extern,

@@ -34,5 +34,8 @@ int foo(void)
 	/* In logical and operator */
 	(void)(a && b);
 
+	/* In a conditional operator */
+	(void)(a ? 0 : 1);
+
 	return 0;
 }

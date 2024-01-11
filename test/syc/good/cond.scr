@@ -1,0 +1,18 @@
+mapfile "cond.map";
+ldbin "cond.bin", 0x8000;
+
+/* Condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_a), 10;
+ld word ptr (@_b), 20;
+ld word ptr (@_d), 0;
+call @_cond;
+verify word ptr (@_d), 10;
+
+/* Condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_a), 10;
+ld word ptr (@_b), 20;
+ld word ptr (@_d), 0;
+call @_cond;
+verify word ptr (@_d), 20;

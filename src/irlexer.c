@@ -633,6 +633,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		    p[4] == 'i' && !is_idcnt(p[5])) {
 			return ir_lexer_keyword(lexer, itt_calli, 5, tok);
 		}
+		if (p[1] == 'o' && p[2] == 'p' && p[3] == 'y' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_copy, 4, tok);
+		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'e':
 		if (p[1] == 'n' && p[2] == 'd' && !is_idcnt(p[3])) {
@@ -928,6 +932,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'call'";
 	case itt_calli:
 		return "'calli'";
+	case itt_copy:
+		return "'copy'";
 	case itt_end:
 		return "'end'";
 	case itt_eq:

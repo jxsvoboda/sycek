@@ -9937,6 +9937,142 @@ static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	return EINVAL;
 }
 
+/** Generate code for conditional operator expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param etcond AST conditional operator expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *dest = NULL;
+	cgen_eres_t cres;
+	cgen_eres_t tres;
+	cgen_eres_t fres;
+	char *flabel = NULL;
+	char *elabel = NULL;
+	unsigned lblno;
+	int rc;
+
+	cgen_eres_init(&cres);
+	cgen_eres_init(&tres);
+	cgen_eres_init(&fres);
+
+	lblno = cgen_new_label_num(cgexpr->cgproc);
+
+	rc = cgen_create_label(cgexpr->cgproc, "false_cond", lblno, &flabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_label(cgexpr->cgproc, "end_cond", lblno, &elabel);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgexpr, etcond->cond, lblock, &cres);
+	if (rc != EOK)
+		goto error;
+
+	/* Jump to %false_cond if condition argument is zero */
+
+	rc = cgen_truth_eres_cjmp(cgexpr, ast_tree_first_tok(etcond->cond),
+	    &cres, false, flabel, lblock);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_expr_rvalue(cgexpr, etcond->targ, lblock, &tres);
+	if (rc != EOK)
+		goto error;
+
+	/* jmp %end_cond */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(elabel, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_jmp;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	larg = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+
+	/* %false_cond label */
+	ir_lblock_append(lblock, flabel, NULL);
+
+	rc = cgen_expr_rvalue(cgexpr, etcond->farg, lblock, &fres);
+	if (rc != EOK)
+		goto error;
+
+	/* copy %t, %f XXX Violates SSA */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * XXX Reusing the destination VR in this way does not conform
+	 * to SSA. The only way to conform to SSA would be either to
+	 * fuse the results of the two branches by using a Phi function or
+	 * by writing/reading the result through a local variable
+	 * (which is not constrained by SSA).
+	 */
+	rc = ir_oper_var_create(tres.varname, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(fres.varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_copy;
+	instr->width = cgexpr->cgen->arith_width;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = tres.varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = tres.cgtype;
+	tres.cgtype = NULL;
+
+	dest = NULL;
+	larg = NULL;
+
+	/* %end_cond label */
+	ir_lblock_append(lblock, elabel, NULL);
+
+	free(flabel);
+	free(elabel);
+	cgen_eres_fini(&cres);
+	cgen_eres_fini(&tres);
+	cgen_eres_fini(&fres);
+	return EOK;
+error:
+	if (flabel != NULL)
+		free(flabel);
+	if (elabel != NULL)
+		free(elabel);
+	cgen_eres_fini(&cres);
+	cgen_eres_fini(&tres);
+	cgen_eres_fini(&fres);
+	return rc;
+}
+
 /** Generate code for comma expression.
  *
  * @param cgexpr Code generator for expression
@@ -11778,12 +11914,8 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 		    eres);
 		break;
 	case ant_etcond:
-		atok = ast_tree_first_tok(expr);
-		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This expression type is not implemented.\n");
-		cgexpr->cgen->error = true; // TODO
-		rc = EINVAL;
+		rc = cgen_etcond(cgexpr, (ast_etcond_t *) expr->ext, lblock,
+		    eres);
 		break;
 	case ant_ecomma:
 		rc = cgen_ecomma(cgexpr, (ast_ecomma_t *) expr->ext, lblock,

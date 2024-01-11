@@ -42,6 +42,8 @@ typedef enum {
 	iri_call,
 	/** Call indirect */
 	iri_calli,
+	/** Copy */
+	iri_copy,
 	/** Equal */
 	iri_eq,
 	/** Greater than */

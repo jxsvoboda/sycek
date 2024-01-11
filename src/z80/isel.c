@@ -3327,6 +3327,76 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR copy instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR copy instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_copy(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vr_t *dvr = NULL;
+	z80ic_oper_vr_t *svr = NULL;
+	z80ic_ld_vr_vr_t *ldvr = NULL;
+	z80ic_vr_part_t part;
+	unsigned byte;
+	unsigned vroff;
+	unsigned destvr;
+	unsigned vr1;
+	int rc;
+
+	assert(irinstr->itype == iri_copy);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2 == NULL);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	/* Do the same thing for every byte */
+	for (byte = 0; byte < irinstr->width / 8; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
+
+		/* ld destvr.X, vr1.X */
+
+		rc = z80ic_ld_vr_vr_create(&ldvr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &dvr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &svr);
+		if (rc != EOK)
+			goto error;
+
+		ldvr->dest = dvr;
+		ldvr->src = svr;
+		dvr = NULL;
+		svr = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldvr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvr = NULL;
+	}
+
+	return EOK;
+error:
+	if (ldvr != NULL)
+		z80ic_instr_destroy(&ldvr->instr);
+	z80ic_oper_vr_destroy(dvr);
+	z80ic_oper_vr_destroy(svr);
+
+	return rc;
+}
+
 /** Select Z80 IC instructions code for IR eq instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -8955,6 +9025,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	case iri_call:
 	case iri_calli:
 		return z80_isel_call(isproc, label, irinstr, lblock);
+	case iri_copy:
+		return z80_isel_copy(isproc, label, irinstr, lblock);
 	case iri_eq:
 		return z80_isel_eq(isproc, label, irinstr, lblock);
 	case iri_gt:
