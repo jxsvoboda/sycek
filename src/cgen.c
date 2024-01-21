@@ -10019,6 +10019,10 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 
 	/* Both operands have the same structure or union type */
 	/* Both operands have void type */
+	if (cgtype_is_void(atype) && cgtype_is_void(btype)) {
+		return cgtype_clone(atype, rrtype);
+	}
+
 	/*
 	 * Both operands are pointers to qualified or unqualified version of
 	 * compatible types
@@ -10065,6 +10069,8 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	char *elabel = NULL;
 	unsigned lblno;
 	ir_lblock_t *flblock;
+	bool isvoid;
+	comp_tok_t *ctok;
 	int rc;
 
 	cgen_eres_init(&cres);
@@ -10118,6 +10124,16 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	if (rc != EOK)
 		goto error;
 
+	/* If the type is void, we don't have a value, just side effects. */
+	isvoid = cgtype_is_void(rtype);
+	if (isvoid) {
+		ctok = (comp_tok_t *)etcond->tqmark.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Conditional with void operands "
+		    "can be rewritten as an if-else statement.\n");
+		++cgexpr->cgen->warnings;
+	}
+
 	/* Convert tres to result type */
 	rc = cgen_type_convert(cgexpr, (comp_tok_t *)etcond->tqmark.data,
 	    &tres, rtype, cgen_implicit, lblock, &tcres);
@@ -10159,41 +10175,48 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	if (rc != EOK)
 		goto error;
 
-	/* copy %t, %f XXX Violates SSA */
+	if (!isvoid) {
+		/* copy %t, %f XXX Violates SSA */
 
-	rc = ir_instr_create(&instr);
-	if (rc != EOK)
-		goto error;
+		rc = ir_instr_create(&instr);
+		if (rc != EOK)
+			goto error;
 
-	/*
-	 * XXX Reusing the destination VR in this way does not conform
-	 * to SSA. The only way to conform to SSA would be either to
-	 * fuse the results of the two branches by using a Phi function or
-	 * by writing/reading the result through a local variable
-	 * (which is not constrained by SSA).
-	 */
-	rc = ir_oper_var_create(tres.varname, &dest);
-	if (rc != EOK)
-		goto error;
+		/*
+		 * XXX Reusing the destination VR in this way does not conform
+		 * to SSA. The only way to conform to SSA would be either to
+		 * fuse the results of the two branches by using a Phi function or
+		 * by writing/reading the result through a local variable
+		 * (which is not constrained by SSA).
+		 */
+		rc = ir_oper_var_create(tres.varname, &dest);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_oper_var_create(fres.varname, &larg);
-	if (rc != EOK)
-		goto error;
+		rc = ir_oper_var_create(fres.varname, &larg);
+		if (rc != EOK)
+			goto error;
 
-	instr->itype = iri_copy;
-	instr->width = cgexpr->cgen->arith_width;
-	instr->dest = &dest->oper;
-	instr->op1 = &larg->oper;
-	instr->op2 = NULL;
+		instr->itype = iri_copy;
+		instr->width = cgexpr->cgen->arith_width;
+		instr->dest = &dest->oper;
+		instr->op1 = &larg->oper;
+		instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+		ir_lblock_append(lblock, NULL, instr);
 
-	eres->varname = tres.varname;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = rtype;
+		eres->varname = tres.varname;
+		eres->valtype = cgen_rvalue;
+		eres->cgtype = rtype;
 
-	dest = NULL;
-	larg = NULL;
+		dest = NULL;
+		larg = NULL;
+	} else {
+		eres->varname = NULL;
+		eres->valtype = cgen_rvalue;
+		eres->cgtype = rtype;
+		eres->valused = true;
+	}
 
 	/* %end_cond label */
 	ir_lblock_append(lblock, elabel, NULL);

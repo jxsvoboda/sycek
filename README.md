@@ -413,6 +413,7 @@ It can detect the following types of problems and style issues:
  * function definition should not use 'extern'
  * explicitly taking the address of a function is not necessary
  * explicitly dereferencing function pointer is not necessary
+ * conditional with void operands can be rewritten as an if-else statement
 
 ### Strict truth type
 

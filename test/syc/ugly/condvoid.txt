@@ -1,0 +1,1 @@
+<test/syc/ugly/condvoid.c:18:16:'?'>: Warning: Conditional with void operands can be rewritten as an if-else statement.
