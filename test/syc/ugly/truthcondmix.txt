@@ -1,0 +1,2 @@
+<test/syc/ugly/truthcondmix.c:12:26:':'>: Warning: Truth value used as an integer.
+<test/syc/ugly/truthcondmix.c:13:22:'?'>: Warning: Truth value used as an integer.

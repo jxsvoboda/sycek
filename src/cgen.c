@@ -46,6 +46,7 @@
 #include <symbols.h>
 
 static unsigned cgen_type_sizeof(cgen_t *, cgtype_t *);
+static bool cgen_type_is_integral(cgen_t *, cgtype_t *);
 static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
@@ -70,6 +71,7 @@ static int cgen_eres_promoted_rvalue(cgen_expr_t *, cgen_eres_t *,
 static int cgen_enum2int(cgen_t *, cgen_eres_t *, cgen_eres_t *, bool *);
 static int cgen_int2enum(cgen_expr_t *, cgen_eres_t *, cgtype_t *,
     cgen_eres_t *);
+static int cgen_uac_rtype(cgen_expr_t *, cgtype_t *, cgtype_t *, cgtype_t **);
 static int cgen_uac(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
 static int cgen_expr2_uac(cgen_expr_t *, ast_node_t *, ast_node_t *,
@@ -253,6 +255,31 @@ static bool cgen_type_is_integer(cgen_t *cgen, cgtype_t *cgtype)
 	}
 }
 
+/** Determine if type is a floating type.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is a floating type
+ */
+static bool cgen_type_is_floating(cgen_t *cgen, cgtype_t *cgtype)
+{
+	(void)cgen;
+	(void)cgtype;
+	return false; // XXX TODO
+}
+
+/** Determine if type is an arithmetic type.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is an arithmetic type
+ */
+static bool cgen_type_is_arithmetic(cgen_t *cgen, cgtype_t *cgtype)
+{
+	return cgen_type_is_integral(cgen, cgtype) ||
+	    cgen_type_is_floating(cgen, cgtype);
+}
+
 /** Determine if type is of an integral type (int or enum).
  *
  * @param cgen Code generator
@@ -366,6 +393,29 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 
 	assert(false);
 	return false;
+}
+
+/** Determine if two enum types are compatible.
+ *
+ * @param cgen Code generator
+ * @param atype First type, which is an enum type
+ * @param btype Second type, which is an enum type
+ *
+ * @return @c true iff the two enums are compatible
+ */
+static bool cgen_enum_types_are_compatible(cgen_t *cgen, cgtype_t *atype,
+    cgtype_t *btype)
+{
+	cgtype_enum_t *et1;
+	cgtype_enum_t *et2;
+
+	(void)cgen;
+
+	assert(atype->ntype == cgn_enum);
+	assert(btype->ntype == cgn_enum);
+	et1 = (cgtype_enum_t *)atype->ext;
+	et2 = (cgtype_enum_t *)btype->ext;
+	return et1->cgenum == et2->cgenum;
 }
 
 /** Get record size.
@@ -9937,6 +9987,60 @@ static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	return EINVAL;
 }
 
+/** Determine return type from conitional operator.
+ *
+ * The return type is computed from the type of the arguments.
+ *
+ * @param cgexpr Code generator for expression
+ * @param tok Operator token
+ * @param atype Type of true expression
+ * @param btype Type of false expression
+ * @param rrtype Place to store result type
+ */
+static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
+    cgtype_t *atype, cgtype_t *btype, cgtype_t **rrtype)
+{
+	if (cgen_type_is_arithmetic(cgexpr->cgen, atype) &&
+	    cgen_type_is_arithmetic(cgexpr->cgen, btype)) {
+		/* Both operands have arithmetic type */
+		if (cgen_type_is_logic(cgexpr->cgen, atype) &&
+		    cgen_type_is_logic(cgexpr->cgen, btype)) {
+			/* Both operands have logic type */
+			return cgtype_clone(atype, rrtype);
+		} else if (atype->ntype == cgn_enum && btype->ntype == cgn_enum &&
+		    cgen_enum_types_are_compatible(cgexpr->cgen, atype, btype)) {
+			/* Same enum types */
+			return cgtype_clone(atype, rrtype);
+		} else {
+			/* Integer/floating */
+			return cgen_uac_rtype(cgexpr, atype, btype, rrtype);
+		}
+	}
+
+	/* Both operands have the same structure or union type */
+	/* Both operands have void type */
+	/*
+	 * Both operands are pointers to qualified or unqualified version of
+	 * compatible types
+	 */
+	/* One operand is a pointer and the other is a null pointer constant */
+	/*
+	 * One pointer is a pointer to an object or incomplete type and
+	 * the other is a pointer to a qualified or unqualified version of
+	 * void
+	 */
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Invalid argument types to conditional operator (");
+	cgtype_print(atype, stderr);
+	fprintf(stderr, ", ");
+	cgtype_print(btype, stderr);
+	fprintf(stderr, ").\n");
+	cgexpr->cgen->error = true; // TODO
+	return EINVAL;
+	(void)rrtype;
+}
+
 /** Generate code for conditional operator expression.
  *
  * @param cgexpr Code generator for expression
@@ -9951,17 +10055,23 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *dest = NULL;
+	cgtype_t *rtype = NULL;
 	cgen_eres_t cres;
 	cgen_eres_t tres;
 	cgen_eres_t fres;
+	cgen_eres_t tcres;
+	cgen_eres_t fcres;
 	char *flabel = NULL;
 	char *elabel = NULL;
 	unsigned lblno;
+	ir_lblock_t *flblock;
 	int rc;
 
 	cgen_eres_init(&cres);
 	cgen_eres_init(&tres);
 	cgen_eres_init(&fres);
+	cgen_eres_init(&tcres);
+	cgen_eres_init(&fcres);
 
 	lblno = cgen_new_label_num(cgexpr->cgproc);
 
@@ -9985,6 +10095,32 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 		goto error;
 
 	rc = cgen_expr_rvalue(cgexpr, etcond->targ, lblock, &tres);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * At this point we need to know the type of result of etcond->farg
+	 * so that we can determine rtype. But it's too early.
+	 * So we need to store the generated code on the side in flblock.
+	 */
+	rc = ir_lblock_create(&flblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Generate farg, but put it on the side into flblock. */
+	rc = cgen_expr_rvalue(cgexpr, etcond->farg, flblock, &fres);
+	if (rc != EOK)
+		goto error;
+
+	/* Compute result type */
+	rc = cgen_etcond_rtype(cgexpr, (comp_tok_t *)etcond->tqmark.data,
+	    tres.cgtype, fres.cgtype, &rtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert tres to result type */
+	rc = cgen_type_convert(cgexpr, (comp_tok_t *)etcond->tqmark.data,
+	    &tres, rtype, cgen_implicit, lblock, &tcres);
 	if (rc != EOK)
 		goto error;
 
@@ -10012,7 +10148,14 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	/* %false_cond label */
 	ir_lblock_append(lblock, flabel, NULL);
 
-	rc = cgen_expr_rvalue(cgexpr, etcond->farg, lblock, &fres);
+	/* Append code for computing etcond->farg */
+	ir_lblock_move_entries(flblock, lblock);
+	ir_lblock_destroy(flblock);
+	flblock = NULL;
+
+	/* Convert fres to result type */
+	rc = cgen_type_convert(cgexpr, (comp_tok_t *)etcond->tcolon.data,
+	    &fres, rtype, cgen_implicit, lblock, &fcres);
 	if (rc != EOK)
 		goto error;
 
@@ -10047,8 +10190,7 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 
 	eres->varname = tres.varname;
 	eres->valtype = cgen_rvalue;
-	eres->cgtype = tres.cgtype;
-	tres.cgtype = NULL;
+	eres->cgtype = rtype;
 
 	dest = NULL;
 	larg = NULL;
@@ -10061,6 +10203,8 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&tres);
 	cgen_eres_fini(&fres);
+	cgen_eres_fini(&tcres);
+	cgen_eres_fini(&fcres);
 	return EOK;
 error:
 	if (flabel != NULL)
@@ -10070,6 +10214,10 @@ error:
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&tres);
 	cgen_eres_fini(&fres);
+	cgen_eres_fini(&tcres);
+	cgen_eres_fini(&fcres);
+	ir_lblock_destroy(flblock);
+	cgtype_destroy(rtype);
 	return rc;
 }
 
@@ -12222,6 +12370,45 @@ error:
 	return rc;
 }
 
+/** Get result type of optional enum to integer conversion.
+ *
+ * If @a etype is an enum, return correspondin integer type.
+ * If the enum is strict, set @a *converted to true.
+ * Set it to false, if there was no
+ * conversion (already an integer) or the enum was not strict.
+ *
+ * @param cgen Code generator
+ * @param etype Expression type
+ * @param rrtype Place to store pointer to result type
+ * @param converted Place to store @c true iff a strict enum was
+ *                  converted to int, @c false otherwise.
+ */
+static int cgen_enum2int_rtype(cgen_t *cgen, cgtype_t *etype,
+    cgtype_t **rrtype, bool *converted)
+{
+	int rc;
+
+	*converted = false;
+	(void)cgen;
+
+	if (etype->ntype == cgn_enum) {
+		/* Return corresponding integer type */
+		if (cgtype_is_strict_enum(etype))
+			*converted = true;
+
+		rc = cgtype_int_construct(true, cgir_int, rrtype);
+		if (rc != EOK)
+			return rc;
+	} else {
+		/* Return unchanged */
+		rc = cgtype_clone(etype, rrtype);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
 /** Convert enum to integer if applicable.
  *
  * If @a res is an enum, convert it to integer. If the enum is strict,
@@ -12237,37 +12424,23 @@ error:
 static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
     cgen_eres_t *rres, bool *converted)
 {
+	cgtype_t *rtype = NULL;
 	int rc;
-	*converted = false;
 
-	(void)cgen;
+	rc = cgen_enum2int_rtype(cgen, res->cgtype, &rtype, converted);
+	if (rc != EOK)
+		return rc;
 
-	if (res->cgtype->ntype == cgn_enum) {
-		/* Return corresponding integer type */
-		if (cgtype_is_strict_enum(res->cgtype))
-			*converted = true;
-
-		rres->varname = res->varname;
-		rres->valtype = res->valtype;
-		rres->cvknown = res->cvknown;
-		rres->cvint = res->cvint;
-		rres->cvsymbol = res->cvsymbol;
-		rres->tfirst = res->tfirst;
-		rres->tlast = res->tlast;
-
-		rc = cgtype_int_construct(true, cgir_int, &rres->cgtype);
-		if (rc != EOK)
-			goto error;
-	} else {
-		/* Return unchanged */
-		rc = cgen_eres_clone(res, rres);
-		if (rc != EOK)
-			goto error;
-	}
+	rres->varname = res->varname;
+	rres->valtype = res->valtype;
+	rres->cvknown = res->cvknown;
+	rres->cvint = res->cvint;
+	rres->cvsymbol = res->cvsymbol;
+	rres->tfirst = res->tfirst;
+	rres->tlast = res->tlast;
+	rres->cgtype = rtype;
 
 	return EOK;
-error:
-	return rc;
 }
 
 /** Generate code for converting integer back to enum after arithmetic
@@ -12320,6 +12493,125 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	return EOK;
 }
 
+/** Get the type resulting from usual arithmetic conversion of operands
+ * of the specified types.
+ *
+ * Usual arithmetic conversions are defined in 6.3.1.8 of the C99 standard.
+ * The expressions are evaluated into rvalues, checked for being scalar type,
+ * the 'larger' type is determined and the value of the smaller type
+ * is converted, if needed. Values of type smaller than int (or float)
+ * should be promoted.
+ *
+ * @param cgexpr Code generator for expression
+ * @param type1 First argument type
+ * @param type2 Second argument type
+ * @param rrtype Place to store pointer to resulting type
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_uac_rtype(cgen_expr_t *cgexpr, cgtype_t *type1,
+    cgtype_t *type2, cgtype_t **rrtype)
+{
+	cgtype_t *rtype = NULL;
+	cgtype_t *itype1 = NULL;
+	cgtype_t *itype2 = NULL;
+	cgtype_int_rank_t rank1;
+	cgtype_int_rank_t rank2;
+	cgtype_int_rank_t rrank;
+	bool sign1;
+	bool sign2;
+	bool rsign;
+	unsigned bits1;
+	unsigned bits2;
+	cgtype_basic_t *bt1;
+	cgtype_basic_t *bt2;
+	bool conv1;
+	bool conv2;
+	int rc;
+
+	/*
+	 * For each argument, if it is an enum, get corresponding integer
+	 * type and set conv1/conv2.
+	 */
+
+	rc = cgen_enum2int_rtype(cgexpr->cgen, type1, &itype1, &conv1);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_enum2int_rtype(cgexpr->cgen, type2, &itype2, &conv2);
+	if (rc != EOK)
+		goto error;
+
+	if (!cgen_type_is_integer(cgexpr->cgen, itype1) ||
+	    !cgen_type_is_integer(cgexpr->cgen, itype2)) {
+		fprintf(stderr, "Performing UAC on non-integral type(s) ");
+		(void) cgtype_print(itype1, stderr);
+		fprintf(stderr, ", ");
+		(void) cgtype_print(itype2, stderr);
+		fprintf(stderr, " (not implemented).\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	bt1 = (cgtype_basic_t *)itype1->ext;
+	bt2 = (cgtype_basic_t *)itype2->ext;
+
+	/* Get rank, bits and signedness of both operands */
+
+	rank1 = cgtype_int_rank(itype1);
+	sign1 = cgen_type_is_signed(cgexpr->cgen, itype1);
+	bits1 = cgen_basic_type_bits(cgexpr->cgen, bt1);
+
+	rank2 = cgtype_int_rank(itype2);
+	sign2 = cgen_type_is_signed(cgexpr->cgen, itype2);
+	bits2 = cgen_basic_type_bits(cgexpr->cgen, bt2);
+
+	/* Determine resulting rank */
+
+	rrank = rank1 > rank2 ? rank1 : rank2;
+
+	/* XXX Must be at least int (due to integer promotion) */
+#if 0
+	if (rrank < cgir_int)
+		rrank = cgir_int;
+#endif
+
+	/* Determine resulting signedness */
+
+	if (sign1 == sign2) {
+		rsign = sign1;
+	} else if ((sign1 && bits1 > bits2) || (sign2 && bits1 < bits2)) {
+		/*
+		 * The unsigned type can be wholly represented in
+		 * the signed type.
+		 */
+		rsign = true;
+	} else {
+		/*
+		 * Resulting type is unsigned.
+		 */
+		rsign = false;
+	}
+
+	/* Construct result type */
+
+	rc = cgtype_int_construct(rsign, rrank, &rtype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(itype1);
+	cgtype_destroy(itype2);
+
+	*rrtype = rtype;
+	return EOK;
+error:
+	cgtype_destroy(itype1);
+	cgtype_destroy(itype2);
+	cgtype_destroy(rtype);
+	return rc;
+}
+
 /** Perform usual arithmetic conversions on a pair of expression results.
  *
  * Usual arithmetic conversions are defined in 6.3.1.8 of the C99 standard.
@@ -12347,16 +12639,11 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	cgen_eres_t ir2;
 	cgen_eres_t pr1;
 	cgen_eres_t pr2;
-	cgtype_int_rank_t rank1;
-	cgtype_int_rank_t rank2;
-	cgtype_int_rank_t rrank;
 	bool sign1;
 	bool sign2;
 	bool const1;
 	bool const2;
 	bool rsign;
-	unsigned bits1;
-	unsigned bits2;
 	cgtype_basic_t *bt1;
 	cgtype_basic_t *bt2;
 	cgtype_enum_t *et1;
@@ -12373,6 +12660,10 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	cgen_eres_init(&ir2);
 	cgen_eres_init(&pr1);
 	cgen_eres_init(&pr2);
+
+	rc = cgen_uac_rtype(cgexpr, res1->cgtype, res2->cgtype, &rtype);
+	if (rc != EOK)
+		goto error;
 
 	rc = cgen_enum2int(cgexpr->cgen, res1, &ir1, &conv1);
 	if (rc != EOK)
@@ -12406,40 +12697,18 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	if (bt1->elmtype != cgelm_logic && bt2->elmtype == cgelm_logic)
 		*flags |= cguac_truthmix;
 
-	/* Get rank, bits and signedness of both operands */
+	/* Get signedness, constantness and negative flag for both operands */
 
-	rank1 = cgtype_int_rank(ir1.cgtype);
 	sign1 = cgen_type_is_signed(cgexpr->cgen, ir1.cgtype);
-	bits1 = cgen_basic_type_bits(cgexpr->cgen, bt1);
 	const1 = ir1.cvknown;
 	neg1 = const1 && cgen_cvint_is_negative(cgexpr->cgen, sign1, ir1.cvint);
 
-	rank2 = cgtype_int_rank(ir2.cgtype);
 	sign2 = cgen_type_is_signed(cgexpr->cgen, ir2.cgtype);
-	bits2 = cgen_basic_type_bits(cgexpr->cgen, bt2);
 	const2 = ir2.cvknown;
 	neg2 = const2 && cgen_cvint_is_negative(cgexpr->cgen, sign2, ir2.cvint);
 
-	/* Determine resulting rank */
-
-	rrank = rank1 > rank2 ? rank1 : rank2;
-
-	/* Determine resulting signedness */
-
-	if (sign1 == sign2) {
-		rsign = sign1;
-	} else if ((sign1 && bits1 > bits2) || (sign2 && bits1 < bits2)) {
-		/*
-		 * The unsigned type can be wholly represented in
-		 * the signed type.
-		 */
-		rsign = true;
-	} else {
-		/*
-		 * Resulting type is unsigned.
-		 */
-		rsign = false;
-	}
+	/* Result type signedness */
+	rsign = cgen_type_is_signed(cgexpr->cgen, rtype);
 
 	/* One of the operands is signed (but not a constant) */
 	if ((sign1 && !const1) || (sign2 && !const2))
@@ -12460,19 +12729,13 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	if (!const2 && sign2 && rsign == false)
 		*flags |= cguac_mix2u;
 
-	/* Promote both operands */
+	/* Promote both operands (XXX not needed?) */
 
 	rc = cgen_eres_promoted_rvalue(cgexpr, &ir1, lblock, &pr1);
 	if (rc != EOK)
 		goto error;
 
 	rc = cgen_eres_promoted_rvalue(cgexpr, &ir2, lblock, &pr2);
-	if (rc != EOK)
-		goto error;
-
-	/* Construct result type */
-
-	rc = cgtype_int_construct(rsign, rrank, &rtype);
 	if (rc != EOK)
 		goto error;
 

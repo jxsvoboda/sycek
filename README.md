@@ -243,6 +243,7 @@ Specifically, these language features are supported:
  * Character literals
  * Structure and array initializers (C89-style)
  * String initializers, string literals
+ * Conditional operator
 
 These are NOT supported yet:
 
@@ -252,7 +253,6 @@ These are NOT supported yet:
  * Division and modulus (`/`, `%`)
  * Pointer difference
  * Variadic functions
- * Ternary operator
  * Lvalue arguments
  * Passing or returning struct/union by value
  * C99-style qualified struct/array initialization

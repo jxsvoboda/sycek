@@ -1,0 +1,3 @@
+<test/syc/ugly/enumcondinc.c:23:22:'?'>: Warning: Implicit conversion from 'enum f' to 'int'.
+<test/syc/ugly/enumcondinc.c:23:26:':'>: Warning: Implicit conversion from 'enum g' to 'int'.
+<test/syc/ugly/enumcondinc.c:23:11:'='>: Warning: Implicit conversion from 'int' to 'enum f'.
