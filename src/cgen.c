@@ -10000,6 +10000,9 @@ static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
     cgtype_t *atype, cgtype_t *btype, cgtype_t **rrtype)
 {
+	cgtype_record_t *arec;
+	cgtype_record_t *brec;
+
 	if (cgen_type_is_arithmetic(cgexpr->cgen, atype) &&
 	    cgen_type_is_arithmetic(cgexpr->cgen, btype)) {
 		/* Both operands have arithmetic type */
@@ -10018,6 +10021,14 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 	}
 
 	/* Both operands have the same structure or union type */
+	if (atype->ntype == cgn_record && btype->ntype == cgn_record) {
+		arec = (cgtype_record_t *)atype->ext;
+		brec = (cgtype_record_t *)btype->ext;
+
+		if (arec->record == brec->record)
+			return cgtype_clone(atype, rrtype);
+	}
+
 	/* Both operands have void type */
 	if (cgtype_is_void(atype) && cgtype_is_void(btype)) {
 		return cgtype_clone(atype, rrtype);
@@ -10189,11 +10200,11 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 		 * by writing/reading the result through a local variable
 		 * (which is not constrained by SSA).
 		 */
-		rc = ir_oper_var_create(tres.varname, &dest);
+		rc = ir_oper_var_create(tcres.varname, &dest);
 		if (rc != EOK)
 			goto error;
 
-		rc = ir_oper_var_create(fres.varname, &larg);
+		rc = ir_oper_var_create(fcres.varname, &larg);
 		if (rc != EOK)
 			goto error;
 
@@ -10205,7 +10216,7 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 
 		ir_lblock_append(lblock, NULL, instr);
 
-		eres->varname = tres.varname;
+		eres->varname = tcres.varname;
 		eres->valtype = cgen_rvalue;
 		eres->cgtype = rtype;
 
@@ -13481,13 +13492,6 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		    expl, lblock, cres);
 	}
 
-	/* Source and destination types are record types */
-	if (ares->cgtype->ntype == cgn_record &&
-	    dtype->ntype == cgn_record) {
-		return cgen_type_convert_record(cgexpr, ctok, ares, dtype,
-		    lblock, cres);
-	}
-
 	/* Source and destination types are enum types */
 	if (ares->cgtype->ntype == cgn_enum &&
 	    dtype->ntype == cgn_enum) {
@@ -13744,6 +13748,13 @@ static int cgen_type_convert(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		assert(expl == cgen_explicit);
 		cgen_error_cast_array(cgexpr->cgen, ctok);
 		return EINVAL;
+	}
+
+	/* Source and destination types are record types */
+	if (ares->cgtype->ntype == cgn_record &&
+	    dtype->ntype == cgn_record) {
+		return cgen_type_convert_record(cgexpr, ctok, ares, dtype,
+		    lblock, cres);
 	}
 
 	rc = cgen_eres_rvalue(cgexpr, ares, lblock, &rres);

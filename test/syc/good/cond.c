@@ -49,3 +49,18 @@ void cond_enum(void)
 {
 	ed = (c != 0) ? ea : eb;
 }
+
+struct s {
+	int x;
+	int y;
+};
+
+struct s sa;
+struct s sb;
+struct s sd;
+
+/* Both operands have the same structure type */
+void cond_struct(void)
+{
+	sd = c != 0 ? sa : sb;
+}

@@ -1,7 +1,7 @@
 mapfile "cond.map";
 ldbin "cond.bin", 0x8000;
 
-/* Condition is true */
+/* Same integer type, condition is true */
 ld word ptr (@_c), 1;
 ld word ptr (@_a), 10;
 ld word ptr (@_b), 20;
@@ -9,10 +9,106 @@ ld word ptr (@_d), 0;
 call @_cond;
 verify word ptr (@_d), 10;
 
-/* Condition is false */
+/* Same integer type, condition is false */
 ld word ptr (@_c), 0;
 ld word ptr (@_a), 10;
 ld word ptr (@_b), 20;
 ld word ptr (@_d), 0;
 call @_cond;
 verify word ptr (@_d), 20;
+
+/* Extend left, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_a), 10;
+ld dword ptr (@_lb), 20;
+ld dword ptr (@_ld), 0;
+call @_condxl;
+verify dword ptr (@_ld), 10;
+
+/* Extend left, condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_a), 10;
+ld dword ptr (@_lb), 20;
+ld dword ptr (@_ld), 0;
+call @_condxl;
+verify dword ptr (@_ld), 20;
+
+/* Extend right, condition is true */
+ld word ptr (@_c), 1;
+ld dword ptr (@_la), 10;
+ld word ptr (@_b), 20;
+ld dword ptr (@_ld), 0;
+call @_condxr;
+verify dword ptr (@_ld), 10;
+
+/* Extend right, condition is false */
+ld word ptr (@_c), 0;
+ld dword ptr (@_la), 10;
+ld word ptr (@_b), 20;
+ld dword ptr (@_ld), 0;
+call @_condxr;
+verify dword ptr (@_ld), 20;
+
+/* Truth type, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_a), 0;
+ld word ptr (@_b), 0;
+ld word ptr (@_d), 0;
+call @_cond_truth;
+verify word ptr (@_d), 0;
+
+ld word ptr (@_a), 1;
+call @_cond_truth;
+verify word ptr (@_d), 1;
+
+/* Truth type, condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_a), 1;
+ld word ptr (@_b), 0;
+ld word ptr (@_d), 0;
+call @_cond_truth;
+verify word ptr (@_d), 0;
+
+ld word ptr (@_b), 1;
+call @_cond_truth;
+verify word ptr (@_d), 1;
+
+/* Enum, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_ea), 10;
+ld word ptr (@_eb), 20;
+ld word ptr (@_ed), 0;
+call @_cond_enum;
+verify word ptr (@_ed), 10;
+
+/* Enum, condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_ea), 10;
+ld word ptr (@_eb), 20;
+ld word ptr (@_ed), 0;
+call @_cond_enum;
+verify word ptr (@_ed), 20;
+
+/* Struct, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_sa), 10;
+ld word ptr (@_sa + 2), 11;
+ld word ptr (@_sb), 20;
+ld word ptr (@_sb + 2), 21;
+ld word ptr (@_sd), 0;
+ld word ptr (@_sd + 2), 0;
+call @_cond_struct;
+verify word ptr (@_sd), 10;
+verify word ptr (@_sd + 2), 11;
+
+/* Struct, condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_sa), 10;
+ld word ptr (@_sa + 2), 11;
+ld word ptr (@_sb), 20;
+ld word ptr (@_sb + 2), 21;
+ld word ptr (@_sd), 0;
+ld word ptr (@_sd + 2), 0;
+call @_cond_struct;
+verify word ptr (@_sd), 20;
+verify word ptr (@_sd + 2), 21;
