@@ -4432,6 +4432,22 @@ static bool cgen_eres_is_true(cgen_t *cgen, cgen_eres_t *eres)
 	return eres->cvint != 0;
 }
 
+/** Determine if constant value of expression result is integer zero.
+ *
+ * @param cgen Code generator
+ * @param eres Expression result
+ * @return @c true iff constant value is logically true
+ */
+static bool cgen_eres_is_int_zero(cgen_t *cgen, cgen_eres_t *eres)
+{
+	if (!eres->cvknown)
+		return false;
+	if (!cgen_type_is_integral(cgen, eres->cgtype))
+		return false;
+
+	return eres->cvint == 0;
+}
+
 /** Generate code for integer literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -9993,17 +10009,22 @@ static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
  *
  * @param cgexpr Code generator for expression
  * @param tok Operator token
- * @param atype Type of true expression
- * @param btype Type of false expression
+ * @param ares Result of true expression
+ * @param bres Result of false expression
  * @param rrtype Place to store result type
  */
 static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
-    cgtype_t *atype, cgtype_t *btype, cgtype_t **rrtype)
+    cgen_eres_t *ares, cgen_eres_t *bres, cgtype_t **rrtype)
 {
+	cgtype_t *atype;
+	cgtype_t *btype;
 	cgtype_record_t *arec;
 	cgtype_record_t *brec;
 	cgtype_pointer_t *aptr;
 	cgtype_pointer_t *bptr;
+
+	atype = ares->cgtype;
+	btype = bres->cgtype;
 
 	if (cgen_type_is_arithmetic(cgexpr->cgen, atype) &&
 	    cgen_type_is_arithmetic(cgexpr->cgen, btype)) {
@@ -10050,7 +10071,13 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 	}
 
 	/* One operand is a pointer and the other is a null pointer constant */
-	// XXX TODO
+	if (atype->ntype == cgn_pointer && cgen_eres_is_int_zero(cgexpr->cgen,
+	    bres)) {
+		return cgtype_clone(atype, rrtype);
+	} else if (cgen_eres_is_int_zero(cgexpr->cgen, ares) &&
+	    btype->ntype == cgn_pointer) {
+		return cgtype_clone(btype, rrtype);
+	}
 
 	/*
 	 * One pointer is a pointer to an object or incomplete type and
@@ -10158,7 +10185,7 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 
 	/* Compute result type */
 	rc = cgen_etcond_rtype(cgexpr, (comp_tok_t *)etcond->tqmark.data,
-	    tres.cgtype, fres.cgtype, &rtype);
+	    &tres, &fres, &rtype);
 	if (rc != EOK)
 		goto error;
 
@@ -13454,10 +13481,17 @@ static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	    (cgtype_basic_t *)ares->cgtype->ext);
 
 	if (expl != cgen_explicit) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from integer "
-		    "to pointer.\n");
-		++cgexpr->cgen->warnings;
+		if (ares->cvknown && ares->cvint == 0) {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Zero used as a null "
+			    "pointer constant.\n");
+			++cgexpr->cgen->warnings;
+		} else {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Implicit conversion from "
+			    "integer to pointer.\n");
+			++cgexpr->cgen->warnings;
+		}
 	}
 
 	if (bits != cgen_pointer_bits) {

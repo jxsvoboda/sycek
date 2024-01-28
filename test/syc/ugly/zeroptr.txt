@@ -1,0 +1,1 @@
+<test/syc/ugly/zeroptr.c:9:12:'='>: Warning: Zero used as a null pointer constant.

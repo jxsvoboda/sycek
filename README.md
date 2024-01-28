@@ -258,6 +258,7 @@ These are NOT supported yet:
  * C99-style qualified struct/array initialization
  * Variable-length arrays
  * Alignof
+ * Type qualifiers (const, volatile)
 
 Supported features not related to language coverage:
  * Large stack frames (i.e. containing more than 128 bytes of virtual register
@@ -414,6 +415,7 @@ It can detect the following types of problems and style issues:
  * explicitly taking the address of a function is not necessary
  * explicitly dereferencing function pointer is not necessary
  * conditional with void operands can be rewritten as an if-else statement
+ * zero used as a null pointer constant
 
 ### Strict truth type
 
