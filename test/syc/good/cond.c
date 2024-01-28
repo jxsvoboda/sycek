@@ -64,3 +64,22 @@ void cond_struct(void)
 {
 	sd = c != 0 ? sa : sb;
 }
+
+int *pa;
+int *pb;
+int *pd;
+
+/* Both operands have compatible pointer type */
+void cond_ptr(void)
+{
+	pd = c != 0 ? pa : pb;
+}
+
+void *vpa;
+void *vpd;
+
+/* One operand is a pointer to (a qualified version of) void */
+void cond_vp_p(void)
+{
+	vpd = c != 0 ? vpa : pb;
+}

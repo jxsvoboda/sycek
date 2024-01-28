@@ -1,0 +1,6 @@
+mapfile "ptrcasti.map";
+ldbin "ptrcasti.bin", 0x8000;
+
+ld word ptr (@_ip), 0x1234;
+call @_ptr_to_void_ptr;
+verify word ptr (@_vp), 0x1234;

@@ -53,6 +53,8 @@ extern bool cgtype_is_void(cgtype_t *);
 extern cgtype_int_rank_t cgtype_int_rank(cgtype_t *);
 extern int cgtype_int_construct(bool, cgtype_int_rank_t, cgtype_t **);
 extern bool cgtype_ptr_compatible(cgtype_pointer_t *, cgtype_pointer_t *);
+extern int cgtype_ptr_combine_qual(cgtype_pointer_t *, cgtype_pointer_t *,
+    cgtype_t **);
 extern bool cgtype_is_strict_enum(cgtype_t *);
 
 #endif

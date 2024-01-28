@@ -1172,7 +1172,8 @@ int cgtype_int_construct(bool sign, cgtype_int_rank_t rank, cgtype_t **rtype)
 	return EOK;
 }
 
-/** Determine if two pointer types are compatible for conversion.
+/** Determine if two pointer types point to qualified or unqualified
+ * versions of compatible types.
  *
  * @param sptr Source pointer type
  * @param dptr Destination pointer type
@@ -1188,6 +1189,23 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 
 	cgtype_destroy(ctgtype);
 	return true;
+}
+
+/** Combine qualifiers from two compatible pointer types.
+ *
+ * Resulting type has all the qualifiers from both types.
+ *
+ * @param aptr First pointer type
+ * @param bptr Second pointer type
+ * @param rrtype Place to store resulting type
+ * @return EOK on success or an error code
+ */
+int cgtype_ptr_combine_qual(cgtype_pointer_t *aptr, cgtype_pointer_t *bptr,
+    cgtype_t **rrtype)
+{
+	assert(cgtype_ptr_compatible(aptr, bptr));
+	// XXX TODO qualifiers
+	return cgtype_clone(&aptr->cgtype, rrtype);
 }
 
 /** Return @c true iff @a cgtype is a strict enum.

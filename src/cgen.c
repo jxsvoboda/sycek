@@ -10002,6 +10002,8 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 {
 	cgtype_record_t *arec;
 	cgtype_record_t *brec;
+	cgtype_pointer_t *aptr;
+	cgtype_pointer_t *bptr;
 
 	if (cgen_type_is_arithmetic(cgexpr->cgen, atype) &&
 	    cgen_type_is_arithmetic(cgexpr->cgen, btype)) {
@@ -10038,12 +10040,37 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 	 * Both operands are pointers to qualified or unqualified version of
 	 * compatible types
 	 */
+	if (atype->ntype == cgn_pointer && btype->ntype == cgn_pointer) {
+		aptr = (cgtype_pointer_t *)atype->ext;
+		bptr = (cgtype_pointer_t *)btype->ext;
+
+		/* Result type has all the qualifiers from both types */
+		if (cgtype_ptr_compatible(aptr, bptr))
+			return cgtype_ptr_combine_qual(aptr, bptr, rrtype);
+	}
+
 	/* One operand is a pointer and the other is a null pointer constant */
+	// XXX TODO
+
 	/*
 	 * One pointer is a pointer to an object or incomplete type and
 	 * the other is a pointer to a qualified or unqualified version of
 	 * void
 	 */
+	if (atype->ntype == cgn_pointer && btype->ntype == cgn_pointer) {
+		aptr = (cgtype_pointer_t *)atype->ext;
+		bptr = (cgtype_pointer_t *)btype->ext;
+
+		if (cgtype_is_void(aptr->tgtype)) {
+			/* Return appropriately qualified pointer to void */
+			// XXX Qualifiers
+			return cgtype_clone(atype, rrtype);
+		} else if (cgtype_is_void(bptr->tgtype)) {
+			/* Return appropriately qualified pointer to void */
+			// XXX Qualifiers
+			return cgtype_clone(btype, rrtype);
+		}
+	}
 
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Invalid argument types to conditional operator (");
@@ -13142,7 +13169,8 @@ static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	ptrtype2 = (cgtype_pointer_t *)dtype->ext;
 
 	if (!cgtype_ptr_compatible(ptrtype1, ptrtype2) &&
-	    expl != cgen_explicit) {
+	    expl != cgen_explicit &&
+	    !cgtype_is_void(ptrtype2->tgtype)) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Converting from ");
 		(void) cgtype_print(ares->cgtype, stderr);

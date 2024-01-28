@@ -112,3 +112,27 @@ ld word ptr (@_sd + 2), 0;
 call @_cond_struct;
 verify word ptr (@_sd), 20;
 verify word ptr (@_sd + 2), 21;
+
+/* Compatible pointer type, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_pa), 10;
+ld word ptr (@_pb), 20;
+ld word ptr (@_pd), 0;
+call @_cond_ptr;
+verify word ptr (@_pd), 10;
+
+/* Void pointer and pointer, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_vpa), 10;
+ld word ptr (@_pb), 20;
+ld word ptr (@_pd), 0;
+call @_cond_vp_p;
+verify word ptr (@_vpd), 10;
+
+/* Void pointer and pointer, condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_vpa), 10;
+ld word ptr (@_pb), 20;
+ld word ptr (@_pd), 0;
+call @_cond_vp_p;
+verify word ptr (@_vpd), 20;
