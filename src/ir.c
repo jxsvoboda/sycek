@@ -1100,6 +1100,12 @@ int ir_proc_print(ir_proc_t *proc, FILE *f)
 		}
 	}
 
+	if (proc->variadic) {
+		rv = fputs("...", f);
+		if (rv < 0)
+			return EIO;
+	}
+
 	rv = fputs(")", f);
 	if (rv < 0)
 		return EIO;

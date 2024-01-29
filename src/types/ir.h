@@ -404,6 +404,8 @@ typedef struct ir_proc {
 	char *ident;
 	/** Arguments */
 	list_t args; /* of ir_proc_arg_t */
+	/** Procedure is variadic (may take additional arguments) */
+	bool variadic;
 	/** Return type */
 	ir_texpr_t *rtype;
 	/** Attributes */

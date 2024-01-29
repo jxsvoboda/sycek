@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -233,6 +233,12 @@ static int cgtype_func_print(cgtype_func_t *func, FILE *f)
 		arg = cgtype_func_next(arg);
 	}
 
+	if (func->variadic) {
+		rv = fputs(", ...", f);
+		if (rv < 0)
+			return EIO;
+	}
+
 	rv = fputc(')', f);
 	if (rv < 0)
 		return EIO;
@@ -288,6 +294,7 @@ static int cgtype_func_clone(cgtype_func_t *orig, cgtype_t **rcopy)
 		arg = cgtype_func_next(arg);
 	}
 
+	copy->variadic = orig->variadic;
 	copy->cconv = orig->cconv;
 	*rcopy = &copy->cgtype;
 	return EOK;
@@ -350,6 +357,12 @@ static int cgtype_func_compose(cgtype_func_t *a, cgtype_func_t *b,
 
 	/* One type has more arguments? */
 	if (aarg != NULL || barg != NULL) {
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* One is variadic, the other is not? */
+	if (a->variadic != b->variadic) {
 		rc = EINVAL;
 		goto error;
 	}

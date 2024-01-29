@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -49,6 +49,8 @@ typedef struct {
 	unsigned vr0;
 	/** Number of used virtual registers */
 	unsigned vrn;
+	/** Variable size in bytes */
+	unsigned bytes;
 } z80_varmap_entry_t;
 
 #endif

@@ -3827,6 +3827,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		++cgen->warnings;
 	}
 
+	/* Variadic function? */
+	func->variadic = dfun->have_ellipsis;
+
 	/* Function attributes */
 	if (aslist != NULL) {
 		aspec = ast_aslist_first(aslist);
@@ -10581,7 +10584,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		 * We have an argument, but function does not have
 		 * another parameter.
 		 */
-		if (farg == NULL) {
+		if (farg == NULL && ftype->variadic == false) {
 			atok = ast_tree_first_tok(earg->arg);
 			tok = (comp_tok_t *) atok->data;
 
@@ -10601,30 +10604,43 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		tok = (comp_tok_t *)atok->data;
 
 		/*
-		 * If the function has a prototype and the argument is not
-		 * variadic, convert it to its declared type.
-		 * XXX Otherwise it should be simply promoted.
+		 * Is the type of the argument known? (i.e. declared and
+		 * not variadic?)
 		 */
+		if (farg != NULL) {
+			/*
+			 * If the function has a prototype and the argument is not
+			 * variadic, convert it to its declared type.
+			 */
 
-		/* Check dimension of passed array */
-		if (farg->atype->ntype == cgn_array &&
-		    ares.cgtype->ntype == cgn_array) {
-			cgen_check_passed_array_dim(cgexpr->cgen, tok,
-			    farg->atype, ares.cgtype);
+			/* Check dimension of passed array */
+			if (farg->atype->ntype == cgn_array &&
+			    ares.cgtype->ntype == cgn_array) {
+				cgen_check_passed_array_dim(cgexpr->cgen, tok,
+				    farg->atype, ares.cgtype);
+			}
+
+			rc = cgen_fun_arg_passed_type(cgexpr->cgen, farg->atype,
+			    &argtype);
+			if (rc != EOK)
+				goto error;
+
+			rc = cgen_type_convert(cgexpr, tok, &ares, argtype,
+			    cgen_implicit, lblock, &cres);
+			if (rc != EOK)
+				goto error;
+
+			cgtype_destroy(argtype);
+			argtype = NULL;
+		} else {
+			/*
+			 * Just promote it
+			 */
+			rc = cgen_eres_promoted_rvalue(cgexpr, &ares, lblock,
+			    &cres);
+			if (rc != EOK)
+				goto error;
 		}
-
-		rc = cgen_fun_arg_passed_type(cgexpr->cgen, farg->atype,
-		    &argtype);
-		if (rc != EOK)
-			goto error;
-
-		rc = cgen_type_convert(cgexpr, tok, &ares, argtype,
-		    cgen_implicit, lblock, &cres);
-		if (rc != EOK)
-			goto error;
-
-		cgtype_destroy(argtype);
-		argtype = NULL;
 
 		rc = ir_oper_var_create(cres.varname, &arg);
 		if (rc != EOK)
@@ -10640,7 +10656,8 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		cgen_eres_init(&cres);
 
 		earg = ast_ecall_next(earg);
-		farg = cgtype_func_next(farg);
+		if (farg != NULL)
+			farg = cgtype_func_next(farg);
 	}
 
 	/*
@@ -16197,6 +16214,8 @@ static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
 		++argidx;
 		dtarg = cgtype_func_next(dtarg);
 	}
+
+	proc->variadic = dtfunc->variadic;
 
 	return EOK;
 error:

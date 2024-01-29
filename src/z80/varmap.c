@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -76,12 +76,16 @@ void z80_varmap_destroy(z80_varmap_t *varmap)
  *
  * @param varmap Variable map
  * @param ident Variable identifier
- * @param vrn Number of used virtual registers
+ * @param bytes Variable size in bytes
  * @return EOK on success or an error code
  */
-int z80_varmap_insert(z80_varmap_t *varmap, const char *ident, unsigned vrn)
+int z80_varmap_insert(z80_varmap_t *varmap, const char *ident, unsigned bytes)
 {
 	z80_varmap_entry_t *entry;
+	unsigned vrn;
+
+	/* Compute number of used virtual registers */
+	vrn = bytes > 1 ? bytes / 2 : 1;
 
 	entry = calloc(1, sizeof(z80_varmap_entry_t));
 	if (entry == NULL)
@@ -96,6 +100,7 @@ int z80_varmap_insert(z80_varmap_t *varmap, const char *ident, unsigned vrn)
 	/* Allocate next vrn virtual registers to the variable */
 	entry->vr0 = varmap->next_vr;
 	entry->vrn = vrn;
+	entry->bytes = bytes;
 	varmap->next_vr += vrn;
 
 	list_append(&entry->lentries, &varmap->entries);

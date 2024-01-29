@@ -51,6 +51,7 @@ typedef enum {
 	itt_colon,
 	itt_scolon,
 	itt_period,
+	itt_ellipsis,
 
 	itt_add,
 	itt_and,

@@ -591,6 +591,8 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 	case ',':
 		return ir_lexer_onechar(lexer, itt_comma, tok);
 	case '.':
+		if (p[1] == '.' && p[2] == '.')
+			return ir_lexer_keyword(lexer, itt_ellipsis, 3, tok);
 		return ir_lexer_onechar(lexer, itt_period, tok);
 	case '/':
 		if (p[1] == '*')
@@ -918,6 +920,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "';'";
 	case itt_period:
 		return "'.'";
+	case itt_ellipsis:
+		return "'...'";
 	case itt_add:
 		return "'add'";
 	case itt_and:

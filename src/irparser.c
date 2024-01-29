@@ -902,6 +902,12 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 	first = true;
 	while (itt != itt_rparen) {
 		if (!first) {
+			if (itt == itt_ellipsis) {
+				ir_parser_skip(parser);
+				proc->variadic = true;
+				break;
+			}
+
 			rc = ir_parser_match(parser, itt_comma);
 			if (rc != EOK)
 				goto error;
@@ -1075,6 +1081,10 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 		rc = ir_parser_match(parser, itt_end);
 		if (rc != EOK)
 			goto error;
+	} else {
+		/* Destroy lblock, as there is none */
+		ir_lblock_destroy(proc->lblock);
+		proc->lblock = NULL;
 	}
 
 	*rproc = proc;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -115,6 +115,8 @@ typedef struct {
 	cgtype_t *rtype;
 	/** Arguments (of cgtype_func_arg_t) */
 	list_t args;
+	/** Variadic? */
+	bool variadic;
 	/** Calling convention */
 	cgtype_cconv_t cconv;
 } cgtype_func_t;

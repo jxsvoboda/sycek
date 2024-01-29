@@ -436,7 +436,6 @@ static int z80_isel_scan_instr_def_vars(z80_isel_proc_t *isproc,
 	ir_oper_var_t *opvar;
 	z80_varmap_entry_t *entry;
 	unsigned bytes;
-	unsigned vrs;
 	int rc;
 
 	if (instr->dest != NULL && instr->dest->optype == iro_var) {
@@ -472,12 +471,11 @@ static int z80_isel_scan_instr_def_vars(z80_isel_proc_t *isproc,
 				break;
 			}
 
-			vrs = bytes >= 2 ? bytes / 2 : 1;
 			rc = z80_varmap_find(isproc->varmap, opvar->varname,
 			    &entry);
 			if (rc == ENOENT) {
 				rc = z80_varmap_insert(isproc->varmap,
-				    opvar->varname, vrs);
+				    opvar->varname, bytes);
 				if (rc != EOK)
 					return rc;
 			}
@@ -499,7 +497,6 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 	ir_proc_arg_t *arg;
 	ir_lblock_entry_t *entry;
 	size_t bytes;
-	unsigned vregs;
 	int rc;
 
 	if (irproc->rtype != NULL) {
@@ -509,7 +506,7 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 		/* Add hidden first argument for returning 64-bit value */
 		if (irproc->rtype->tetype == irt_int &&
 		    irproc->rtype->t.tint.width == 64) {
-			rc = z80_varmap_insert(isproc->varmap, "%.retval", 1);
+			rc = z80_varmap_insert(isproc->varmap, "%.retval", 2);
 			if (rc != EOK)
 				return rc;
 		}
@@ -522,9 +519,7 @@ static int z80_isel_proc_create_varmap(z80_isel_proc_t *isproc,
 		if (rc != EOK)
 			return rc;
 
-		vregs = bytes >= 2 ? bytes / 2 : 1;
-
-		rc = z80_varmap_insert(isproc->varmap, arg->ident, vregs);
+		rc = z80_varmap_insert(isproc->varmap, arg->ident, bytes);
 		if (rc != EOK)
 			return rc;
 
@@ -2966,6 +2961,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	z80ic_oper_ss_t *ainc = NULL;
 	z80_argloc_t *argloc = NULL;
 	z80_argloc_entry_t *entry;
+	z80_varmap_entry_t *vmentry;
 	ir_oper_var_t *op1;
 	ir_oper_list_t *op2;
 	ir_oper_t *arg;
@@ -3070,7 +3066,10 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	arg = ir_oper_list_first(op2);
 	parg = ir_proc_first_arg(proc);
 	while (arg != NULL) {
-		if (parg == NULL) {
+		assert(arg->optype == iro_var);
+		argvar = (ir_oper_var_t *) arg->ext;
+
+		if (parg == NULL && !proc->variadic) {
 			/* Too many arguments */
 			fprintf(stderr, "Too many arguments to procedure "
 			    "'%s'.\n", op1->varname);
@@ -3078,18 +3077,41 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			goto error;
 		}
 
-		if (parg->atype->tetype == irt_int) {
-			bits = parg->atype->t.tint.width;
-		} else if (parg->atype->tetype == irt_ptr) {
-			bits = parg->atype->t.tptr.width;
+		rc = z80_varmap_find(isproc->varmap, argvar->varname, &vmentry);
+		assert(rc == EOK);
+
+		if (parg != NULL) {
+			/* We know type of formal arg, determine size */
+			if (parg->atype->tetype == irt_int) {
+				bits = parg->atype->t.tint.width;
+			} else if (parg->atype->tetype == irt_ptr) {
+				bits = parg->atype->t.tptr.width;
+			} else {
+				fprintf(stderr, "Unsupported argument type (%d)\n",
+				    parg->atype->tetype);
+				goto error;
+			}
+
+			/* Now verify that size matches actual param. size */
+			if (bits != vmentry->bytes * 8) {
+				fprintf(stderr, "Actual parameter size (%u) "
+				    "does not match formal paramater size "
+				    "(%u).\n", vmentry->bytes, bits / 8);
+				goto error;
+			}
 		} else {
-			fprintf(stderr, "Unsupported argument type (%d)\n",
-			    parg->atype->tetype);
-			goto error;
+			/* Use actual parameter size */
+			bits = vmentry->bytes;
 		}
 
-		assert(arg->optype == iro_var);
-		argvar = (ir_oper_var_t *) arg->ext;
+		if (proc->variadic) {
+			/*
+			 * With variadic functions, 8-bit arguments are
+			 * passed as 16-bit.
+			 */
+			if (bits < 16)
+				bits = 16;
+		}
 
 		/** Allocate argument location */
 		rc = z80_argloc_alloc(argloc, argvar->varname,
@@ -3098,7 +3120,8 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			goto error;
 
 		arg = ir_oper_list_next(arg);
-		parg = ir_proc_next_arg(parg);
+		if (parg != NULL)
+			parg = ir_proc_next_arg(parg);
 	}
 
 	if (parg != NULL) {
@@ -9549,6 +9572,10 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 			    arg->atype->tetype);
 			goto error;
 		}
+
+		/* In a variadic function 8-bit args are passed as 16-bit */
+		if (irproc->variadic && bits < 16)
+			bits = 16;
 
 		rc = z80_isel_proc_arg(isel, arg->ident, bits, &vrno, &fpoff, argloc, lblock);
 		if (rc != EOK)
