@@ -2554,14 +2554,22 @@ static int z80_isel_call_get_retv_64(z80_isel_proc_t *isproc, ir_proc_t *proc,
 	return z80_isel_read_vrr(isproc, destvr, 8, addrvr, lblock);
 }
 
-static int z80_isel_alloc_retvar(z80_isel_proc_t *isproc, uint16_t size,
-    uint16_t *roff)
+/** Allocate local variable with the specified IR identifier.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param size Variable size
+ * @param roff Place to store variable offset
+ *
+ * @return EOK on success or an error code
+ */
+static int z80_isel_alloc_lvar(z80_isel_proc_t *isproc, const char *irident,
+    int16_t size, uint16_t *roff)
 {
 	char *icident = NULL;
 	z80ic_lvar_t *icvar = NULL;
 	int rc;
 
-	rc = z80_isel_mangle_lvar_ident(isproc->ident, "%_retvar",
+	rc = z80_isel_mangle_lvar_ident(isproc->ident, irident,
 	    &icident);
 	if (rc != EOK)
 		goto error;
@@ -3046,7 +3054,8 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	if (proc->rtype != NULL && proc->rtype->tetype == irt_int) {
 		if (proc->rtype->t.tint.width == 64) {
 			/* Allocate local variable to hold the return value */
-			rc = z80_isel_alloc_retvar(isproc, 8, &rvoff);
+			rc = z80_isel_alloc_lvar(isproc, "%_retvar", 8,
+			    &rvoff);
 			if (rc != EOK)
 				goto error;
 
@@ -9517,6 +9526,98 @@ error:
 	return rc;
 }
 
+/** Select instructions to store registers HL, DE, BC to stack frame
+ * in a variadic function.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irproc IR procedure
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_proc_vargs(z80_isel_proc_t *isproc, ir_proc_t *irproc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ld_ispnn_r_t *ld = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	char *varident = NULL;
+	z80ic_reg_t sreg;
+	uint16_t rvoff;
+	unsigned i;
+	int rc;
+
+	(void)irproc;
+	(void)lblock;
+
+	/* Allocate local variable to hold register args */
+	rc = z80_isel_alloc_lvar(isproc, "%_rargs", 6, &rvoff);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_mangle_lvar_ident(isproc->ident, "%_rargs", &varident);
+	if (rc != EOK)
+		goto error;
+
+	for (i = 0; i < 6; i++) {
+		/* ld (SP+_rargs@SP+i), {L|H|C|B|E|D} */
+		rc = z80ic_ld_ispnn_r_create(&ld);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm16_create_val(rvoff + i, &imm);
+		if (rc != EOK)
+			goto error;
+
+		switch (i) {
+		case 0:
+			sreg = z80ic_reg_l;
+			break;
+		case 1:
+			sreg = z80ic_reg_h;
+			break;
+		case 2:
+			sreg = z80ic_reg_c;
+			break;
+		case 3:
+			sreg = z80ic_reg_b;
+			break;
+		case 4:
+			sreg = z80ic_reg_e;
+			break;
+		case 5:
+			sreg = z80ic_reg_d;
+			break;
+		}
+
+		rc = z80ic_oper_reg_create(sreg, &reg);
+		if (rc != EOK)
+			goto error;
+
+		ld->imm16 = imm;
+		ld->src = reg;
+		imm = NULL;
+		reg = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+		if (rc != EOK)
+			goto error;
+
+		ld = NULL;
+	}
+
+	free(varident);
+	return EOK;
+error:
+	if (varident != NULL)
+		free(varident);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+
+	z80ic_oper_imm16_destroy(imm);
+	z80ic_oper_reg_destroy(reg);
+	return rc;
+}
+
 /** Select instructions to load procedure arguments to virtual registers.
  *
  * @param isel Instruction selector
@@ -9534,7 +9635,6 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 	unsigned bits;
 	int rc;
 
-	(void) isel;
 	rc = z80_argloc_create(&argloc);
 	if (rc != EOK)
 		goto error;
@@ -9741,6 +9841,17 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 
 	lblock = NULL;
 	isproc->icproc = icproc;
+
+	/*
+	 * In a variadic function store registers that potentially contain
+	 * arguments into the stack frame, so they can be addressed
+	 * by stdarg's va_xxx macros.
+	 */
+	if (irproc->variadic) {
+		rc = z80_isel_proc_vargs(isproc, irproc, icproc->lblock);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = z80_isel_proc_args(isel, irproc, icproc->lblock);
 	if (rc != EOK)

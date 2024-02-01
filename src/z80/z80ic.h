@@ -144,6 +144,7 @@ extern int z80ic_ld_vrr_r16_create(z80ic_ld_vrr_r16_t **);
 extern int z80ic_ld_vrr_iixd_create(z80ic_ld_vrr_iixd_t **);
 extern int z80ic_ld_vrr_nn_create(z80ic_ld_vrr_nn_t **);
 extern int z80ic_ld_vrr_spnn_create(z80ic_ld_vrr_spnn_t **);
+extern int z80ic_ld_ispnn_r_create(z80ic_ld_ispnn_r_t **);
 extern int z80ic_push_vr_create(z80ic_push_vr_t **);
 extern int z80ic_push_vrr_create(z80ic_push_vrr_t **);
 extern int z80ic_add_a_vr_create(z80ic_add_a_vr_t **);
@@ -171,6 +172,8 @@ extern int z80ic_oper_imm8_print(z80ic_oper_imm8_t *, FILE *);
 extern void z80ic_oper_imm8_destroy(z80ic_oper_imm8_t *);
 extern int z80ic_oper_imm16_create_val(uint16_t, z80ic_oper_imm16_t **);
 extern int z80ic_oper_imm16_create_symbol(const char *, z80ic_oper_imm16_t **);
+extern int z80ic_oper_imm16_create_symoff(const char *, uint16_t,
+    z80ic_oper_imm16_t **);
 extern int z80ic_oper_imm16_copy(z80ic_oper_imm16_t *, z80ic_oper_imm16_t **);
 extern int z80ic_oper_imm16_print(z80ic_oper_imm16_t *, FILE *);
 extern void z80ic_oper_imm16_destroy(z80ic_oper_imm16_t *);

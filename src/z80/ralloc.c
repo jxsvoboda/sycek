@@ -108,47 +108,50 @@ static unsigned z80_ralloc_vroff(z80ic_vr_part_t part)
 	}
 }
 
-/** Set up index register for accessing virtual register on the stack.
- *
- * Note: If part is z80ic_vrp_r16l, the higher register part must also
- * be within the reach of the index register.
+/** Set up index register for accessing a range of the stack frame.
  *
  * @param idxacc Index access structure
  * @param raproc Register allocator for procedure
- * @param vregno Virtual register number
- * @param part   Virtual register part
+ * @param rel    Offset is relative to beginning or end
+ * @param off    Offset
+ * @param size   Size of the accessed area
  * @param lblock Labeled block to which to append the instructions
  *
  * @return EOK on success or an error code
  */
-static int z80_idxacc_setup_vr(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
-    unsigned vregno, z80ic_vr_part_t part, z80ic_lblock_t *lblock)
+static int z80_idxacc_setup(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
+    z80sf_rel_t rel, long off, uint16_t size, z80ic_lblock_t *lblock)
 {
 	z80ic_ld_ix_nn_t *ldix = NULL;
 	z80ic_add_ix_pp_t *addix = NULL;
 	z80ic_oper_pp_t *pp = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	int rc;
-	unsigned vroff;
-	long disp;
-	long vratsp;
-
-	(void)lblock;
-
-	vroff = z80_ralloc_vroff(part);
+	long offsp;
+	long offbp;
 
 	/*
-	 * The stack frame structure is as follows:
-	 *   lvar0      <- SP
-	 *   lvar1
+	 * The stack frame is pointed to as follows:
+	 *   word0 <- SP (without adjustment)
 	 *   ...
-	 *   IX-3/IX-4: vr1
-	 *   IX-2/IX-3: vr0
-	 *   IX-0/IX-1: saved IX
+	 *   wordN <- IX
+	 *
+	 * So the difference between SP and frame pointer is
+	 * spadj + sfsize - 2.
+	 *
+	 * Let's compute offset relative to both SP and frame pointer.
 	 */
-	disp = -2 * (1 + (long) vregno) + vroff;
-	if (disp >= -128 && disp + 1 <= 127) {
-		idxacc->disp = (int16_t)disp;
+	if (rel == z80sf_begin) {
+		offsp = off;
+		offbp = off - (raproc->spadj + raproc->sfsize - 2);
+	} else {
+		offbp = off;
+		offsp = off + (raproc->spadj + raproc->sfsize - 2);
+	}
+
+	/* Are we within the reach of frame pointer? */
+	if (offbp >= -128 && offbp + size - 1 <= 127) {
+		idxacc->disp = (int16_t)offbp;
 		return EOK;
 	}
 
@@ -158,21 +161,13 @@ static int z80_idxacc_setup_vr(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 	 * (which is not reserved for register allocator).
 	 */
 
-	/*
-	 * We need to know the current position of SP relative to
-	 * the stack frame to determine vr@SP.
-	 * SP points to the last valid stack frame entry
-	 */
-	// XXX SP adjustment
-	vratsp = raproc->spadj + raproc->sfsize - 2 + disp;
-
-	/* ld IX, vr@SP */
+	/* ld IX, off@SP */
 
 	rc = z80ic_ld_ix_nn_create(&ldix);
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_oper_imm16_create_val((uint16_t)vratsp, &imm);
+	rc = z80ic_oper_imm16_create_val((uint16_t)offsp, &imm);
 	if (rc != EOK)
 		goto error;
 
@@ -219,6 +214,43 @@ error:
 	return rc;
 }
 
+/** Set up index register for accessing virtual register on the stack.
+ *
+ * Note: If part is z80ic_vrp_r16l, the higher register part must also
+ * be within the reach of the index register.
+ *
+ * @param idxacc Index access structure
+ * @param raproc Register allocator for procedure
+ * @param vregno Virtual register number
+ * @param part   Virtual register part
+ * @param lblock Labeled block to which to append the instructions
+ *
+ * @return EOK on success or an error code
+ */
+static int z80_idxacc_setup_vr(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
+    unsigned vregno, z80ic_vr_part_t part, z80ic_lblock_t *lblock)
+{
+	unsigned vroff;
+	unsigned size;
+	long disp;
+
+	vroff = z80_ralloc_vroff(part);
+	size = (part == z80ic_vrp_r8) ? 1 : 2;
+
+	/*
+	 * The stack frame structure is as follows:
+	 *   lvar0      <- SP
+	 *   lvar1
+	 *   ...
+	 *   IX-3/IX-4: vr1
+	 *   IX-2/IX-3: vr0
+	 *   IX-0/IX-1: saved IX
+	 */
+	disp = -2 * (1 + (long) vregno) + vroff;
+
+	return z80_idxacc_setup(idxacc, raproc, z80sf_end, disp, size, lblock);
+}
+
 /** Tear down index register access.
  *
  * @param idxacc Index access structure
@@ -238,7 +270,7 @@ static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 
 	(void)lblock;
 
-	/* If disp == 0, there was no IX adjustment */
+	/* If disp != 0, there was no IX adjustment */
 	if (idxacc->disp != 0)
 		return EOK;
 
@@ -248,7 +280,6 @@ static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 	 * We need to know the current position of SP relative to
 	 * the stack frame to determine stackframe@SP.
 	 */
-	// XXX SP adjustment
 	sfatsp = raproc->spadj + raproc->sfsize - 2;
 
 	/* ld IX, var@SP */
@@ -2031,6 +2062,66 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 load (SP+imm16) from register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrld Load instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_ld_ispnn_r(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_ld_ispnn_r_t *vrld, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_iixd_r_t *ld = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_imm16_t *imm;
+	z80_idxacc_t idxacc;
+	int rc;
+
+	imm = vrld->imm16;
+	assert(imm->symbol == NULL);
+
+	/* Set up index register */
+	rc = z80_idxacc_setup(&idxacc, raproc, z80sf_begin, imm->imm16, 1,
+	    lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* ld (IX+d), r */
+
+	rc = z80ic_ld_iixd_r_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	ld->disp = z80_idxacc_disp(&idxacc);
+
+	rc = z80ic_oper_reg_create(vrld->src->reg, &reg);
+	if (rc != EOK)
+		goto error;
+
+	ld->src = reg;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
+	ld = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, raproc, lblock);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	z80ic_oper_reg_destroy(reg);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 push virtual register instruction.
  *
  * @param raproc Register allocator for procedure
@@ -3223,6 +3314,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_ld_vrr_spnn:
 		return z80_ralloc_ld_vrr_spnn(raproc, label,
 		    (z80ic_ld_vrr_spnn_t *) vrinstr->ext, lblock);
+	case z80i_ld_ispnn_r:
+		return z80_ralloc_ld_ispnn_r(raproc, label,
+		    (z80ic_ld_ispnn_r_t *) vrinstr->ext, lblock);
 	case z80i_push_vr:
 		return z80_ralloc_push_vr(raproc, label,
 		    (z80ic_push_vr_t *) vrinstr->ext, lblock);

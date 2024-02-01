@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -63,5 +63,13 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80_idxacc_t;
+
+/** Which side of stack frame is an offset relative to */
+typedef enum {
+	/* Offset is relative to beginning (lowest address) of stack frame */
+	z80sf_begin,
+	/* Offset is reltive to end (highest address of stack frame */
+	z80sf_end
+} z80sf_rel_t;
 
 #endif

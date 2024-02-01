@@ -4355,6 +4355,64 @@ static void z80ic_ld_vrr_spnn_destroy(z80ic_ld_vrr_spnn_t *instr)
 	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
+/** Create Z80 IC load (SP+imm16) from register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ld_ispnn_r_create(z80ic_ld_ispnn_r_t **rinstr)
+{
+	z80ic_ld_ispnn_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ld_ispnn_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ld_ispnn_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load (SP+imm16) from register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ld_ispnn_r_print(z80ic_ld_ispnn_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("ld (SP+", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	rv = fputs("), ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load (SP+imm16) from register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ld_ispnn_r_destroy(z80ic_ld_ispnn_r_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+	z80ic_oper_reg_destroy(instr->src);
+}
+
 /** Create Z80 IC push virtual register instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -5566,6 +5624,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_ld_vrr_spnn:
 		rc = z80ic_ld_vrr_spnn_print((z80ic_ld_vrr_spnn_t *) instr->ext, f);
 		break;
+	case z80i_ld_ispnn_r:
+		rc = z80ic_ld_ispnn_r_print((z80ic_ld_ispnn_r_t *) instr->ext, f);
+		break;
 	case z80i_push_vr:
 		rc = z80ic_push_vr_print((z80ic_push_vr_t *) instr->ext, f);
 		break;
@@ -5832,6 +5893,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_ld_vrr_spnn:
 		z80ic_ld_vrr_spnn_destroy((z80ic_ld_vrr_spnn_t *) instr->ext);
 		break;
+	case z80i_ld_ispnn_r:
+		z80ic_ld_ispnn_r_destroy((z80ic_ld_ispnn_r_t *) instr->ext);
+		break;
 	case z80i_push_vr:
 		z80ic_push_vr_destroy((z80ic_push_vr_t *) instr->ext);
 		break;
@@ -5957,17 +6021,7 @@ void z80ic_oper_imm8_destroy(z80ic_oper_imm8_t *imm)
  */
 int z80ic_oper_imm16_create_val(uint16_t value, z80ic_oper_imm16_t **rimm)
 {
-	z80ic_oper_imm16_t *imm;
-
-	imm = calloc(1, sizeof(z80ic_oper_imm16_t));
-	if (imm == NULL)
-		return ENOMEM;
-
-	imm->symbol = NULL;
-	imm->imm16 = value;
-
-	*rimm = imm;
-	return EOK;
+	return z80ic_oper_imm16_create_symoff(NULL, value, rimm);
 }
 
 /** Create Z80 IC 16-bit immediate operand with symbol reference.
@@ -5979,21 +6033,36 @@ int z80ic_oper_imm16_create_val(uint16_t value, z80ic_oper_imm16_t **rimm)
 int z80ic_oper_imm16_create_symbol(const char *symbol,
     z80ic_oper_imm16_t **rimm)
 {
+	return z80ic_oper_imm16_create_symoff(symbol, 0, rimm);
+}
+
+/** Create Z80 IC 16-bit immediate operand with symbol reference + offset.
+ *
+ * @param symbol Symbol (or @c NULL)
+ * @param off Offset
+ * @param rimm Place to store pointer to new Z80 IC immediate operand
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_oper_imm16_create_symoff(const char *symbol, uint16_t off,
+    z80ic_oper_imm16_t **rimm)
+{
 	z80ic_oper_imm16_t *imm;
-	char *dsymbol;
+	char *dsymbol = NULL;
 
 	imm = calloc(1, sizeof(z80ic_oper_imm16_t));
 	if (imm == NULL)
 		return ENOMEM;
 
-	dsymbol = strdup(symbol);
-	if (dsymbol == NULL) {
-		free(imm);
-		return ENOMEM;
+	if (symbol != NULL) {
+		dsymbol = strdup(symbol);
+		if (dsymbol == NULL) {
+			free(imm);
+			return ENOMEM;
+		}
 	}
 
 	imm->symbol = dsymbol;
-	imm->imm16 = 0;
+	imm->imm16 = off;
 
 	*rimm = imm;
 	return EOK;
@@ -6035,9 +6104,15 @@ int z80ic_oper_imm16_print(z80ic_oper_imm16_t *imm, FILE *f)
 	int rv;
 
 	if (imm->symbol != NULL) {
-		rv = fputs(imm->symbol, f);
-		if (rv < 0)
-			return EIO;
+		if (imm->imm16 != 0) {
+			rv = fprintf(f, "%s+%" PRIu16, imm->symbol, imm->imm16);
+			if (rv < 0)
+				return EIO;
+		} else {
+			rv = fputs(imm->symbol, f);
+			if (rv < 0)
+				return EIO;
+		}
 	} else {
 		rv = fprintf(f, "%" PRIu16, imm->imm16);
 		if (rv < 0)
