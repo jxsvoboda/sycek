@@ -291,6 +291,21 @@ static int z80_isel_texpr_ident_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 	return EOK;
 }
 
+/** Get size of type described by IR va_list type expression in bytes.
+ *
+ * @param isel Instruction selector
+ * @param texpr IR integer type expression
+ * @param rsize Place to store size in bytes
+ */
+static void z80_isel_texpr_va_list_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
+    size_t *rsize)
+{
+	assert(texpr->tetype == irt_va_list);
+	(void)isel;
+
+	*rsize = 6;
+}
+
 /** Get size of type described by IR type expression in bytes.
  *
  * @param isel Instruction selector
@@ -312,6 +327,9 @@ static int z80_isel_texpr_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 		return z80_isel_texpr_array_sizeof(isel, texpr, rsize);
 	case irt_ident:
 		return z80_isel_texpr_ident_sizeof(isel, texpr, rsize);
+	case irt_va_list:
+		z80_isel_texpr_va_list_sizeof(isel, texpr, rsize);
+		return EOK;
 	}
 
 	assert(false);

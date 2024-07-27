@@ -62,7 +62,8 @@ typedef enum {
 	cgelm_ulonglong,
 	/* TODO float, double, long double */
 	/* TODO _Bool */
-	cgelm_logic
+	cgelm_logic,
+	cgelm_va_list
 } cgtype_elmtype_t;
 
 /** Integer type rank.

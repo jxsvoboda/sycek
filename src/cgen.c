@@ -1581,6 +1581,7 @@ static int cgen_tspec_get_order(ast_node_t *tspec)
 		case abts_int128:
 		case abts_float:
 		case abts_double:
+		case abts_va_list:
 			return 2;
 		}
 		break;
@@ -3412,6 +3413,9 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 				break;
 			case abts_void:
 				elmtype = cgelm_void;
+				break;
+			case abts_va_list:
+				elmtype = cgelm_va_list;
 				break;
 			default:
 				cgen_warn_tspec_not_impl(cgen, cgds->tspec);
@@ -13710,6 +13714,81 @@ error:
 	return rc;
 }
 
+/** Convert va_list to the specified type.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_va_list(cgen_expr_t *cgexpr, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t pres;
+	cgtype_t *ltype = NULL;
+	cgtype_pointer_t *ptrt = NULL;
+	cgtype_basic_t *basict;
+	int rc;
+
+	assert(ares->cgtype->ntype == cgn_basic);
+	basict = (cgtype_basic_t *)ares->cgtype->ext;
+	assert(basict->elmtype == cgelm_va_list);
+
+	cgen_eres_init(&pres);
+
+	rc = cgtype_clone(ares->cgtype, &ltype);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Create pointer type whose target is the array element type.
+	 * Note that ownership of etype is transferred to ptrt.
+	 */
+	rc = cgtype_pointer_create(ltype, &ptrt);
+	if (rc != EOK)
+		goto error;
+
+	ltype = NULL;
+
+	/* Clone the result except.. */
+	rc = cgen_eres_clone(ares, &pres);
+	if (rc != EOK)
+		goto error;
+
+	/* Replace the type with the pointer type */
+	cgtype_destroy(pres.cgtype);
+	pres.cgtype = &ptrt->cgtype;
+	ptrt = NULL;
+
+	/*
+	 * Make it an rvalue .. it's the value of the pointer, not the
+	 * address.
+	 */
+	pres.valtype = cgen_rvalue;
+
+	/* Continue conversion */
+	rc = cgen_type_convert(cgexpr, ctok, &pres, dtype, expl, lblock,
+	    cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&pres);
+error:
+	if (ltype != NULL)
+		cgtype_destroy(ltype);
+	if (ptrt != NULL)
+		cgtype_destroy(&ptrt->cgtype);
+	cgen_eres_fini(&pres);
+	return rc;
+}
+
 /** Convert function to the specified type.
  *
  * @param cgexpr Code generator for expression
@@ -13816,6 +13895,13 @@ static int cgen_type_convert(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		    lblock, cres);
 	}
 
+	/* Source type is a va_list */
+	if (ares->cgtype->ntype == cgn_basic &&
+	    ((cgtype_basic_t *)ares->cgtype->ext)->elmtype == cgelm_va_list) {
+		return cgen_type_convert_va_list(cgexpr, ctok, ares, dtype,
+		    expl, lblock, cres);
+	}
+
 	/* Source type is a function */
 	if (ares->cgtype->ntype == cgn_func) {
 		return cgen_type_convert_func(cgexpr, ctok, ares, dtype, expl,
@@ -13897,6 +13983,9 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 			break;
 		case cgelm_logic:
 			break;
+		case cgelm_va_list:
+			cgen_error_need_scalar(cgexpr->cgen, atok);
+			return EINVAL;
 		}
 		break;
 	case cgn_enum:
@@ -16079,6 +16168,7 @@ static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
     cgtype_t **ptype)
 {
 	cgtype_t *etype = NULL;
+	cgtype_t *ltype = NULL;
 	cgtype_array_t *arrt;
 	cgtype_pointer_t *ptrt;
 	int rc;
@@ -16086,7 +16176,9 @@ static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
 	(void)cgen;
 
 	if (stype->ntype == cgn_array) {
-		/* An array is really passed as a pointer */
+		/*
+		 * An array is really passed as a pointer to its elements.
+		 */
 
 		arrt = (cgtype_array_t *)stype->ext;
 
@@ -16102,6 +16194,24 @@ static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
 
 		*ptype = &ptrt->cgtype;
 		etype = NULL;
+	} else if (stype->ntype == cgn_basic &&
+	    ((cgtype_basic_t *)stype->ext)->elmtype == cgelm_va_list) {
+		/*
+		 * A va_list is really passed as a pointer.
+		 */
+
+		rc = cgtype_clone(stype, &ltype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgtype_pointer_create(ltype, &ptrt);
+		if (rc != EOK) {
+			cgtype_destroy(etype);
+			goto error;
+		}
+
+		*ptype = &ptrt->cgtype;
+		ltype = NULL;
 	} else {
 		/* Other types are passed as themselves */
 		rc = cgtype_clone(stype, ptype);
@@ -16113,6 +16223,8 @@ static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
 error:
 	if (etype != NULL)
 		cgtype_destroy(etype);
+	if (ltype != NULL)
+		cgtype_destroy(ltype);
 	return rc;
 }
 
@@ -16250,18 +16362,25 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 		if (tbasic->elmtype == cgelm_void)
 			return EOK;
 
-		bits = cgen_basic_type_bits(cgen,
-		    (cgtype_basic_t *)cgtype->ext);
-		if (bits == 0) {
-			fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
-			goto error;
-		}
+		if (tbasic->elmtype == cgelm_va_list) {
+			rc = ir_texpr_va_list_create(rirtexpr);
+			if (rc != EOK)
+				goto error;
+		} else {
+			bits = cgen_basic_type_bits(cgen,
+			    (cgtype_basic_t *)cgtype->ext);
+			if (bits == 0) {
+				fprintf(stderr,
+				    "cgen_cgtype: Unimplemented type.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
 
-		rc = ir_texpr_int_create(bits, rirtexpr);
-		if (rc != EOK)
-			goto error;
+			rc = ir_texpr_int_create(bits, rirtexpr);
+			if (rc != EOK)
+				goto error;
+		}
 
 	} else if (cgtype->ntype == cgn_pointer) {
 		/* Pointer */
@@ -18047,6 +18166,7 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 	ir_var_t *var = NULL;
 	cgtype_t *cgtype = symbol->cgtype;
 	unsigned bits;
+	unsigned i;
 
 	if (cgen_type_is_incomplete(cgen, cgtype)) {
 		lexer_dprint_tok(&symbol->ident->tok, stderr);
@@ -18080,14 +18200,28 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 	dblock = NULL;
 
 	if (linkage != irl_extern) {
-		if (cgtype->ntype == cgn_basic) {
+		if (cgtype->ntype == cgn_basic &&
+		    ((cgtype_basic_t *)cgtype->ext)->elmtype == cgelm_va_list) {
+			/* XXX Ideally use a special va_list initializer */
+			for (i = 0; i < 3; i++) {
+				rc = ir_dentry_create_int(16, 0, &dentry);
+				if (rc != EOK)
+					goto error;
+
+				rc = ir_dblock_append(var->dblock, dentry);
+				if (rc != EOK)
+					goto error;
+
+				dentry = NULL;
+			}
+		} else if (cgtype->ntype == cgn_basic) {
 			bits = cgen_basic_type_bits(cgen,
 			    (cgtype_basic_t *)cgtype->ext);
 
 			if (bits == 0) {
 				lexer_dprint_tok(&symbol->ident->tok, stderr);
 				fprintf(stderr,
-				    ": Unimplemented variable type.\n");
+				    ": Unimplemented variable type.XXX\n");
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;

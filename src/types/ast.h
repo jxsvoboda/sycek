@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -348,7 +348,9 @@ typedef enum {
 	/** Signed type specifier */
 	abts_signed,
 	/** Unsigned type specifier */
-	abts_unsigned
+	abts_unsigned,
+	/** __va_list type specifier */
+	abts_va_list
 } ast_btstype_t;
 
 /** Basic type specifier */

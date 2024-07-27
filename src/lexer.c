@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1004,6 +1004,12 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 	case ']':
 		return lexer_onechar(lexer, ltt_rbracket, tok);
 	case '_':
+		if (p[1] == '_' && p[2] == 'v' && p[3] == 'a' &&
+		    p[4] == '_' && p[5] == 'l' && p[6] == 'i' &&
+		    p[7] == 's' && p[8] == 't' &&
+		    !is_idcnt(p[9])) {
+			return lexer_keyword(lexer, ltt_va_list, 9, tok);
+		}
 		if (p[1] == '_' && p[2] == 'a' && p[3] == 't' &&
 		    p[4] == 't' && p[5] == 'r' && p[6] == 'i' &&
 		    p[7] == 'b' && p[8] == 'u' && p[9] == 't' &&
@@ -1525,6 +1531,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'union'";
 	case ltt_unsigned:
 		return "'unsigned'";
+	case ltt_va_list:
+		return "'__va_list'";
 	case ltt_void:
 		return "'void'";
 	case ltt_volatile:

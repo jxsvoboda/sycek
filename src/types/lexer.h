@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -135,6 +135,7 @@ typedef enum {
 	ltt_typedef,
 	ltt_union,
 	ltt_unsigned,
+	ltt_va_list,
 	ltt_void,
 	ltt_volatile,
 	ltt_while,

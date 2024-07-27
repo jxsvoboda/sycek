@@ -263,7 +263,9 @@ typedef enum {
 	/** Array tyoe */
 	irt_array,
 	/** Identified type */
-	irt_ident
+	irt_ident,
+	/** Variable argument list type */
+	irt_va_list
 } ir_tetype_t;
 
 /** Integer type */
@@ -292,6 +294,11 @@ typedef struct {
 	char *ident;
 } ir_type_ident_t;
 
+/** Variable argument list type */
+typedef struct {
+	int dummy;
+} ir_type_va_list_t;
+
 /** IR type expression */
 typedef struct ir_texpr {
 	/** Type expression type */
@@ -301,6 +308,7 @@ typedef struct ir_texpr {
 		ir_type_ptr_t tptr;
 		ir_type_array_t tarray;
 		ir_type_ident_t tident;
+		ir_type_va_list_t tva_list;
 	} t;
 } ir_texpr_t;
 

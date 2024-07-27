@@ -127,6 +127,7 @@ extern int ir_texpr_int_create(unsigned, ir_texpr_t **);
 extern int ir_texpr_ptr_create(unsigned, ir_texpr_t **);
 extern int ir_texpr_array_create(uint64_t, ir_texpr_t *, ir_texpr_t **);
 extern int ir_texpr_ident_create(const char *, ir_texpr_t **);
+extern int ir_texpr_va_list_create(ir_texpr_t **);
 extern int ir_texpr_print(ir_texpr_t *, FILE *);
 extern int ir_texpr_clone(ir_texpr_t *, ir_texpr_t **);
 extern void ir_texpr_destroy(ir_texpr_t *);

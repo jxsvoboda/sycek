@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -458,7 +458,7 @@ static bool parser_ttype_tsbasic(lexer_toktype_t ttype)
 	return ttype == ltt_void || ttype == ltt_char || ttype == ltt_short ||
 	    ttype == ltt_int || ttype == ltt_long || ttype == ltt_int128 ||
 	    ttype == ltt_float || ttype == ltt_double || ttype == ltt_signed ||
-	    ttype == ltt_unsigned;
+	    ttype == ltt_unsigned || ttype == ltt_va_list;
 }
 
 /** Return @c true if next token is a type specifier
@@ -3900,6 +3900,9 @@ static int parser_process_tsbasic(parser_t *parser, ast_node_t **rtype)
 		break;
 	case ltt_unsigned:
 		btstype = abts_unsigned;
+		break;
+	case ltt_va_list:
+		btstype = abts_va_list;
 		break;
 	default:
 		assert(false);

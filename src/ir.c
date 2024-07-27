@@ -2532,6 +2532,66 @@ static void ir_texpr_ident_destroy(ir_texpr_t *texpr)
 	free(texpr);
 }
 
+/** Create IR variable argument list type expression.
+ *
+ * @param rtexpr Place to store pointer to new type expression
+ * @return EOK on success or an error code
+ */
+int ir_texpr_va_list_create(ir_texpr_t **rtexpr)
+{
+	ir_texpr_t *texpr;
+
+	texpr = calloc(1, sizeof(ir_texpr_t));
+	if (texpr == NULL)
+		return ENOMEM;
+
+	texpr->tetype = irt_va_list;
+
+	*rtexpr = texpr;
+	return EOK;
+}
+
+/** Print IR variable argument list type expression.
+ *
+ * @param texpr IR identifier type expression
+ * @param f Output file
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_va_list_print(ir_texpr_t *texpr, FILE *f)
+{
+	int rv;
+
+	assert(texpr->tetype == irt_va_list);
+
+	rv = fputs("va_list", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Clone IR variable argument list type expression.
+ *
+ * @param texpr IR identifier type expression
+ * @param rcopy Place to store pointer to the copy
+ * @return EOK on success or an error code
+ */
+static int ir_texpr_va_list_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
+{
+	assert(texpr->tetype == irt_va_list);
+	return ir_texpr_va_list_create(rcopy);
+}
+
+/** Destroy variable argument list type expression.
+ *
+ * @param texpr Variable argument list type expression
+ */
+static void ir_texpr_va_list_destroy(ir_texpr_t *texpr)
+{
+	assert(texpr->tetype == irt_va_list);
+	free(texpr);
+}
+
 /** Print IR type expression.
  *
  * @param texpr IR type expression
@@ -2549,6 +2609,8 @@ int ir_texpr_print(ir_texpr_t *texpr, FILE *f)
 		return ir_texpr_array_print(texpr, f);
 	case irt_ident:
 		return ir_texpr_ident_print(texpr, f);
+	case irt_va_list:
+		return ir_texpr_va_list_print(texpr, f);
 	}
 
 	assert(false);
@@ -2572,6 +2634,8 @@ int ir_texpr_clone(ir_texpr_t *texpr, ir_texpr_t **rcopy)
 		return ir_texpr_array_clone(texpr, rcopy);
 	case irt_ident:
 		return ir_texpr_ident_clone(texpr, rcopy);
+	case irt_va_list:
+		return ir_texpr_va_list_clone(texpr, rcopy);
 	}
 
 	assert(false);
@@ -2599,6 +2663,9 @@ void ir_texpr_destroy(ir_texpr_t *texpr)
 		break;
 	case irt_ident:
 		ir_texpr_ident_destroy(texpr);
+		break;
+	case irt_va_list:
+		ir_texpr_va_list_destroy(texpr);
 		break;
 	}
 }

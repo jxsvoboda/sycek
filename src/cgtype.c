@@ -106,6 +106,9 @@ static int cgtype_basic_print(cgtype_basic_t *basic, FILE *f)
 	case cgelm_logic:
 		rv = fputs("logic", f);
 		break;
+	case cgelm_va_list:
+		rv = fputs("__va_list", f);
+		break;
 	}
 
 	if (rv < 0)
@@ -1110,6 +1113,7 @@ cgtype_int_rank_t cgtype_int_rank(cgtype_t *cgtype)
 
 	switch (basic->elmtype) {
 	case cgelm_void:
+	case cgelm_va_list:
 		assert(false);
 		break;
 	case cgelm_char:
