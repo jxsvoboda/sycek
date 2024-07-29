@@ -129,6 +129,8 @@ typedef enum {
 	ant_epreadj,
 	/** Post-increment/-decrement expression */
 	ant_epostadj,
+	/** __va_arg expression */
+	ant_eva_arg,
 	/** Compound initializer */
 	ant_cinit,
 	/** Assembler */
@@ -163,6 +165,12 @@ typedef enum {
 	ant_stdecln,
 	/** Null statement */
 	ant_stnull,
+	/** __va_copy statement */
+	ant_stva_copy,
+	/** __va_end statement */
+	ant_stva_end,
+	/** __va_start statement */
+	ant_stva_start,
 	/** Loop macro invocation */
 	ant_lmacro,
 	/** Statement block */
@@ -180,7 +188,7 @@ typedef enum {
 	/** Module */
 	ant_module,
 	/** Storage-class specifier */
-	ant_sclass,
+	ant_sclass
 } ast_node_type_t;
 
 /** Presence or absence of braces around a block */
@@ -1109,6 +1117,20 @@ typedef struct {
 	ast_tok_t tadj;
 } ast_epostadj_t;
 
+/** __va_arg expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** __va_arg token */
+	ast_tok_t tva_arg;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** Base expression */
+	ast_node_t *bexpr;
+	/** ')' token */
+	ast_tok_t trparen;
+} ast_eva_arg_t;
+
 /** Compound initializer */
 typedef struct ast_cinit {
 	/** Base object */
@@ -1495,6 +1517,62 @@ typedef struct {
 	/** ';' token */
 	ast_tok_t tscolon;
 } ast_stnull_t;
+
+/** __va_copy statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** __va_copy token */
+	ast_tok_t tva_copy;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** dest expression */
+	ast_node_t *dexpr;
+	/** ',' token */
+	ast_tok_t tcomma;
+	/** src expression */
+	ast_node_t *sexpr;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_stva_copy_t;
+
+/** __va_end statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** __va_end token */
+	ast_tok_t tva_end;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** ap expression */
+	ast_node_t *apexpr;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_stva_end_t;
+
+/** __va_start statement. */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** __va_start token */
+	ast_tok_t tva_start;
+	/** '(' token */
+	ast_tok_t tlparen;
+	/** ap expression */
+	ast_node_t *apexpr;
+	/** ',' token */
+	ast_tok_t tcomma;
+	/** last expression */
+	ast_node_t *lexpr;
+	/** ')' token */
+	ast_tok_t trparen;
+	/** ';' token */
+	ast_tok_t tscolon;
+} ast_stva_start_t;
 
 /** Loop macro invocation */
 typedef struct {

@@ -6798,9 +6798,9 @@ static ast_tok_t *ast_epreadj_last_tok(ast_epreadj_t *epreadj)
 	return ast_tree_last_tok(epreadj->bexpr);
 }
 
-/** Create AST pre-adjustment expression.
+/** Create AST post-adjustment expression.
  *
- * @param repostadj Place to store pointer to new pre-adjustment expression
+ * @param repostadj Place to store pointer to new post-adjustment expression
  *
  * @return EOK on success, ENOMEM if out of memory
  */
@@ -6819,9 +6819,9 @@ int ast_epostadj_create(ast_epostadj_t **repostadj)
 	return EOK;
 }
 
-/** Print AST pre-adjustment expression.
+/** Print AST post-adjustment expression.
  *
- * @param epostadj Pre-adjustment expression
+ * @param epostadj Post-adjustment expression
  * @param f Output file
  *
  * @return EOK on success, EIO on I/O error
@@ -6844,9 +6844,9 @@ static int ast_epostadj_print(ast_epostadj_t *epostadj, FILE *f)
 	return EOK;
 }
 
-/** Destroy AST pre-adjustment expression.
+/** Destroy AST post-adjustment expression.
  *
- * @param epostadj Pre-adjustment expression
+ * @param epostadj Post-adjustment expression
  */
 static void ast_epostadj_destroy(ast_epostadj_t *epostadj)
 {
@@ -6854,9 +6854,9 @@ static void ast_epostadj_destroy(ast_epostadj_t *epostadj)
 	free(epostadj);
 }
 
-/** Get first token of AST pre-adjustment expression.
+/** Get first token of AST post-adjustment expression.
  *
- * @param epostadj Pre-adjustment expression
+ * @param epostadj Post-adjustment expression
  * @return First token or @c NULL
  */
 static ast_tok_t *ast_epostadj_first_tok(ast_epostadj_t *epostadj)
@@ -6864,14 +6864,90 @@ static ast_tok_t *ast_epostadj_first_tok(ast_epostadj_t *epostadj)
 	return ast_tree_first_tok(epostadj->bexpr);
 }
 
-/** Get last token of AST pre-adjustment expression.
+/** Get last token of AST post-adjustment expression.
  *
- * @param epostadj Pre-adjustment expression
+ * @param epostadj Post-adjustment expression
  * @return Last token or @c NULL
  */
 static ast_tok_t *ast_epostadj_last_tok(ast_epostadj_t *epostadj)
 {
 	return &epostadj->tadj;
+}
+
+/** Create AST __va_arg expression.
+ *
+ * @param reva_arg Place to store pointer to new __va_arg expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_eva_arg_create(ast_eva_arg_t **reva_arg)
+{
+	ast_eva_arg_t *eva_arg;
+
+	eva_arg = calloc(1, sizeof(ast_eva_arg_t));
+	if (eva_arg == NULL)
+		return ENOMEM;
+
+	eva_arg->node.ext = eva_arg;
+	eva_arg->node.ntype = ant_eva_arg;
+
+	*reva_arg = eva_arg;
+	return EOK;
+}
+
+/** Print AST __va_arg expression.
+ *
+ * @param eva_arg __va_arg expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_eva_arg_print(ast_eva_arg_t *eva_arg, FILE *f)
+{
+	int rc;
+
+	(void) eva_arg;
+
+	if (fprintf(f, "eva_arg(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(eva_arg->bexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST __va_arg expression.
+ *
+ * @param epostadj __va_arg expression
+ */
+static void ast_eva_arg_destroy(ast_eva_arg_t *eva_arg)
+{
+	ast_tree_destroy(eva_arg->bexpr);
+	free(eva_arg);
+}
+
+/** Get first token of AST __va_arg expression.
+ *
+ * @param eva_arg __va_arg expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_eva_arg_first_tok(ast_eva_arg_t *eva_arg)
+{
+	return &eva_arg->tva_arg;
+}
+
+/** Get last token of AST __va_arg expression.
+ *
+ * @param eva_arg __va_arg expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_eva_arg_last_tok(ast_eva_arg_t *eva_arg)
+{
+	return &eva_arg->trparen;
 }
 
 /** Create AST compound initializer.
@@ -8793,6 +8869,250 @@ static void ast_stnull_destroy(ast_stnull_t *astnull)
 	free(astnull);
 }
 
+/** Create AST __va_copy statement.
+ *
+ * @param rstva_copy Place to store pointer to new __va_copy statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_stva_copy_create(ast_stva_copy_t **rstva_copy)
+{
+	ast_stva_copy_t *stva_copy;
+
+	stva_copy = calloc(1, sizeof(ast_stva_copy_t));
+	if (stva_copy == NULL)
+		return ENOMEM;
+
+	stva_copy->node.ext = stva_copy;
+	stva_copy->node.ntype = ant_stva_copy;
+
+	*rstva_copy = stva_copy;
+	return EOK;
+}
+
+/** Print AST __va_copy statement.
+ *
+ * @param stva_copy __va_copy statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_stva_copy_print(ast_stva_copy_t *stva_copy, FILE *f)
+{
+	int rc;
+
+	(void) stva_copy;
+
+	if (fprintf(f, "stva_copy(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(stva_copy->dexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(stva_copy->sexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST __va_copy statement.
+ *
+ * @param epostadj __va_copy statement
+ */
+static void ast_stva_copy_destroy(ast_stva_copy_t *stva_copy)
+{
+	ast_tree_destroy(stva_copy->dexpr);
+	ast_tree_destroy(stva_copy->sexpr);
+	free(stva_copy);
+}
+
+/** Get first token of AST __va_copy statement.
+ *
+ * @param stva_copy __va_copy statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_stva_copy_first_tok(ast_stva_copy_t *stva_copy)
+{
+	return &stva_copy->tva_copy;
+}
+
+/** Get last token of AST __va_copy statement.
+ *
+ * @param stva_copy __va_copy statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_stva_copy_last_tok(ast_stva_copy_t *stva_copy)
+{
+	return &stva_copy->tscolon;
+}
+
+/** Create AST __va_end statement.
+ *
+ * @param rstva_end Place to store pointer to new __va_end statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_stva_end_create(ast_stva_end_t **rstva_end)
+{
+	ast_stva_end_t *stva_end;
+
+	stva_end = calloc(1, sizeof(ast_stva_end_t));
+	if (stva_end == NULL)
+		return ENOMEM;
+
+	stva_end->node.ext = stva_end;
+	stva_end->node.ntype = ant_stva_end;
+
+	*rstva_end = stva_end;
+	return EOK;
+}
+
+/** Print AST __va_end statement.
+ *
+ * @param stva_end __va_end statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_stva_end_print(ast_stva_end_t *stva_end, FILE *f)
+{
+	int rc;
+
+	(void) stva_end;
+
+	if (fprintf(f, "stva_end(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(stva_end->apexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST __va_end statement.
+ *
+ * @param epostadj __va_end statement
+ */
+static void ast_stva_end_destroy(ast_stva_end_t *stva_end)
+{
+	ast_tree_destroy(stva_end->apexpr);
+	free(stva_end);
+}
+
+/** Get first token of AST __va_end statement.
+ *
+ * @param stva_end __va_end statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_stva_end_first_tok(ast_stva_end_t *stva_end)
+{
+	return &stva_end->tva_end;
+}
+
+/** Get last token of AST __va_end statement.
+ *
+ * @param stva_end __va_arg expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_stva_end_last_tok(ast_stva_end_t *stva_end)
+{
+	return &stva_end->tscolon;
+}
+
+/** Create AST __va_start statement.
+ *
+ * @param rstva_start Place to store pointer to new __va_start statement
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_stva_start_create(ast_stva_start_t **rstva_start)
+{
+	ast_stva_start_t *stva_start;
+
+	stva_start = calloc(1, sizeof(ast_stva_start_t));
+	if (stva_start == NULL)
+		return ENOMEM;
+
+	stva_start->node.ext = stva_start;
+	stva_start->node.ntype = ant_stva_start;
+
+	*rstva_start = stva_start;
+	return EOK;
+}
+
+/** Print AST __va_start statement.
+ *
+ * @param stva_start __va_start statement
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_stva_start_print(ast_stva_start_t *stva_start, FILE *f)
+{
+	int rc;
+
+	(void) stva_start;
+
+	if (fprintf(f, "stva_start(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(stva_start->apexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ",") < 0)
+		return EIO;
+
+	rc = ast_tree_print(stva_start->lexpr, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST __va_start statement.
+ *
+ * @param epostadj __va_start statement
+ */
+static void ast_stva_start_destroy(ast_stva_start_t *stva_start)
+{
+	ast_tree_destroy(stva_start->apexpr);
+	ast_tree_destroy(stva_start->lexpr);
+	free(stva_start);
+}
+
+/** Get first token of AST __va_start statement.
+ *
+ * @param stva_start __va_start statement
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_stva_start_first_tok(ast_stva_start_t *stva_start)
+{
+	return &stva_start->tva_start;
+}
+
+/** Get last token of AST __va_start statement.
+ *
+ * @param stva_start __va_start statement
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_stva_start_last_tok(ast_stva_start_t *stva_start)
+{
+	return &stva_start->tscolon;
+}
+
 /** Get first token of AST null statement.
  *
  * @param astnull Null statement
@@ -9019,6 +9339,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_epreadj_print((ast_epreadj_t *)node->ext, f);
 	case ant_epostadj:
 		return ast_epostadj_print((ast_epostadj_t *)node->ext, f);
+	case ant_eva_arg:
+		return ast_eva_arg_print((ast_eva_arg_t *)node->ext, f);
 	case ant_cinit:
 		return ast_cinit_print((ast_cinit_t *)node->ext, f);
 	case ant_asm:
@@ -9053,6 +9375,12 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_stdecln_print((ast_stdecln_t *)node->ext, f);
 	case ant_stnull:
 		return ast_stnull_print((ast_stnull_t *)node->ext, f);
+	case ant_stva_end:
+		return ast_stva_end_print((ast_stva_end_t *)node->ext, f);
+	case ant_stva_copy:
+		return ast_stva_copy_print((ast_stva_copy_t *)node->ext, f);
+	case ant_stva_start:
+		return ast_stva_start_print((ast_stva_start_t *)node->ext, f);
 	case ant_lmacro:
 		return ast_lmacro_print((ast_lmacro_t *)node->ext, f);
 	}
@@ -9238,6 +9566,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_epostadj:
 		ast_epostadj_destroy((ast_epostadj_t *)node->ext);
 		break;
+	case ant_eva_arg:
+		ast_eva_arg_destroy((ast_eva_arg_t *)node->ext);
+		break;
 	case ant_cinit:
 		ast_cinit_destroy((ast_cinit_t *)node->ext);
 		break;
@@ -9288,6 +9619,15 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_stnull:
 		ast_stnull_destroy((ast_stnull_t *)node->ext);
+		break;
+	case ant_stva_end:
+		ast_stva_end_destroy((ast_stva_end_t *)node->ext);
+		break;
+	case ant_stva_copy:
+		ast_stva_copy_destroy((ast_stva_copy_t *)node->ext);
+		break;
+	case ant_stva_start:
+		ast_stva_start_destroy((ast_stva_start_t *)node->ext);
 		break;
 	case ant_lmacro:
 		ast_lmacro_destroy((ast_lmacro_t *)node->ext);
@@ -9410,6 +9750,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_epreadj_first_tok((ast_epreadj_t *)node->ext);
 	case ant_epostadj:
 		return ast_epostadj_first_tok((ast_epostadj_t *)node->ext);
+	case ant_eva_arg:
+		return ast_eva_arg_first_tok((ast_eva_arg_t *)node->ext);
 	case ant_cinit:
 		return ast_cinit_first_tok((ast_cinit_t *)node->ext);
 	case ant_asm:
@@ -9444,6 +9786,12 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_stdecln_first_tok((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_first_tok((ast_stnull_t *)node->ext);
+	case ant_stva_end:
+		return ast_stva_end_first_tok((ast_stva_end_t *)node->ext);
+	case ant_stva_copy:
+		return ast_stva_copy_first_tok((ast_stva_copy_t *)node->ext);
+	case ant_stva_start:
+		return ast_stva_start_first_tok((ast_stva_start_t *)node->ext);
 	case ant_lmacro:
 		return ast_lmacro_first_tok((ast_lmacro_t *)node->ext);
 	}
@@ -9567,6 +9915,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_epreadj_last_tok((ast_epreadj_t *)node->ext);
 	case ant_epostadj:
 		return ast_epostadj_last_tok((ast_epostadj_t *)node->ext);
+	case ant_eva_arg:
+		return ast_eva_arg_last_tok((ast_eva_arg_t *)node->ext);
 	case ant_cinit:
 		return ast_cinit_last_tok((ast_cinit_t *)node->ext);
 	case ant_asm:
@@ -9601,6 +9951,12 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_stdecln_last_tok((ast_stdecln_t *)node->ext);
 	case ant_stnull:
 		return ast_stnull_last_tok((ast_stnull_t *)node->ext);
+	case ant_stva_end:
+		return ast_stva_end_last_tok((ast_stva_end_t *)node->ext);
+	case ant_stva_copy:
+		return ast_stva_copy_last_tok((ast_stva_copy_t *)node->ext);
+	case ant_stva_start:
+		return ast_stva_start_last_tok((ast_stva_start_t *)node->ext);
 	case ant_lmacro:
 		return ast_lmacro_last_tok((ast_lmacro_t *)node->ext);
 	}

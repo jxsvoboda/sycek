@@ -1,0 +1,12 @@
+<test/ccheck/ugly/varargs-in.c:11:21:space>: Unexpected whitespace after '__va_arg'.
+<test/ccheck/ugly/varargs-in.c:11:23:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/varargs-in.c:11:26:space>: Single space expected before ','.
+<test/ccheck/ugly/varargs-in.c:11:28:id:c>: Whitespace expected after ','.
+<test/ccheck/ugly/varargs-in.c:11:29:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/varargs-in.c:11:31:space>: Unexpected whitespace before ';'.
+<test/ccheck/ugly/varargs-in.c:20:23:space>: Unexpected whitespace before ','.
+<test/ccheck/ugly/varargs-in.c:20:25-27:id:fmt>: Expected space after ','.
+<test/ccheck/ugly/varargs-in.c:20:28:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/varargs-in.c:20:30:space>: Unexpected whitespace before ';'.
+<test/ccheck/ugly/varargs-in.c:22:17:space>: Unexpected whitespace before '('.
+<test/ccheck/ugly/varargs-in.c:22:22:space>: Unexpected whitespace before ')'.

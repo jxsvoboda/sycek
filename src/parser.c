@@ -1262,6 +1262,56 @@ error:
 	return rc;
 }
 
+/** Parse __va_arg operator expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_eva_arg(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_eva_arg_t *eva_arg = NULL;
+	ast_node_t *bexpr = NULL;
+	void *dva_arg;
+	void *dlparen;
+	void *drparen;
+	int rc;
+
+	rc = ast_eva_arg_create(&eva_arg);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_va_arg, &dva_arg);
+	if (rc != EOK)
+		goto error;
+
+	eva_arg->tva_arg.data = dva_arg;
+
+	parser_skip(parser, &dlparen);
+
+	rc = parser_process_expr(parser, &bexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	eva_arg->tlparen.data = dlparen;
+	eva_arg->bexpr = bexpr;
+	eva_arg->trparen.data = drparen;
+
+	*rexpr = &eva_arg->node;
+	return EOK;
+error:
+	if (bexpr != NULL)
+		ast_tree_destroy(bexpr);
+	if (eva_arg != NULL)
+		ast_tree_destroy(&eva_arg->node);
+	return rc;
+}
+
 /** Parse prefix operator expression.
  *
  * @param parser Parser
@@ -1381,6 +1431,11 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 		break;
 	case ltt_sizeof:
 		rc = parser_process_esizeof(parser, rexpr);
+		if (rc != EOK)
+			goto error;
+		break;
+	case ltt_va_arg:
+		rc = parser_process_eva_arg(parser, rexpr);
 		if (rc != EOK)
 			goto error;
 		break;
@@ -3633,6 +3688,199 @@ error:
 	return rc;
 }
 
+/** Parse __va_end statement.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new __va_end statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stva_end(parser_t *parser, ast_node_t **rstmt)
+{
+	ast_stva_end_t *stva_end = NULL;
+	ast_node_t *apexpr = NULL;
+	void *dva_end;
+	void *dlparen;
+	void *drparen;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_va_end, &dva_end);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &apexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_stva_end_create(&stva_end);
+	if (rc != EOK)
+		goto error;
+
+	stva_end->tva_end.data = dva_end;
+	stva_end->tlparen.data = dlparen;
+	stva_end->apexpr = apexpr;
+	stva_end->trparen.data = drparen;
+	stva_end->tscolon.data = dscolon;
+
+	*rstmt = &stva_end->node;
+	return EOK;
+error:
+	if (apexpr != NULL)
+		ast_tree_destroy(apexpr);
+	return rc;
+}
+
+/** Parse __va_copy statement.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new __va_copy statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stva_copy(parser_t *parser, ast_node_t **rstmt)
+{
+	ast_stva_copy_t *stva_copy = NULL;
+	ast_node_t *dexpr = NULL;
+	ast_node_t *sexpr = NULL;
+	void *dva_copy;
+	void *dlparen;
+	void *dcomma;
+	void *drparen;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_va_copy, &dva_copy);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &dexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_comma, &dcomma);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &sexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_stva_copy_create(&stva_copy);
+	if (rc != EOK)
+		goto error;
+
+	stva_copy->tva_copy.data = dva_copy;
+	stva_copy->tlparen.data = dlparen;
+	stva_copy->dexpr = dexpr;
+	stva_copy->tcomma.data = dcomma;
+	stva_copy->sexpr = sexpr;
+	stva_copy->trparen.data = drparen;
+	stva_copy->tscolon.data = dscolon;
+
+	*rstmt = &stva_copy->node;
+	return EOK;
+error:
+	if (dexpr != NULL)
+		ast_tree_destroy(dexpr);
+	if (sexpr != NULL)
+		ast_tree_destroy(sexpr);
+	return rc;
+}
+
+/** Parse __va_start statement.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new __va_start statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_stva_start(parser_t *parser, ast_node_t **rstmt)
+{
+	ast_stva_start_t *stva_start = NULL;
+	ast_node_t *apexpr = NULL;
+	ast_node_t *lexpr = NULL;
+	void *dva_start;
+	void *dlparen;
+	void *dcomma;
+	void *drparen;
+	void *dscolon;
+	int rc;
+
+	rc = parser_match(parser, ltt_va_start, &dva_start);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_econcat(parser, &apexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_comma, &dcomma);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &lexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_scolon, &dscolon);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_stva_start_create(&stva_start);
+	if (rc != EOK)
+		goto error;
+
+	stva_start->tva_start.data = dva_start;
+	stva_start->tlparen.data = dlparen;
+	stva_start->apexpr = apexpr;
+	stva_start->tcomma.data = dcomma;
+	stva_start->lexpr = lexpr;
+	stva_start->trparen.data = drparen;
+	stva_start->tscolon.data = dscolon;
+
+	*rstmt = &stva_start->node;
+	return EOK;
+error:
+	if (apexpr != NULL)
+		ast_tree_destroy(apexpr);
+	if (lexpr != NULL)
+		ast_tree_destroy(lexpr);
+	return rc;
+}
+
 /** Parse nested block 'statement'.
  *
  * @param parser Parser
@@ -3699,6 +3947,12 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 		return parser_process_stblock(parser, rstmt);
 	case ltt_scolon:
 		return parser_process_stnull(parser, rstmt);
+	case ltt_va_end:
+		return parser_process_stva_end(parser, rstmt);
+	case ltt_va_copy:
+		return parser_process_stva_copy(parser, rstmt);
+	case ltt_va_start:
+		return parser_process_stva_start(parser, rstmt);
 	case ltt_ident:
 		ltt2 = parser_next_next_ttype(parser);
 		if (ltt2 == ltt_colon)

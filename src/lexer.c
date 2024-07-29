@@ -1005,10 +1005,30 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		return lexer_onechar(lexer, ltt_rbracket, tok);
 	case '_':
 		if (p[1] == '_' && p[2] == 'v' && p[3] == 'a' &&
+		    p[4] == '_' && p[5] == 'a' && p[6] == 'r' &&
+		    p[7] == 'g' && !is_idcnt(p[8])) {
+			return lexer_keyword(lexer, ltt_va_arg, 8, tok);
+		}
+		if (p[1] == '_' && p[2] == 'v' && p[3] == 'a' &&
+		    p[4] == '_' && p[5] == 'c' && p[6] == 'o' &&
+		    p[7] == 'p' && p[8] == 'y' && !is_idcnt(p[9])) {
+			return lexer_keyword(lexer, ltt_va_copy, 9, tok);
+		}
+		if (p[1] == '_' && p[2] == 'v' && p[3] == 'a' &&
+		    p[4] == '_' && p[5] == 'e' && p[6] == 'n' &&
+		    p[7] == 'd' && !is_idcnt(p[8])) {
+			return lexer_keyword(lexer, ltt_va_end, 8, tok);
+		}
+		if (p[1] == '_' && p[2] == 'v' && p[3] == 'a' &&
 		    p[4] == '_' && p[5] == 'l' && p[6] == 'i' &&
-		    p[7] == 's' && p[8] == 't' &&
-		    !is_idcnt(p[9])) {
+		    p[7] == 's' && p[8] == 't' && !is_idcnt(p[9])) {
 			return lexer_keyword(lexer, ltt_va_list, 9, tok);
+		}
+		if (p[1] == '_' && p[2] == 'v' && p[3] == 'a' &&
+		    p[4] == '_' && p[5] == 's' && p[6] == 't' &&
+		    p[7] == 'a' && p[8] == 'r' && p[9] == 't' &&
+		    !is_idcnt(p[10])) {
+			return lexer_keyword(lexer, ltt_va_start, 10, tok);
 		}
 		if (p[1] == '_' && p[2] == 'a' && p[3] == 't' &&
 		    p[4] == 't' && p[5] == 'r' && p[6] == 'i' &&
@@ -1531,8 +1551,16 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'union'";
 	case ltt_unsigned:
 		return "'unsigned'";
+	case ltt_va_arg:
+		return "'__va_arg'";
+	case ltt_va_copy:
+		return "'__va_copy'";
+	case ltt_va_end:
+		return "'__va_end'";
 	case ltt_va_list:
 		return "'__va_list'";
+	case ltt_va_start:
+		return "'__va_start'";
 	case ltt_void:
 		return "'void'";
 	case ltt_volatile:

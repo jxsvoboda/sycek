@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -2047,6 +2047,154 @@ static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull,
 	return EOK;
 }
 
+/** Run checks on a __va_end statement.
+ *
+ * @param scope Checker scope
+ * @param stva_end AST __va_end statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stva_end(checker_scope_t *scope,
+    ast_stva_end_t *stva_end)
+{
+	int rc;
+	checker_tok_t *tva_end;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	checker_tok_t *tscolon;
+
+	tva_end = (checker_tok_t *)stva_end->tva_end.data;
+	rc = checker_check_lbegin(scope, tva_end,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	tlparen = (checker_tok_t *)stva_end->tlparen.data;
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
+
+	rc = checker_check_expr(scope, stva_end->apexpr);
+	if (rc != EOK)
+		return rc;
+
+	trparen = (checker_tok_t *)stva_end->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	tscolon = (checker_tok_t *)stva_end->tscolon.data;
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
+/** Run checks on a __va_copy statement.
+ *
+ * @param scope Checker scope
+ * @param stva_copy AST __va_copy statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stva_copy(checker_scope_t *scope,
+    ast_stva_copy_t *stva_copy)
+{
+	int rc;
+	checker_tok_t *tva_copy;
+	checker_tok_t *tlparen;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen;
+	checker_tok_t *tscolon;
+
+	tva_copy = (checker_tok_t *)stva_copy->tva_copy.data;
+	rc = checker_check_lbegin(scope, tva_copy,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	tlparen = (checker_tok_t *)stva_copy->tlparen.data;
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
+
+	rc = checker_check_expr(scope, stva_copy->dexpr);
+	if (rc != EOK)
+		return rc;
+
+	tcomma = (checker_tok_t *)stva_copy->tcomma.data;
+	checker_check_nows_before(scope, tcomma,
+	    "Unexpected whitespace before ','.");
+
+	rc = checker_check_brkspace_after(scope, tcomma,
+	    "Expected space after ','.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, stva_copy->sexpr);
+	if (rc != EOK)
+		return rc;
+
+	trparen = (checker_tok_t *)stva_copy->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	tscolon = (checker_tok_t *)stva_copy->tscolon.data;
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
+/** Run checks on a __va_start statement.
+ *
+ * @param scope Checker scope
+ * @param stva_start AST __va_start statement
+ * @return EOK on success or error code
+ */
+static int checker_check_stva_start(checker_scope_t *scope,
+    ast_stva_start_t *stva_start)
+{
+	int rc;
+	checker_tok_t *tva_start;
+	checker_tok_t *tlparen;
+	checker_tok_t *tcomma;
+	checker_tok_t *trparen;
+	checker_tok_t *tscolon;
+
+	tva_start = (checker_tok_t *)stva_start->tva_start.data;
+	rc = checker_check_lbegin(scope, tva_start,
+	    "Statement must start on a new line.");
+	if (rc != EOK)
+		return rc;
+
+	tlparen = (checker_tok_t *)stva_start->tlparen.data;
+	checker_check_nows_before(scope, tlparen,
+	    "Unexpected whitespace before '('.");
+
+	rc = checker_check_expr(scope, stva_start->apexpr);
+	if (rc != EOK)
+		return rc;
+
+	tcomma = (checker_tok_t *)stva_start->tcomma.data;
+	checker_check_nows_before(scope, tcomma,
+	    "Unexpected whitespace before ','.");
+
+	rc = checker_check_brkspace_after(scope, tcomma,
+	    "Expected space after ','.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_expr(scope, stva_start->lexpr);
+	if (rc != EOK)
+		return rc;
+
+	trparen = (checker_tok_t *)stva_start->trparen.data;
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	tscolon = (checker_tok_t *)stva_start->tscolon.data;
+	checker_check_nows_before(scope, tscolon,
+	    "Unexpected whitespace before ';'.");
+
+	return EOK;
+}
+
 /** Run checks on a loop macro invocation.
  *
  * @param scope Checker scope
@@ -2179,6 +2327,15 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt,
 	case ant_stnull:
 		return checker_check_stnull(scope, (ast_stnull_t *)stmt->ext,
 		    nsallow);
+	case ant_stva_end:
+		return checker_check_stva_end(scope,
+		    (ast_stva_end_t *)stmt->ext);
+	case ant_stva_copy:
+		return checker_check_stva_copy(scope,
+		    (ast_stva_copy_t *)stmt->ext);
+	case ant_stva_start:
+		return checker_check_stva_start(scope,
+		    (ast_stva_start_t *)stmt->ext);
 	case ant_lmacro:
 		return checker_check_lmacro(scope, (ast_lmacro_t *)stmt->ext);
 	case ant_block:
@@ -4364,6 +4521,39 @@ static int checker_check_epostadj(checker_scope_t *scope,
 	return EOK;
 }
 
+/** Run checks on a __va_arg expression.
+ *
+ * @param scope Checker scope
+ * @param eva_arg AST __va_arg expression
+ * @return EOK on success or error code
+ */
+static int checker_check_eva_arg(checker_scope_t *scope,
+    ast_eva_arg_t *eva_arg)
+{
+	int rc;
+	checker_tok_t *tva_arg;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+
+	tva_arg = (checker_tok_t *)eva_arg->tva_arg.data;
+	tlparen = (checker_tok_t *)eva_arg->tlparen.data;
+	trparen = (checker_tok_t *)eva_arg->trparen.data;
+
+	checker_check_nows_after(scope, tva_arg,
+	    "Unexpected whitespace after '__va_arg'.");
+	checker_check_nows_after(scope, tlparen,
+	    "Unexpected whitespace after '('.");
+
+	rc = checker_check_expr(scope, eva_arg->bexpr);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, trparen,
+	    "Unexpected whitespace before ')'.");
+
+	return EOK;
+}
+
 /** Check arithmetic expression.
  *
  * @param scope Checker scope
@@ -4421,6 +4611,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 		return checker_check_epreadj(scope, (ast_epreadj_t *) expr);
 	case ant_epostadj:
 		return checker_check_epostadj(scope, (ast_epostadj_t *) expr);
+	case ant_eva_arg:
+		return checker_check_eva_arg(scope, (ast_eva_arg_t *) expr);
 	default:
 		assert(false);
 		break;
