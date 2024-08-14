@@ -377,6 +377,7 @@ static int cgtype_func_compose(cgtype_func_t *a, cgtype_func_t *b,
 	}
 
 	comp->cconv = a->cconv;
+	comp->variadic = a->variadic;
 	*rcomp = &comp->cgtype;
 	return EOK;
 

@@ -49,8 +49,16 @@ A valid expression is one of
     <decimal-number>
     0x<hexadecimal-number>
     0X<hexadecimal-number>
-
+    AF
+    BC
+    DE
+    HL
     @<symbol-name>
+    @<symbol-name>+<decimal-or-hex-number>
+    AF+<decimal-or-hex-number>
+    BC+<decimal-or-hex-number>
+    DE+<decimal-or-hex-number>
+    HL+<decimal-or-hex-number>
 
 Register/memory operands
 ------------------------
@@ -83,9 +91,14 @@ Load symbol table from a Z80asm-compatible map file
 
 Load register/memory
 --------------------
-Load a value into register or into memory
+Load a value of the specified expression into register or into memory
 
     ld <register/memory>, <expression>;
+
+Or, load value from register/memory (right operand) and store it into
+register or memory (left operand)
+
+    ld <register/memory>, <register/memory>;
 
 Print register/memory
 ---------------------
@@ -109,3 +122,14 @@ generated and the test is aborted.
 
     call <expression>;
 
+Push to stack
+-------------
+Push result of the specified expression to the stack as a 16-bit number.
+
+    push <expression>;
+
+Pop from stack
+--------------
+Pop the topmost 16-bit entry from the stack.
+
+    pop;

@@ -21,47 +21,18 @@
  */
 
 /*
- * Z80 register allocation
+ * Z80 stack frame
  */
 
-#ifndef TYPES_Z80_RALLOC_H
-#define TYPES_Z80_RALLOC_H
+#ifndef TYPES_Z80_STACKFRAME_H
+#define TYPES_Z80_STACKFRAME_H
 
-#include <stdint.h>
-#include <types/z80/z80ic.h>
-
-/** Z80 register allocator */
-typedef struct {
-	int dummy;
-} z80_ralloc_t;
-
-/** Z80 register allocator for procedure */
-typedef struct {
-	/** Containing register allocator */
-	z80_ralloc_t *ralloc;
-	/** Procedure with VRs */
-	z80ic_proc_t *vrproc;
-	/** Next label number to allocate */
-	unsigned next_label;
-	/** Stack frame size */
-	size_t sfsize;
-	/** Current stack pointer adjustment (last SF entry - SP) */
-	size_t spadj;
-} z80_ralloc_proc_t;
-
-/** Z80 data access using index register
- *
- * If the register allocator wants to access a location on the stack
- * (e.g. stack frame entry / spilled virtual register, or an
- * argument stored on the stack), we may need to set up an index register,
- * then emit a specific instruction using HL, IX or IY, then possibly
- * restore any modified registers.
- *
- * This structure tracks the index register setup.
- */
-typedef struct {
-	/** Displacement */
-	int8_t disp;
-} z80_idxacc_t;
+/** Which side of stack frame is an offset relative to */
+typedef enum {
+	/* Offset is relative to beginning (lowest address) of stack frame */
+	z80sf_begin,
+	/* Offset is reltive to end (highest address of stack frame */
+	z80sf_end
+} z80sf_rel_t;
 
 #endif

@@ -1,0 +1,227 @@
+mapfile "vararg.map";
+ldbin "vararg.bin", 0x8000;
+
+/*
+ * Test __va_start
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_vastart;
+pop;
+pop;
+
+/*
+ * NOTE: technically, the stack frame and stack arguments have
+ * already been popped of the stack. However, we know they haven't been
+ * overwritten yet (e.g., no interrupts), so we can do the verification.
+ */
+
+/* verify first (fixed) argument was copied to d0 */
+verify word ptr (@_d0), 0x11;
+
+/* varify vl was initialized correctly */
+ld HL, word ptr (@_vl);
+verify word ptr (HL), 0x22; /* vl.cur points to copy of second argument */
+verify word ptr (@_vl+2), 4; /* 4 more bytes of register args */
+ld HL, word ptr (@_vl+4);
+verify word ptr (HL), 0x44; /* vl.stack points to first stack argument */
+
+/*
+ * Test __va_copy
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_vacopy;
+pop;
+pop;
+
+/*
+ * NOTE: technically, the stack frame and stack arguments have
+ * already been popped of the stack. However, we know they haven't been
+ * overwritten yet (e.g., no interrupts), so we can do the verification.
+ */
+
+/* verify first (fixed) argument was copied to d0 */
+verify word ptr (@_d0), 0x11;
+
+/* varify vl2 was initialized correctly */
+ld HL, word ptr (@_vl2);
+verify word ptr (HL), 0x22; /* vl.cur points to copy of second argument */
+verify word ptr (@_vl2+2), 4; /* 4 more bytes of register args */
+ld HL, word ptr (@_vl2+4);
+verify word ptr (HL), 0x44; /* vl.stack points to first stack argument */
+
+/*
+ * Test __va_end
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_vaend;
+pop;
+pop;
+
+/*
+ * NOTE: technically, the stack frame and stack arguments have
+ * already been popped of the stack. However, we know they haven't been
+ * overwritten yet (e.g., no interrupts), so we can do the verification.
+ */
+
+/* verify first (fixed) argument was copied to d0 */
+verify word ptr (@_d0), 0x11;
+
+/* varify vl was initialized correctly - va_end does not do anything*/
+ld HL, word ptr (@_vl);
+verify word ptr (HL), 0x22; /* vl.cur points to copy of second argument */
+verify word ptr (@_vl+2), 4; /* 4 more bytes of register args */
+ld HL, word ptr (@_vl+4);
+verify word ptr (HL), 0x44; /* vl.stack points to first stack argument */
+
+ld word ptr (@_d0), 0;
+ld word ptr (@_d1), 0;
+ld word ptr (@_d2), 0;
+ld word ptr (@_d3), 0;
+ld word ptr (@_d4), 0;
+
+/*
+ * Test __va_arg function var1 with 1 fixed and 4 variable arguments
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_var1;
+pop;
+pop;
+
+verify word ptr (@_d0), 0x11;
+verify word ptr (@_d1), 0x22;
+verify word ptr (@_d2), 0x33;
+verify word ptr (@_d3), 0x44;
+verify word ptr (@_d4), 0x55;
+
+ld word ptr (@_d0), 0;
+ld word ptr (@_d1), 0;
+ld word ptr (@_d2), 0;
+ld word ptr (@_d3), 0;
+ld word ptr (@_d4), 0;
+
+/*
+ * Test __va_arg function var2 with 2 fixed and 3 variable arguments
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_var2;
+pop;
+pop;
+
+verify word ptr (@_d0), 0x11;
+verify word ptr (@_d1), 0x22;
+verify word ptr (@_d2), 0x33;
+verify word ptr (@_d3), 0x44;
+verify word ptr (@_d4), 0x55;
+
+ld word ptr (@_d0), 0;
+ld word ptr (@_d1), 0;
+ld word ptr (@_d2), 0;
+ld word ptr (@_d3), 0;
+ld word ptr (@_d4), 0;
+
+/*
+ * Test __va_arg function var3 with 3 fixed and 2 variable arguments
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_var3;
+pop;
+pop;
+
+verify word ptr (@_d0), 0x11;
+verify word ptr (@_d1), 0x22;
+verify word ptr (@_d2), 0x33;
+verify word ptr (@_d3), 0x44;
+verify word ptr (@_d4), 0x55;
+
+ld word ptr (@_d0), 0;
+ld word ptr (@_d1), 0;
+ld word ptr (@_d2), 0;
+ld word ptr (@_d3), 0;
+ld word ptr (@_d4), 0;
+
+/*
+ * Test __va_arg function var4 with 4 fixed and 1 variable arguments
+ */
+ld HL, 0x11;
+ld DE, 0x22;
+ld BC, 0x33;
+push 0x55;
+push 0x44;
+call @_var4;
+pop;
+pop;
+
+verify word ptr (@_d0), 0x11;
+verify word ptr (@_d1), 0x22;
+verify word ptr (@_d2), 0x33;
+verify word ptr (@_d3), 0x44;
+verify word ptr (@_d4), 0x55;
+
+ld word ptr (@_d0), 0;
+ld word ptr (@_d1), 0;
+ld word ptr (@_d2), 0;
+ld word ptr (@_d3), 0;
+ld word ptr (@_d4), 0;
+
+/*
+ * Test code that calls a variadic function
+ */
+ld word ptr (@_s0), 0x1;
+ld word ptr (@_s1), 0x2;
+ld word ptr (@_s2), 0x3;
+ld word ptr (@_s3), 0x4;
+ld word ptr (@_s4), 0x5;
+call @_cvar1;
+
+verify word ptr (@_d0), 0x1;
+verify word ptr (@_d1), 0x2;
+verify word ptr (@_d2), 0x3;
+verify word ptr (@_d3), 0x4;
+verify word ptr (@_d4), 0x5;
+
+ld word ptr (@_d0), 0;
+ld word ptr (@_d1), 0;
+ld word ptr (@_d2), 0;
+ld word ptr (@_d3), 0;
+ld word ptr (@_d4), 0;
+
+/*
+ * Test code that calls a variadic function that does __va_start, then
+ * passes the __va_list to another function.
+ */
+ld word ptr (@_s0), 0x1;
+ld word ptr (@_s1), 0x2;
+ld word ptr (@_s2), 0x3;
+ld word ptr (@_s3), 0x4;
+ld word ptr (@_s4), 0x5;
+call @_cvarv;
+
+verify word ptr (@_d0), 0x1;
+verify word ptr (@_d1), 0x2;
+verify word ptr (@_d2), 0x3;
+verify word ptr (@_d3), 0x4;
+verify word ptr (@_d4), 0x5;

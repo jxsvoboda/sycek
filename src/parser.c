@@ -1272,9 +1272,11 @@ error:
 static int parser_process_eva_arg(parser_t *parser, ast_node_t **rexpr)
 {
 	ast_eva_arg_t *eva_arg = NULL;
-	ast_node_t *bexpr = NULL;
+	ast_node_t *apexpr = NULL;
+	ast_typename_t *atypename = NULL;
 	void *dva_arg;
 	void *dlparen;
+	void *dcomma;
 	void *drparen;
 	int rc;
 
@@ -1290,7 +1292,15 @@ static int parser_process_eva_arg(parser_t *parser, ast_node_t **rexpr)
 
 	parser_skip(parser, &dlparen);
 
-	rc = parser_process_expr(parser, &bexpr);
+	rc = parser_process_econcat(parser, &apexpr);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_comma, &dcomma);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_typename(parser, &atypename);
 	if (rc != EOK)
 		goto error;
 
@@ -1299,14 +1309,18 @@ static int parser_process_eva_arg(parser_t *parser, ast_node_t **rexpr)
 		goto error;
 
 	eva_arg->tlparen.data = dlparen;
-	eva_arg->bexpr = bexpr;
+	eva_arg->apexpr = apexpr;
+	eva_arg->tcomma.data = dcomma;
+	eva_arg->atypename = atypename;
 	eva_arg->trparen.data = drparen;
 
 	*rexpr = &eva_arg->node;
 	return EOK;
 error:
-	if (bexpr != NULL)
-		ast_tree_destroy(bexpr);
+	if (atypename != NULL)
+		ast_tree_destroy(&atypename->node);
+	if (apexpr != NULL)
+		ast_tree_destroy(apexpr);
 	if (eva_arg != NULL)
 		ast_tree_destroy(&eva_arg->node);
 	return rc;
@@ -3697,7 +3711,7 @@ error:
  */
 static int parser_process_stva_end(parser_t *parser, ast_node_t **rstmt)
 {
-	ast_stva_end_t *stva_end = NULL;
+	ast_va_end_t *stva_end = NULL;
 	ast_node_t *apexpr = NULL;
 	void *dva_end;
 	void *dlparen;
@@ -3725,7 +3739,7 @@ static int parser_process_stva_end(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		goto error;
 
-	rc = ast_stva_end_create(&stva_end);
+	rc = ast_va_end_create(&stva_end);
 	if (rc != EOK)
 		goto error;
 
@@ -3752,7 +3766,7 @@ error:
  */
 static int parser_process_stva_copy(parser_t *parser, ast_node_t **rstmt)
 {
-	ast_stva_copy_t *stva_copy = NULL;
+	ast_va_copy_t *stva_copy = NULL;
 	ast_node_t *dexpr = NULL;
 	ast_node_t *sexpr = NULL;
 	void *dva_copy;
@@ -3770,7 +3784,7 @@ static int parser_process_stva_copy(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_expr(parser, &dexpr);
+	rc = parser_process_econcat(parser, &dexpr);
 	if (rc != EOK)
 		goto error;
 
@@ -3790,7 +3804,7 @@ static int parser_process_stva_copy(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		goto error;
 
-	rc = ast_stva_copy_create(&stva_copy);
+	rc = ast_va_copy_create(&stva_copy);
 	if (rc != EOK)
 		goto error;
 
@@ -3821,7 +3835,7 @@ error:
  */
 static int parser_process_stva_start(parser_t *parser, ast_node_t **rstmt)
 {
-	ast_stva_start_t *stva_start = NULL;
+	ast_va_start_t *stva_start = NULL;
 	ast_node_t *apexpr = NULL;
 	ast_node_t *lexpr = NULL;
 	void *dva_start;
@@ -3859,7 +3873,7 @@ static int parser_process_stva_start(parser_t *parser, ast_node_t **rstmt)
 	if (rc != EOK)
 		goto error;
 
-	rc = ast_stva_start_create(&stva_start);
+	rc = ast_va_start_create(&stva_start);
 	if (rc != EOK)
 		goto error;
 

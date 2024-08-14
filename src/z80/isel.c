@@ -38,6 +38,11 @@
 
 static int z80_isel_texpr_sizeof(z80_isel_t *, ir_texpr_t *, size_t *);
 
+enum {
+	/** Size of __va_list in bytes */
+	z80_isel_valist_sz = 6
+};
+
 /** Mangle global identifier.
  *
  * @param irident IR global identifier
@@ -303,7 +308,7 @@ static void z80_isel_texpr_va_list_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 	assert(texpr->tetype == irt_va_list);
 	(void)isel;
 
-	*rsize = 6;
+	*rsize = z80_isel_valist_sz;
 }
 
 /** Get size of type described by IR type expression in bytes.
@@ -2065,7 +2070,7 @@ static int z80_isel_vrr_lvarptr(z80_isel_proc_t *isproc, unsigned destvr,
 {
 	z80ic_oper_vrr_t *vrr = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
-	z80ic_ld_vrr_spnn_t *ld = NULL;
+	z80ic_ld_vrr_sfbnn_t *ld = NULL;
 	char *varident = NULL;
 	int rc;
 
@@ -2073,9 +2078,9 @@ static int z80_isel_vrr_lvarptr(z80_isel_proc_t *isproc, unsigned destvr,
 	if (rc != EOK)
 		goto error;
 
-	/* ld vrr, SP+$varident@SP */
+	/* ld vrr, SFB+$varident@SFB */
 
-	rc = z80ic_ld_vrr_spnn_create(&ld);
+	rc = z80ic_ld_vrr_sfbnn_create(&ld);
 	if (rc != EOK)
 		goto error;
 
@@ -2109,6 +2114,395 @@ error:
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_imm16_destroy(imm);
 
+	return rc;
+}
+
+/** Select Z80 IC instructions code to copy block of memory of constant size.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param vr1 Virtual register pair containing destination address
+ * @param vr2 Virtual register pair containing source address
+ * @param nbytes Number of bytes to copy
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_memcopy(z80_isel_proc_t *isproc, unsigned vr1,
+    unsigned vr2, size_t nbytes, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_vr_n_t *ldimm8 = NULL;
+	z80ic_ld_vrr_vrr_t *ldvrr = NULL;
+	z80ic_ld_vr_ivrr_t *ldvrivrr = NULL;
+	z80ic_ld_ivrr_vr_t *ldivrrvr = NULL;
+	z80ic_jp_cc_nn_t *jpcc = NULL;
+	z80ic_dec_vr_t *dec = NULL;
+	z80ic_inc_vrr_t *inc = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	z80ic_oper_vrr_t *vrrd = NULL;
+	z80ic_oper_vrr_t *vrrs = NULL;
+	unsigned dvr;
+	unsigned svr;
+	unsigned nhvr;
+	unsigned nlvr;
+	unsigned tvr;
+	uint8_t high;
+	uint8_t low;
+	size_t tocopy;
+	unsigned lblno;
+	char *clabel = NULL;
+	int rc;
+
+	assert(nbytes > 0);
+	assert(nbytes < 0x10000);
+
+	nhvr = z80_isel_get_new_vregno(isproc);
+	nlvr = z80_isel_get_new_vregno(isproc);
+	svr = z80_isel_get_new_vregno(isproc);
+	dvr = z80_isel_get_new_vregno(isproc);
+	tvr = z80_isel_get_new_vregno(isproc);
+
+	lblno = z80_isel_new_label_num(isproc);
+
+	rc = z80_isel_create_label(isproc, "copy", lblno, &clabel);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Here's a generic version using virtual registers.
+	 * For large structures LDI(R) is probably much faster,
+	 * but not so good for smaller structures, especially with
+	 * constant address.
+	 *
+	 * For these cases this general code can be further optimized
+	 * and generate much less register pressure. For larger copies,
+	 * we should probably opt for LDI(R).
+	 *
+	 * Our code can only loop up to 0x7fff times. If the structure
+	 * is larger, we need to generate multiple instances of the loop.
+	 */
+
+	while (nbytes > 0) {
+		if (nbytes < 0x8000)
+			tocopy = nbytes;
+		else
+			tocopy = 0x7fff;
+
+		/*
+		 * Because 16-bit decrement does not affect flags and
+		 * 8-bit decrement does not affect carry, we are left
+		 * with a little strange way of counting down
+		 * dec low; jp NZ; dec high; jp P. Thus 00 as
+		 * the low byte of the counter means 256. Also we cannot
+		 * have the high byte > 0x7f.
+		 */
+		if ((tocopy & 0xff) == 0) {
+			high = (tocopy >> 8) - 1;
+			low = 0x00;
+		} else {
+			high = tocopy >> 8;
+			low = tocopy & 0xff;
+		}
+
+		/* ld %nl, low */
+
+		rc = z80ic_ld_vr_n_create(&ldimm8);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(nlvr, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm8_create(low, &imm8);
+		if (rc != EOK)
+			goto error;
+
+		ldimm8->dest = vr;
+		ldimm8->imm8 = imm8;
+		vr = NULL;
+		imm8 = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldimm8 = NULL;
+
+		/* ld %nh, high */
+
+		rc = z80ic_ld_vr_n_create(&ldimm8);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(nhvr, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm8_create(high, &imm8);
+		if (rc != EOK)
+			goto error;
+
+		ldimm8->dest = vr;
+		ldimm8->imm8 = imm8;
+		vr = NULL;
+		imm8 = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldimm8 = NULL;
+
+		/* ld %%d, %%op1 */
+
+		rc = z80ic_ld_vrr_vrr_create(&ldvrr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(dvr, &vrrd);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(vr1, &vrrs);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr->dest = vrrd;
+		ldvrr->src = vrrs;
+		vrrd = NULL;
+		vrrs = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr = NULL;
+
+		/* ld %%s, %%op2 */
+
+		rc = z80ic_ld_vrr_vrr_create(&ldvrr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(svr, &vrrd);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(vr2, &vrrs);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr->dest = vrrd;
+		ldvrr->src = vrrs;
+		vrrd = NULL;
+		vrrs = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr = NULL;
+
+		/* label %reccopy */
+
+		rc = z80ic_lblock_append(lblock, clabel, NULL);
+		if (rc != EOK)
+			goto error;
+
+		/* ld %t, (%%s) */
+
+		rc = z80ic_ld_vr_ivrr_create(&ldvrivrr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(svr, &vrrs);
+		if (rc != EOK)
+			goto error;
+
+		ldvrivrr->dest = vr;
+		ldvrivrr->isrc = vrrs;
+		vr = NULL;
+		vrrs = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldvrivrr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvrivrr = NULL;
+
+		/* inc %%s */
+
+		rc = z80ic_inc_vrr_create(&inc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(svr, &vrrs);
+		if (rc != EOK)
+			goto error;
+
+		inc->vrr = vrrs;
+		vrrs = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+		if (rc != EOK)
+			goto error;
+
+		inc = NULL;
+
+		/* ld (%%d), %t */
+
+		rc = z80ic_ld_ivrr_vr_create(&ldivrrvr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(dvr, &vrrd);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		ldivrrvr->idest = vrrd;
+		ldivrrvr->src = vr;
+		vrrd = NULL;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldivrrvr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldivrrvr = NULL;
+
+		/* inc %%d */
+
+		rc = z80ic_inc_vrr_create(&inc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(dvr, &vrrd);
+		if (rc != EOK)
+			goto error;
+
+		inc->vrr = vrrd;
+		vrrd = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+		if (rc != EOK)
+			goto error;
+
+		inc = NULL;
+
+		/* dec %nl */
+
+		rc = z80ic_dec_vr_create(&dec);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(nlvr, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		dec->vr = vr;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+		if (rc != EOK)
+			goto error;
+
+		dec = NULL;
+
+		/* jp NZ, %reccopy */
+
+		rc = z80ic_jp_cc_nn_create(&jpcc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm16_create_symbol(clabel, &imm16);
+		if (rc != EOK)
+			goto error;
+
+		jpcc->cc = z80ic_cc_nz;
+		jpcc->imm16 = imm16;
+		imm16 = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+		if (rc != EOK)
+			goto error;
+
+		jpcc = NULL;
+
+		/* dec %nh */
+
+		rc = z80ic_dec_vr_create(&dec);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(nhvr, z80ic_vrp_r8, &vr);
+		if (rc != EOK)
+			goto error;
+
+		dec->vr = vr;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+		if (rc != EOK)
+			goto error;
+
+		dec = NULL;
+
+		/* jp P, %reccopy */
+
+		rc = z80ic_jp_cc_nn_create(&jpcc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm16_create_symbol(clabel, &imm16);
+		if (rc != EOK)
+			goto error;
+
+		jpcc->cc = z80ic_cc_p;
+		jpcc->imm16 = imm16;
+		imm16 = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+		if (rc != EOK)
+			goto error;
+
+		jpcc = NULL;
+
+		nbytes -= tocopy;
+	}
+
+	free(clabel);
+	return EOK;
+error:
+	if (clabel != NULL)
+		free(clabel);
+	if (ldimm8 != NULL)
+		z80ic_instr_destroy(&ldimm8->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (ldvrivrr != NULL)
+		z80ic_instr_destroy(&ldvrivrr->instr);
+	if (ldivrrvr != NULL)
+		z80ic_instr_destroy(&ldivrrvr->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_imm8_destroy(imm8);
+	z80ic_oper_imm16_destroy(imm16);
+	z80ic_oper_vrr_destroy(vrrd);
+	z80ic_oper_vrr_destroy(vrrs);
 	return rc;
 }
 
@@ -7806,34 +8200,12 @@ static int z80_isel_read(z80_isel_proc_t *isproc, const char *label,
 static int z80_isel_reccopy(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_ld_vr_n_t *ldimm8 = NULL;
-	z80ic_ld_vrr_vrr_t *ldvrr = NULL;
-	z80ic_ld_vr_ivrr_t *ldvrivrr = NULL;
-	z80ic_ld_ivrr_vr_t *ldivrrvr = NULL;
-	z80ic_jp_cc_nn_t *jpcc = NULL;
-	z80ic_dec_vr_t *dec = NULL;
-	z80ic_inc_vrr_t *inc = NULL;
-	z80ic_oper_vr_t *vr = NULL;
-	z80ic_oper_imm8_t *imm8 = NULL;
-	z80ic_oper_imm16_t *imm16 = NULL;
-	z80ic_oper_vrr_t *vrrd = NULL;
-	z80ic_oper_vrr_t *vrrs = NULL;
-	unsigned nlvr;
-	unsigned nhvr;
-	unsigned svr;
-	unsigned dvr;
-	unsigned tvr;
 	unsigned vr1;
 	unsigned vr2;
-	uint8_t high;
-	uint8_t low;
 	size_t elemsz;
-	size_t tocopy;
-	unsigned lblno;
-	char *clabel = NULL;
 	int rc;
 
-	(void)lblock;
+	(void)label;
 
 	assert(irinstr->itype == iri_reccopy);
 	assert(irinstr->width == 0);
@@ -7849,344 +8221,11 @@ static int z80_isel_reccopy(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		return rc;
 
-	nlvr = z80_isel_get_new_vregno(isproc);
-	nhvr = z80_isel_get_new_vregno(isproc);
-	svr = z80_isel_get_new_vregno(isproc);
-	dvr = z80_isel_get_new_vregno(isproc);
-	tvr = z80_isel_get_new_vregno(isproc);
-
-	lblno = z80_isel_new_label_num(isproc);
-
-	rc = z80_isel_create_label(isproc, "reccopy", lblno, &clabel);
+	rc = z80_isel_memcopy(isproc, vr1, vr2, elemsz, lblock);
 	if (rc != EOK)
-		goto error;
+		return rc;
 
-	(void)label;
-
-	/*
-	 * Here's a generic version using virtual registers.
-	 * For large structures LDI(R) is probably much faster,
-	 * but not so good for smaller structures, especially with
-	 * constant address.
-	 *
-	 * For these cases this general code can be further optimized
-	 * and generate much less register pressure. For larger copies,
-	 * we should probably opt for LDI(R).
-	 *
-	 * Our code can only loop up to 0x7fff times. If the structure
-	 * is larger, we need to generate multiple instances of the loop.
-	 */
-
-	while (elemsz > 0) {
-		if (elemsz < 0x8000)
-			tocopy = elemsz;
-		else
-			tocopy = 0x7fff;
-
-		/*
-		 * Because 16-bit decrement does not affect flags and
-		 * 8-bit decrement does not affect carry, we are left
-		 * with a little strange way of counting down
-		 * dec low; jp NZ; dec high; jp P. Thus 00 as
-		 * the low byte of the counter means 256. Also we cannot
-		 * have the high byte > 0x7f.
-		 */
-		if ((tocopy & 0xff) == 0) {
-			high = (tocopy >> 8) - 1;
-			low = 0x00;
-		} else {
-			high = tocopy >> 8;
-			low = tocopy & 0xff;
-		}
-
-		/* ld %nl, high */
-
-		rc = z80ic_ld_vr_n_create(&ldimm8);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(nlvr, z80ic_vrp_r8, &vr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_imm8_create(high, &imm8);
-		if (rc != EOK)
-			goto error;
-
-		ldimm8->dest = vr;
-		ldimm8->imm8 = imm8;
-		vr = NULL;
-		imm8 = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
-		if (rc != EOK)
-			goto error;
-
-		/* ld %nh, low */
-
-		rc = z80ic_ld_vr_n_create(&ldimm8);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(nhvr, z80ic_vrp_r8, &vr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_imm8_create(low, &imm8);
-		if (rc != EOK)
-			goto error;
-
-		ldimm8->dest = vr;
-		ldimm8->imm8 = imm8;
-		vr = NULL;
-		imm8 = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
-		if (rc != EOK)
-			goto error;
-
-		/* ld %%d, %%op1 */
-
-		rc = z80ic_ld_vrr_vrr_create(&ldvrr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(dvr, &vrrd);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(vr1, &vrrs);
-		if (rc != EOK)
-			goto error;
-
-		ldvrr->dest = vrrd;
-		ldvrr->src = vrrs;
-		vrrd = NULL;
-		vrrs = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
-		if (rc != EOK)
-			goto error;
-
-		/* ld %%s, %%op2 */
-
-		rc = z80ic_ld_vrr_vrr_create(&ldvrr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(svr, &vrrd);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(vr2, &vrrs);
-		if (rc != EOK)
-			goto error;
-
-		ldvrr->dest = vrrd;
-		ldvrr->src = vrrs;
-		vrrd = NULL;
-		vrrs = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
-		if (rc != EOK)
-			goto error;
-
-		/* label %reccopy */
-
-		rc = z80ic_lblock_append(lblock, clabel, NULL);
-		if (rc != EOK)
-			goto error;
-
-		/* ld %t, (%%s) */
-
-		rc = z80ic_ld_vr_ivrr_create(&ldvrivrr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(svr, &vrrs);
-		if (rc != EOK)
-			goto error;
-
-		ldvrivrr->dest = vr;
-		ldvrivrr->isrc = vrrs;
-		vr = NULL;
-		vrrs = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &ldvrivrr->instr);
-		if (rc != EOK)
-			goto error;
-
-		/* inc %%s */
-
-		rc = z80ic_inc_vrr_create(&inc);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(svr, &vrrs);
-		if (rc != EOK)
-			goto error;
-
-		inc->vrr = vrrs;
-		vrrs = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
-		if (rc != EOK)
-			goto error;
-
-		inc = NULL;
-
-		/* ld (%%d), %t */
-
-		rc = z80ic_ld_ivrr_vr_create(&ldivrrvr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(dvr, &vrrd);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
-		if (rc != EOK)
-			goto error;
-
-		ldivrrvr->idest = vrrd;
-		ldivrrvr->src = vr;
-		vrrd = NULL;
-		vr = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &ldivrrvr->instr);
-		if (rc != EOK)
-			goto error;
-
-		/* inc %%d */
-
-		rc = z80ic_inc_vrr_create(&inc);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vrr_create(dvr, &vrrd);
-		if (rc != EOK)
-			goto error;
-
-		inc->vrr = vrrd;
-		vrrd = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
-		if (rc != EOK)
-			goto error;
-
-		inc = NULL;
-
-		/* dec %nl */
-
-		rc = z80ic_dec_vr_create(&dec);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(nlvr, z80ic_vrp_r8, &vr);
-		if (rc != EOK)
-			goto error;
-
-		dec->vr = vr;
-		vr = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
-		if (rc != EOK)
-			goto error;
-
-		dec = NULL;
-
-		/* jp NZ, %reccopy */
-
-		rc = z80ic_jp_cc_nn_create(&jpcc);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_imm16_create_symbol(clabel, &imm16);
-		if (rc != EOK)
-			goto error;
-
-		jpcc->cc = z80ic_cc_nz;
-		jpcc->imm16 = imm16;
-		imm16 = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
-		if (rc != EOK)
-			goto error;
-
-		jpcc = NULL;
-
-		/* dec %nh */
-
-		rc = z80ic_dec_vr_create(&dec);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(nhvr, z80ic_vrp_r8, &vr);
-		if (rc != EOK)
-			goto error;
-
-		dec->vr = vr;
-		vr = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
-		if (rc != EOK)
-			goto error;
-
-		dec = NULL;
-
-		/* jp P, %reccopy */
-
-		rc = z80ic_jp_cc_nn_create(&jpcc);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_imm16_create_symbol(clabel, &imm16);
-		if (rc != EOK)
-			goto error;
-
-		jpcc->cc = z80ic_cc_p;
-		jpcc->imm16 = imm16;
-		imm16 = NULL;
-
-		rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
-		if (rc != EOK)
-			goto error;
-
-		jpcc = NULL;
-
-		elemsz -= tocopy;
-	}
-
-	free(clabel);
 	return EOK;
-error:
-	if (clabel != NULL)
-		free(clabel);
-	if (ldimm8 != NULL)
-		z80ic_instr_destroy(&ldimm8->instr);
-	if (ldvrr != NULL)
-		z80ic_instr_destroy(&ldvrr->instr);
-	if (ldvrivrr != NULL)
-		z80ic_instr_destroy(&ldvrivrr->instr);
-	if (ldivrrvr != NULL)
-		z80ic_instr_destroy(&ldivrrvr->instr);
-	if (inc != NULL)
-		z80ic_instr_destroy(&inc->instr);
-	if (dec != NULL)
-		z80ic_instr_destroy(&dec->instr);
-	if (jpcc != NULL)
-		z80ic_instr_destroy(&jpcc->instr);
-	z80ic_oper_vr_destroy(vr);
-	z80ic_oper_imm8_destroy(imm8);
-	z80ic_oper_imm16_destroy(imm16);
-	z80ic_oper_vrr_destroy(vrrd);
-	z80ic_oper_vrr_destroy(vrrs);
-	return rc;
 }
 
 /** Select Z80 IC instructions code for IR recmbr instruction.
@@ -8805,6 +8844,997 @@ static int z80_isel_retv(z80_isel_proc_t *isproc, const char *label,
 	}
 }
 
+/** Select Z80 IC instructions to copy ap.stack to ap.cur.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param apvr Virtual register containing @c ap (va_list *)
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ap_cur_set_stack(z80_isel_proc_t *isproc, unsigned apvr,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ld_vr_ivrrd_t *ldi = NULL;
+	z80ic_ld_ivrrd_vr_t *sti = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	unsigned tvr;
+	int rc;
+
+	tvr = z80_isel_get_new_vregno(isproc);
+
+	/* ld %t, (%%ap+4) */
+
+	rc = z80ic_ld_vr_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = vr;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, stack);
+
+	vr = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	/* ld (%%ap), %t */
+
+	rc = z80ic_ld_ivrrd_vr_create(&sti);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
+	if (rc != EOK)
+		goto error;
+
+	sti->idest = vrr;
+	sti->disp = offsetof(z80_va_list_t, cur);
+	sti->src = vr;
+
+	vrr = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sti->instr);
+	if (rc != EOK)
+		goto error;
+
+	sti = NULL;
+
+	/* ld %t, (%%ap+5) */
+
+	rc = z80ic_ld_vr_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = vr;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, stack) + 1;
+
+	vr = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	/* ld (%%ap+1), %t */
+
+	rc = z80ic_ld_ivrrd_vr_create(&sti);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(tvr, z80ic_vrp_r8, &vr);
+	if (rc != EOK)
+		goto error;
+
+	sti->idest = vrr;
+	sti->disp = offsetof(z80_va_list_t, cur) + 1;
+	sti->src = vr;
+
+	vrr = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sti->instr);
+	if (rc != EOK)
+		goto error;
+
+	sti = NULL;
+
+	return EOK;
+error:
+	if (ldi != NULL)
+		z80ic_instr_destroy(&ldi->instr);
+	if (sti != NULL)
+		z80ic_instr_destroy(&sti->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_vrr_destroy(vrr);
+	return rc;
+}
+
+/** Select Z80 IC instructions to load ap.cur to a virtual register.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param apvr Virtual register containing @c ap (va_list *)
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ld_cur(z80_isel_proc_t *isproc, unsigned dvr,
+    unsigned apvr, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_vr_ivrrd_t *ldi = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	int rc;
+
+	(void)isproc;
+
+	/* ld %%r.L, (%%ap) */
+
+	rc = z80ic_ld_vr_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(dvr, z80ic_vrp_r16l, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = vr;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, cur);
+
+	vr = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	/* ld %%r.H, (%%ap+1) */
+
+	rc = z80ic_ld_vr_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(dvr, z80ic_vrp_r16h, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = vr;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, cur) + 1;
+
+	vr = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	return EOK;
+error:
+	if (ldi != NULL)
+		z80ic_instr_destroy(&ldi->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_vrr_destroy(vrr);
+	return rc;
+}
+
+/** Select Z80 IC instructions to increase ap.cur by a constant.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param apvr Virtual register containing @c ap (va_list *)
+ * @param val Value to increase ap.cur by
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ap_cur_inc(z80_isel_proc_t *isproc, unsigned apvr,
+    uint16_t val, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r_n_t *ldimm8 = NULL;
+	z80ic_ld_ivrrd_r_t *sti = NULL;
+	z80ic_add_a_ivrrd_t *add = NULL;
+	z80ic_adc_a_ivrrd_t *adc = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	int rc;
+
+	(void)isproc;
+
+	/* ld A, LO(sz) */
+
+	rc = z80ic_ld_r_n_create(&ldimm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(val & 0xff, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	ldimm8->dest = reg;
+	ldimm8->imm8 = imm8;
+	reg = NULL;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldimm8 = NULL;
+
+	/* add A, (%%ap) */
+
+	rc = z80ic_add_a_ivrrd_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	add->isrc = vrr;
+	add->disp = offsetof(z80_va_list_t, cur);
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
+	add = NULL;
+
+	/* ld (%%ap), A */
+
+	rc = z80ic_ld_ivrrd_r_create(&sti);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	sti->idest = vrr;
+	sti->disp = offsetof(z80_va_list_t, cur);
+	sti->src = reg;
+
+	vrr = NULL;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sti->instr);
+	if (rc != EOK)
+		goto error;
+
+	sti = NULL;
+
+	/* ld A, HI(sz) */
+
+	rc = z80ic_ld_r_n_create(&ldimm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(val >> 8, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	ldimm8->dest = reg;
+	ldimm8->imm8 = imm8;
+	reg = NULL;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldimm8 = NULL;
+
+	/* adc A, (%%ap+1) */
+
+	rc = z80ic_adc_a_ivrrd_create(&adc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	adc->isrc = vrr;
+	adc->disp = offsetof(z80_va_list_t, cur) + 1;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
+	adc = NULL;
+
+	/* ld (%%ap+1), A */
+
+	rc = z80ic_ld_ivrrd_r_create(&sti);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	sti->idest = vrr;
+	sti->disp = offsetof(z80_va_list_t, cur) + 1;
+	sti->src = reg;
+
+	vrr = NULL;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sti->instr);
+	if (rc != EOK)
+		goto error;
+
+	sti = NULL;
+
+	return EOK;
+error:
+	if (ldimm8 != NULL)
+		z80ic_instr_destroy(&ldimm8->instr);
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+	if (sti != NULL)
+		z80ic_instr_destroy(&sti->instr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_imm8_destroy(imm8);
+	z80ic_oper_vrr_destroy(vrr);
+	return rc;
+}
+
+/** Select Z80 IC instructions to decrease ap.remain by a constant.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param apvr Virtual register containing @c ap (va_list *)
+ * @param val Value to decrease ap.remain by
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ap_remain_dec(z80_isel_proc_t *isproc, unsigned apvr,
+    uint8_t val, z80ic_lblock_t *lblock)
+{
+	z80ic_sub_n_t *sub = NULL;
+	z80ic_ld_r_ivrrd_t *ldi = NULL;
+	z80ic_ld_ivrrd_r_t *sti = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	int rc;
+
+	(void)isproc;
+
+	/* ld A, (%%ap+2) */
+
+	rc = z80ic_ld_r_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = reg;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, remain);
+	reg = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	/* sub sz */
+
+	rc = z80ic_sub_n_create(&sub);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(val, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	sub->imm8 = imm8;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
+	sub = NULL;
+
+	/* ld (%%ap+2), A */
+
+	rc = z80ic_ld_ivrrd_r_create(&sti);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	sti->idest = vrr;
+	sti->disp = offsetof(z80_va_list_t, remain);
+	sti->src = reg;
+
+	vrr = NULL;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sti->instr);
+	if (rc != EOK)
+		goto error;
+
+	sti = NULL;
+
+	return EOK;
+error:
+	if (ldi != NULL)
+		z80ic_instr_destroy(&ldi->instr);
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+	if (sti != NULL)
+		z80ic_instr_destroy(&sti->instr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_imm8_destroy(imm8);
+	z80ic_oper_vrr_destroy(vrr);
+	return rc;
+}
+
+/** Select Z80 IC instructions for IR get next variable argument instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR vaarg instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vaarg(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	ir_oper_imm_t *op2i;
+	z80ic_ld_r_ivrrd_t *ldi = NULL;
+	z80ic_ld_ivrrd_n_t *stimm = NULL;
+	z80ic_cp_n_t *cp = NULL;
+	z80ic_jp_cc_nn_t *jpcc = NULL;
+	z80ic_jp_nn_t *jp = NULL;
+	z80ic_and_r_t *and = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_vrr_t *vrr = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	char *gte_label = NULL;
+	char *iszero_label = NULL;
+	char *notzero_label = NULL;
+	char *done_label = NULL;
+	unsigned destvr;
+	unsigned apvr;
+	unsigned rvr;
+	size_t sztype;
+	unsigned lblno;
+	int rc;
+
+	lblno = z80_isel_new_label_num(isproc);
+
+	rc = z80_isel_create_label(isproc, "vaarg_gte", lblno, &gte_label);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "vaarg_iszero", lblno,
+	    &iszero_label);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "vaarg_notzero", lblno,
+	    &notzero_label);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "vaarg_done", lblno, &done_label);
+	if (rc != EOK)
+		goto error;
+
+	assert(irinstr->itype == iri_vaarg);
+	(void)label;
+
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_imm);
+
+	rvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	apvr = z80_isel_get_vregno(isproc, irinstr->op1);
+
+	op2i = (ir_oper_imm_t *)irinstr->op2->ext;
+	sztype = op2i->value;
+
+	(void)destvr;
+	/*
+	 * ## if (ap.remain < sz) {
+	 */
+
+	/* ld A, (%%ap+2) ; ap.remain */
+
+	rc = z80ic_ld_r_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = reg;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, remain);
+
+	reg = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	/* cp sz ; ap.remain ? sz */
+
+	rc = z80ic_cp_n_create(&cp);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Note: since ap.remain >= 6, if sztype > 6, this will always
+	 * be false
+	 */
+	rc = z80ic_oper_imm8_create(sztype > 0xff ? 0xff : sztype, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	cp->imm8 = imm8;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &cp->instr);
+	if (rc != EOK)
+		goto error;
+
+	cp = NULL;
+
+	/* jp NC, vaarg_gte ; jump if ap.remain >= sz */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(gte_label, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_nc;
+	jpcc->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	/*
+	 * ## if (arp.remain != 0) {
+	 */
+
+	/* and A ; ap.remain == 0? */
+
+	rc = z80ic_and_r_create(&and);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	and->src = reg;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
+	and = NULL;
+
+	/* jp Z, iszero */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(iszero_label, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_z;
+	jpcc->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	/*
+	 * # ap.cur = ap.stack;
+	 */
+	rc = z80_isel_ap_cur_set_stack(isproc, apvr, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * # ap.remain := 0;
+	 */
+
+	/* ld (%%ap+2), 0 */
+
+	rc = z80ic_ld_ivrrd_n_create(&stimm);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(0, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	stimm->idest = vrr;
+	stimm->disp = offsetof(z80_va_list_t, remain);
+	stimm->imm8 = imm8;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &stimm->instr);
+	if (rc != EOK)
+		goto error;
+
+	stimm = NULL;
+
+	/*
+	 * ## }
+	 */
+
+	/* vaarg_iszero: */
+
+	rc = z80ic_lblock_append(lblock, iszero_label, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * # r = ap.cur;
+	 */
+
+	rc = z80_isel_ld_cur(isproc, rvr, apvr, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * ## ap.cur += sizeof(type);
+	 */
+	rc = z80_isel_ap_cur_inc(isproc, apvr, sztype, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* jp vaarg_done */
+
+	rc = z80ic_jp_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(done_label, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jp->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
+	jp = NULL;
+
+	/*
+	 * ## } else {
+	 */
+
+	/* vaarg_gte: */
+
+	rc = z80ic_lblock_append(lblock, gte_label, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * # r = ap.cur;
+	 */
+	rc = z80_isel_ld_cur(isproc, rvr, apvr, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * ## ap.cur += sizeof(type);
+	 */
+	rc = z80_isel_ap_cur_inc(isproc, apvr, sztype, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * ## ap.remain -= sizeof(type);
+	 */
+	rc = z80_isel_ap_remain_dec(isproc, apvr, sztype, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * ## if (ap.remain == 0) {
+	 */
+	/* ld A, (%%ap+2) ; ap.remain */
+
+	rc = z80ic_ld_r_ivrrd_create(&ldi);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+
+		goto error;
+	rc = z80ic_oper_vrr_create(apvr, &vrr);
+	if (rc != EOK)
+		goto error;
+
+	ldi->dest = reg;
+	ldi->isrc = vrr;
+	ldi->disp = offsetof(z80_va_list_t, remain);
+
+	reg = NULL;
+	vrr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldi = NULL;
+
+	/* and A */
+
+	rc = z80ic_and_r_create(&and);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	and->src = reg;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
+	and = NULL;
+
+	/* jp NZ, notzero */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(notzero_label, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_nz;
+	jpcc->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	/*
+	 * ## ap.cur = ap.stack;
+	 */
+	rc = z80_isel_ap_cur_set_stack(isproc, apvr, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * ## }
+	 */
+	/* notzero: */
+
+	rc = z80ic_lblock_append(lblock, notzero_label, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * ## }
+	 */
+
+	/* vaarg_done: */
+
+	rc = z80ic_lblock_append(lblock, done_label, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/* return r */
+
+	free(gte_label);
+	free(iszero_label);
+	free(notzero_label);
+	free(done_label);
+	return EOK;
+error:
+	if (gte_label != NULL)
+		free(gte_label);
+	if (iszero_label != NULL)
+		free(iszero_label);
+	if (notzero_label != NULL)
+		free(notzero_label);
+	if (done_label != NULL)
+		free(done_label);
+	if (ldi != NULL)
+		z80ic_instr_destroy(&ldi->instr);
+	if (stimm != NULL)
+		z80ic_instr_destroy(&stimm->instr);
+	if (cp != NULL)
+		z80ic_instr_destroy(&cp->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_vrr_destroy(vrr);
+	z80ic_oper_imm8_destroy(imm8);
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR copy variable argument pointer
+ * instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR vacopy instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vacopy(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	unsigned vr1;
+	unsigned vr2;
+	int rc;
+
+	(void)label;
+
+	assert(irinstr->itype == iri_vacopy);
+	assert(irinstr->width == 0);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+	assert(irinstr->opt == NULL);
+
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+
+	rc = z80_isel_memcopy(isproc, vr1, vr2, z80_isel_valist_sz, lblock);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Select Z80 IC instructions code for IR finalize variable argument pointer
+ * instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR vaend instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vaend(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	assert(irinstr->itype == iri_vaend);
+
+	/*
+	 * There are no resources to free. We could zero out ap
+	 * for good measure, but we might as well do nothing.
+	 */
+
+	(void)isproc;
+	(void)label;
+	(void)irinstr;
+	(void)lblock;
+
+	return EOK;
+}
+
 /** Select Z80 IC instructions code for IR variable pointer instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -8870,6 +9900,423 @@ error:
 	z80ic_oper_vrr_destroy(dest);
 	z80ic_oper_imm16_destroy(imm);
 
+	return rc;
+}
+
+/** Select Z80 IC instructions code for IR initialize variable argument
+ * pointer instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR vastart instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vastart(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vrr_t *dest = NULL;
+	z80ic_oper_vrr_t *src = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	z80ic_ld_vrr_sfbnn_t *ldsp = NULL;
+	z80ic_ld_vrr_sfenn_t *ldsfe = NULL;
+	z80ic_ld_ivrr_n_t *ldimm = NULL;
+	z80ic_ld_ivrr_vr_t *ldvr = NULL;
+	z80ic_ld_vrr_vrr_t *ldvrr = NULL;
+	z80ic_inc_vrr_t *inc = NULL;
+	unsigned apvr;
+	unsigned lvr;
+	unsigned ptrvr;
+	unsigned curvr;
+	unsigned stkavr;
+	int16_t cur_off;
+	z80sf_rel_t cur_rel;
+	int16_t stka_sfe;
+	uint16_t remain_bytes;
+	int rc;
+
+	assert(irinstr->itype == iri_vastart);
+	assert(irinstr->dest == NULL);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	apvr = z80_isel_get_vregno(isproc, irinstr->op1);
+	lvr = z80_isel_get_vregno(isproc, irinstr->op2);
+	ptrvr = z80_isel_get_new_vregno(isproc);
+	curvr = z80_isel_get_new_vregno(isproc);
+	stkavr = z80_isel_get_new_vregno(isproc);
+
+	(void)lvr;
+
+	cur_off = isproc->vainfo.cur_off;
+	cur_rel = isproc->vainfo.cur_rel;
+	remain_bytes = isproc->vainfo.rem_bytes;
+	stka_sfe = 4;
+
+	/* ld %%ptr, %%ap */
+
+	rc = z80ic_ld_vrr_vrr_create(&ldvrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(apvr, &src);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr->dest = dest;
+	ldvrr->src = src;
+	dest = NULL;
+	src = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ldvrr->instr);
+	if (rc != EOK)
+		goto error;
+
+	if (cur_rel == z80sf_begin) {
+		/* ld %%cur, SFB+cur_off */
+
+		rc = z80ic_ld_vrr_sfbnn_create(&ldsp);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(curvr, &dest);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm16_create_val(cur_off, &imm);
+		if (rc != EOK)
+			goto error;
+
+		ldsp->dest = dest;
+		ldsp->imm16 = imm;
+		dest = NULL;
+		imm = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldsp->instr);
+		if (rc != EOK)
+			goto error;
+	} else {
+		/* ld %%cur, SFE+cur_off */
+
+		rc = z80ic_ld_vrr_sfenn_create(&ldsfe);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vrr_create(curvr, &dest);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_imm16_create_val(cur_off, &imm);
+		if (rc != EOK)
+			goto error;
+
+		ldsfe->dest = dest;
+		ldsfe->imm16 = imm;
+		dest = NULL;
+		imm = NULL;
+
+		rc = z80ic_lblock_append(lblock, label, &ldsfe->instr);
+		if (rc != EOK)
+			goto error;
+	}
+
+	ldsp = NULL;
+
+	/* ld (%%ptr), %%cur.L */
+
+	rc = z80ic_ld_ivrr_vr_create(&ldvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(curvr, z80ic_vrp_r16l, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr->idest = dest;
+	ldvr->src = vr;
+	dest = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr = NULL;
+
+	/* inc %%ptr */
+
+	rc = z80ic_inc_vrr_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	inc->vrr = dest;
+	dest = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+
+	/* ld (%%ptr), %%cur.H */
+
+	rc = z80ic_ld_ivrr_vr_create(&ldvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(curvr, z80ic_vrp_r16h, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr->idest = dest;
+	ldvr->src = vr;
+	dest = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr = NULL;
+
+	/* inc %%ptr */
+
+	rc = z80ic_inc_vrr_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	inc->vrr = dest;
+	dest = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+
+	/* ld (%%ptr), LO(remain_bytes) */
+
+	rc = z80ic_ld_ivrr_n_create(&ldimm);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(remain_bytes & 0xff, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	ldimm->idest = dest;
+	ldimm->imm8 = imm8;
+	dest = NULL;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldimm->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldimm = NULL;
+
+	/* inc %%ptr */
+
+	rc = z80ic_inc_vrr_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	inc->vrr = dest;
+	dest = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+
+	/* ld (%%ptr), HI(remain_bytes) */
+
+	rc = z80ic_ld_ivrr_n_create(&ldimm);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create(remain_bytes >> 8, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	ldimm->idest = dest;
+	ldimm->imm8 = imm8;
+	dest = NULL;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldimm->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldimm = NULL;
+
+	/* inc %%ptr */
+
+	rc = z80ic_inc_vrr_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	inc->vrr = dest;
+	dest = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+
+	/* ld %%stka, SFE+stka_sfe */
+
+	rc = z80ic_ld_vrr_sfenn_create(&ldsfe);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(stkavr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_val(stka_sfe, &imm);
+	if (rc != EOK)
+		goto error;
+
+	ldsfe->dest = dest;
+	ldsfe->imm16 = imm;
+	dest = NULL;
+	imm = NULL;
+
+	rc = z80ic_lblock_append(lblock, label, &ldsfe->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldsfe = NULL;
+
+	/* ld (%%ptr), %%stka.L */
+
+	rc = z80ic_ld_ivrr_vr_create(&ldvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(stkavr, z80ic_vrp_r16l, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr->idest = dest;
+	ldvr->src = vr;
+	dest = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr = NULL;
+
+	/* inc %%ptr */
+
+	rc = z80ic_inc_vrr_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	inc->vrr = dest;
+	dest = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
+	inc = NULL;
+
+	/* ld (%%ptr), %%stka.H */
+
+	rc = z80ic_ld_ivrr_vr_create(&ldvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vrr_create(ptrvr, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(stkavr, z80ic_vrp_r16h, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr->idest = dest;
+	ldvr->src = vr;
+	dest = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvr = NULL;
+
+	return EOK;
+error:
+	if (ldimm != NULL)
+		z80ic_instr_destroy(&ldimm->instr);
+	if (ldsp != NULL)
+		z80ic_instr_destroy(&ldsp->instr);
+	if (ldsfe != NULL)
+		z80ic_instr_destroy(&ldsfe->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (ldvr != NULL)
+		z80ic_instr_destroy(&ldvr->instr);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_vrr_destroy(dest);
+	z80ic_oper_vrr_destroy(src);
+	z80ic_oper_imm8_destroy(imm8);
+	z80ic_oper_imm16_destroy(imm);
 	return rc;
 }
 
@@ -9138,8 +10585,16 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_sub(isproc, label, irinstr, lblock);
 	case iri_trunc:
 		return z80_isel_trunc(isproc, label, irinstr, lblock);
+	case iri_vaarg:
+		return z80_isel_vaarg(isproc, label, irinstr, lblock);
+	case iri_vaend:
+		return z80_isel_vaend(isproc, label, irinstr, lblock);
+	case iri_vacopy:
+		return z80_isel_vacopy(isproc, label, irinstr, lblock);
 	case iri_varptr:
 		return z80_isel_varptr(isproc, label, irinstr, lblock);
+	case iri_vastart:
+		return z80_isel_vastart(isproc, label, irinstr, lblock);
 	case iri_write:
 		return z80_isel_write(isproc, label, irinstr, lblock);
 	case iri_xor:
@@ -9380,7 +10835,7 @@ error:
 
 /** Select instructions to load procedure argument to virtual register(s).
  *
- * @param isel Instruction selector
+ * @param isproc Instruction selector for procedure
  * @param ident Argument identifier
  * @param bits Number of bits in argument
  * @param vrno Pointer to variable holding next free virtual register
@@ -9389,8 +10844,9 @@ error:
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
-static int z80_isel_proc_arg(z80_isel_t *isel, const char *ident, unsigned bits, unsigned *vrno,
-    unsigned *fpoff, z80_argloc_t *argloc, z80ic_lblock_t *lblock)
+static int z80_isel_proc_arg(z80_isel_proc_t *isproc, const char *ident,
+    unsigned bits, unsigned *vrno, unsigned *fpoff, z80_argloc_t *argloc,
+    z80ic_lblock_t *lblock)
 {
 	z80ic_oper_r16_t *ldsrc = NULL;
 	z80ic_oper_reg_t *reg = NULL;
@@ -9405,8 +10861,6 @@ static int z80_isel_proc_arg(z80_isel_t *isel, const char *ident, unsigned bits,
 	unsigned i;
 	z80ic_r16_t argreg;
 	int rc;
-
-	(void) isel;
 
 	/* Allocate location for the argument */
 	rc = z80_argloc_alloc(argloc, ident, (bits + 7) / 8,
@@ -9533,6 +10987,16 @@ static int z80_isel_proc_arg(z80_isel_t *isel, const char *ident, unsigned bits,
 		*fpoff += 2;
 	}
 
+	if (isproc->irproc->variadic) {
+		/*
+		 * Compute vararg info as if this was the last fixed argument.
+		 * If there is any other fixed argument, it will rewrite
+		 * it and we will end up with the correct information
+		 * computed from the last argument.
+		 */
+		z80_argloc_entry_vainfo(entry, &isproc->vainfo);
+	}
+
 	return EOK;
 error:
 	if (ld != NULL)
@@ -9555,7 +11019,7 @@ error:
 static int z80_isel_proc_vargs(z80_isel_proc_t *isproc, ir_proc_t *irproc,
     z80ic_lblock_t *lblock)
 {
-	z80ic_ld_ispnn_r_t *ld = NULL;
+	z80ic_ld_isfbnn_r_t *ld = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	z80ic_oper_reg_t *reg = NULL;
 	char *varident = NULL;
@@ -9577,8 +11041,8 @@ static int z80_isel_proc_vargs(z80_isel_proc_t *isproc, ir_proc_t *irproc,
 		goto error;
 
 	for (i = 0; i < 6; i++) {
-		/* ld (SP+_rargs@SP+i), {L|H|C|B|E|D} */
-		rc = z80ic_ld_ispnn_r_create(&ld);
+		/* ld (SFB+_rargs@SFB+i), {L|H|C|B|E|D} */
+		rc = z80ic_ld_isfbnn_r_create(&ld);
 		if (rc != EOK)
 			goto error;
 
@@ -9594,16 +11058,16 @@ static int z80_isel_proc_vargs(z80_isel_proc_t *isproc, ir_proc_t *irproc,
 			sreg = z80ic_reg_h;
 			break;
 		case 2:
-			sreg = z80ic_reg_c;
-			break;
-		case 3:
-			sreg = z80ic_reg_b;
-			break;
-		case 4:
 			sreg = z80ic_reg_e;
 			break;
-		case 5:
+		case 3:
 			sreg = z80ic_reg_d;
+			break;
+		case 4:
+			sreg = z80ic_reg_c;
+			break;
+		case 5:
+			sreg = z80ic_reg_b;
 			break;
 		}
 
@@ -9638,12 +11102,12 @@ error:
 
 /** Select instructions to load procedure arguments to virtual registers.
  *
- * @param isel Instruction selector
+ * @param isproc Instruction selector for procedure
  * @param irproc IR procedure
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
  */
-static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
+static int z80_isel_proc_args(z80_isel_proc_t *isproc, ir_proc_t *irproc,
     z80ic_lblock_t *lblock)
 {
 	z80_argloc_t *argloc = NULL;
@@ -9673,7 +11137,7 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		/* Add hidden first argument for returning 64-bit value */
 		if (irproc->rtype->tetype == irt_int &&
 		    irproc->rtype->t.tint.width == 64) {
-			rc = z80_isel_proc_arg(isel, "%.retval", 16, &vrno,
+			rc = z80_isel_proc_arg(isproc, "%.retval", 16, &vrno,
 			    &fpoff, argloc, lblock);
 			if (rc != EOK)
 				goto error;
@@ -9695,7 +11159,8 @@ static int z80_isel_proc_args(z80_isel_t *isel, ir_proc_t *irproc,
 		if (irproc->variadic && bits < 16)
 			bits = 16;
 
-		rc = z80_isel_proc_arg(isel, arg->ident, bits, &vrno, &fpoff, argloc, lblock);
+		rc = z80_isel_proc_arg(isproc, arg->ident, bits, &vrno, &fpoff,
+		    argloc, lblock);
 		if (rc != EOK)
 			goto error;
 
@@ -9871,7 +11336,7 @@ static int z80_isel_proc_def(z80_isel_t *isel, ir_proc_t *irproc,
 			goto error;
 	}
 
-	rc = z80_isel_proc_args(isel, irproc, icproc->lblock);
+	rc = z80_isel_proc_args(isproc, irproc, icproc->lblock);
 	if (rc != EOK)
 		goto error;
 

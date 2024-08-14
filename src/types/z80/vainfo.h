@@ -21,47 +21,33 @@
  */
 
 /*
- * Z80 register allocation
+ * Z80 instruction selection
  */
 
-#ifndef TYPES_Z80_RALLOC_H
-#define TYPES_Z80_RALLOC_H
+#ifndef TYPES_Z80_VAINFO_H
+#define TYPES_Z80_VAINFO_H
 
 #include <stdint.h>
-#include <types/z80/z80ic.h>
+#include <types/z80/stackframe.h>
 
-/** Z80 register allocator */
+/** Z80 information needed for _va_start */
 typedef struct {
-	int dummy;
-} z80_ralloc_t;
+	/** Current argument address relative to SFE or SFB */
+	int16_t cur_off;
+	/** Current argument address is relative to SFE or SFB? */
+	z80sf_rel_t cur_rel;
+	/** Remaining bytes in register image */
+	uint16_t rem_bytes;
+} z80_vainfo_t;
 
-/** Z80 register allocator for procedure */
+/** Z80 __va_list */
 typedef struct {
-	/** Containing register allocator */
-	z80_ralloc_t *ralloc;
-	/** Procedure with VRs */
-	z80ic_proc_t *vrproc;
-	/** Next label number to allocate */
-	unsigned next_label;
-	/** Stack frame size */
-	size_t sfsize;
-	/** Current stack pointer adjustment (last SF entry - SP) */
-	size_t spadj;
-} z80_ralloc_proc_t;
-
-/** Z80 data access using index register
- *
- * If the register allocator wants to access a location on the stack
- * (e.g. stack frame entry / spilled virtual register, or an
- * argument stored on the stack), we may need to set up an index register,
- * then emit a specific instruction using HL, IX or IY, then possibly
- * restore any modified registers.
- *
- * This structure tracks the index register setup.
- */
-typedef struct {
-	/** Displacement */
-	int8_t disp;
-} z80_idxacc_t;
+	/** Pointer to current argument */
+	uint16_t cur;
+	/** Number of bytes remaining in register part or zero */
+	uint16_t remain;
+	/** Pointer to first stack argument */
+	uint16_t stack;
+} z80_va_list_t;
 
 #endif

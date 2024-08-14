@@ -12119,6 +12119,126 @@ error:
 	return rc;
 }
 
+/** Generate code for __va_arg expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param eva_arg AST __va_arg expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t apres;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *var = NULL;
+	ir_oper_imm_t *imm = NULL;
+	cgtype_t *stype = NULL;
+	cgtype_t *etype = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+	ast_sclass_type_t sctype;
+	cgen_rd_flags_t flags;
+	size_t sz;
+	int rc;
+
+	cgen_eres_init(&apres);
+
+	/* Evaluate ap expression */
+	rc = cgen_expr(cgexpr, eva_arg->apexpr, lblock, &apres);
+	if (rc != EOK)
+		goto error;
+
+	/* Declaration specifiers */
+	rc = cgen_dspecs(cgexpr->cgen, eva_arg->atypename->dspecs,
+	    &sctype, &flags, &stype);
+	if (rc != EOK)
+		goto error;
+
+	atok = ast_tree_first_tok(&eva_arg->atypename->node);
+	ctok = (comp_tok_t *) atok->data;
+
+	if ((flags & cgrd_def) != 0) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Struct/union/enum definition "
+		    "inside __va_arg().\n");
+		++cgexpr->cgen->warnings;
+	}
+
+	if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&eva_arg->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		cgexpr->cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Declarator */
+	rc = cgen_decl(cgexpr->cgen, stype, eva_arg->atypename->decl, NULL,
+	    &etype);
+	if (rc != EOK)
+		goto error;
+
+	sz = cgen_type_sizeof(cgexpr->cgen, etype);
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(apres.varname, &var);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(sz, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_vaarg;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = &imm->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_lvalue;
+	eres->cgtype = NULL;
+	eres->cvknown = false;
+	eres->cvsymbol = NULL;
+	eres->cvint = 0;
+	eres->cgtype = etype;
+
+	dest = NULL;
+	var = NULL;
+	imm = NULL;
+
+	cgtype_destroy(stype);
+	cgen_eres_fini(&apres);
+
+	return EOK;
+error:
+	cgtype_destroy(stype);
+	cgtype_destroy(etype);
+	cgen_eres_fini(&apres);
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	return rc;
+}
+
 /** Generate code for expression.
  *
  * @param cgexpr Code generator for expression
@@ -12236,6 +12356,10 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 		break;
 	case ant_epostadj:
 		rc = cgen_epostadj(cgexpr, (ast_epostadj_t *) expr->ext, lblock,
+		    eres);
+		break;
+	case ant_eva_arg:
+		rc = cgen_eva_arg(cgexpr, (ast_eva_arg_t *) expr->ext, lblock,
 		    eres);
 		break;
 	default:
@@ -15964,6 +16088,190 @@ error:
 	return rc;
 }
 
+/** Generate code for __va_copy statement.
+ *
+ * @param cgexpr Code generator for procedure
+ * @param stva_copy AST __va_copy statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_va_copy(cgen_proc_t *cgproc, ast_va_copy_t *stva_copy,
+    ir_lblock_t *lblock)
+{
+	cgen_eres_t dres;
+	cgen_eres_t sres;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *var1 = NULL;
+	ir_oper_var_t *var2 = NULL;
+	int rc;
+
+	cgen_eres_init(&dres);
+	cgen_eres_init(&sres);
+
+	/* Evaluate dest expression */
+	rc = cgen_expr(&cgproc->cgexpr, stva_copy->dexpr, lblock, &dres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate src expression */
+	rc = cgen_expr(&cgproc->cgexpr, stva_copy->sexpr, lblock, &sres);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(dres.varname, &var1);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(sres.varname, &var2);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_vacopy;
+	instr->dest = NULL;
+	instr->op1 = &var1->oper;
+	instr->op2 = &var2->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	var1 = NULL;
+	var2 = NULL;
+
+	cgen_eres_fini(&dres);
+	cgen_eres_fini(&sres);
+
+	return EOK;
+error:
+	cgen_eres_fini(&dres);
+	cgen_eres_fini(&sres);
+	ir_instr_destroy(instr);
+	if (var1 != NULL)
+		ir_oper_destroy(&var1->oper);
+	if (var2 != NULL)
+		ir_oper_destroy(&var2->oper);
+	return rc;
+}
+
+/** Generate code for __va_end statement.
+ *
+ * @param cgexpr Code generator for procedure
+ * @param va_end AST __va_end statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_va_end(cgen_proc_t *cgproc, ast_va_end_t *va_end,
+    ir_lblock_t *lblock)
+{
+	cgen_eres_t apres;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *var = NULL;
+	int rc;
+
+	cgen_eres_init(&apres);
+
+	/* Evaluate ap expression */
+	rc = cgen_expr(&cgproc->cgexpr, va_end->apexpr, lblock, &apres);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(apres.varname, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_vaend;
+	instr->dest = NULL;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	var = NULL;
+
+	cgen_eres_fini(&apres);
+
+	return EOK;
+error:
+	cgen_eres_fini(&apres);
+	ir_instr_destroy(instr);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
+	return rc;
+}
+
+/** Generate code for __va_start statement.
+ *
+ * @param cgexpr Code generator for procedure
+ * @param stva_start AST __va_start statement
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
+    ir_lblock_t *lblock)
+{
+	cgen_eres_t apres;
+	cgen_eres_t lres;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *var1 = NULL;
+	ir_oper_var_t *var2 = NULL;
+	int rc;
+
+	cgen_eres_init(&apres);
+	cgen_eres_init(&lres);
+
+	/* Evaluate ap expression */
+	rc = cgen_expr(&cgproc->cgexpr, stva_start->apexpr, lblock, &apres);
+	if (rc != EOK)
+		goto error;
+
+	/* Evaluate last expression */
+	rc = cgen_expr(&cgproc->cgexpr, stva_start->lexpr, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(apres.varname, &var1);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres.varname, &var2);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_vastart;
+	instr->dest = NULL;
+	instr->op1 = &var1->oper;
+	instr->op2 = &var2->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	var1 = NULL;
+	var2 = NULL;
+
+	cgen_eres_fini(&apres);
+	cgen_eres_fini(&lres);
+
+	return EOK;
+error:
+	cgen_eres_fini(&apres);
+	cgen_eres_fini(&lres);
+	ir_instr_destroy(instr);
+	if (var1 != NULL)
+		ir_oper_destroy(&var1->oper);
+	if (var2 != NULL)
+		ir_oper_destroy(&var2->oper);
+	return rc;
+}
+
 /** Generate code for statement.
  *
  * @param cgproc Code generator for procedure
@@ -16031,6 +16339,16 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		break;
 	case ant_stnull:
 		rc = cgen_stnull(cgproc, (ast_stnull_t *) stmt->ext, lblock);
+		break;
+	case ant_va_copy:
+		rc = cgen_va_copy(cgproc, (ast_va_copy_t *) stmt->ext, lblock);
+		break;
+	case ant_va_end:
+		rc = cgen_va_end(cgproc, (ast_va_end_t *) stmt->ext, lblock);
+		break;
+	case ant_va_start:
+		rc = cgen_va_start(cgproc, (ast_va_start_t *) stmt->ext,
+		    lblock);
 		break;
 	case ant_lmacro:
 		atok = ast_tree_first_tok(stmt);

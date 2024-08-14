@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,7 @@
 #define Z80_ARGLOC_H
 
 #include <types/z80/argloc.h>
+#include <types/z80/vainfo.h>
 
 extern int z80_argloc_create(z80_argloc_t **);
 extern void z80_argloc_destroy(z80_argloc_t *);
@@ -39,5 +40,6 @@ extern z80_argloc_entry_t *z80_argloc_first(z80_argloc_t *);
 extern z80_argloc_entry_t *z80_argloc_next(z80_argloc_entry_t *);
 extern void z80_argloc_r16_part_to_r(z80ic_r16_t, z80_argloc_rp_t,
     z80ic_reg_t *);
+extern void z80_argloc_entry_vainfo(z80_argloc_entry_t *, z80_vainfo_t *);
 
 #endif

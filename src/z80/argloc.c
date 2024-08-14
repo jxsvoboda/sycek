@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -441,4 +441,45 @@ z80_argloc_entry_t *z80_argloc_next(z80_argloc_entry_t *cur)
 		return NULL;
 
 	return list_get_instance(link, z80_argloc_entry_t, lentries);
+}
+
+/** Get variable argument info based on argloc entry of last fixed argument.
+ *
+ * @param entry Argument location of fixed argument
+ * @param vainfo Place to store variable argument info
+ */
+void z80_argloc_entry_vainfo(z80_argloc_entry_t *entry, z80_vainfo_t *vainfo)
+{
+	z80ic_r16_t r16;
+	int i;
+
+	if (entry->stack_sz > 0) {
+		/* Argument is stored on the stack */
+		assert(entry->reg_entries == 0);
+		vainfo->cur_off = 4 + entry->stack_off + entry->stack_sz;
+		vainfo->cur_rel = z80sf_end;
+		vainfo->rem_bytes = 0;
+	} else {
+		/* Argument is stored in registers */
+		/* Last register used */
+		r16 = entry->reg[entry->reg_entries - 1].reg;
+
+		for (i = 0; i < z80_r16_alloc_num; i++) {
+			if (r16 == z80_r16_alloc_order[i])
+				break;
+		}
+
+		assert(i < z80_r16_alloc_num);
+		if (i + 1 < z80_r16_alloc_num) {
+			/* Still some registers left */
+			vainfo->rem_bytes = 6 - (i * 2 + 2);
+			vainfo->cur_off = 2 + i * 2;
+			vainfo->cur_rel = z80sf_begin;
+		} else {
+			/* Further arguments on the stack */
+			vainfo->cur_off = 4 + entry->stack_off + entry->stack_sz;
+			vainfo->cur_rel = z80sf_end;
+			vainfo->rem_bytes = 0;
+		}
+	}
 }

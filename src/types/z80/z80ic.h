@@ -456,6 +456,8 @@ typedef enum {
 	/** Output, decrement, repeat */
 	z80i_otdr,
 
+	/** Load register from address stored in virt. reg. pair + d. */
+	z80i_ld_r_ivrrd,
 	/** Load virtual register from virtual register */
 	z80i_ld_vr_vr,
 	/** Load virtual register from 8-bit immediate */
@@ -472,6 +474,8 @@ typedef enum {
 	z80i_ld_ihl_vr,
 	/** Load virtual register to address stored in virt. reg. pair */
 	z80i_ld_ivrr_vr,
+	/** Load register to address stored in virt. reg. pair + d. */
+	z80i_ld_ivrrd_r,
 	/** Load virtual register to address stored in virt. reg. pair + d. */
 	z80i_ld_ivrrd_vr,
 	/** Load 8-bit immediate to address stored in virt. reg. pair */
@@ -525,14 +529,16 @@ typedef enum {
 	z80i_ld_vrr_nn,
 	/** Load virt. register pair from fixed memory address */
 	z80i_ld_vrr_inn,
-	/** Load virt. register pair from SP + 16-bit immediate */
-	z80i_ld_vrr_spnn,
+	/** Load virt. register pair from Stack Frame Beg. + 16-bit immediate */
+	z80i_ld_vrr_sfbnn,
+	/** Load virt. register pair from Stack Frame End + 16-bit immediate */
+	z80i_ld_vrr_sfenn,
 	/** Load fixed memory address from virt. register pair */
 	z80i_ld_inn_vrr,
 	/** Load SP from virt. register pair */
 	z80i_ld_sp_vrr,
-	/** Load (SP + 16-bit immediate) from register */
-	z80i_ld_ispnn_r,
+	/** Load (SFB + 16-bit immediate) from register */
+	z80i_ld_isfbnn_r,
 	/** Push virt. register */
 	z80i_push_vr,
 	/** Push virt. register pair */
@@ -654,7 +660,7 @@ typedef enum {
 	/** Shift left arithmetic indirect memory location */
 	z80i_sla_ivrr,
 	/** Shift left arithmetic displaced indirect memory location */
-	z80i_sla_ivvrd,
+	z80i_sla_ivrrd,
 	/** Shift right arithmetic virtual register */
 	z80i_sra_vr,
 	/** Shift right arithmetic indirect memory location */
@@ -673,19 +679,19 @@ typedef enum {
 	/** Test indirect memory location bit */
 	z80i_bit_b_ivrr,
 	/** Test displaced indirect memory location bit */
-	z80i_bit_b_ivvrd,
+	z80i_bit_b_ivrrd,
 	/** Set virtual register bit */
 	z80i_set_b_vr,
 	/** Set indirect memory location bit */
 	z80i_set_b_ivrr,
 	/** Set displaced indirect memory location bit */
-	z80i_set_b_ivvrd,
+	z80i_set_b_ivrrd,
 	/** Reset virtual register bit */
 	z80i_res_b_vr,
 	/** Reset indirect memory location bit */
 	z80i_res_b_ivrr,
 	/** Reset displaced indirect memory location bit */
-	z80i_res_b_ivvrd,
+	z80i_res_b_ivrrd,
 
 	/** Jump to address in virtual register pair */
 	z80i_jp_vrr
@@ -999,6 +1005,16 @@ typedef struct {
 	z80ic_oper_reg_t *src;
 } z80ic_ld_iixd_r_t;
 
+/** Z80 IC load (HL) from 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_ld_ihl_n_t;
+
 /** Z80 IC load (IX+d) from 8-bit immediate */
 typedef struct {
 	/** Base object */
@@ -1069,6 +1085,12 @@ typedef struct {
 	z80ic_oper_imm8_t *imm8;
 } z80ic_add_a_n_t;
 
+/** Z80 IC add (HL) to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_add_a_ihl_t;
+
 /** Z80 IC add (IX+d) to A */
 typedef struct {
 	/** Base object */
@@ -1084,6 +1106,12 @@ typedef struct {
 	/** Immediate operand */
 	z80ic_oper_imm8_t *imm8;
 } z80ic_adc_a_n_t;
+
+/** Z80 IC add (HL) to A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_adc_a_ihl_t;
 
 /** Z80 IC add (IX+d) to A with carry */
 typedef struct {
@@ -1156,6 +1184,14 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_xor_iixd_t;
+
+/** Z80 IC compare with 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_cp_n_t;
 
 /** Z80 IC increment (IX+d) */
 typedef struct {
@@ -1313,6 +1349,19 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_ret_t;
 
+/** Z80 IC load register from indirect virtual register pair with displacement
+ */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+	/** Source indirect virtual register pair */
+	z80ic_oper_vrr_t *isrc;
+	/** Displacement */
+	int8_t disp;
+} z80ic_ld_r_ivrrd_t;
+
 /** Z80 IC load virtual register from virtual register */
 typedef struct {
 	/** Base object */
@@ -1361,6 +1410,20 @@ typedef struct {
 	z80ic_oper_vrr_t *isrc;
 } z80ic_ld_vr_ivrr_t;
 
+/** Z80 IC load virtual register from indirect virtual register pair with
+ * displacement
+ */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register */
+	z80ic_oper_vr_t *dest;
+	/** Source indirect virtual register pair */
+	z80ic_oper_vrr_t *isrc;
+	/** Displacement */
+	int8_t disp;
+} z80ic_ld_vr_ivrrd_t;
+
 /** Z80 IC load (HL) from virtual register */
 typedef struct {
 	/** Base object */
@@ -1369,7 +1432,7 @@ typedef struct {
 	z80ic_oper_vr_t *src;
 } z80ic_ld_ihl_vr_t;
 
-/** Z80 IC load indirect virtual register pair from virtual register */
+/** Z80 IC load indirect virtual register pair from 8-bit immediate */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
@@ -1378,6 +1441,58 @@ typedef struct {
 	/** Source virtual register pair */
 	z80ic_oper_vr_t *src;
 } z80ic_ld_ivrr_vr_t;
+
+/** Z80 IC load indirect virtual register pair with displacement from
+ * register
+ */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination indirect virtual register pair */
+	z80ic_oper_vrr_t *idest;
+	/** Displacement */
+	int8_t disp;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_ld_ivrrd_r_t;
+
+/** Z80 IC load indirect virtual register pair with displacement from
+ * virtual register
+ */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination indirect virtual register pair */
+	z80ic_oper_vrr_t *idest;
+	/** Displacement */
+	int8_t disp;
+	/** Source virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_ld_ivrrd_vr_t;
+
+/** Z80 IC load indirect virtual register pair from 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination indirect virtual register pair */
+	z80ic_oper_vrr_t *idest;
+	/** Immediate */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_ld_ivrr_n_t;
+
+/** Z80 IC load indirect virtual register pair with displacement from
+ * 8-bit immediate
+ */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination indirect virtual register pair */
+	z80ic_oper_vrr_t *idest;
+	/** Displacement */
+	int8_t disp;
+	/** Immediate */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_ld_ivrrd_n_t;
 
 /** Z80 IC load virtual register pair from virtual register pair */
 typedef struct {
@@ -1449,7 +1564,7 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_vrr_nn_t;
 
-/** Z80 IC load SP+imm16 to virtual register pair */
+/** Z80 IC load SFB+imm16 to virtual register pair */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
@@ -1457,9 +1572,19 @@ typedef struct {
 	z80ic_oper_vrr_t *dest;
 	/** Immediate */
 	z80ic_oper_imm16_t *imm16;
-} z80ic_ld_vrr_spnn_t;
+} z80ic_ld_vrr_sfbnn_t;
 
-/** Z80 IC load register to (SP+imm16) */
+/** Z80 IC load SFE+imm16 to virtual register pair */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination virtual register pair */
+	z80ic_oper_vrr_t *dest;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_vrr_sfenn_t;
+
+/** Z80 IC load register to (SFB+imm16) */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
@@ -1467,7 +1592,7 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 	/** Source register */
 	z80ic_oper_reg_t *src;
-} z80ic_ld_ispnn_r_t;
+} z80ic_ld_isfbnn_r_t;
 
 /** Z80 IC push virtual register */
 typedef struct {
@@ -1493,6 +1618,16 @@ typedef struct {
 	z80ic_oper_vr_t *src;
 } z80ic_add_a_vr_t;
 
+/** Z80 IC add indirect virtual register pair with displacement to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source indirect virtual register pair */
+	z80ic_oper_vrr_t *isrc;
+	/** Displacement */
+	int8_t disp;
+} z80ic_add_a_ivrrd_t;
+
 /** Z80 IC add virtual register to A with carry */
 typedef struct {
 	/** Base object */
@@ -1500,6 +1635,18 @@ typedef struct {
 	/** Source virtual register */
 	z80ic_oper_vr_t *src;
 } z80ic_adc_a_vr_t;
+
+/** Z80 IC add indirect virtual register pair with displacement to A with
+ * carry
+ */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source indirect virtual register pair */
+	z80ic_oper_vrr_t *isrc;
+	/** Displacement */
+	int8_t disp;
+} z80ic_adc_a_ivrrd_t;
 
 /** Z80 IC subtract virtual register */
 typedef struct {

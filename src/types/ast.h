@@ -166,11 +166,11 @@ typedef enum {
 	/** Null statement */
 	ant_stnull,
 	/** __va_copy statement */
-	ant_stva_copy,
+	ant_va_copy,
 	/** __va_end statement */
-	ant_stva_end,
+	ant_va_end,
 	/** __va_start statement */
-	ant_stva_start,
+	ant_va_start,
 	/** Loop macro invocation */
 	ant_lmacro,
 	/** Statement block */
@@ -1125,8 +1125,12 @@ typedef struct {
 	ast_tok_t tva_arg;
 	/** '(' token */
 	ast_tok_t tlparen;
-	/** Base expression */
-	ast_node_t *bexpr;
+	/** Argument pointer expression */
+	ast_node_t *apexpr;
+	/** ',' token */
+	ast_tok_t tcomma;
+	/** Type name */
+	ast_typename_t *atypename;
 	/** ')' token */
 	ast_tok_t trparen;
 } ast_eva_arg_t;
@@ -1536,7 +1540,7 @@ typedef struct {
 	ast_tok_t trparen;
 	/** ';' token */
 	ast_tok_t tscolon;
-} ast_stva_copy_t;
+} ast_va_copy_t;
 
 /** __va_end statement. */
 typedef struct {
@@ -1552,7 +1556,7 @@ typedef struct {
 	ast_tok_t trparen;
 	/** ';' token */
 	ast_tok_t tscolon;
-} ast_stva_end_t;
+} ast_va_end_t;
 
 /** __va_start statement. */
 typedef struct {
@@ -1572,7 +1576,7 @@ typedef struct {
 	ast_tok_t trparen;
 	/** ';' token */
 	ast_tok_t tscolon;
-} ast_stva_start_t;
+} ast_va_start_t;
 
 /** Loop macro invocation */
 typedef struct {

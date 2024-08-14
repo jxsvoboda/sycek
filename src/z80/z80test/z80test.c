@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -275,12 +275,13 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	symbol_t *symbol;
 	int64_t sval = 0;
 	int64_t oval;
-	bool have_ident = false;
+	bool have_base = false;
 	int rc;
 
 	script_read_next_tok(script, &tok);
 
-	if (tok.ttype == stt_ident) {
+	switch (tok.ttype) {
+	case stt_ident:
 		symbol = symbols_lookup(symbols, tok.text);
 		if (symbol == NULL) {
 			fprintf(stderr, "Error: ");
@@ -291,10 +292,33 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 
 		sval = symbol->addr;
 		script_skip(script);
-		have_ident = true;
+		have_base = true;
+		break;
+	case stt_AF:
+		script_skip(script);
+		sval = z80_getAF();
+		have_base = true;
+		break;
+	case stt_BC:
+		script_skip(script);
+		sval = z80_getBC();
+		have_base = true;
+		break;
+	case stt_DE:
+		script_skip(script);
+		sval = z80_getDE();
+		have_base = true;
+		break;
+	case stt_HL:
+		script_skip(script);
+		sval = z80_getHL();
+		have_base = true;
+		break;
+	default:
+		break;
 	}
 
-	if (have_ident) {
+	if (have_base) {
 		script_read_next_tok(script, &tok);
 		if (tok.ttype != stt_plus) {
 			*eval = sval;
@@ -318,14 +342,16 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	return 0;
 }
 
-/** Parse register/memory operand.
+/** Try parsing register/memory operand.
  *
- * Parse a register/memory operand from the script.
+ * Try parse a register/memory operand from the script. If the
+ * operand does not look like a register/memory operand,
+ * do not print an error.
  *
  * @param script Script
  * @param regmem Place to store the register/memory operand
  */
-static int script_parse_rm(script_t *script, regmem_t *regmem)
+static int script_try_parse_rm(script_t *script, regmem_t *regmem)
 {
 	scr_lexer_tok_t tok;
 	scr_lexer_toktype_t ttype;
@@ -422,6 +448,25 @@ static int script_parse_rm(script_t *script, regmem_t *regmem)
 		regmem->rmtype = rm_L;
 		break;
 	default:
+		return EINVAL;
+	}
+
+	return 0;
+}
+
+/** Parse register/memory operand.
+ *
+ * Parse a register/memory operand from the script.
+ *
+ * @param script Script
+ * @param regmem Place to store the register/memory operand
+ */
+static int script_parse_rm(script_t *script, regmem_t *regmem)
+{
+	int rc;
+
+	rc = script_try_parse_rm(script, regmem);
+	if (rc == EINVAL) {
 		fprintf(stderr, "Error: ");
 		script_dprint_next_tok(script, stderr);
 		fprintf(stderr, " is not a valid register/memory operand.\n");
@@ -653,7 +698,8 @@ static int script_do_call(script_t *script)
 static int script_do_ld(script_t *script)
 {
 	regmem_t rm;
-	uint64_t eval;
+	regmem_t srcrm;
+	uint64_t val;
 	int rc;
 
 	script_skip(script);
@@ -666,11 +712,20 @@ static int script_do_ld(script_t *script)
 	if (rc != 0)
 		return EINVAL;
 
-	rc = script_eval_expr(script, &eval);
-	if (rc != 0)
-		return EINVAL;
+	rc = script_try_parse_rm(script, &srcrm);
+	if (rc != 0) {
+		/* Not R/M, try expression */
+		rc = script_eval_expr(script, &val);
+		if (rc != 0)
+			return EINVAL;
+	} else {
+		/* Read register/memory */
+		rc = regmem_read(&srcrm, false, &val);
+		if (rc != 0)
+			return EINVAL;
+	}
 
-	rc = regmem_write(&rm, eval);
+	rc = regmem_write(&rm, val);
 	if (rc != 0)
 		return EINVAL;
 
@@ -812,7 +867,7 @@ static int script_do_verify(script_t *script)
 	if (rc != 0)
 		return rc;
 
-	rc = regmem_read(&rm, false, &rmval);
+	rc = regmem_read(&rm, true, &rmval);
 	if (rc != 0)
 		return rc;
 

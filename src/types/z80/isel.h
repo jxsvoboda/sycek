@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
 #ifndef TYPES_Z80_ISEL_H
 #define TYPES_Z80_ISEL_H
 
+#include <types/z80/vainfo.h>
 #include <types/z80/varmap.h>
 
 /** Z80 instruction selector */
@@ -47,6 +48,8 @@ typedef struct {
 	unsigned next_label;
 	/** This procedure is a user service routine */
 	bool usr;
+	/** Variable argument info */
+	z80_vainfo_t vainfo;
 	/** Source IR procedure */
 	struct ir_proc *irproc;
 	/** Destination IC procedure */

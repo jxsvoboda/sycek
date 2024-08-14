@@ -219,8 +219,8 @@ parsable by ccheck.
 Using Syc
 ---------
 Syc is a C cross-compiler under construction, targetting the Sinclair
-ZX Spectrum platform / Zilog Z80 processor. Coverage of C language features
-is incomplete, with some important things still missing.
+ZX Spectrum platform / Zilog Z80 processor. Most C language features
+are implemented, but some things are still missing.
 
 Specifically, these language features are supported:
 
@@ -228,6 +228,7 @@ Specifically, these language features are supported:
  * Function declaration, definition, calling functions
  * Function arguments are passed via registers and the stack
    (any number of arguments of total size up to appprox. 128 bytes)
+ * Functions with variable arguments
  * Most arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
    and integer type conversions, usual arithmetic conversions
@@ -252,7 +253,6 @@ These are NOT supported yet:
  * Integer promotion
  * Division and modulus (`/`, `%`)
  * Pointer difference
- * Variadic functions
  * Lvalue arguments
  * Passing or returning struct/union by value
  * C99-style qualified struct/array initialization

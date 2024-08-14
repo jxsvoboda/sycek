@@ -106,8 +106,16 @@ typedef enum {
 	iri_sub,
 	/** Truncate integer */
 	iri_trunc,
+	/** Get next variable argument */
+	iri_vaarg,
+	/** Finalize variable argument pointer */
+	iri_vaend,
+	/** Copy variable argument pointer */
+	iri_vacopy,
 	/** Get pointer to global variable */
 	iri_varptr,
+	/** Initialize variable argument pointer */
+	iri_vastart,
 	/** Write to memory */
 	iri_write,
 	/** Binary XOR */

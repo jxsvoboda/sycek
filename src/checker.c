@@ -2054,7 +2054,7 @@ static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull,
  * @return EOK on success or error code
  */
 static int checker_check_stva_end(checker_scope_t *scope,
-    ast_stva_end_t *stva_end)
+    ast_va_end_t *stva_end)
 {
 	int rc;
 	checker_tok_t *tva_end;
@@ -2094,7 +2094,7 @@ static int checker_check_stva_end(checker_scope_t *scope,
  * @return EOK on success or error code
  */
 static int checker_check_stva_copy(checker_scope_t *scope,
-    ast_stva_copy_t *stva_copy)
+    ast_va_copy_t *stva_copy)
 {
 	int rc;
 	checker_tok_t *tva_copy;
@@ -2148,7 +2148,7 @@ static int checker_check_stva_copy(checker_scope_t *scope,
  * @return EOK on success or error code
  */
 static int checker_check_stva_start(checker_scope_t *scope,
-    ast_stva_start_t *stva_start)
+    ast_va_start_t *stva_start)
 {
 	int rc;
 	checker_tok_t *tva_start;
@@ -2327,15 +2327,15 @@ static int checker_check_stmt(checker_scope_t *scope, ast_node_t *stmt,
 	case ant_stnull:
 		return checker_check_stnull(scope, (ast_stnull_t *)stmt->ext,
 		    nsallow);
-	case ant_stva_end:
+	case ant_va_end:
 		return checker_check_stva_end(scope,
-		    (ast_stva_end_t *)stmt->ext);
-	case ant_stva_copy:
+		    (ast_va_end_t *)stmt->ext);
+	case ant_va_copy:
 		return checker_check_stva_copy(scope,
-		    (ast_stva_copy_t *)stmt->ext);
-	case ant_stva_start:
+		    (ast_va_copy_t *)stmt->ext);
+	case ant_va_start:
 		return checker_check_stva_start(scope,
-		    (ast_stva_start_t *)stmt->ext);
+		    (ast_va_start_t *)stmt->ext);
 	case ant_lmacro:
 		return checker_check_lmacro(scope, (ast_lmacro_t *)stmt->ext);
 	case ant_block:
@@ -4533,10 +4533,12 @@ static int checker_check_eva_arg(checker_scope_t *scope,
 	int rc;
 	checker_tok_t *tva_arg;
 	checker_tok_t *tlparen;
+	checker_tok_t *tcomma;
 	checker_tok_t *trparen;
 
 	tva_arg = (checker_tok_t *)eva_arg->tva_arg.data;
 	tlparen = (checker_tok_t *)eva_arg->tlparen.data;
+	tcomma = (checker_tok_t *)eva_arg->tcomma.data;
 	trparen = (checker_tok_t *)eva_arg->trparen.data;
 
 	checker_check_nows_after(scope, tva_arg,
@@ -4544,7 +4546,18 @@ static int checker_check_eva_arg(checker_scope_t *scope,
 	checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
 
-	rc = checker_check_expr(scope, eva_arg->bexpr);
+	rc = checker_check_expr(scope, eva_arg->apexpr);
+	if (rc != EOK)
+		return rc;
+
+	checker_check_nows_before(scope, tcomma,
+	    "Unexpected whitespace before ','.");
+	rc = checker_check_brkspace_after(scope, tcomma,
+	    "Expected whitespace after ','.");
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_typename(scope, eva_arg->atypename);
 	if (rc != EOK)
 		return rc;
 

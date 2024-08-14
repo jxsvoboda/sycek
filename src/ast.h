@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -243,9 +243,9 @@ extern int ast_glabel_create(ast_glabel_t **);
 extern int ast_stexpr_create(ast_stexpr_t **);
 extern int ast_stdecln_create(ast_stdecln_t **);
 extern int ast_stnull_create(ast_stnull_t **);
-extern int ast_stva_end_create(ast_stva_end_t **);
-extern int ast_stva_copy_create(ast_stva_copy_t **);
-extern int ast_stva_start_create(ast_stva_start_t **);
+extern int ast_va_end_create(ast_va_end_t **);
+extern int ast_va_copy_create(ast_va_copy_t **);
+extern int ast_va_start_create(ast_va_start_t **);
 extern int ast_lmacro_create(ast_lmacro_t **);
 extern int ast_tree_print(ast_node_t *, FILE *);
 extern void ast_tree_destroy(ast_node_t *);
