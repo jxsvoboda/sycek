@@ -10140,7 +10140,7 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	char *flabel = NULL;
 	char *elabel = NULL;
 	unsigned lblno;
-	ir_lblock_t *flblock;
+	ir_lblock_t *flblock = NULL;
 	bool isvoid;
 	comp_tok_t *ctok;
 	int rc;
@@ -17840,7 +17840,7 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 	uint32_t value;
 	uint32_t max;
 	uint64_t idx;
-	bool wide;
+	bool wide = false;
 	int rc;
 
 	(void)itok;
