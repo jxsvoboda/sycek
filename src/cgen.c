@@ -18209,6 +18209,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			fprintf(stderr, ": Warning: non-extern '%s' was "
 			    "previously declared as extern.\n",
 			    ident->tok.text);
+			symbol->flags &= ~sf_extern;
 			++cgen->warnings;
 		}
 	}
