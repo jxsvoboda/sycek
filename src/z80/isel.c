@@ -9926,7 +9926,6 @@ static int z80_isel_vastart(z80_isel_proc_t *isproc, const char *label,
 	z80ic_ld_vrr_vrr_t *ldvrr = NULL;
 	z80ic_inc_vrr_t *inc = NULL;
 	unsigned apvr;
-	unsigned lvr;
 	unsigned ptrvr;
 	unsigned curvr;
 	unsigned stkavr;
@@ -9939,15 +9938,12 @@ static int z80_isel_vastart(z80_isel_proc_t *isproc, const char *label,
 	assert(irinstr->itype == iri_vastart);
 	assert(irinstr->dest == NULL);
 	assert(irinstr->op1->optype == iro_var);
-	assert(irinstr->op2->optype == iro_var);
+	assert(irinstr->op2 == NULL);
 
 	apvr = z80_isel_get_vregno(isproc, irinstr->op1);
-	lvr = z80_isel_get_vregno(isproc, irinstr->op2);
 	ptrvr = z80_isel_get_new_vregno(isproc);
 	curvr = z80_isel_get_new_vregno(isproc);
 	stkavr = z80_isel_get_new_vregno(isproc);
-
-	(void)lvr;
 
 	cur_off = isproc->vainfo.cur_off;
 	cur_rel = isproc->vainfo.cur_rel;

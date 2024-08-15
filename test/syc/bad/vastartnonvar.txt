@@ -1,0 +1,1 @@
+<test/syc/bad/vastartnonvar.c:9:9-18:'__va_start'>: Use of __va_start in a function that does not take variable arguments.

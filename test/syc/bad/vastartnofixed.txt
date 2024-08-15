@@ -1,0 +1,1 @@
+<test/syc/bad/vastartnofixed.c:9:24:id:a>: Expected identifier of last fixed parameter.

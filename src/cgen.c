@@ -1419,6 +1419,8 @@ static void cgen_proc_destroy(cgen_proc_t *cgproc)
 	labels_destroy(cgproc->labels);
 	scope_destroy(cgproc->arg_scope);
 	cgtype_destroy(cgproc->rtype);
+	if (cgproc->last_arg != NULL)
+		free(cgproc->last_arg);
 	free(cgproc);
 }
 
@@ -12189,6 +12191,34 @@ error:
 	return rc;
 }
 
+/** Check type is __va_list.
+ *
+ * @param cgproc Code generator for procedure
+ * @param cgtype Expression type
+ * @param atok Token for diagnostics
+ * @return EOK on success or an error code
+ */
+static int cgen_check_va_list(cgen_proc_t *cgproc, cgtype_t *cgtype,
+    ast_tok_t *atok)
+{
+	cgtype_basic_t *tbasic;
+	comp_tok_t *tok;
+
+	(void)cgproc;
+	tok = (comp_tok_t *)atok->data;
+
+	if (cgtype->ntype == cgn_basic) {
+		tbasic = (cgtype_basic_t *)cgtype->ext;
+		if (tbasic->elmtype == cgelm_va_list)
+			return EOK;
+	}
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": expected expression of type __va_list.\n");
+	cgproc->cgen->error = true; // TODO
+	return EINVAL;
+}
+
 /** Generate code for __va_arg expression.
  *
  * @param cgexpr Code generator for expression
@@ -12218,6 +12248,12 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 
 	/* Evaluate ap expression */
 	rc = cgen_expr(cgexpr, eva_arg->apexpr, lblock, &apres);
+	if (rc != EOK)
+		goto error;
+
+	/* Check that ap is of type __va_list */
+	rc = cgen_check_va_list(cgexpr->cgproc, apres.cgtype,
+	    ast_tree_first_tok(eva_arg->apexpr));
 	if (rc != EOK)
 		goto error;
 
@@ -16216,8 +16252,20 @@ static int cgen_va_copy(cgen_proc_t *cgproc, ast_va_copy_t *stva_copy,
 	if (rc != EOK)
 		goto error;
 
+	/* Check that dest is of type __va_list */
+	rc = cgen_check_va_list(cgproc, dres.cgtype,
+	    ast_tree_first_tok(stva_copy->dexpr));
+	if (rc != EOK)
+		goto error;
+
 	/* Evaluate src expression */
 	rc = cgen_expr(&cgproc->cgexpr, stva_copy->sexpr, lblock, &sres);
+	if (rc != EOK)
+		goto error;
+
+	/* Check that src is of type __va_list */
+	rc = cgen_check_va_list(cgproc, sres.cgtype,
+	    ast_tree_first_tok(stva_copy->sexpr));
 	if (rc != EOK)
 		goto error;
 
@@ -16280,6 +16328,12 @@ static int cgen_va_end(cgen_proc_t *cgproc, ast_va_end_t *va_end,
 	if (rc != EOK)
 		goto error;
 
+	/* Check that ap is of type __va_list */
+	rc = cgen_check_va_list(cgproc, apres.cgtype,
+	    ast_tree_first_tok(va_end->apexpr));
+	if (rc != EOK)
+		goto error;
+
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
 		goto error;
@@ -16319,24 +16373,59 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
     ir_lblock_t *lblock)
 {
 	cgen_eres_t apres;
-	cgen_eres_t lres;
+	ast_tok_t *atok;
+	comp_tok_t *tok;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *var1 = NULL;
-	ir_oper_var_t *var2 = NULL;
+	ast_eident_t *aident;
 	int rc;
 
 	cgen_eres_init(&apres);
-	cgen_eres_init(&lres);
+
+	/* Make sure the current function is variadic */
+	if (cgproc->irproc->variadic != true) {
+		atok = &stva_start->tva_start;
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Use of __va_start in a function that "
+		    "does not take variable arguments.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+	}
 
 	/* Evaluate ap expression */
 	rc = cgen_expr(&cgproc->cgexpr, stva_start->apexpr, lblock, &apres);
 	if (rc != EOK)
 		goto error;
 
-	/* Evaluate last expression */
-	rc = cgen_expr(&cgproc->cgexpr, stva_start->lexpr, lblock, &lres);
+	/* Check that ap is of type __va_list */
+	rc = cgen_check_va_list(cgproc, apres.cgtype,
+	    ast_tree_first_tok(stva_start->apexpr));
 	if (rc != EOK)
 		goto error;
+
+	/* lexpr should be the identifier of the last fixed parameter */
+	if (stva_start->lexpr->ntype != ant_eident) {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Expected identifier of last fixed "
+		    "parameter.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	aident = (ast_eident_t *)stva_start->lexpr->ext;
+	tok = (comp_tok_t *) aident->tident.data;
+
+	if (cgproc->last_arg == NULL ||
+	    strcmp(cgproc->last_arg, tok->tok.text) != 0) {
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Expected identifier of last fixed "
+		    "parameter.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -16346,32 +16435,23 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres.varname, &var2);
-	if (rc != EOK)
-		goto error;
-
 	instr->itype = iri_vastart;
 	instr->dest = NULL;
 	instr->op1 = &var1->oper;
-	instr->op2 = &var2->oper;
+	instr->op2 = NULL;
 
 	ir_lblock_append(lblock, NULL, instr);
 
 	var1 = NULL;
-	var2 = NULL;
 
 	cgen_eres_fini(&apres);
-	cgen_eres_fini(&lres);
 
 	return EOK;
 error:
 	cgen_eres_fini(&apres);
-	cgen_eres_fini(&lres);
 	ir_instr_destroy(instr);
 	if (var1 != NULL)
 		ir_oper_destroy(&var1->oper);
-	if (var2 != NULL)
-		ir_oper_destroy(&var2->oper);
 	return rc;
 }
 
@@ -17198,6 +17278,16 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 			    "shadows a wider-scope declaration.\n",
 			    tok->tok.text);
 			++cgen->warnings;
+		}
+
+		/* Remember identifier of last fixed argument */
+		if (cgproc->last_arg != NULL)
+			free(cgproc->last_arg);
+
+		cgproc->last_arg = strdup(tok->tok.text);
+		if (cgproc->last_arg == NULL) {
+			rc = ENOMEM;
+			goto error;
 		}
 
 		rv = asprintf(&arg_ident, "%%%d", cgproc->next_var++);

@@ -1,0 +1,1 @@
+<test/syc/bad/vacopynotvl.c:9:19:id:a>: expected expression of type __va_list.

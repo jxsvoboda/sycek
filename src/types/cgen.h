@@ -100,6 +100,8 @@ typedef struct cgen_proc {
 	struct labels *labels;
 	/** Code generator for non-constant expressions */
 	cgen_expr_t cgexpr;
+	/** Identifier of last fixed argument */
+	char *last_arg;
 } cgen_proc_t;
 
 /** Code generator for declaration specifies / specifier-qualifier list.

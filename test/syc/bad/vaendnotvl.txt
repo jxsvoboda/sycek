@@ -1,0 +1,1 @@
+<test/syc/bad/vaendnotvl.c:9:18-19:id:ap>: expected expression of type __va_list.
