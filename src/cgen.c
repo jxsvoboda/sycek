@@ -13615,15 +13615,21 @@ static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 {
 	unsigned bits;
 	cgtype_t *cgtype;
+	cgtype_basic_t *tbasic = NULL;
+	cgen_eres_t icres;
 	int rc;
 
-	(void)lblock;
+	cgen_eres_init(&icres);
 
 	assert(ares->cgtype->ntype == cgn_basic);
 	assert(dtype->ntype == cgn_pointer);
 
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)ares->cgtype->ext);
+
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		goto error;
 
 	if (expl != cgen_explicit) {
 		if (ares->cvknown && ares->cvint == 0) {
@@ -13644,22 +13650,49 @@ static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		fprintf(stderr, ": Warning: Converting to pointer from integer "
 		    "of different size.\n");
 		++cgexpr->cgen->warnings;
+
+		rc = cgtype_basic_create(cgelm_uint, &tbasic);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_type_convert_integer(cgexpr, ctok, ares,
+		    &tbasic->cgtype, expl, lblock, &icres);
+		if (rc != EOK)
+			goto error;
+
+		cgtype_destroy(&tbasic->cgtype);
+		tbasic = NULL;
+
+		cres->varname = icres.varname;
+		cres->valtype = icres.valtype;
+		cres->cgtype = cgtype;
+		cres->valused = icres.valused;
+		cres->cvknown = icres.cvknown;
+		cres->cvint = icres.cvint;
+		cres->cvsymbol = icres.cvsymbol;
+		cres->tfirst = icres.tfirst;
+		cres->tlast = icres.tlast;
+
+		cgen_eres_fini(&icres);
+	} else {
+		cres->varname = ares->varname;
+		cres->valtype = ares->valtype;
+		cres->cgtype = cgtype;
+		cres->valused = ares->valused;
+		cres->cvknown = ares->cvknown;
+		cres->cvint = ares->cvint;
+		cres->cvsymbol = ares->cvsymbol;
+		cres->tfirst = ares->tfirst;
+		cres->tlast = ares->tlast;
 	}
 
-	rc = cgtype_clone(dtype, &cgtype);
-	if (rc != EOK)
-		goto error;
-
-	cres->varname = ares->varname;
-	cres->valtype = ares->valtype;
-	cres->cgtype = cgtype;
-	cres->valused = ares->valused;
-	cres->cvknown = ares->cvknown;
-	cres->cvint = ares->cvint;
-	cres->cvsymbol = ares->cvsymbol;
-	cres->tfirst = ares->tfirst;
-	cres->tlast = ares->tlast;
+	return EOK;
 error:
+	if (cgtype != NULL)
+		cgtype_destroy(cgtype);
+	if (tbasic != NULL)
+		cgtype_destroy(&tbasic->cgtype);
+	cgen_eres_fini(&icres);
 	return rc;
 }
 
