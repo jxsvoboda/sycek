@@ -1758,36 +1758,70 @@ static void cgen_error_short_long(cgen_t *cgen, ast_tsbasic_t *tspec)
 	cgen->error = true; // TODO
 }
 
-/** Generate error: both short and char specifier.
+/** Generate error: both short and 'xxx' specifier.
  *
  * @param cgen Code generator
  * @param tspec Char specifier
  */
-static void cgen_error_short_char(cgen_t *cgen, ast_tsbasic_t *tspec)
+static void cgen_error_short_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
 {
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
 	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both short and char specifier.\n");
+	fprintf(stderr, ": Both short and %s specifier.\n", tok->tok.text);
 
 	cgen->error = true; // TODO
 }
 
-/** Generate error: both long and char specifier.
+/** Generate error: both long and 'xxx' specifier.
  *
  * @param cgen Code generator
  * @param tspec Char specifier
  */
-static void cgen_error_long_char(cgen_t *cgen, ast_tsbasic_t *tspec)
+static void cgen_error_long_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
 {
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
 	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both long and char specifier.\n");
+	fprintf(stderr, ": Both long and %s specifier.\n", tok->tok.text);
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: both signed and 'xxx' specifier.
+ *
+ * @param cgen Code generator
+ * @param tspec Char specifier
+ */
+static void cgen_error_signed_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Both signed and %s specifier.\n", tok->tok.text);
+
+	cgen->error = true; // TODO
+}
+
+/** Generate error: both unsigned and 'xxx' specifier.
+ *
+ * @param cgen Code generator
+ * @param tspec Char specifier
+ */
+static void cgen_error_unsigned_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tspec->tbasic.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Both unsigned and %s specifier.\n", tok->tok.text);
 
 	cgen->error = true; // TODO
 }
@@ -3392,6 +3426,42 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 		switch (cgds->tspec->ntype) {
 		case ant_tsbasic:
 			tsbasic = (ast_tsbasic_t *) cgds->tspec->ext;
+
+			/* Short and long cannot be used with some types */
+			switch (tsbasic->btstype) {
+			case abts_char:
+			case abts_void:
+			case abts_va_list:
+				if (cgds->short_cnt > 0) {
+					cgen_error_short_xxx(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (cgds->long_cnt > 0) {
+					cgen_error_long_xxx(cgen, tsbasic);
+					return EINVAL;
+				}
+				break;
+			default:
+				break;
+			}
+
+			/* Signed and unsigned cannot be used with some types */
+			switch (tsbasic->btstype) {
+			case abts_void:
+			case abts_va_list:
+				if (cgds->signed_cnt > 0) {
+					cgen_error_signed_xxx(cgen, tsbasic);
+					return EINVAL;
+				}
+				if (cgds->unsigned_cnt > 0) {
+					cgen_error_unsigned_xxx(cgen, tsbasic);
+					return EINVAL;
+				}
+				break;
+			default:
+				break;
+			}
+
 			switch (tsbasic->btstype) {
 			case abts_char:
 				if (cgds->unsigned_cnt > 0)
@@ -3400,11 +3470,11 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 					elmtype = cgelm_char;
 
 				if (cgds->short_cnt > 0) {
-					cgen_error_short_char(cgen, tsbasic);
+					cgen_error_short_xxx(cgen, tsbasic);
 					return EINVAL;
 				}
 				if (cgds->long_cnt > 0) {
-					cgen_error_long_char(cgen, tsbasic);
+					cgen_error_long_xxx(cgen, tsbasic);
 					return EINVAL;
 				}
 				break;

@@ -1,0 +1,1 @@
+<test/syc/bad/signedvalist.c:5:8-16:'__va_list'>: Both signed and __va_list specifier.

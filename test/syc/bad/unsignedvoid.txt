@@ -1,0 +1,1 @@
+<test/syc/bad/unsignedvoid.c:5:10-13:'void'>: Both unsigned and void specifier.

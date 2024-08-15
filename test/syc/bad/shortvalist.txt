@@ -1,0 +1,1 @@
+<test/syc/bad/shortvalist.c:5:7-15:'__va_list'>: Both short and __va_list specifier.

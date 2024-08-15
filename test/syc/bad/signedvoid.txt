@@ -1,0 +1,1 @@
+<test/syc/bad/signedvoid.c:5:8-11:'void'>: Both signed and void specifier.

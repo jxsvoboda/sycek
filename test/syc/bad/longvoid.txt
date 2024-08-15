@@ -1,0 +1,1 @@
+<test/syc/bad/longvoid.c:5:6-9:'void'>: Both long and void specifier.

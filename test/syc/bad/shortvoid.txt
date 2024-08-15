@@ -1,0 +1,1 @@
+<test/syc/bad/shortvoid.c:5:7-10:'void'>: Both short and void specifier.
