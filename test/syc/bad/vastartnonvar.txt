@@ -1,1 +1,2 @@
 <test/syc/bad/vastartnonvar.c:9:9-18:'__va_start'>: Use of __va_start in a function that does not take variable arguments.
+<test/syc/bad/vastartnonvar.c:7:16-18:id:fmt>: Warning: 'fmt' is defined, but not used.

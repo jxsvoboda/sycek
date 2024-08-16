@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -37,6 +37,8 @@ enum {
 
 /** Z80 function argument locations */
 typedef struct {
+	/** @c true iff procedure is variadic */
+	bool variadic;
 	/** Entries (of z80_argloc_entry_t) */
 	list_t entries;
 	/** Number of bytes used on the stack */

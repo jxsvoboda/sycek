@@ -225,3 +225,14 @@ verify word ptr (@_d1), 0x2;
 verify word ptr (@_d2), 0x3;
 verify word ptr (@_d3), 0x4;
 verify word ptr (@_d4), 0x5;
+
+/*
+ * Test calling a variadic function with long arguments.
+ */
+ld dword ptr (@_sl0), 0x1;
+ld dword ptr (@_sl1), 0x2;
+ld dword ptr (@_sl2), 0x3;
+call @_cvarl;
+verify word ptr (@_l0), 0x1;
+verify word ptr (@_l1), 0x2;
+verify word ptr (@_l2), 0x3;

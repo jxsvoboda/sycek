@@ -12191,7 +12191,7 @@ error:
 	return rc;
 }
 
-/** Check type is __va_list.
+/** Check type is __va_list or pointer to va_list.
  *
  * @param cgproc Code generator for procedure
  * @param cgtype Expression type
@@ -12202,10 +12202,17 @@ static int cgen_check_va_list(cgen_proc_t *cgproc, cgtype_t *cgtype,
     ast_tok_t *atok)
 {
 	cgtype_basic_t *tbasic;
+	cgtype_pointer_t *tpointer;
 	comp_tok_t *tok;
 
 	(void)cgproc;
 	tok = (comp_tok_t *)atok->data;
+
+	/* If it is a pointer, look at its target. */
+	if (cgtype->ntype == cgn_pointer) {
+		tpointer = (cgtype_pointer_t *)cgtype->ext;
+		cgtype = tpointer->tgtype;
+	}
 
 	if (cgtype->ntype == cgn_basic) {
 		tbasic = (cgtype_basic_t *)cgtype->ext;
@@ -12214,7 +12221,9 @@ static int cgen_check_va_list(cgen_proc_t *cgproc, cgtype_t *cgtype,
 	}
 
 	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": expected expression of type __va_list.\n");
+	fprintf(stderr, ": expected expression of type __va_list, got ");
+	cgtype_print(cgtype, stderr);
+	fprintf(stderr, ".\n");
 	cgproc->cgen->error = true; // TODO
 	return EINVAL;
 }
@@ -16406,6 +16415,8 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 
 	/* lexpr should be the identifier of the last fixed parameter */
 	if (stva_start->lexpr->ntype != ant_eident) {
+		atok = ast_tree_first_tok(stva_start->lexpr);
+		tok = (comp_tok_t *)atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Expected identifier of last fixed "
 		    "parameter.\n");

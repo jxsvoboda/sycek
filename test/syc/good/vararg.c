@@ -94,3 +94,26 @@ void cvarv(void)
 {
 	varv(s0, s1, s2, s3, s4);
 }
+
+long sl0, sl1, sl2;
+long l0, l1, l2;
+
+/*
+ * a0 is passed in HL, DE. a1 does not fit into registers entirely.
+ * Since varl is variadic, it must be passed entirely on the stack,
+ * unlike with a regular function, where 2 bytes would be passed in
+ * BC and two bytes on the stack.
+ */
+void varl(long a0, long a1, ...)
+{
+	l0 = a0;
+	l1 = a1;
+
+	__va_start(vl, a1);
+	l2 = __va_arg(vl, long);
+}
+
+void cvarl(void)
+{
+	varl(sl0, sl1, sl2);
+}

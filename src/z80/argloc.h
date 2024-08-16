@@ -30,7 +30,7 @@
 #include <types/z80/argloc.h>
 #include <types/z80/vainfo.h>
 
-extern int z80_argloc_create(z80_argloc_t **);
+extern int z80_argloc_create(bool, z80_argloc_t **);
 extern void z80_argloc_destroy(z80_argloc_t *);
 extern int z80_argloc_alloc(z80_argloc_t *, const char *, unsigned,
     z80_argloc_entry_t **);

@@ -1,1 +1,1 @@
-<test/syc/bad/vastartnotvl.c:9:20-21:id:ap>: expected expression of type __va_list.
+<test/syc/bad/vastartnotvl.c:9:20-21:id:ap>: expected expression of type __va_list, got int.

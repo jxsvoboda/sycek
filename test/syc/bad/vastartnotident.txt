@@ -1,1 +1,1 @@
-<:33:108872976-4294967296:108871824:space>: Expected identifier of last fixed parameter.
+<test/syc/bad/vastartnotident.c:9:24:num:1>: Expected identifier of last fixed parameter.

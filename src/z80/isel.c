@@ -3458,7 +3458,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		proc = (ir_proc_t *)pdecln->ext;
 	}
 
-	rc = z80_argloc_create(&argloc);
+	rc = z80_argloc_create(isproc->irproc->variadic, &argloc);
 	if (rc != EOK)
 		goto error;
 
@@ -3522,7 +3522,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			}
 		} else {
 			/* Use actual parameter size */
-			bits = vmentry->bytes;
+			bits = vmentry->bytes * 8;
 		}
 
 		if (proc->variadic) {
@@ -11113,7 +11113,7 @@ static int z80_isel_proc_args(z80_isel_proc_t *isproc, ir_proc_t *irproc,
 	unsigned bits;
 	int rc;
 
-	rc = z80_argloc_create(&argloc);
+	rc = z80_argloc_create(isproc->irproc->variadic, &argloc);
 	if (rc != EOK)
 		goto error;
 

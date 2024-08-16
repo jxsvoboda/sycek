@@ -91,10 +91,11 @@ static z80ic_r16_t z80_r16_alloc_order[z80_r16_alloc_num] = {
 
 /** Create argument locations.
  *
+ * @param variadic @c true iff procedure is variadic
  * @param rargloc Place to store pointer to new argument locations
  * @return EOK on success, ENOMEM if out of memory
  */
-int z80_argloc_create(z80_argloc_t **rargloc)
+int z80_argloc_create(bool variadic, z80_argloc_t **rargloc)
 {
 	z80_argloc_t *argloc;
 
@@ -103,6 +104,7 @@ int z80_argloc_create(z80_argloc_t **rargloc)
 		return ENOMEM;
 
 	list_initialize(&argloc->entries);
+	argloc->variadic = variadic;
 
 	*rargloc = argloc;
 	return EOK;
@@ -318,6 +320,7 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 	z80ic_r16_t r16;
 	z80_argloc_rp_t part;
 	unsigned eidx;
+	unsigned rem_bytes;
 	int rc;
 
 	entry = calloc(1, sizeof(z80_argloc_entry_t));
@@ -332,7 +335,9 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 
 	/* Allocate registers */
 
-	if (bytes == 1) {
+	rem_bytes = bytes;
+
+	if (rem_bytes == 1) {
 		/* Try allocating one register */
 		rc = z80_argloc_reg_alloc(argloc, &r16, &part);
 		if (rc == EOK) {
@@ -340,24 +345,32 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 			entry->reg[0].reg = r16;
 			entry->reg[0].part = part;
 			entry->reg_entries = 1;
-			--bytes;
+			--rem_bytes;
 		}
 	} else {
 		eidx = 0;
 
 		/* Allocate one or more 16-bit registers */
-		while (bytes >= 2) {
+		while (rem_bytes >= 2) {
 			/* Try allocating a 16-bit register */
 			rc = z80_argloc_r16_alloc(argloc, &r16);
-			if (rc != EOK)
+			if (rc != EOK) {
+				/*
+				 * In a variadic procedure the argument must
+				 * be either entirely in registers or entirely
+				 * on the stack. Undo register entries.
+				 */
+				eidx = 0;
+				rem_bytes = bytes;
 				break;
+			}
 
 			/* Success */
-			assert(eidx < z80_max_reg_entries);
+			assert(eidx < z80_r16_alloc_num);
 			entry->reg[eidx].reg = r16;
 			entry->reg[eidx].part = z80_argloc_hl;
 			++eidx;
-			bytes -= 2;
+			rem_bytes -= 2;
 		}
 
 		entry->reg_entries = eidx;
@@ -365,8 +378,8 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 
 	/* Allocate remaining bytes on the stack */
 	entry->stack_off = argloc->stack_used;
-	entry->stack_sz = bytes;
-	argloc->stack_used += bytes;
+	entry->stack_sz = rem_bytes;
+	argloc->stack_used += rem_bytes;
 
 	list_append(&entry->lentries, &argloc->entries);
 	entry->argloc = argloc;
