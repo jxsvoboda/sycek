@@ -12060,7 +12060,7 @@ static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
 		goto error;
 
 	/* Adjustment value */
-	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, 1, lblock, &adj);
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_char, 1, lblock, &adj);
 	if (rc != EOK)
 		goto error;
 
@@ -12143,7 +12143,7 @@ static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
 		goto error;
 
 	/* Adjustment value */
-	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, 1, lblock, &adj);
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_char, 1, lblock, &adj);
 	if (rc != EOK)
 		goto error;
 
