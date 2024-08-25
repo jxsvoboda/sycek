@@ -125,8 +125,11 @@ static int z80_idxacc_setup(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 {
 	z80ic_ld_ix_nn_t *ldix = NULL;
 	z80ic_add_ix_pp_t *addix = NULL;
+	z80ic_push_qq_t *push = NULL;
+	z80ic_pop_qq_t *pop = NULL;
 	z80ic_oper_pp_t *pp = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
+	z80ic_oper_qq_t *qq = NULL;
 	int rc;
 	long offsp;
 	long offbp;
@@ -162,6 +165,13 @@ static int z80_idxacc_setup(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 	 * (which is not reserved for register allocator).
 	 */
 
+	/*
+	 * We need to preserve AF because add IX, SP changes flags.
+	 * To account for AF being pushed while doing add IX, SP,
+	 * we need to adjust offsp.
+	 */
+	offsp += 2;
+
 	/* ld IX, off@SP */
 
 	rc = z80ic_ld_ix_nn_create(&ldix);
@@ -180,6 +190,25 @@ static int z80_idxacc_setup(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 		goto error;
 
 	ldix = NULL;
+
+	/* push AF */
+
+	rc = z80ic_push_qq_create(&push);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_qq_create(z80ic_qq_af, &qq);
+	if (rc != EOK)
+		goto error;
+
+	push->src = qq;
+	qq = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
+	push = NULL;
 
 	/* add IX, SP */
 
@@ -200,6 +229,25 @@ static int z80_idxacc_setup(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 
 	addix = NULL;
 
+	/* pop AF */
+
+	rc = z80ic_pop_qq_create(&pop);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_qq_create(z80ic_qq_af, &qq);
+	if (rc != EOK)
+		goto error;
+
+	pop->src = qq;
+	qq = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
+	if (rc != EOK)
+		goto error;
+
+	pop = NULL;
+
 	/* We also use disp == 0 to mark that adjustment has taken place. */
 	idxacc->disp = 0;
 	return EOK;
@@ -208,8 +256,13 @@ error:
 		z80ic_instr_destroy(&ldix->instr);
 	if (addix != NULL)
 		z80ic_instr_destroy(&addix->instr);
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	if (pop != NULL)
+		z80ic_instr_destroy(&pop->instr);
 
 	z80ic_oper_pp_destroy(pp);
+	z80ic_oper_qq_destroy(qq);
 	z80ic_oper_imm16_destroy(imm);
 
 	return rc;
@@ -264,7 +317,10 @@ static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 {
 	z80ic_ld_ix_nn_t *ldix = NULL;
 	z80ic_add_ix_pp_t *addix = NULL;
+	z80ic_push_qq_t *push = NULL;
+	z80ic_pop_qq_t *pop = NULL;
 	z80ic_oper_pp_t *pp = NULL;
+	z80ic_oper_qq_t *qq = NULL;
 	z80ic_oper_imm16_t *imm = NULL;
 	long sfatsp;
 	int rc;
@@ -282,6 +338,13 @@ static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 	 * the stack frame to determine stackframe@SP.
 	 */
 	sfatsp = raproc->spadj + raproc->sfsize - 2;
+
+	/*
+	 * We need to preserve AF because add IX, SP changes flags.
+	 * To account for AF being pushed while doing add IX, SP,
+	 * we need to adjust sfatsp.
+	 */
+	sfatsp += 2;
 
 	/* ld IX, var@SP */
 
@@ -302,6 +365,25 @@ static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 
 	ldix = NULL;
 
+	/* push AF */
+
+	rc = z80ic_push_qq_create(&push);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_qq_create(z80ic_qq_af, &qq);
+	if (rc != EOK)
+		goto error;
+
+	push->src = qq;
+	qq = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
+	push = NULL;
+
 	/* add IX, SP */
 
 	rc = z80ic_add_ix_pp_create(&addix);
@@ -321,6 +403,25 @@ static int z80_idxacc_teardown(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 
 	addix = NULL;
 
+	/* pop AF */
+
+	rc = z80ic_pop_qq_create(&pop);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_qq_create(z80ic_qq_af, &qq);
+	if (rc != EOK)
+		goto error;
+
+	pop->src = qq;
+	qq = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
+	if (rc != EOK)
+		goto error;
+
+	pop = NULL;
+
 	idxacc->disp = 0;
 	return EOK;
 error:
@@ -328,8 +429,13 @@ error:
 		z80ic_instr_destroy(&ldix->instr);
 	if (addix != NULL)
 		z80ic_instr_destroy(&addix->instr);
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	if (pop != NULL)
+		z80ic_instr_destroy(&pop->instr);
 
 	z80ic_oper_pp_destroy(pp);
+	z80ic_oper_qq_destroy(qq);
 	z80ic_oper_imm16_destroy(imm);
 
 	return rc;
