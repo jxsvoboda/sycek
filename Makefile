@@ -33,6 +33,9 @@ LIBS_hos = $(LIBS)
 PREFIX_hos = `helenos-bld-config --install-dir`
 INSTALL = install
 
+CPP_z80 = gcc
+CPPFLAGS_z80 = -nostdinc -E -I lib/clib/include -I src -I src/hcompat
+
 bkqual = $$(date '+%Y-%m-%d')
 
 sources_common = \
@@ -101,6 +104,10 @@ sources_ccheck = \
 sources_ccheck_hos = \
     $(sources_ccheck_common)
 
+sources_ccheck_z80 = \
+    $(sources_ccheck_common) \
+    $(sources_hcompat)
+
 sources_syc = \
     $(sources_syc_common) \
     $(sources_hcompat)
@@ -108,32 +115,43 @@ sources_syc = \
 sources_syc_hos = \
     $(sources_syc_common)
 
+sources_syc_z80 = \
+    $(sources_syc_common) \
+    $(sources_hcompat)
+
 sources_z80test = \
     $(sources_z80test_common) \
     $(sources_hcompat)
 
 binary_ccheck = ccheck
 binary_ccheck_hos = ccheck-hos
+binary_ccheck_z80 = ccheck-z80.bin
 ccheck = ./$(binary_ccheck)
 
 binary_syc = syc
 binary_syc_hos = syc-hos
+binary_syc_z80 = syc-z80.bin
 syc = ./$(binary_syc)
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
+binary_z80test_z80 = z80test-z80.bin
 z80test = ./$(binary_z80test)
 
 objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
+objects_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.o)
 
 objects_syc = $(sources_syc:.c=.o)
 objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
+objects_syc_z80 = $(sources_syc_z80:.c=.z80.o)
 
 objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
+objects_z80test_z80 = $(sources_z80test_z80:.c=.z80.o)
 
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h src/*/*/*/*.h)
+lib_headers = $(wildcard lib/clib/include/*.h)
 
 test_good_ins = $(wildcard test/ccheck/good/*-in.c)
 test_good_out_diffs = $(test_good_ins:-in.c=-out.txt.diff)
@@ -238,12 +256,37 @@ uninstall-hos:
 test-hos: install-hos
 	helenos-test
 
+z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_z80test_z80)
+
+%.z80.C: %.c
+	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
+
+%.z80.asm:%.z80.C $(syc)
+	$(syc) $<
+
+%.z80.o: %.z80.asm
+	z80asm -r0x6400 --output=$@ $<
+
+$(binary_ccheck_z80): $(objects_ccheck_z80)
+	z80asm +zx -m -b -r0x6400 -o$@ $(LIBS_z80) $^
+
+$(binary_syc_z80): $(objects_syc_z80)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $(LIBS_z80) $^
+
+$(binary_z80test_z80): $(objects_z80test_z80)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $(LIBS_z80) $^
+
+$(objects_ccheck_z80): $(headers) $(lib_headers)
+$(objects_syc_z80): $(headers) $(lib_headers)
+$(objects_z80test_z80): $(headers) $(lib_headers)
+
 clean:
-	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_syc) \
-	$(objects_syc_hos) $(objects_z80test) $(objects_z80test_host) \
-	$(binary_ccheck) $(binary_ccheck_hos) \
-	$(binary_syc) $(binary_syc_hos) \
-	$(binary_z80test) $(binary_z80test_hos) \
+	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_ccheck_z80) \
+	$(objects_syc) $(objects_syc_hos) $(objects_syc_z80) \
+	$(objects_z80test) $(objects_z80test_hos) $(objects_z80test_z80) \
+	$(binary_ccheck) $(binary_ccheck_hos) $(binary_ccheck_z80) \
+	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
+	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
 	$(example_outs)
 
@@ -345,7 +388,7 @@ test/test-syc-int.out: $(syc)
 selfcheck: test/selfcheck.out
 
 test/selfcheck.out: $(ccheck)
-	PATH=$$PATH:$$PWD ./ccheck-run.sh src > $@ || (cat $@ ; rm $@ ; false)
+	PATH=$$PATH:$$PWD ./ccheck-run.sh src lib > $@ || (cat $@ ; rm $@ ; false)
 
 #
 # Compiler example
