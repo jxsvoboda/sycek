@@ -94,6 +94,8 @@ typedef enum {
 	iri_ret,
 	/** Return value */
 	iri_retv,
+	/** Signed division */
+	iri_sdiv,
 	/** Sign-extend integer */
 	iri_sgnext,
 	/** Shift left */
@@ -102,10 +104,16 @@ typedef enum {
 	iri_shra,
 	/** Shift right logical */
 	iri_shrl,
+	/** Signed modulus */
+	iri_smod,
 	/** Subtraction */
 	iri_sub,
 	/** Truncate integer */
 	iri_trunc,
+	/** Unsigned division */
+	iri_udiv,
+	/** Unsigned modulus */
+	iri_umod,
 	/** Get next variable argument */
 	iri_vaarg,
 	/** Finalize variable argument pointer */

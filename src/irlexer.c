@@ -776,6 +776,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 's':
+		if (p[1] == 'd' && p[2] == 'i' && p[3] == 'v' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_sdiv, 4, tok);
+		}
 		if (p[1] == 'g' && p[2] == 'n' && p[3] == 'e' &&
 		    p[4] == 'x' && p[5] == 't' && !is_idcnt(p[6])) {
 			return ir_lexer_keyword(lexer, itt_sgnext, 6, tok);
@@ -791,6 +795,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		    !is_idcnt(p[4])) {
 			return ir_lexer_keyword(lexer, itt_shrl, 4, tok);
 		}
+		if (p[1] == 'm' && p[2] == 'o' && p[3] == 'd' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_smod, 4, tok);
+		}
 		if (p[1] == 'u' && p[2] == 'b' && !is_idcnt(p[3])) {
 			return ir_lexer_keyword(lexer, itt_sub, 3, tok);
 		}
@@ -802,9 +810,17 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'u':
+		if (p[1] == 'd' && p[2] == 'i' && p[3] == 'v' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_udiv, 4, tok);
+		}
 		if (p[1] == 'n' && p[2] == 'i' && p[3] == 'o' &&
 		    p[4] == 'n' && !is_idcnt(p[5])) {
 			return ir_lexer_keyword(lexer, itt_union, 5, tok);
+		}
+		if (p[1] == 'm' && p[2] == 'o' && p[3] == 'd' &&
+		    !is_idcnt(p[4])) {
+			return ir_lexer_keyword(lexer, itt_umod, 4, tok);
 		}
 		return ir_lexer_invalid(lexer, tok);
 	case 'v':
@@ -1004,6 +1020,8 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'ret'";
 	case itt_retv:
 		return "'retv'";
+	case itt_sdiv:
+		return "'sdiv'";
 	case itt_sgnext:
 		return "'sgnext'";
 	case itt_shl:
@@ -1012,10 +1030,16 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'shra'";
 	case itt_shrl:
 		return "'shrl'";
+	case itt_smod:
+		return "'smod'";
 	case itt_sub:
 		return "'sub'";
 	case itt_trunc:
 		return "'trunc'";
+	case itt_udiv:
+		return "'udiv'";
+	case itt_umod:
+		return "'umod'";
 	case itt_union:
 		return "'union'";
 	case itt_var:

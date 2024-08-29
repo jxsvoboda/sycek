@@ -229,7 +229,7 @@ Specifically, these language features are supported:
  * Function arguments are passed via registers and the stack
    (any number of arguments of total size up to appprox. 128 bytes)
  * Functions with variable arguments
- * Most arithmetic operators
+ * All arithmetic operators
  * Signed and unsigned 8-bit (char) to 64-bit (long long) integer types
    and integer type conversions, usual arithmetic conversions
  * Variable pointers
@@ -251,7 +251,6 @@ These are NOT supported yet:
  * Bit fields
  * Floating point
  * Integer promotion
- * Division and modulus (`/`, `%`)
  * Pointer difference
  * Lvalue arguments
  * Passing or returning struct/union by value

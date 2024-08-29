@@ -3525,7 +3525,8 @@ static int z80ic_bit_b_iixd_print(z80ic_bit_b_iixd_t *instr, FILE *f)
 {
 	int rv;
 
-	rv = fprintf(f, "bit %u, (IX%+" PRId8 ")", instr->bit, instr->disp);
+	rv = fprintf(f, "bit %u, (IX%+" PRId8 ")", instr->bit,
+	    instr->disp);
 	if (rv < 0)
 		return EIO;
 
@@ -3537,6 +3538,51 @@ static int z80ic_bit_b_iixd_print(z80ic_bit_b_iixd_t *instr, FILE *f)
  * @param instr Instruction
  */
 static void z80ic_bit_b_iixd_destroy(z80ic_bit_b_iixd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC set bit of (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_set_b_iixd_create(z80ic_set_b_iixd_t **rinstr)
+{
+	z80ic_set_b_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_set_b_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_set_b_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC set bit of (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_set_b_iixd_print(z80ic_set_b_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "set %u, (IX%+" PRId8 ")", instr->bit,
+	    instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC test bit of (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_set_b_iixd_destroy(z80ic_set_b_iixd_t *instr)
 {
 	(void) instr;
 }
@@ -6202,11 +6248,60 @@ static int z80ic_bit_b_vr_print(z80ic_bit_b_vr_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy Z80 IC bitwise XOR with virtual register instruction.
+/** Destroy Z80 IC test bit of virtual register instruction.
  *
  * @param instr Instruction
  */
 static void z80ic_bit_b_vr_destroy(z80ic_bit_b_vr_t *instr)
+{
+	z80ic_oper_vr_destroy(instr->src);
+}
+
+/** Create Z80 set bit of virtual register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_set_b_vr_create(z80ic_set_b_vr_t **rinstr)
+{
+	z80ic_set_b_vr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_set_b_vr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_set_b_vr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC set bit of virtual register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_set_b_vr_print(z80ic_set_b_vr_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "set %u, ", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_vr_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC set bit of virtual register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_set_b_vr_destroy(z80ic_set_b_vr_t *instr)
 {
 	z80ic_oper_vr_destroy(instr->src);
 }
@@ -6363,6 +6458,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 		break;
 	case z80i_bit_b_iixd:
 		rc = z80ic_bit_b_iixd_print((z80ic_bit_b_iixd_t *) instr->ext, f);
+		break;
+	case z80i_set_b_iixd:
+		rc = z80ic_set_b_iixd_print((z80ic_set_b_iixd_t *) instr->ext, f);
 		break;
 	case z80i_jp_nn:
 		rc = z80ic_jp_nn_print((z80ic_jp_nn_t *) instr->ext, f);
@@ -6533,6 +6631,9 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_bit_b_vr:
 		rc = z80ic_bit_b_vr_print((z80ic_bit_b_vr_t *) instr->ext, f);
 		break;
+	case z80i_set_b_vr:
+		rc = z80ic_set_b_vr_print((z80ic_set_b_vr_t *) instr->ext, f);
+		break;
 	default:
 		assert(false);
 		rc = ENOTSUP;
@@ -6694,6 +6795,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_bit_b_iixd:
 		z80ic_bit_b_iixd_destroy((z80ic_bit_b_iixd_t *) instr->ext);
 		break;
+	case z80i_set_b_iixd:
+		z80ic_set_b_iixd_destroy((z80ic_set_b_iixd_t *) instr->ext);
+		break;
 	case z80i_jp_nn:
 		z80ic_jp_nn_destroy((z80ic_jp_nn_t *) instr->ext);
 		break;
@@ -6840,6 +6944,9 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_bit_b_vr:
 		z80ic_bit_b_vr_destroy((z80ic_bit_b_vr_t *) instr->ext);
+		break;
+	case z80i_set_b_vr:
+		z80ic_set_b_vr_destroy((z80ic_set_b_vr_t *) instr->ext);
 		break;
 	default:
 		assert(false);

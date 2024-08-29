@@ -1,0 +1,178 @@
+mapfile "div.map";
+ldbin "div.bin", 0x8000;
+
+/* 8-bit signed division and modulus +/+ */
+
+ld byte ptr (@_ca), 4;
+ld byte ptr (@_cb), 3;
+
+call @_div_char;
+verify byte ptr (@_cq), 1;
+
+call @_mod_char;
+verify byte ptr (@_cr), 1;
+
+/* 8-bit signed division and modulus -/+ */
+
+ld byte ptr (@_ca), 0xfc;
+ld byte ptr (@_cb), 3;
+
+call @_div_char;
+verify byte ptr (@_cq), 0xff;
+
+call @_mod_char;
+verify byte ptr (@_cr), 0xff;
+
+/* 8-bit signed division and modulus +/- */
+
+ld byte ptr (@_ca), 4;
+ld byte ptr (@_cb), 0xfd;
+
+call @_div_char;
+verify byte ptr (@_cq), 0xff;
+
+call @_mod_char;
+verify byte ptr (@_cr), 1;
+
+/* 8-bit signed division and modulus -/- */
+
+ld byte ptr (@_ca), 0xfc;
+ld byte ptr (@_cb), 0xfd;
+
+call @_div_char;
+verify byte ptr (@_cq), 1;
+
+call @_mod_char;
+verify byte ptr (@_cr), 0xff;
+
+/* 16-bit signed division and modulus +/+ */
+
+ld word ptr (@_a), 4;
+ld word ptr (@_b), 3;
+
+call @_div;
+verify word ptr (@_q), 1;
+
+call @_mod;
+verify word ptr (@_r), 1;
+
+/* 16-bit signed division and modulus -/+ */
+
+ld word ptr (@_a), 0xfffc;
+ld word ptr (@_b), 3;
+
+call @_div;
+verify word ptr (@_q), 0xffff;
+
+call @_mod;
+verify word ptr (@_r), 0xffff;
+
+/* 16-bit signed division and modulus +/- */
+
+ld word ptr (@_a), 4;
+ld word ptr (@_b), 0xfffd;
+
+call @_div;
+verify word ptr (@_q), 0xffff;
+
+call @_mod;
+verify word ptr (@_r), 1;
+
+/* 16-bit signed division and modulus -/- */
+
+ld word ptr (@_a), 0xfffc;
+ld word ptr (@_b), 0xfffd;
+
+call @_div;
+verify word ptr (@_q), 1;
+
+call @_mod;
+verify word ptr (@_r), 0xffff;
+
+/* 32-bit signed division and modulus +/+ */
+
+ld dword ptr (@_la), 4;
+ld dword ptr (@_lb), 3;
+
+call @_div_long;
+verify dword ptr (@_lq), 1;
+
+call @_mod_long;
+verify dword ptr (@_lr), 1;
+
+/* 32-bit signed division and modulus -/+ */
+
+ld dword ptr (@_la), 0xfffffffc;
+ld dword ptr (@_lb), 3;
+
+call @_div_long;
+verify dword ptr (@_lq), 0xffffffff;
+
+call @_mod_long;
+verify dword ptr (@_lr), 0xffffffff;
+
+/* 32-bit signed division and modulus +/- */
+
+ld dword ptr (@_la), 4;
+ld dword ptr (@_lb), 0xfffffffd;
+
+call @_div_long;
+verify dword ptr (@_lq), 0xffffffff;
+
+call @_mod_long;
+verify dword ptr (@_lr), 1;
+
+/* 32-bit signed division and modulus -/- */
+
+ld dword ptr (@_la), 0xfffffffc;
+ld dword ptr (@_lb), 0xfffffffd;
+
+call @_div_long;
+verify dword ptr (@_lq), 1;
+
+call @_mod_long;
+verify dword ptr (@_lr), 0xffffffff;
+
+/* 64-bit signed division and modulus +/+ */
+
+ld qword ptr (@_lla), 4;
+ld qword ptr (@_llb), 3;
+
+call @_div_longlong;
+verify qword ptr (@_llq), 1;
+
+call @_mod_longlong;
+verify qword ptr (@_llr), 1;
+
+/* 64-bit signed division and modulus -/+ */
+
+ld qword ptr (@_lla), 0xfffffffffffffffc;
+ld qword ptr (@_llb), 3;
+
+call @_div_longlong;
+verify qword ptr (@_llq), 0xffffffffffffffff;
+
+call @_mod_longlong;
+verify qword ptr (@_llr), 0xffffffffffffffff;
+
+/* 64-bit signed division and modulus +/- */
+
+ld qword ptr (@_lla), 4;
+ld qword ptr (@_llb), 0xfffffffffffffffd;
+
+call @_div_longlong;
+verify qword ptr (@_llq), 0xffffffffffffffff;
+
+call @_mod_longlong;
+verify qword ptr (@_llr), 1;
+
+/* 64-bit signed division and modulus -/- */
+
+ld qword ptr (@_lla), 0xfffffffffffffffc;
+ld qword ptr (@_llb), 0xfffffffffffffffd;
+
+call @_div_longlong;
+verify qword ptr (@_llq), 1;
+
+call @_mod_longlong;
+verify qword ptr (@_llr), 0xffffffffffffffff;

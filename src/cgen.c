@@ -2295,6 +2295,22 @@ static void cgen_warn_cmp_sign_mix(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: unsigned division of mixed-sign integers.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_div_sign_mix(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Unsigned division of mixed-sign "
+	    "integers.\n");
+	++cgen->warnings;
+}
+
 /** Generate warning: negative number converted to unsigned before comparison.
  *
  * @param cgen Code generator
@@ -2338,6 +2354,21 @@ static void cgen_warn_shift_exceed_bits(cgen_t *cgen, ast_tok_t *atok)
 	tok = (comp_tok_t *) atok->data;
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Warning: Shift amount exceeds operand width.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: division by zero.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_div_by_zero(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Division by zero.\n");
 	++cgen->warnings;
 }
 
@@ -4333,7 +4364,7 @@ static void cgen_cvint_neg(cgen_t *cgen, bool is_signed, unsigned bits,
  * is modulo.
  *
  * @param cgen Code generator
- * @param is_signed @c true iff addition is signed
+ * @param is_signed @c true iff multiplication is signed
  * @param bits Number of bits
  * @param a1 First argument
  * @param a2 Second argument
@@ -4359,6 +4390,64 @@ static void cgen_cvint_mul(cgen_t *cgen, bool is_signed, unsigned bits,
 		/* If verification failed, we have an overflow */
 		if (v != a1)
 			*overflow = true;
+	}
+
+	*res = rm;
+}
+
+/** Divide two integer constants with division by zero checking.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff division is signed
+ * @param bits Number of bits
+ * @param a1 First argument
+ * @param a2 Second argument
+ * @param res Place to store result
+ * @param divbyzero Place to store @c true on division by zero
+ */
+static void cgen_cvint_div(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res, bool *divbyzero)
+{
+	uint64_t r;
+	int64_t rm;
+
+	if (a2 != 0) {
+		*divbyzero = false;
+
+		r = (uint64_t)a1 / (uint64_t)a2;
+		cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
+	} else {
+		*divbyzero = true;
+		rm = 0;
+	}
+
+	*res = rm;
+}
+
+/** Compute modulus of two integer constants with division by zero checking.
+ *
+ * @param cgen Code generator
+ * @param is_signed @c true iff division is signed
+ * @param bits Number of bits
+ * @param a1 First argument
+ * @param a2 Second argument
+ * @param res Place to store result
+ * @param divbyzero Place to store @c true on division by zero
+ */
+static void cgen_cvint_mod(cgen_t *cgen, bool is_signed, unsigned bits,
+    int64_t a1, int64_t a2, int64_t *res, bool *divbyzero)
+{
+	uint64_t r;
+	int64_t rm;
+
+	if (a2 != 0) {
+		*divbyzero = false;
+
+		r = (uint64_t)a1 % (uint64_t)a2;
+		cgen_cvint_mask(cgen, is_signed, bits, r, &rm);
+	} else {
+		*divbyzero = true;
+		rm = 0;
 	}
 
 	*res = rm;
@@ -5991,6 +6080,198 @@ error:
 	return rc;
 }
 
+/** Generate code for division.
+ *
+ * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of multiplication
+ * @return EOK on success or an error code
+ */
+static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
+	cgtype_basic_t *tbasic;
+	bool is_signed;
+	unsigned bits;
+	bool divbyzero;
+	int rc;
+
+	/* Check the type */
+	if (lres->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
+
+	rc = cgtype_clone(lres->cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = is_signed ? iri_sdiv : iri_udiv;
+	instr->width = bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_div(cgexpr->cgen, is_signed, bits, lres->cvint,
+		    rres->cvint, &eres->cvint, &divbyzero);
+		if (divbyzero)
+			cgen_warn_div_by_zero(cgexpr->cgen, optok);
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	cgtype_destroy(cgtype);
+	return rc;
+}
+
+/** Generate code for modulus.
+ *
+ * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of multiplication
+ * @return EOK on success or an error code
+ */
+static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
+    cgen_eres_t *rres, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgtype_t *cgtype = NULL;
+	cgtype_basic_t *tbasic;
+	bool is_signed;
+	unsigned bits;
+	bool divbyzero;
+	int rc;
+
+	/* Check the type */
+	if (lres->cgtype->ntype != cgn_basic) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
+	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
+	if (bits == 0) {
+		fprintf(stderr, "Unimplemented variable type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	is_signed = cgen_basic_type_signed(cgexpr->cgen, tbasic);
+
+	rc = cgtype_clone(lres->cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rres->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = is_signed ? iri_smod : iri_umod;
+	instr->width = bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		eres->cvknown = true;
+		cgen_cvint_mod(cgexpr->cgen, is_signed, bits, lres->cvint,
+		    rres->cvint, &eres->cvint, &divbyzero);
+		if (divbyzero)
+			cgen_warn_div_by_zero(cgexpr->cgen, optok);
+	}
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	cgtype_destroy(cgtype);
+	return rc;
+}
+
 /** Generate code for shift left.
  *
  * @param cgexpr Code generator for expression
@@ -6600,6 +6881,104 @@ static int cgen_bo_times(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Multiply the two operands */
 	rc = cgen_mul(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for binary '/' operator.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (division)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_bo_divide(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
+	int rc;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate and perform usual arithmetic conversions on operands */
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
+	    &lres, &rres, &flags);
+	if (rc != EOK)
+		goto error;
+
+	if ((flags & cguac_mix2u) != 0)
+		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_enum) != 0)
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in division */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
+	/* Divide the two operands */
+	rc = cgen_div(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for binary '%' operator.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (modulo)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_bo_modulo(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
+	int rc;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	/* Evaluate and perform usual arithmetic conversions on operands */
+	rc = cgen_expr2_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
+	    &lres, &rres, &flags);
+	if (rc != EOK)
+		goto error;
+
+	if ((flags & cguac_mix2u) != 0)
+		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_enum) != 0)
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in division */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
+	/* Compute modulus of two operands */
+	rc = cgen_mod(cgexpr, &ebinop->top, &lres, &rres, lblock, eres);
 	if (rc != EOK)
 		goto error;
 
@@ -9493,6 +9872,154 @@ error:
 	return rc;
 }
 
+/** Generate code for divide assign expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (divide assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_divide_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	cgen_eres_t ores;
+	cgtype_t *cgtype;
+	cgen_uac_flags_t flags;
+	const char *resvn;
+	int rc;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&ares);
+	cgen_eres_init(&bres);
+	cgen_eres_init(&ores);
+
+	/* Evaluate and perform usual arithmetic conversions on operands */
+	rc = cgen_expr2lr_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
+	    &lres, &ares, &bres, &flags);
+	if (rc != EOK)
+		goto error;
+
+	if ((flags & cguac_mix2u) != 0)
+		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_enum) != 0)
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in division */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
+	/* Divide the two operands */
+	rc = cgen_div(cgexpr, &ebinop->top, &ares, &bres, lblock, &ores);
+	if (rc != EOK)
+		goto error;
+
+	/* Store the resulting value */
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Salvage type from ores */
+	cgtype = ores.cgtype;
+	ores.cgtype = NULL;
+
+	resvn = ores.varname;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+	eres->valused = true;
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
+	return rc;
+}
+
+/** Generate code for modulo assign expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebinop AST binary operator expression (modulo assign)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_modulo_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	cgen_eres_t ares;
+	cgen_eres_t bres;
+	cgen_eres_t ores;
+	cgtype_t *cgtype;
+	cgen_uac_flags_t flags;
+	const char *resvn;
+	int rc;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&ares);
+	cgen_eres_init(&bres);
+	cgen_eres_init(&ores);
+
+	/* Evaluate and perform usual arithmetic conversions on operands */
+	rc = cgen_expr2lr_uac(cgexpr, ebinop->larg, ebinop->rarg, lblock,
+	    &lres, &ares, &bres, &flags);
+	if (rc != EOK)
+		goto error;
+
+	if ((flags & cguac_mix2u) != 0)
+		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
+	if ((flags & cguac_enum) != 0)
+		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
+
+	/* Warn if truth value involved in division */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
+
+	/* Compute modulus of the two operands */
+	rc = cgen_mod(cgexpr, &ebinop->top, &ares, &bres, lblock, &ores);
+	if (rc != EOK)
+		goto error;
+
+	/* Store the resulting value */
+	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* Salvage type from ores */
+	cgtype = ores.cgtype;
+	ores.cgtype = NULL;
+
+	resvn = ores.varname;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
+
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+	eres->valused = true;
+	return EOK;
+error:
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
+	return rc;
+}
+
 /** Generate code for shift left assign expression.
  *
  * @param cgexpr Code generator for expression
@@ -10008,8 +10535,6 @@ error:
 static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	comp_tok_t *tok;
-
 	switch (ebinop->optype) {
 	case abo_plus:
 		return cgen_bo_plus(cgexpr, ebinop, lblock, eres);
@@ -10018,12 +10543,9 @@ static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	case abo_times:
 		return cgen_bo_times(cgexpr, ebinop, lblock, eres);
 	case abo_divide:
+		return cgen_bo_divide(cgexpr, ebinop, lblock, eres);
 	case abo_modulo:
-		tok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Unimplemented binary operator.\n");
-		cgexpr->cgen->error = true; // TODO
-		return EINVAL;
+		return cgen_bo_modulo(cgexpr, ebinop, lblock, eres);
 	case abo_shl:
 		return cgen_bo_shl(cgexpr, ebinop, lblock, eres);
 	case abo_shr:
@@ -10059,12 +10581,9 @@ static int cgen_ebinop(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	case abo_times_assign:
 		return cgen_times_assign(cgexpr, ebinop, lblock, eres);
 	case abo_divide_assign:
+		return cgen_divide_assign(cgexpr, ebinop, lblock, eres);
 	case abo_modulo_assign:
-		tok = (comp_tok_t *) ebinop->top.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Unimplemented binary operator.\n");
-		cgexpr->cgen->error = true; // TODO
-		return EINVAL;
+		return cgen_modulo_assign(cgexpr, ebinop, lblock, eres);
 	case abo_shl_assign:
 		return cgen_shl_assign(cgexpr, ebinop, lblock, eres);
 	case abo_shr_assign:

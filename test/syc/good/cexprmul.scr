@@ -1,0 +1,11 @@
+mapfile "cexprmul.map";
+ldbin "cexprmul.bin", 0x8000;
+
+verify byte ptr (@_cs), 0x28;
+verify byte ptr (@_cu), 0x3e;
+verify word ptr (@_s),  0x353e;
+verify word ptr (@_u), 0x3b62;
+verify dword ptr (@_ls), 0x3ad63b62;
+verify dword ptr (@_lu), 0x578a3867;
+verify qword ptr (@_lls), 0x28743930578a3867;
+verify qword ptr (@_llu), 0xe81b7e9445a25e30;

@@ -5070,6 +5070,56 @@ error:
 	return rc;
 }
 
+/** Allocate registers for Z80 set bit of virtual register instruction.
+ *
+ * @param raproc Register allocator for procedure
+ * @param vrset Set bit instruction with VRs
+ * @param lblock Labeled block where to append the new instructions
+ * @return EOK on success or an error code
+ */
+static int z80_ralloc_set_b_vr(z80_ralloc_proc_t *raproc, const char *label,
+    z80ic_set_b_vr_t *vrbit, z80ic_lblock_t *lblock)
+{
+	z80ic_set_b_iixd_t *set = NULL;
+	z80_idxacc_t idxacc;
+	int rc;
+
+	(void) raproc;
+
+	/* Set up index register */
+	rc = z80_idxacc_setup_vr(&idxacc, raproc, vrbit->src->vregno,
+	    vrbit->src->part, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* set b, (IX+d) */
+
+	rc = z80ic_set_b_iixd_create(&set);
+	if (rc != EOK)
+		goto error;
+
+	set->bit = vrbit->bit;
+	set->disp = z80_idxacc_disp(&idxacc);
+
+	rc = z80ic_lblock_append(lblock, label, &set->instr);
+	if (rc != EOK)
+		goto error;
+
+	set = NULL;
+
+	/* Restore index register */
+	rc = z80_idxacc_teardown(&idxacc, raproc, lblock);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (set != NULL)
+		z80ic_instr_destroy(&set->instr);
+
+	return rc;
+}
+
 /** Allocate registers for Z80 instruction.
  *
  * @param raproc Register allocator for procedure
@@ -5265,6 +5315,9 @@ static int z80_ralloc_instr(z80_ralloc_proc_t *raproc, const char *label,
 	case z80i_bit_b_vr:
 		return z80_ralloc_bit_b_vr(raproc, label,
 		    (z80ic_bit_b_vr_t *) vrinstr->ext, lblock);
+	case z80i_set_b_vr:
+		return z80_ralloc_set_b_vr(raproc, label,
+		    (z80ic_set_b_vr_t *) vrinstr->ext, lblock);
 	default:
 		assert(false);
 		return EINVAL;

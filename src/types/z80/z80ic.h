@@ -1317,6 +1317,16 @@ typedef struct {
 	int8_t disp;
 } z80ic_bit_b_iixd_t;
 
+/** Z80 IC set bit of (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Displacement */
+	int8_t disp;
+} z80ic_set_b_iixd_t;
+
 /** Z80 IC jump direct instruction */
 typedef struct {
 	/** Base object */
@@ -1772,7 +1782,7 @@ typedef struct {
 	z80ic_oper_vr_t *vr;
 } z80ic_srl_vr_t;
 
-/** Z80 IC shift right arithmetic virtual register */
+/** Z80 IC test virtual register bit */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
@@ -1781,6 +1791,16 @@ typedef struct {
 	/** Source virtual register */
 	z80ic_oper_vr_t *src;
 } z80ic_bit_b_vr_t;
+
+/** Z80 IC set virtual register bit */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Source/destination virtual register */
+	z80ic_oper_vr_t *src;
+} z80ic_set_b_vr_t;
 
 /** Z80 IC labeled block entry */
 typedef struct {

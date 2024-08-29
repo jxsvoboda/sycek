@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -52,6 +52,7 @@ typedef enum {
 	stt_scolon,
 	stt_period,
 	stt_plus,
+	stt_minus,
 
 	stt_A,
 	stt_AF,

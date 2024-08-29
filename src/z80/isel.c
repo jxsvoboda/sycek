@@ -1477,8 +1477,8 @@ error:
  *
  * @param isproc Instruction selector for procedure
  * @param destvr First destination virtual register number
- * @param vr1 First left operand virtual register number
- * @param vr2 First right operand virtual register number
+ * @param vr1 Left operand virtual register number
+ * @param vr2 Right operand virtual register number
  * @param bytes Size of the value in bytes
  * @param lblock Labeled block where to append the new instruction
  * @return EOK on success or an error code
@@ -1544,7 +1544,6 @@ static int z80_isel_vrr_add(z80_isel_proc_t *isproc, unsigned destvr,
 				goto error;
 
 			add->src = src;
-			dest = NULL;
 			src = NULL;
 
 			rc = z80ic_lblock_append(lblock, NULL, &add->instr);
@@ -1561,7 +1560,6 @@ static int z80_isel_vrr_add(z80_isel_proc_t *isproc, unsigned destvr,
 				goto error;
 
 			adc->src = src;
-			dest = NULL;
 			src = NULL;
 
 			rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
@@ -1605,6 +1603,146 @@ error:
 		z80ic_instr_destroy(&add->instr);
 	if (adc != NULL)
 		z80ic_instr_destroy(&adc->instr);
+	z80ic_oper_vr_destroy(dest);
+	z80ic_oper_vr_destroy(src);
+	z80ic_oper_reg_destroy(reg);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for subtracting two values in virtual
+ * registers to another value in virtual registers.
+ *
+ * The destination may be the same as one of the source register ranges.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param destvr First destination virtual register number
+ * @param vr1 Left operand virtual register number
+ * @param vr2 Right operand virtual register number
+ * @param bytes Size of the value in bytes
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_sub(z80_isel_proc_t *isproc, unsigned destvr,
+    unsigned vr1, unsigned vr2, unsigned bytes, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vr_t *dest = NULL;
+	z80ic_oper_vr_t *src = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_ld_r_vr_t *ldrvr = NULL;
+	z80ic_ld_vr_r_t *ldvrr = NULL;
+	z80ic_sub_vr_t *sub = NULL;
+	z80ic_sbc_a_vr_t *sbc = NULL;
+	z80ic_vr_part_t part;
+	unsigned vroff;
+	unsigned byte;
+	int rc;
+
+	(void) isproc;
+
+	assert(bytes > 0);
+
+	/* For each byte */
+	for (byte = 0; byte < bytes; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, bytes, &part, &vroff);
+
+		/* ld A, vr1.X */
+
+		rc = z80ic_ld_r_vr_create(&ldrvr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(vr1 + vroff, part, &src);
+		if (rc != EOK)
+			goto error;
+
+		ldrvr->dest = reg;
+		ldrvr->src = src;
+		reg = NULL;
+		src = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldrvr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldrvr = NULL;
+
+		if (byte == 0) {
+			/* sub vr2 */
+
+			rc = z80ic_sub_vr_create(&sub);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(vr2 + vroff, part, &src);
+			if (rc != EOK)
+				goto error;
+
+			sub->src = src;
+			src = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* sbc A, vr2 */
+			rc = z80ic_sbc_a_vr_create(&sbc);
+			if (rc != EOK)
+				goto error;
+
+			rc = z80ic_oper_vr_create(vr2 + vroff, part, &src);
+			if (rc != EOK)
+				goto error;
+
+			sbc->src = src;
+			src = NULL;
+
+			rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+			if (rc != EOK)
+				goto error;
+		}
+
+		/* ld destvr.X, A */
+
+		rc = z80ic_ld_vr_r_create(&ldvrr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(destvr + vroff, part, &dest);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr->dest = dest;
+		ldvrr->src = reg;
+		dest = NULL;
+		reg = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldvrr = NULL;
+	}
+
+	return EOK;
+error:
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
 	z80ic_oper_vr_destroy(dest);
 	z80ic_oper_vr_destroy(src);
 	z80ic_oper_reg_destroy(reg);
@@ -2114,6 +2252,763 @@ error:
 	z80ic_oper_vrr_destroy(vrr);
 	z80ic_oper_imm16_destroy(imm);
 
+	return rc;
+}
+
+/** Select Z80 IC instructions code to jump if bit in virtual registers
+ * is not set.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param svr Virtual register base
+ * @param bytes Size of value in bytes
+ * @param b Bit to test
+ * @param label Label to jump to
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_nbit_jp(z80_isel_proc_t *isproc, unsigned svr,
+    unsigned bytes, unsigned b, const char *label, z80ic_lblock_t *lblock)
+{
+	z80ic_bit_b_vr_t *bit = NULL;
+	z80ic_jp_cc_nn_t *jpcc = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	z80ic_vr_part_t part;
+	z80ic_oper_vr_t *vr = NULL;
+	unsigned vroff;
+	error_t rc;
+
+	(void)isproc;
+
+	/* bit b, %%vr.X */
+
+	rc = z80ic_bit_b_vr_create(&bit);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Determine register part and offset for corresponding
+	 * byte of the source operand.
+	 */
+	z80_isel_reg_part_off(b / 8, bytes, &part, &vroff);
+
+	rc = z80ic_oper_vr_create(svr + vroff, part, &vr);
+	if (rc != EOK)
+		goto error;
+
+	bit->bit = b % 8;
+	bit->src = vr;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
+	if (rc != EOK)
+		goto error;
+
+	bit = NULL;
+
+	/* jp Z, label */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(label, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_z;
+	jpcc->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	return EOK;
+error:
+	if (bit != NULL)
+		z80ic_instr_destroy(&bit->instr);
+	if (bit != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Select Z80 IC instructions code to set bit in virtual registers.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param svr Virtual register base
+ * @param bytes Size of value in bytes
+ * @param b Bit to test
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_set(z80_isel_proc_t *isproc, unsigned svr,
+    unsigned bytes, unsigned b, z80ic_lblock_t *lblock)
+{
+	z80ic_set_b_vr_t *set = NULL;
+	z80ic_vr_part_t part;
+	z80ic_oper_vr_t *vr = NULL;
+	unsigned vroff;
+	error_t rc;
+
+	(void)isproc;
+
+	/* set b, %%vr.X */
+
+	rc = z80ic_set_b_vr_create(&set);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Determine register part and offset for corresponding
+	 * byte of the source operand.
+	 */
+	z80_isel_reg_part_off(b / 8, bytes, &part, &vroff);
+
+	rc = z80ic_oper_vr_create(svr + vroff, part, &vr);
+	if (rc != EOK)
+		goto error;
+
+	set->bit = b % 8;
+	set->src = vr;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &set->instr);
+	if (rc != EOK)
+		goto error;
+
+	set = NULL;
+
+	return EOK;
+error:
+	if (set != NULL)
+		z80ic_instr_destroy(&set->instr);
+	z80ic_oper_vr_destroy(vr);
+	return rc;
+}
+
+/** Select Z80 IC instructions code to jump if virtual registers are less than
+ * second set of virtual registers.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param avr First virtual register base
+ * @param bvr Second virtual register base
+ * @param bytes Size of value in bytes
+ * @param label Label to jump to
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_ltu_jp(z80_isel_proc_t *isproc, unsigned avr,
+    unsigned bvr, unsigned bytes, const char *label, z80ic_lblock_t *lblock)
+{
+	z80ic_ld_r_vr_t *ldrvr = NULL;
+	z80ic_sub_vr_t *sub = NULL;
+	z80ic_sbc_a_vr_t *sbc = NULL;
+	z80ic_jp_cc_nn_t *jpcc = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	unsigned byte;
+	unsigned vroff;
+	z80ic_vr_part_t part;
+	int rc;
+
+	(void)isproc;
+
+	z80_isel_reg_part_off(0, bytes, &part, &vroff);
+
+	/* ld A, op1.L */
+
+	rc = z80ic_ld_r_vr_create(&ldrvr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(avr + vroff, part, &vr);
+	if (rc != EOK)
+		goto error;
+
+	ldrvr->dest = reg;
+	ldrvr->src = vr;
+	reg = NULL;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldrvr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldrvr = NULL;
+
+	/* sub op2.L */
+
+	rc = z80ic_sub_vr_create(&sub);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(bvr + vroff, part, &vr);
+	if (rc != EOK)
+		goto error;
+
+	sub->src = vr;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
+	sub = NULL;
+
+	for (byte = 1; byte < bytes; byte++) {
+		/* Determine register part and offset */
+		z80_isel_reg_part_off(byte, bytes, &part, &vroff);
+
+		/* ld A, op1.X */
+
+		rc = z80ic_ld_r_vr_create(&ldrvr);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(avr + vroff, part, &vr);
+		if (rc != EOK)
+			goto error;
+
+		ldrvr->dest = reg;
+		ldrvr->src = vr;
+		reg = NULL;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &ldrvr->instr);
+		if (rc != EOK)
+			goto error;
+
+		ldrvr = NULL;
+
+		/* sbc A, op2.X */
+
+		rc = z80ic_sbc_a_vr_create(&sbc);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80ic_oper_vr_create(bvr + vroff, part, &vr);
+		if (rc != EOK)
+			goto error;
+
+		sbc->src = vr;
+		vr = NULL;
+
+		rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+		if (rc != EOK)
+			goto error;
+
+		sbc = NULL;
+	}
+
+	/* jp C, label */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(label, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_c;
+	jpcc->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	return EOK;
+error:
+	if (ldrvr != NULL)
+		z80ic_instr_destroy(&ldrvr->instr);
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_imm16_destroy(imm16);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code to flip a bit in virtual registers.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param svr Virtual register base
+ * @param bytes Size of value in bytes
+ * @param b Bit to flip
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_xbit(z80_isel_proc_t *isproc, unsigned svr,
+    unsigned bytes, unsigned b, z80ic_lblock_t *lblock)
+{
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_reg_t *reg = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	z80ic_ld_r_n_t *ldimm8 = NULL;
+	z80ic_xor_vr_t *xor = NULL;
+	z80ic_ld_vr_r_t *ldvrr = NULL;
+	unsigned vroff;
+	z80ic_vr_part_t part;
+	int rc;
+
+	(void)isproc;
+
+	/* Determine register part and offset */
+	z80_isel_reg_part_off(b / 8, bytes, &part, &vroff);
+
+	/* ld A, 1 << (b % 8) */
+
+	rc = z80ic_ld_r_n_create(&ldimm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm8_create((1 << (b % 8)), &imm8);
+	if (rc != EOK)
+		goto error;
+
+	ldimm8->dest = reg;
+	ldimm8->imm8 = imm8;
+	reg = NULL;
+	imm8 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldimm8->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldimm8 = NULL;
+
+	/* xor s.X */
+
+	rc = z80ic_xor_vr_create(&xor);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(svr + vroff, part, &vr);
+	if (rc != EOK)
+		goto error;
+
+	xor->src = vr;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
+	xor = NULL;
+
+	/* ld s.X, A */
+
+	rc = z80ic_ld_vr_r_create(&ldvrr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(svr + vroff, part, &vr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr->dest = vr;
+	ldvrr->src = reg;
+	vr = NULL;
+	reg = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &ldvrr->instr);
+	if (rc != EOK)
+		goto error;
+
+	ldvrr = NULL;
+
+	return EOK;
+error:
+	if (ldimm8 != NULL)
+		z80ic_instr_destroy(&ldimm8->instr);
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	if (ldvrr != NULL)
+		z80ic_instr_destroy(&ldvrr->instr);
+
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_reg_destroy(reg);
+	z80ic_oper_imm8_destroy(imm8);
+
+	return rc;
+}
+
+/** Select Z80 IC instructions code for computing division/modulus.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param qvr Virtual register for storing the quotient
+ * @param rvr Virtual register for storing the remainder
+ * @param avr Virtual register containing the dividend
+ * @param bvr Virtual register containing the divisor
+ * @param bytes Size of value in bytes
+ * @param issigned @c true iff division is signed
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_vrr_divmod(z80_isel_proc_t *isproc, unsigned qvr,
+    unsigned rvr, unsigned avr, unsigned bvr, size_t bytes, bool issigned,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_dec_vr_t *dec = NULL;
+	z80ic_jp_cc_nn_t *jpcc = NULL;
+	z80ic_oper_vr_t *vr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	unsigned nvr;
+	unsigned dvr;
+	unsigned cntvr;
+	unsigned svr = 0;
+	unsigned lblno;
+	char *npos_lbl = NULL;
+	char *dpos_lbl = NULL;
+	char *qpos_lbl = NULL;
+	char *rpos_lbl = NULL;
+	char *rep_lbl = NULL;
+	char *rltd_lbl = NULL;
+	char *ntb0_lbl = NULL;
+	error_t rc;
+
+	(void)issigned;
+
+	nvr = z80_isel_get_new_vregnos(isproc, bytes);
+	dvr = z80_isel_get_new_vregnos(isproc, bytes);
+	cntvr = z80_isel_get_new_vregno(isproc);
+	if (issigned)
+		svr = z80_isel_get_new_vregno(isproc);
+
+	lblno = z80_isel_new_label_num(isproc);
+
+	if (issigned) {
+		rc = z80_isel_create_label(isproc, "div_npos", lblno,
+		    &npos_lbl);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80_isel_create_label(isproc, "div_dpos", lblno,
+		    &dpos_lbl);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80_isel_create_label(isproc, "div_qpos", lblno,
+		    &qpos_lbl);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80_isel_create_label(isproc, "div_rpos", lblno,
+		    &rpos_lbl);
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = z80_isel_create_label(isproc, "div_rep", lblno, &rep_lbl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "div_rep", lblno, &rep_lbl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "div_r_lt_d", lblno, &rltd_lbl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80_isel_create_label(isproc, "div_ntb0", lblno, &ntb0_lbl);
+	if (rc != EOK)
+		goto error;
+
+	/* n := a */
+
+	rc = z80_isel_vrr_copy(isproc, nvr, avr, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* d := b */
+
+	rc = z80_isel_vrr_copy(isproc, dvr, bvr, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* For signed division absolutize a, b and remember their signs */
+	if (issigned) {
+		/* s := 0 */
+
+		rc = z80_isel_vrr_const(isproc, svr, 0x00, 1, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* if ((n & (1 << bytes * 8 - 1)) == 0) goto n_pos */
+
+		rc = z80_isel_vrr_nbit_jp(isproc, nvr, bytes,
+		    bytes * 8 - 1, npos_lbl, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* n := -n */
+
+		rc = z80_isel_neg_vrr(isproc, nvr, nvr, bytes, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* s := 0x03 */
+
+		rc = z80_isel_vrr_const(isproc, svr, 0x03, 1, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* label n_pos */
+
+		rc = z80ic_lblock_append(lblock, npos_lbl, NULL);
+		if (rc != EOK)
+			goto error;
+
+		/* if ((b & (1 << bytes * 8 - 1)) == 0) goto d_pos */
+
+		rc = z80_isel_vrr_nbit_jp(isproc, bvr, bytes,
+		    bytes * 8 - 1, dpos_lbl, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* d := -d */
+
+		rc = z80_isel_neg_vrr(isproc, dvr, dvr, bytes, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* s := s ^ 0x01 */
+
+		rc = z80_isel_vrr_xbit(isproc, svr, 1, 0, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* label d_pos */
+
+		rc = z80ic_lblock_append(lblock, dpos_lbl, NULL);
+		if (rc != EOK)
+			goto error;
+	}
+
+	/* q := 0 */
+
+	rc = z80_isel_vrr_const(isproc, qvr, 0, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* r := 0 */
+
+	rc = z80_isel_vrr_const(isproc, rvr, 0, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* cnt := bytes * 8 */
+
+	rc = z80_isel_vrr_const(isproc, cntvr, bytes * 8, 1, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* label div_rep */
+
+	rc = z80ic_lblock_append(lblock, rep_lbl, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/* q <<= 1 */
+
+	rc = z80_isel_vrr_shl(isproc, qvr, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* r <<= 1 */
+
+	rc = z80_isel_vrr_shl(isproc, rvr, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* if ((n & (1 << bytes * 8 - 1)) == 0) goto div_ntb0 */
+
+	rc = z80_isel_vrr_nbit_jp(isproc, nvr, bytes, bytes * 8 - 1,
+	    ntb0_lbl, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* r |= 1 */
+
+	rc = z80_isel_vrr_set(isproc, rvr, bytes, 0, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* label div_ntb0 */
+
+	rc = z80ic_lblock_append(lblock, ntb0_lbl, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/* if (r < d) goto r_lt_d */
+
+	rc = z80_isel_vrr_ltu_jp(isproc, rvr, dvr, bytes, rltd_lbl, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* r -= d */
+
+	rc = z80_isel_vrr_sub(isproc, rvr, rvr, dvr, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* set 0, %%q.L */
+
+	rc = z80_isel_vrr_set(isproc, qvr, bytes, 0, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* label div_r_lt_d */
+
+	rc = z80ic_lblock_append(lblock, rltd_lbl, NULL);
+	if (rc != EOK)
+		goto error;
+
+	/* n <<= 1 */
+
+	rc = z80_isel_vrr_shl(isproc, nvr, bytes, lblock);
+	if (rc != EOK)
+		goto error;
+
+	/* dec %cnt */
+
+	rc = z80ic_dec_vr_create(&dec);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_vr_create(cntvr, z80ic_vrp_r8, &vr);
+	if (rc != EOK)
+		goto error;
+
+	dec->vr = vr;
+	vr = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
+	dec = NULL;
+
+	/* jp NZ, div_rep */
+
+	rc = z80ic_jp_cc_nn_create(&jpcc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_imm16_create_symbol(rep_lbl, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	jpcc->cc = z80ic_cc_nz;
+	jpcc->imm16 = imm16;
+	imm16 = NULL;
+
+	rc = z80ic_lblock_append(lblock, NULL, &jpcc->instr);
+	if (rc != EOK)
+		goto error;
+
+	jpcc = NULL;
+
+	if (issigned) {
+		/* if ((s & 0x01) == 0) goto q_pos */
+
+		rc = z80_isel_vrr_nbit_jp(isproc, svr, 1,
+		    0, qpos_lbl, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* q := -q */
+
+		rc = z80_isel_neg_vrr(isproc, qvr, qvr, bytes, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* label q_pos */
+
+		rc = z80ic_lblock_append(lblock, qpos_lbl, NULL);
+		if (rc != EOK)
+			goto error;
+
+		/* if ((s & 0x02) == 0) goto r_pos */
+
+		rc = z80_isel_vrr_nbit_jp(isproc, svr, 1,
+		    1, rpos_lbl, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* r := -r */
+
+		rc = z80_isel_neg_vrr(isproc, rvr, rvr, bytes, lblock);
+		if (rc != EOK)
+			goto error;
+
+		/* label r_pos */
+
+		rc = z80ic_lblock_append(lblock, rpos_lbl, NULL);
+		if (rc != EOK)
+			goto error;
+	}
+
+	free(npos_lbl);
+	free(dpos_lbl);
+	free(qpos_lbl);
+	free(rpos_lbl);
+	free(rep_lbl);
+	free(rltd_lbl);
+	free(ntb0_lbl);
+	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	if (jpcc != NULL)
+		z80ic_instr_destroy(&jpcc->instr);
+	z80ic_oper_vr_destroy(vr);
+	z80ic_oper_imm16_destroy(imm16);
+	if (npos_lbl != NULL)
+		free(npos_lbl);
+	if (dpos_lbl != NULL)
+		free(dpos_lbl);
+	if (qpos_lbl != NULL)
+		free(qpos_lbl);
+	if (rpos_lbl != NULL)
+		free(rpos_lbl);
+	if (rep_lbl != NULL)
+		free(rep_lbl);
+	if (rltd_lbl != NULL)
+		free(rltd_lbl);
+	if (ntb0_lbl != NULL)
+		free(ntb0_lbl);
 	return rc;
 }
 
@@ -5300,6 +6195,41 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR sdiv instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR mul instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_sdiv(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	unsigned destvr;
+	unsigned vr1;
+	unsigned vr2;
+	unsigned rvr;
+	unsigned bytes;
+
+	assert(irinstr->itype == iri_sdiv);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	bytes = irinstr->width / 8;
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+	rvr = z80_isel_get_new_vregnos(isproc, bytes);
+
+	(void)label;
+
+	return z80_isel_vrr_divmod(isproc, destvr, rvr, vr1, vr2,
+	    bytes, true, lblock);
+}
+
 /** Select Z80 IC instructions code for IR sgnext instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -5707,6 +6637,41 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR smod instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR mul instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_smod(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	unsigned destvr;
+	unsigned vr1;
+	unsigned vr2;
+	unsigned qvr;
+	unsigned bytes;
+
+	assert(irinstr->itype == iri_smod);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	bytes = irinstr->width / 8;
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+	qvr = z80_isel_get_new_vregnos(isproc, bytes);
+
+	(void)label;
+
+	return z80_isel_vrr_divmod(isproc, qvr, destvr, vr1, vr2,
+	    bytes, true, lblock);
+}
+
 /** Select Z80 IC instructions code for IR sub instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -5717,19 +6682,10 @@ error:
 static int z80_isel_sub(z80_isel_proc_t *isproc, const char *label,
     ir_instr_t *irinstr, z80ic_lblock_t *lblock)
 {
-	z80ic_oper_vr_t *dest = NULL;
-	z80ic_oper_vr_t *src = NULL;
-	z80ic_oper_reg_t *reg = NULL;
-	z80ic_ld_r_vr_t *ldrvr = NULL;
-	z80ic_ld_vr_r_t *ldvrr = NULL;
-	z80ic_sub_vr_t *sub = NULL;
-	z80ic_sbc_a_vr_t *sbc = NULL;
-	z80ic_vr_part_t part;
-	unsigned vroff;
-	unsigned byte;
 	unsigned destvr;
 	unsigned vr1, vr2;
-	int rc;
+
+	(void)label;
 
 	assert(irinstr->itype == iri_sub);
 	assert(irinstr->width > 0);
@@ -5741,114 +6697,8 @@ static int z80_isel_sub(z80_isel_proc_t *isproc, const char *label,
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
 
-	/* For each byte */
-	for (byte = 0; byte < irinstr->width / 8; byte++) {
-		/* Determine register part and offset */
-		z80_isel_reg_part_off(byte, irinstr->width / 8, &part, &vroff);
-
-		/* ld A, vr1.X */
-
-		rc = z80ic_ld_r_vr_create(&ldrvr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(vr1 + vroff, part, &src);
-		if (rc != EOK)
-			goto error;
-
-		ldrvr->dest = reg;
-		ldrvr->src = src;
-		reg = NULL;
-		src = NULL;
-
-		rc = z80ic_lblock_append(lblock, label, &ldrvr->instr);
-		if (rc != EOK)
-			goto error;
-
-		ldrvr = NULL;
-
-		if (byte == 0) {
-			/* sub vr2 */
-
-			rc = z80ic_sub_vr_create(&sub);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vr_create(vr2 + vroff, part, &src);
-			if (rc != EOK)
-				goto error;
-
-			sub->src = src;
-			dest = NULL;
-			src = NULL;
-
-			rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
-			if (rc != EOK)
-				goto error;
-		} else {
-			/* sbc vr2 */
-			rc = z80ic_sbc_a_vr_create(&sbc);
-			if (rc != EOK)
-				goto error;
-
-			rc = z80ic_oper_vr_create(vr2 + vroff, part, &src);
-			if (rc != EOK)
-				goto error;
-
-			sbc->src = src;
-			dest = NULL;
-			src = NULL;
-
-			rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
-			if (rc != EOK)
-				goto error;
-		}
-
-		/* ld destvr.X, A */
-
-		rc = z80ic_ld_vr_r_create(&ldvrr);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_vr_create(destvr + vroff, part, &dest);
-		if (rc != EOK)
-			goto error;
-
-		rc = z80ic_oper_reg_create(z80ic_reg_a, &reg);
-		if (rc != EOK)
-			goto error;
-
-		ldvrr->dest = dest;
-		ldvrr->src = reg;
-		dest = NULL;
-		reg = NULL;
-
-		rc = z80ic_lblock_append(lblock, label, &ldvrr->instr);
-		if (rc != EOK)
-			goto error;
-
-		ldvrr = NULL;
-	}
-
-	return EOK;
-error:
-	if (ldrvr != NULL)
-		z80ic_instr_destroy(&ldrvr->instr);
-	if (ldvrr != NULL)
-		z80ic_instr_destroy(&ldvrr->instr);
-	if (sub != NULL)
-		z80ic_instr_destroy(&sub->instr);
-	if (sbc != NULL)
-		z80ic_instr_destroy(&sbc->instr);
-	z80ic_oper_vr_destroy(dest);
-	z80ic_oper_vr_destroy(src);
-	z80ic_oper_reg_destroy(reg);
-
-	return rc;
+	return z80_isel_vrr_sub(isproc, destvr, vr1, vr2, irinstr->width / 8,
+	    lblock);
 }
 
 /** Select Z80 IC instructions code for IR trunc instruction.
@@ -5887,6 +6737,76 @@ static int z80_isel_trunc(z80_isel_proc_t *isproc, const char *label,
 
 	return z80_isel_vrr_copy_iseg(isproc, destvr, irinstr->width / 8,
 	    vr1, srcw / 8, lblock);
+}
+
+/** Select Z80 IC instructions code for IR udiv instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR mul instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_udiv(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	unsigned destvr;
+	unsigned vr1;
+	unsigned vr2;
+	unsigned rvr;
+	unsigned bytes;
+
+	assert(irinstr->itype == iri_udiv);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	bytes = irinstr->width / 8;
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+	rvr = z80_isel_get_new_vregnos(isproc, bytes);
+
+	(void)label;
+
+	return z80_isel_vrr_divmod(isproc, destvr, rvr, vr1, vr2,
+	    bytes, false, lblock);
+}
+
+/** Select Z80 IC instructions code for IR umod instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR mul instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_umod(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	unsigned destvr;
+	unsigned vr1;
+	unsigned vr2;
+	unsigned qvr;
+	unsigned bytes;
+
+	assert(irinstr->itype == iri_umod);
+	assert(irinstr->width > 0);
+	assert(irinstr->width % 8 == 0);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+
+	bytes = irinstr->width / 8;
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+	qvr = z80_isel_get_new_vregnos(isproc, bytes);
+
+	(void)label;
+
+	return z80_isel_vrr_divmod(isproc, qvr, destvr, vr1, vr2,
+	    bytes, false, lblock);
 }
 
 /** Select Z80 IC instructions code for IR load immediate instruction.
@@ -10570,6 +11490,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_ret(isproc, label, irinstr, lblock);
 	case iri_retv:
 		return z80_isel_retv(isproc, label, irinstr, lblock);
+	case iri_sdiv:
+		return z80_isel_sdiv(isproc, label, irinstr, lblock);
 	case iri_sgnext:
 		return z80_isel_sgnext(isproc, label, irinstr, lblock);
 	case iri_shl:
@@ -10577,10 +11499,16 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 	case iri_shra:
 	case iri_shrl:
 		return z80_isel_shr(isproc, label, irinstr, lblock);
+	case iri_smod:
+		return z80_isel_smod(isproc, label, irinstr, lblock);
 	case iri_sub:
 		return z80_isel_sub(isproc, label, irinstr, lblock);
 	case iri_trunc:
 		return z80_isel_trunc(isproc, label, irinstr, lblock);
+	case iri_udiv:
+		return z80_isel_udiv(isproc, label, irinstr, lblock);
+	case iri_umod:
+		return z80_isel_umod(isproc, label, irinstr, lblock);
 	case iri_vaarg:
 		return z80_isel_vaarg(isproc, label, irinstr, lblock);
 	case iri_vaend:

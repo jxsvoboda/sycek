@@ -1,0 +1,34 @@
+mapfile "udiv.map";
+ldbin "udiv.bin", 0x8000;
+
+/* 8-bit division and modulus */
+ld byte ptr (@_ca), 34;
+ld byte ptr (@_cb), 3;
+call @_div_char;
+verify byte ptr (@_cq), 11;
+call @_mod_char;
+verify byte ptr (@_cr), 1;
+
+/* 16-bit division and modulus */
+ld word ptr (@_a), 5556;
+ld word ptr (@_b), 5;
+call @_div;
+verify word ptr (@_q), 1111;
+call @_mod;
+verify word ptr (@_r), 1;
+
+/* 32-bit division and modulus */
+ld dword ptr (@_la), 11111112;
+ld dword ptr (@_lb), 1111;
+call @_div_long;
+verify dword ptr (@_lq), 10001;
+call @_mod_long;
+verify dword ptr (@_lr), 1;
+
+/* 64-bit division and modulus*/
+ld qword ptr (@_lla), 10000000000000000001;
+ld qword ptr (@_llb), 10000000000000000000;
+call @_div_longlong;
+verify qword ptr (@_llq), 1;
+call @_mod_longlong;
+verify qword ptr (@_llr), 1;
