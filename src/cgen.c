@@ -523,6 +523,38 @@ static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 	return off;
 }
 
+/** Determine if declaration is just a simple identifier.
+ *
+ * @param dspecs Declaration specifiers
+ * @param decl Declarator
+ * @param rtident Place to store pointer to identifier token on success
+ * @return EOK on success, EINVAL if declaration is not just a simple
+ *         identifier.
+ */
+static int cgen_decl_is_just_ident(ast_dspecs_t *dspecs, ast_node_t *decl,
+    ast_tok_t **rtident)
+{
+	ast_node_t *dspec;
+	ast_tsident_t *tsident;
+
+	dspec = ast_dspecs_first(dspecs);
+	if (dspec == NULL)
+		return EINVAL;
+
+	if (ast_dspecs_next(dspec) != NULL)
+		return EINVAL;
+
+	if (dspec->ntype != ant_tsident)
+		return EINVAL;
+
+	if (decl->ntype != ant_dnoident)
+		return EINVAL;
+
+	tsident = (ast_tsident_t *)dspec->ext;
+	*rtident = &tsident->tident;
+	return EOK;
+}
+
 /** Determine if string literal is wide.
  *
  * @param lit String literal
@@ -11755,6 +11787,222 @@ static int cgen_esizeof(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 		return cgen_esizeof_expr(cgexpr, esizeof, lblock, eres);
 }
 
+/** Generate code for overparenthesized multiplication misparsed as a
+ * cast expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ecast AST cast expression (misparsed multiplication)
+ * @param ident Identifier token which was misparsed as type
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_overpar_bo_times(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
+    comp_tok_t *ident, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	cgen_uac_flags_t flags;
+	ast_ederef_t *ederef;
+	ast_eident_t *eident = NULL;
+	int rc;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	assert(ecast->bexpr->ntype == ant_ederef);
+	ederef = (ast_ederef_t *)ecast->bexpr->ext;
+
+	rc = ast_eident_create(&eident);
+	if (rc != EOK)
+		goto error;
+
+	eident->tident.data = (void *)ident;
+
+	/* Evaluate and perform usual arithmetic conversions on operands */
+	rc = cgen_expr2_uac(cgexpr, &eident->node, ederef->bexpr, lblock,
+	    &lres, &rres, &flags);
+	if (rc != EOK)
+		goto error;
+
+	ast_tree_destroy(&eident->node);
+	eident = NULL;
+
+	/*
+	 * Unsigned multiplication of mixed-sign numbers is OK.
+	 * Multiplication involving enums is not.
+	 */
+	if ((flags & cguac_enum) != 0)
+		cgen_warn_arith_enum(cgexpr->cgen, &ederef->tasterisk);
+
+	/* Warn if truth value involved in multiplication */
+	if ((flags & cguac_truth) != 0)
+		cgen_warn_arith_truth(cgexpr->cgen, &ederef->tasterisk);
+
+	/* Multiply the two operands */
+	rc = cgen_mul(cgexpr, &ederef->tasterisk, &lres, &rres, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+
+	return EOK;
+error:
+	if (eident != NULL)
+		ast_tree_destroy(&eident->node);
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for overparenthesized addition or subtraction misparsed as a
+ * cast expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ecast AST cast expression (misparsed addition/subtraction)
+ * @param ident Identifier token which was misparsed as type
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_overpar_addsub(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
+    comp_tok_t *ident, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgen_eres_t lres;
+	cgen_eres_t rres;
+	ast_eusign_t *eusign = NULL;
+	ast_eident_t *eident = NULL;
+	int rc;
+
+	cgen_eres_init(&lres);
+	cgen_eres_init(&rres);
+
+	assert(ecast->bexpr->ntype == ant_eusign);
+	eusign = (ast_eusign_t *)ecast->bexpr->ext;
+
+	rc = ast_eident_create(&eident);
+	if (rc != EOK)
+		goto error;
+
+	eident->tident.data = (void *)ident;
+
+	/* Evaluate left operand */
+	rc = cgen_expr(cgexpr, &eident->node, lblock, &lres);
+	if (rc != EOK)
+		goto error;
+
+	ast_tree_destroy(&eident->node);
+	eident = NULL;
+
+	/* Evaluate right operand */
+	rc = cgen_expr(cgexpr, eusign->bexpr, lblock, &rres);
+	if (rc != EOK)
+		goto error;
+
+	/* Add the two operands */
+	if (eusign->usign == aus_plus) {
+		rc = cgen_add(cgexpr, &eusign->tsign, &lres, &rres, lblock,
+		    eres);
+	} else {
+		rc = cgen_sub(cgexpr, &eusign->tsign, &lres, &rres, lblock,
+		    eres);
+	}
+
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+
+	return EOK;
+error:
+	if (eident != NULL)
+		ast_tree_destroy(&eident->node);
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&rres);
+	return rc;
+}
+
+/** Generate code for overparenthesized call expression misparsed as a
+ * cast expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ecast AST cast expression (misparsed call)
+ * @param ident Identifier token which was misparsed as type
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_overpar_call(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
+    comp_tok_t *ident, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ast_eparen_t *eparen = NULL;
+	ast_eident_t *eident = NULL;
+	ast_ecall_t *ecall = NULL;
+	ast_ecomma_t *ecomma;
+	ast_node_t *node;
+	ast_ecall_arg_t *arg;
+	int rc;
+
+	assert(ecast->bexpr->ntype == ant_eparen);
+	eparen = (ast_eparen_t *)ecast->bexpr->ext;
+
+	rc = ast_eident_create(&eident);
+	if (rc != EOK)
+		goto error;
+
+	eident->tident.data = (void *)ident;
+
+	rc = ast_ecall_create(&ecall);
+	if (rc != EOK)
+		goto error;
+
+	ecall->fexpr = &eident->node;
+	ecall->tlparen.data = eparen->tlparen.data;
+	ecall->trparen.data = eparen->trparen.data;
+	eident = NULL;
+
+	node = eparen->bexpr;
+	while (node->ntype == ant_ecomma) {
+		ecomma = (ast_ecomma_t *)node->ext;
+
+		rc = ast_ecall_prepend(ecall, NULL, ecomma->rarg);
+		if (rc != EOK)
+			goto error;
+
+		node = ecomma->larg;
+	}
+
+	rc = ast_ecall_prepend(ecall, NULL, node);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_ecall(cgexpr, ecall, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	arg = ast_ecall_first(ecall);
+	while (arg != NULL) {
+		arg->arg = NULL;
+		arg = ast_ecall_next(arg);
+	}
+	ast_tree_destroy(&ecall->node);
+	return EOK;
+error:
+	if (eident != NULL)
+		ast_tree_destroy(&eident->node);
+	if (ecall != NULL) {
+		arg = ast_ecall_first(ecall);
+		while (arg != NULL) {
+			arg->arg = NULL;
+			arg = ast_ecall_next(arg);
+		}
+		ast_tree_destroy(&ecall->node);
+	}
+	return rc;
+}
+
 /** Generate code for cast expression.
  *
  * @param cgexpr Code generator for expression
@@ -11769,13 +12017,58 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	cgen_eres_t bres;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
+	comp_tok_t *ident;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	ast_sclass_type_t sctype;
 	cgen_rd_flags_t flags;
+	scope_member_t *member;
 	int rc;
 
 	cgen_eres_init(&bres);
+
+	/*
+	 * Check for overparenthesized mutiplication, addition or subtraction
+	 * misparsed as a cast expression.
+	 */
+	rc = cgen_decl_is_just_ident(ecast->dspecs, ecast->decl, &atok);
+	if (rc == EOK) {
+		/* Check if it is a type identifier */
+		ident = (comp_tok_t *)atok->data;
+		member = scope_lookup(cgexpr->cgen->cur_scope,
+		    ident->tok.text);
+		if (member == NULL || member->mtype != sm_tdef) {
+			/* It is NOT a type identifier, therefore not a cast. */
+			switch (ecast->bexpr->ntype) {
+			case ant_ederef:
+				rc = cgen_overpar_bo_times(cgexpr, ecast,
+				    ident, lblock, eres);
+				break;
+			case ant_eusign:
+				rc = cgen_overpar_addsub(cgexpr, ecast, ident,
+				    lblock, eres);
+				break;
+			case ant_eparen:
+				rc = cgen_overpar_call(cgexpr, ecast, ident,
+				    lblock, eres);
+				break;
+			default:
+				lexer_dprint_tok(&ident->tok, stderr);
+				fprintf(stderr, ": Type identifier "
+				    "expected.\n");
+
+				cgexpr->cgen->error = true; // TODO
+				rc = EINVAL;
+				break;
+			}
+
+			if (rc != EOK)
+				goto error;
+
+			cgen_eres_fini(&bres);
+			return EOK;
+		}
+	}
 
 	/* Declaration specifiers */
 	rc = cgen_dspecs(cgexpr->cgen, ecast->dspecs, &sctype, &flags, &stype);

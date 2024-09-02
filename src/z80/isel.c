@@ -2733,10 +2733,6 @@ static int z80_isel_vrr_divmod(z80_isel_proc_t *isproc, unsigned qvr,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80_isel_create_label(isproc, "div_rep", lblno, &rep_lbl);
-	if (rc != EOK)
-		goto error;
-
 	rc = z80_isel_create_label(isproc, "div_r_lt_d", lblno, &rltd_lbl);
 	if (rc != EOK)
 		goto error;

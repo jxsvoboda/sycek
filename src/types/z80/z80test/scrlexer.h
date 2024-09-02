@@ -52,7 +52,6 @@ typedef enum {
 	stt_scolon,
 	stt_period,
 	stt_plus,
-	stt_minus,
 
 	stt_A,
 	stt_AF,

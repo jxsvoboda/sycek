@@ -5748,6 +5748,29 @@ int ast_ecall_append(ast_ecall_t *ecall, void *dcomma, ast_node_t *arg)
 	return EOK;
 }
 
+/** Prepend entry at beginning of call argument list.
+ *
+ * @param ecall Call expression
+ * @param dcomma Data for preceding comma token or @c NULL
+ * @param arg Argument (expression or type name)
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ecall_prepend(ast_ecall_t *ecall, void *dcomma, ast_node_t *arg)
+{
+	ast_ecall_arg_t *earg;
+
+	earg = calloc(1, sizeof(ast_ecall_arg_t));
+	if (earg == NULL)
+		return ENOMEM;
+
+	earg->tcomma.data = dcomma;
+	earg->arg = arg;
+
+	earg->ecall = ecall;
+	list_prepend(&earg->lcall, &ecall->args);
+	return EOK;
+}
+
 /** Return first argument in call expression.
  *
  * @param ecall Call expression
@@ -6220,6 +6243,20 @@ static int ast_ecast_print(ast_ecast_t *ecast, FILE *f)
 	(void) ecast;
 
 	if (fprintf(f, "ecast(") < 0)
+		return EIO;
+
+	rc = ast_tree_print(&ecast->dspecs->node, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ", ") < 0)
+		return EIO;
+
+	rc = ast_tree_print(ecast->decl, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ", ") < 0)
 		return EIO;
 
 	rc = ast_tree_print(ecast->bexpr, f);

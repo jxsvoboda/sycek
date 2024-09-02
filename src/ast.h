@@ -182,6 +182,7 @@ extern int ast_etcond_create(ast_etcond_t **);
 extern int ast_ecomma_create(ast_ecomma_t **);
 extern int ast_ecall_create(ast_ecall_t **);
 extern int ast_ecall_append(ast_ecall_t *, void *, ast_node_t *);
+extern int ast_ecall_prepend(ast_ecall_t *, void *, ast_node_t *);
 extern ast_ecall_arg_t *ast_ecall_first(ast_ecall_t *);
 extern ast_ecall_arg_t *ast_ecall_next(ast_ecall_arg_t *);
 extern int ast_eindex_create(ast_eindex_t **);

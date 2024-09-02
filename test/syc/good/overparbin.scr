@@ -1,0 +1,8 @@
+mapfile "overparbin.map";
+ldbin "overparbin.bin", 0x8000;
+
+/* overparenthesized call */
+call @_overpar_call;
+verify word ptr (@_x), 1;
+verify word ptr (@_y), 2;
+verify word ptr (@_z), 3;
