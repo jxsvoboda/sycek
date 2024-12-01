@@ -258,10 +258,10 @@ test-hos: install-hos
 
 z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_z80test_z80)
 
-%.z80.C: %.c
+%.z80.pp.c: %.c
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
-%.z80.asm:%.z80.C $(syc)
+%.z80.asm:%.z80.pp.c $(syc)
 	$(syc) $<
 
 %.z80.o: %.z80.asm

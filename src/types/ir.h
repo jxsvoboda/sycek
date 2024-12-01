@@ -82,6 +82,8 @@ typedef enum {
 	iri_nop,
 	/** Binary OR */
 	iri_or,
+	/** Pointer difference */
+	iri_ptrdiff,
 	/** Index pointer */
 	iri_ptridx,
 	/** Read from memory */

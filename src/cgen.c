@@ -51,6 +51,7 @@ static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
+static void cgen_error_expr_not_constant(cgen_t *, ast_tok_t *);
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
@@ -1273,11 +1274,14 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 	if (rc != EOK)
 		goto error;
 
+	if (eres->cvknown != true) {
+		cgen_error_expr_not_constant(cgen, ast_tree_first_tok(expr));
+		goto error;
+	}
+
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
-
-	assert(eres->cvknown);
 	cgen_eres_fini(&bres);
 	return EOK;
 error:
@@ -5391,7 +5395,6 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 			    (uint64_t)arrt->asize) {
 				cgen_warn_array_index_oob(cgexpr->cgen, optok);
 			}
-
 		} else {
 			/* TODO Optional run-time check */
 		}
@@ -5453,6 +5456,14 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+
+	if (lres->cvknown && rres->cvknown) {
+		/* Compute constant pointer */
+		eres->cvknown = true;
+		eres->cvsymbol = lres->cvsymbol;
+		eres->cvint = lres->cvint + rres->cvint *
+		    cgen_type_sizeof(cgexpr->cgen, cgtype);
+	}
 
 	cgen_eres_fini(&lval);
 	cgen_eres_fini(&cres);
@@ -5931,6 +5942,228 @@ error:
 	return rc;
 }
 
+/** Convert pointer or array to pointer rvalue.
+ *
+ * @param cgexpr Code generator for expression
+ * @param bres Base expression result
+ * @param eres Place to store result
+ * @return EOK on success or an error code
+ */
+static int cgen_eres_rvptr(cgen_expr_t *cgexpr, cgen_eres_t *bres,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_texpr_t *elemte = NULL;
+	cgen_eres_t bval;
+	cgen_eres_t cres;
+	cgtype_t *ptdtype = NULL;
+	cgtype_t *cgtype = NULL;
+	cgtype_pointer_t *ptrt;
+	cgtype_array_t *arrt;
+	cgtype_t *etype;
+	int rc;
+
+	cgen_eres_init(&bval);
+	cgen_eres_init(&cres);
+
+	/*
+	 * If the operand is a pointer, we need to convert it
+	 * to rvalue. We leave an array as an lvalue. In either case
+	 * we end up with the base address stored in the result variable.
+	 */
+	if (bres->cgtype->ntype == cgn_pointer) {
+		/* Value of base expression */
+		rc = cgen_eres_rvalue(cgexpr, bres, lblock, &bval);
+		if (rc != EOK)
+			goto error;
+
+		ptrt = (cgtype_pointer_t *)bval.cgtype->ext;
+
+		/* Result type is the same as the base pointer type */
+		rc = cgtype_clone(bval.cgtype, &cgtype);
+		if (rc != EOK)
+			goto error;
+
+	} else {
+		assert(bres->cgtype->ntype == cgn_array);
+		arrt = (cgtype_array_t *)bres->cgtype->ext;
+
+		rc = cgen_eres_clone(bres, &bval);
+		if (rc != EOK)
+			goto error;
+
+		/* Generate IR type expression for the element type */
+		rc = cgen_cgtype(cgexpr->cgen, arrt->etype, &elemte);
+		if (rc != EOK)
+			goto error;
+
+		/* Create a private copy of element type */
+		rc = cgtype_clone(arrt->etype, &etype);
+		if (rc != EOK)
+			goto error;
+
+		/*
+		 * Result type is a pointer to the array element type.
+		 * Note that ownership of etype is transferred to ptrt.
+		 */
+		rc = cgtype_pointer_create(etype, &ptrt);
+		if (rc != EOK) {
+			cgtype_destroy(etype);
+			goto error;
+		}
+
+		cgtype = &ptrt->cgtype;
+		ir_texpr_destroy(elemte);
+		elemte = NULL;
+	}
+
+	eres->varname = bval.varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+	eres->cvknown = bres->cvknown;
+	eres->cvsymbol = bres->cvsymbol;
+	eres->cvint = bres->cvint;
+
+	cgen_eres_fini(&bval);
+
+	return EOK;
+error:
+	cgen_eres_fini(&bval);
+	cgtype_destroy(cgtype);
+	cgtype_destroy(ptdtype);
+	ir_texpr_destroy(elemte);
+	return rc;
+}
+
+/** Generate code for subtraction of pointers or arrays.
+ *
+ * @param cgexpr Code generator for expression
+ * @param optok Operand token (for printing diagnostics)
+ * @param lres Result of evaluating left operand
+ * @param rres Result of evaluating right operand
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store result of subtraction
+ * @return EOK on success or an error code
+ */
+static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
+    cgen_eres_t *lres, cgen_eres_t *rres, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	cgen_eres_t lval;
+	cgen_eres_t rval;
+	cgtype_pointer_t *tptr1;
+	cgtype_pointer_t *tptr2;
+	cgtype_t *ptdtype = NULL;
+	ir_texpr_t *elemte = NULL;
+	int rc;
+
+	cgen_eres_init(&lval);
+	cgen_eres_init(&rval);
+
+	rc = cgtype_int_construct(true, cgir_int, &ptdtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_rvptr(cgexpr, lres, lblock, &lval);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_rvptr(cgexpr, rres, lblock, &rval);
+	if (rc != EOK)
+		goto error;
+
+	/* Error for incompatible pointer types */
+	assert(lval.cgtype->ntype == cgn_pointer);
+	tptr1 = (cgtype_pointer_t *)lval.cgtype->ext;
+	assert(rval.cgtype->ntype == cgn_pointer);
+	tptr2 = (cgtype_pointer_t *)rval.cgtype->ext;
+
+	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, ": Subtracting pointers of incompatible "
+		    "type (");
+		cgtype_print(lval.cgtype, stderr);
+		fprintf(stderr, " and ");
+		cgtype_print(rval.cgtype, stderr);
+		fprintf(stderr, ").\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Check type for completeness */
+	if (cgen_type_is_incomplete(cgexpr->cgen, tptr1->tgtype) ||
+	    cgen_type_is_incomplete(cgexpr->cgen, tptr2->tgtype)) {
+		lexer_dprint_tok(&optok->tok, stderr);
+		fprintf(stderr, ": Subtracting pointers of incomplete type.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Generate IR type expression for the element type */
+	rc = cgen_cgtype(cgexpr->cgen, tptr1->tgtype, &elemte);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lval.varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rval.varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_ptrdiff;
+	instr->width = cgen_pointer_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+	instr->opt = elemte;
+
+	elemte = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = ptdtype;
+	if (lval.cvknown && rval.cvknown && lval.cvsymbol == rval.cvsymbol) {
+		eres->cvknown = true;
+		eres->cvint = lval.cvint - rval.cvint;
+	}
+
+	cgen_eres_fini(&lval);
+	cgen_eres_fini(&rval);
+
+	cgtype_print(ptdtype, stdout);
+	return EOK;
+error:
+	cgen_eres_fini(&lval);
+	cgen_eres_fini(&rval);
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	cgtype_destroy(ptdtype);
+	ir_texpr_destroy(elemte);
+	return rc;
+}
+
 /** Generate code for subtraction.
  *
  * @param cgexpr Code generator for expression
@@ -5949,8 +6182,8 @@ static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool r_int;
 	bool l_enum;
 	bool r_enum;
-	bool l_ptr;
-	bool r_ptr;
+	bool l_ptra;
+	bool r_ptra;
 
 	ctok = (comp_tok_t *)optok->data;
 
@@ -5979,24 +6212,21 @@ static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	if (l_enum && r_enum)
 		return cgen_sub_enum(cgexpr, optok, lres, rres, lblock, eres);
 
-	l_ptr = lres->cgtype->ntype == cgn_pointer;
-	r_ptr = rres->cgtype->ntype == cgn_pointer;
+	l_ptra = lres->cgtype->ntype == cgn_pointer ||
+	    lres->cgtype->ntype == cgn_array;
+	r_ptra = rres->cgtype->ntype == cgn_pointer ||
+	    rres->cgtype->ntype == cgn_array;
 
-	/* Pointer - pointer */
-	if (l_ptr && r_ptr) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented pointer subtraction.\n");
+	/* Pointer/array - pointer/array */
+	if (l_ptra && r_ptra)
+		return cgen_sub_ptra(cgexpr, ctok, lres, rres, lblock, eres);
 
-		cgexpr->cgen->error = true; // TODO
-		return EINVAL;
-	}
-
-	/* Pointer - integer */
-	if (l_ptr && r_int)
+	/* Pointer/array - integer */
+	if (l_ptra && r_int)
 		return cgen_sub_ptr_int(cgexpr, ctok, lres, rres, lblock, eres);
 
-	/* Integer - pointer */
-	if (l_int && r_ptr) {
+	/* Integer - pointer/array */
+	if (l_int && r_ptra) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Invalid subtraction of ");
 		(void) cgtype_print(lres->cgtype, stderr);
@@ -6851,12 +7081,12 @@ static int cgen_bo_minus(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_init(&rres);
 
 	/* Evaluate left operand */
-	rc = cgen_expr_rvalue(cgexpr, ebinop->larg, lblock, &lres);
+	rc = cgen_expr(cgexpr, ebinop->larg, lblock, &lres);
 	if (rc != EOK)
 		goto error;
 
 	/* Evaluate right operand */
-	rc = cgen_expr_rvalue(cgexpr, ebinop->rarg, lblock, &rres);
+	rc = cgen_expr(cgexpr, ebinop->rarg, lblock, &rres);
 	if (rc != EOK)
 		goto error;
 

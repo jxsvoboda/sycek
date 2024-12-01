@@ -251,7 +251,6 @@ These are NOT supported yet:
  * Bit fields
  * Floating point
  * Integer promotion
- * Pointer difference
  * Lvalue arguments
  * Passing or returning struct/union by value
  * C99-style qualified struct/array initialization

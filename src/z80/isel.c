@@ -9348,6 +9348,64 @@ error:
 	return rc;
 }
 
+/** Select Z80 IC instructions code for IR ptrdiff instruction.
+ *
+ * @param isproc Instruction selector for procedure
+ * @param irinstr IR add instruction
+ * @param lblock Labeled block where to append the new instruction
+ * @return EOK on success or an error code
+ */
+static int z80_isel_ptrdiff(z80_isel_proc_t *isproc, const char *label,
+    ir_instr_t *irinstr, z80ic_lblock_t *lblock)
+{
+	unsigned destvr;
+	unsigned vr1, vr2;
+	unsigned bdiffvr;
+	unsigned eszvr;
+	unsigned rvr;
+	size_t elemsz;
+	int rc;
+
+	assert(irinstr->itype == iri_ptrdiff);
+	assert(irinstr->width == 16);
+	assert(irinstr->op1->optype == iro_var);
+	assert(irinstr->op2->optype == iro_var);
+	assert(irinstr->opt != NULL);
+
+	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
+	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
+	vr2 = z80_isel_get_vregno(isproc, irinstr->op2);
+	rc = z80_isel_texpr_sizeof(isproc->isel, irinstr->opt, &elemsz);
+	if (rc != EOK)
+		return rc;
+
+	bdiffvr = z80_isel_get_new_vregnos(isproc, 2);
+	eszvr = z80_isel_get_new_vregnos(isproc, 2);
+	rvr = z80_isel_get_new_vregnos(isproc, 2);
+
+	rc = z80ic_lblock_append(lblock, label, NULL);
+	if (rc != EOK)
+		return rc;
+
+	/* bdiff = vr1 - vr2 */
+	rc = z80_isel_vrr_sub(isproc, bdiffvr, vr1, vr2, 2, lblock);
+	if (rc != EOK)
+		return rc;
+
+	/* esz = elemsz */
+	rc = z80_isel_vrr_const(isproc, eszvr, elemsz, 2, lblock);
+	if (rc != EOK)
+		return rc;
+
+	/* dest = bdiff / elemsz */
+	rc = z80_isel_vrr_divmod(isproc, destvr, rvr, bdiffvr, eszvr,
+	    2, true, lblock);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
 /** Select Z80 IC instructions code for IR ptridx instruction.
  *
  * @param isproc Instruction selector for procedure
@@ -11474,6 +11532,8 @@ static int z80_isel_instr(z80_isel_proc_t *isproc, const char *label,
 		return z80_isel_nop(isproc, label, irinstr, lblock);
 	case iri_or:
 		return z80_isel_or(isproc, label, irinstr, lblock);
+	case iri_ptrdiff:
+		return z80_isel_ptrdiff(isproc, label, irinstr, lblock);
 	case iri_ptridx:
 		return z80_isel_ptridx(isproc, label, irinstr, lblock);
 	case iri_read:

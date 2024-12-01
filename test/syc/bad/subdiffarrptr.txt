@@ -1,0 +1,1 @@
+<test/syc/bad/subdiffarrptr.c:7:10:'('>: Expression is not constant.
