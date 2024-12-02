@@ -23,6 +23,8 @@
 #ifndef _STDIO_H
 #define _STDIO_H
 
+#include <stddef.h>
+
 typedef struct {
 } FILE;
 
@@ -31,12 +33,19 @@ extern FILE *stdin;
 extern FILE *stdout;
 
 int fclose(FILE *);
+int ferror(FILE *);
+int fflush(FILE *);
 FILE *fopen(const char *, const char *);
 int fprintf(FILE *, const char *, ...);
 void printf(char *, ...);
+int fputc(int, FILE *);
+int fputs(const char *, FILE *);
+size_t fread(void *, size_t, size_t, FILE *);
 int getchar(void);
 int getc(FILE *);
 void putchar(int);
+int remove(const char *);
 int rename(const char *, const char *);
+int snprintf(char *, size_t, const char *, ...);
 
 #endif

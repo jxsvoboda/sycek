@@ -138,8 +138,8 @@ binary_z80test_hos = z80test-hos
 binary_z80test_z80 = z80test-z80.bin
 z80test = ./$(binary_z80test)
 
-objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
+objects_ccheck = $(sources_ccheck:.c=.o)
 objects_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.o)
 
 objects_syc = $(sources_syc:.c=.o)
@@ -149,6 +149,10 @@ objects_syc_z80 = $(sources_syc_z80:.c=.z80.o)
 objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
 objects_z80test_z80 = $(sources_z80test_z80:.c=.z80.o)
+
+asms_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.pp.asm)
+asms_syc_z80 = $(sources_syc_z80:.c=.z80.pp.asm)
+asms_z80test_z80 = $(sources_z80test_z80:.c=.z80.pp.asm)
 
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h src/*/*/*/*.h)
 lib_headers = $(wildcard lib/clib/include/*.h)
@@ -258,10 +262,12 @@ test-hos: install-hos
 
 z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_z80test_z80)
 
+z80asms: $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
+
 %.z80.pp.c: %.c
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
-%.z80.asm:%.z80.pp.c $(syc)
+%.z80.pp.asm:%.z80.pp.c $(syc)
 	$(syc) $<
 
 %.z80.o: %.z80.asm
@@ -288,7 +294,7 @@ clean:
 	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
-	$(example_outs)
+	$(example_outs) $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
 
 test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@

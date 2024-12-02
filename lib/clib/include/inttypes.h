@@ -20,11 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef _ASSERT_H
-#define _ASSERT_H
+#ifndef _INTTYPES_H
+#define _INTTYPES_H
 
-#include <stdlib.h>
-
-#define assert(x) while (1) { if (!(x)) abort(); }
 
 #endif
