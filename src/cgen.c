@@ -84,6 +84,7 @@ static int cgen_expr(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_eres_rvalue(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *);
+static int cgen_array_to_ptr(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *);
 static int cgen_type_convert(cgen_expr_t *, comp_tok_t *, cgen_eres_t *,
     cgtype_t *, cgen_expl_t, ir_lblock_t *, cgen_eres_t *);
 static int cgen_truth_eres_cjmp(cgen_expr_t *, ast_tok_t *, cgen_eres_t *, bool,
@@ -6147,7 +6148,6 @@ static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgen_eres_fini(&lval);
 	cgen_eres_fini(&rval);
 
-	cgtype_print(ptdtype, stdout);
 	return EOK;
 error:
 	cgen_eres_fini(&lval);
@@ -13601,7 +13601,7 @@ error:
  * @param cgexpr Code generator for expression
  * @param res Original expression result
  * @param lblock IR labeled block to which the code should be appended
- * @param dres Place to store rvalue expression result
+ * @param eres Place to store rvalue expression result
  * @return EOK on success or an error code
  */
 static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
@@ -13636,6 +13636,17 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		return EOK;
 	}
 
+	/*
+	 * If it is an array, we need to convert it to a pointer.
+	 */
+	if (res->cgtype->ntype == cgn_array) {
+		rc = cgen_array_to_ptr(cgexpr, res, eres);
+		if (rc != EOK)
+			goto error;
+
+		return EOK;
+	}
+
 	/* Check the type */
 	if (res->cgtype->ntype == cgn_basic) {
 		bits = cgen_basic_type_bits(cgexpr->cgen,
@@ -13651,7 +13662,8 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	} else if (res->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		fprintf(stderr, "Unimplemented variable type (%d).\n",
+		    (int)res->cgtype->ntype);
 		abort();
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -14954,6 +14966,65 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	return cgen_eres_clone(ares, cres);
 }
 
+/** Convert array to pointer to the first element.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ares Argument (expression result)
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_array_to_ptr(cgen_expr_t *cgexpr, cgen_eres_t *ares,
+    cgen_eres_t *cres)
+{
+	cgtype_t *etype = NULL;
+	cgtype_pointer_t *ptrt = NULL;
+	cgtype_array_t *arrt;
+	int rc;
+
+	(void)cgexpr;
+
+	assert(ares->cgtype->ntype == cgn_array);
+	arrt = (cgtype_array_t *)ares->cgtype->ext;
+
+	rc = cgtype_clone(arrt->etype, &etype);
+	if (rc != EOK)
+		goto error;
+
+	/*
+	 * Create pointer type whose target is the array element type.
+	 * Note that ownership of etype is transferred to ptrt.
+	 */
+	rc = cgtype_pointer_create(etype, &ptrt);
+	if (rc != EOK)
+		goto error;
+
+	etype = NULL;
+
+	/* Clone the result except... */
+	rc = cgen_eres_clone(ares, cres);
+	if (rc != EOK)
+		goto error;
+
+	/* Replace the type with the pointer type */
+	cgtype_destroy(cres->cgtype);
+	cres->cgtype = &ptrt->cgtype;
+	ptrt = NULL;
+
+	/*
+	 * Make it an rvalue .. it's the value of the pointer, not the
+	 * address.
+	 */
+	cres->valtype = cgen_rvalue;
+	return EOK;
+error:
+	if (etype != NULL)
+		cgtype_destroy(etype);
+	if (ptrt != NULL)
+		cgtype_destroy(&ptrt->cgtype);
+	return rc;
+}
+
 /** Convert array to the specified type.
  *
  * @param cgexpr Code generator for expression
@@ -14972,45 +15043,16 @@ static int cgen_type_convert_array(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *cres)
 {
 	cgen_eres_t pres;
-	cgtype_t *etype = NULL;
-	cgtype_pointer_t *ptrt = NULL;
-	cgtype_array_t *arrt;
 	int rc;
 
 	assert(ares->cgtype->ntype == cgn_array);
-	arrt = (cgtype_array_t *)ares->cgtype->ext;
 
 	cgen_eres_init(&pres);
 
-	rc = cgtype_clone(arrt->etype, &etype);
+	/* Convert array to pointer */
+	rc = cgen_array_to_ptr(cgexpr, ares, &pres);
 	if (rc != EOK)
 		goto error;
-
-	/*
-	 * Create pointer type whose target is the array element type.
-	 * Note that ownership of etype is transferred to ptrt.
-	 */
-	rc = cgtype_pointer_create(etype, &ptrt);
-	if (rc != EOK)
-		goto error;
-
-	etype = NULL;
-
-	/* Clone the result except.. */
-	rc = cgen_eres_clone(ares, &pres);
-	if (rc != EOK)
-		goto error;
-
-	/* Replace the type with the pointer type */
-	cgtype_destroy(pres.cgtype);
-	pres.cgtype = &ptrt->cgtype;
-	ptrt = NULL;
-
-	/*
-	 * Make it an rvalue .. it's the value of the pointer, not the
-	 * address.
-	 */
-	pres.valtype = cgen_rvalue;
 
 	/* Continue conversion */
 	rc = cgen_type_convert(cgexpr, ctok, &pres, dtype, expl, lblock,
@@ -15020,10 +15062,6 @@ static int cgen_type_convert_array(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	cgen_eres_fini(&pres);
 error:
-	if (etype != NULL)
-		cgtype_destroy(etype);
-	if (ptrt != NULL)
-		cgtype_destroy(&ptrt->cgtype);
 	cgen_eres_fini(&pres);
 	return rc;
 }

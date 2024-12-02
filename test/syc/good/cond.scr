@@ -136,3 +136,15 @@ ld word ptr (@_pb), 20;
 ld word ptr (@_pd), 0;
 call @_cond_vp_p;
 verify word ptr (@_vpd), 20;
+
+/* Two arrays, condition is true */
+ld word ptr (@_c), 1;
+ld word ptr (@_pd), 0;
+call @_cond_arr;
+verify word ptr (@_pd), @_aa;
+
+/* Two arrays, condition is false */
+ld word ptr (@_c), 0;
+ld word ptr (@_pd), 0;
+call @_cond_arr;
+verify word ptr (@_pd), @_ab;

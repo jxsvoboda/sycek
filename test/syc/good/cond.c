@@ -83,3 +83,12 @@ void cond_vp_p(void)
 {
 	vpd = c != 0 ? vpa : pb;
 }
+
+int aa[1];
+int ab[1];
+
+/* Both operands are arrays. They must be converted to pointer. */
+void cond_arr(void)
+{
+	pd = c != 0 ? aa : ab;
+}
