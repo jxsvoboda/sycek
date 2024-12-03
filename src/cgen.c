@@ -41,6 +41,7 @@
 #include <lexer.h>
 #include <merrno.h>
 #include <scope.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <symbols.h>
@@ -19227,6 +19228,9 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 		}
 
 		if (*text != '"') {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": String constant expected.\n");
+			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
 		}
