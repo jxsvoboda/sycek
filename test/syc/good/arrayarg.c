@@ -21,6 +21,12 @@ void arraysize(int x[10])
 	s = sizeof(x);
 }
 
+/* Argument is an array of unspecified size */
+void arrayunspec(int x[])
+{
+	(void)x;
+}
+
 void callwrite(void)
 {
 	arraywrite(a);

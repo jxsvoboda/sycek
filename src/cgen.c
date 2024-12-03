@@ -390,11 +390,36 @@ static bool cgen_type_is_incomplete(cgen_t *cgen, cgtype_t *cgtype)
 		return false;
 	case cgn_array:
 		tarray = (cgtype_array_t *)cgtype->ext;
+		if (cgen_type_is_incomplete(cgen, tarray->etype))
+			return true;
 		return tarray->have_size == false;
 	}
 
 	assert(false);
 	return false;
+}
+
+/** Determine if type is complete or an array of type that is complete.
+ *
+ * For function arguments the type may be an array of unknown size,
+ * as long as the array element type is complete.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is incomplete
+ */
+static bool cgen_type_is_complete_or_array(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_array_t *tarray;
+
+	if (cgtype->ntype == cgn_array) {
+		tarray = (cgtype_array_t *)cgtype->ext;
+		if (cgen_type_is_incomplete(cgen, tarray->etype))
+			return false;
+		return true;
+	} else {
+		return !cgen_type_is_incomplete(cgen, cgtype);
+	}
 }
 
 /** Determine if two enum types are compatible.
@@ -17891,8 +17916,11 @@ static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
 			goto error;
 		}
 
-		/* Check type for completeness */
-		if (cgen_type_is_incomplete(cgen, stype)) {
+		/*
+		 * Check type for completeness. Arrays may have unspecified
+		 * size, as long as the element type is complete.
+		 */
+		if (!cgen_type_is_complete_or_array(cgen, stype)) {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Argument %u has incomplete type.\n",
 			    argidx);
