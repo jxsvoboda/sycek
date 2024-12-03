@@ -15895,6 +15895,8 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
     ir_lblock_t *lblock)
 {
 	cgen_loop_switch_t *lswitch = NULL;
+	cgen_loop_switch_t *old_lswitch = cgproc->cur_loop_switch;
+	cgen_loop_t *old_loop = cgproc->cur_loop;
 	cgen_loop_t *loop = NULL;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *larg = NULL;
@@ -15980,8 +15982,13 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	cgen_eres_fini(&cres);
 	free(wlabel);
 	free(ewlabel);
+	cgproc->cur_loop_switch = old_lswitch;
+	cgproc->cur_loop = old_loop;
 	return EOK;
 error:
+	cgproc->cur_loop_switch = old_lswitch;
+	cgproc->cur_loop = old_loop;
+
 	if (instr != NULL)
 		ir_instr_destroy(instr);
 	if (lswitch != NULL)
@@ -16006,6 +16013,8 @@ error:
 static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 {
 	cgen_loop_switch_t *lswitch = NULL;
+	cgen_loop_switch_t *old_lswitch = cgproc->cur_loop_switch;
+	cgen_loop_t *old_loop = cgproc->cur_loop;
 	cgen_loop_t *loop = NULL;
 	cgen_eres_t cres;
 	unsigned lblno;
@@ -16078,8 +16087,13 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 	free(ndlabel);
 	free(edlabel);
 	cgen_eres_fini(&cres);
+	cgproc->cur_loop_switch = old_lswitch;
+	cgproc->cur_loop = old_loop;
 	return EOK;
 error:
+	cgproc->cur_loop_switch = old_lswitch;
+	cgproc->cur_loop = old_loop;
+
 	if (lswitch != NULL)
 		cgen_loop_switch_destroy(lswitch);
 	if (loop != NULL)
@@ -16105,6 +16119,8 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 {
 	cgen_loop_switch_t *lswitch = NULL;
 	cgen_loop_t *loop = NULL;
+	cgen_loop_switch_t *old_lswitch = cgproc->cur_loop_switch;
+	cgen_loop_t *old_loop = cgproc->cur_loop;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *larg = NULL;
 	cgen_eres_t ires;
@@ -16230,8 +16246,13 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 	cgen_eres_fini(&ires);
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&nres);
+	cgproc->cur_loop_switch = old_lswitch;
+	cgproc->cur_loop = old_loop;
 	return EOK;
 error:
+	cgproc->cur_loop_switch = old_lswitch;
+	cgproc->cur_loop = old_loop;
+
 	if (instr != NULL)
 		ir_instr_destroy(instr);
 	if (lswitch != NULL)
@@ -16268,6 +16289,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	ir_oper_var_t *larg = NULL;
 	cgen_switch_t *cgswitch = NULL;
 	cgen_loop_switch_t *lswitch = NULL;
+	cgen_loop_switch_t *old_lswitch = cgproc->cur_loop_switch;
 	cgtype_enum_t *tenum;
 	cgen_enum_elem_t *elem;
 	cgen_switch_value_t *value;
@@ -16438,8 +16460,10 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	cgen_loop_switch_destroy(lswitch);
 	free(eslabel);
 	cgen_eres_fini(&eres);
+	cgproc->cur_loop_switch = old_lswitch;
 	return EOK;
 error:
+	cgproc->cur_loop_switch = old_lswitch;
 	ir_instr_destroy(instr);
 	if (larg != NULL)
 		ir_oper_destroy(&larg->oper);

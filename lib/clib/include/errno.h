@@ -28,5 +28,6 @@
 #define EINVAL 3
 #define ENOENT 4
 #define EIO 5
+#define ENOTSUP 6
 
 #endif
