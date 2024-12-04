@@ -35,6 +35,7 @@ extern FILE *stdout;
 int fclose(FILE *);
 int ferror(FILE *);
 int fflush(FILE *);
+int fgetc(FILE *);
 FILE *fopen(const char *, const char *);
 int fprintf(FILE *, const char *, ...);
 void printf(char *, ...);

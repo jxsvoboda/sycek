@@ -27,8 +27,10 @@
 
 void abort(void);
 void *calloc(size_t, size_t);
+void exit(int);
 void free(void *);
 void *malloc(size_t);
 void *realloc(void *, size_t);
+unsigned long strtoul(const char *, char **, int);
 
 #endif

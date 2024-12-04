@@ -29,5 +29,7 @@
 #define ENOENT 4
 #define EIO 5
 #define ENOTSUP 6
+#define EDOM 7
+#define ERANGE 8
 
 #endif

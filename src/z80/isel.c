@@ -2275,7 +2275,7 @@ static int z80_isel_vrr_nbit_jp(z80_isel_proc_t *isproc, unsigned svr,
 	z80ic_vr_part_t part;
 	z80ic_oper_vr_t *vr = NULL;
 	unsigned vroff;
-	error_t rc;
+	int rc;
 
 	(void)isproc;
 
@@ -2352,7 +2352,7 @@ static int z80_isel_vrr_set(z80_isel_proc_t *isproc, unsigned svr,
 	z80ic_vr_part_t part;
 	z80ic_oper_vr_t *vr = NULL;
 	unsigned vroff;
-	error_t rc;
+	int rc;
 
 	(void)isproc;
 
@@ -2695,7 +2695,7 @@ static int z80_isel_vrr_divmod(z80_isel_proc_t *isproc, unsigned qvr,
 	char *rep_lbl = NULL;
 	char *rltd_lbl = NULL;
 	char *ntb0_lbl = NULL;
-	error_t rc;
+	int rc;
 
 	(void)issigned;
 
