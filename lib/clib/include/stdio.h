@@ -25,6 +25,8 @@
 
 #include <stddef.h>
 
+#define EOF (-1)
+
 typedef struct {
 } FILE;
 

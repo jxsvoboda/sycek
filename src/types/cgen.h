@@ -32,6 +32,12 @@
 #include <types/ast.h>
 #include <types/cgtype.h>
 
+/** Code generator flags */
+typedef enum {
+	/** Lvalue function arguments */
+	cgf_lvalue_args = 0x1
+} cgen_flags_t;
+
 /** Code generator */
 typedef struct {
 	/** Arithmetic width */
@@ -62,6 +68,8 @@ typedef struct {
 	unsigned callsign_cnt;
 	/** Output IR module */
 	struct ir_module *irmod;
+	/** Flags */
+	cgen_flags_t flags;
 } cgen_t;
 
 /** Code generator for expression */

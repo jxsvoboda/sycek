@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -484,6 +484,9 @@ int comp_make_ir(comp_t *comp)
 
 		/* Different arithmetic types not implemented yet */
 		cgen->arith_width = 16;
+
+		/* Configure code generator. */
+		cgen->flags = comp->cgflags;
 
 		rc = cgen_module(cgen, comp->mod->ast, comp->mod->symbols,
 		    &comp->mod->ir);

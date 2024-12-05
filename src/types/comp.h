@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -84,6 +84,8 @@ typedef struct comp {
 	comp_module_t *mod;
 	/** Module type */
 	comp_mtype_t mtype;
+	/** Code generator flags */
+	cgen_flags_t cgflags;
 } comp_t;
 
 /** Compiler parser input */

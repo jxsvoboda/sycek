@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -49,11 +49,13 @@ static void print_syntax(void)
 	printf("syntax:\n"
 	    "\tsyc [options] <file> Compile / check the specified file\n"
 	    "\tsyc --test Run internal unit tests\n"
-	    "options:\n"
+	    "compiler options:\n"
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
 	    "\t--dump-toks Dump tokenized source file\n"
 	    "\t--dump-ir Dump intermediate representation\n"
-	    "\t--dump-vric Dump instruction code with virtual registers\n");
+	    "\t--dump-vric Dump instruction code with virtual registers\n"
+	    "code generation options:\n"
+	    "\t--lvalue-args Make function arguments writable/addressable\n");
 }
 
 /** Replace filename extension with a different one.
@@ -107,7 +109,8 @@ error:
 	return ENOMEM;
 }
 
-static int compile_file(const char *fname, comp_flags_t flags)
+static int compile_file(const char *fname, comp_flags_t flags,
+    cgen_flags_t cgflags)
 {
 	int rc;
 	comp_t *comp = NULL;
@@ -160,6 +163,8 @@ static int compile_file(const char *fname, comp_flags_t flags)
 	rc = comp_create(&lexer_file_input, &finput, mtype, &comp);
 	if (rc != EOK)
 		goto error;
+
+	comp->cgflags = cgflags;
 
 	if ((flags & compf_dump_ast) != 0) {
 		rc = comp_dump_ast(comp, stdout);
@@ -224,6 +229,7 @@ int main(int argc, char *argv[])
 	int rc;
 	int i;
 	comp_flags_t flags = 0;
+	cgen_flags_t cgflags = 0;
 
 	if (argc < 2) {
 		print_syntax();
@@ -295,6 +301,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--dump-vric") == 0) {
 			++i;
 			flags |= compf_dump_vric;
+		} else if (strcmp(argv[i], "--lvalue-args") == 0) {
+			++i;
+			cgflags |= cgf_lvalue_args;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;
@@ -309,7 +318,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	rc = compile_file(argv[i], flags);
+	rc = compile_file(argv[i], flags, cgflags);
 	if (rc != EOK)
 		return 1;
 

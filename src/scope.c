@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2024 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -57,7 +57,6 @@ int scope_create(scope_t *parent, scope_t **rscope)
 void scope_destroy(scope_t *scope)
 {
 	scope_member_t *member;
-
 	if (scope == NULL)
 		return;
 

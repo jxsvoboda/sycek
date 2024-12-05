@@ -9743,13 +9743,13 @@ error:
 
 /** Generate code for storing a record (in an assignment expression).
  *
- * @param cgexpr Code generator for expression
+ * @param cgproc Code generator for procedure
  * @param ares Address expression result
  * @param vres Value expression result
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_store_record(cgen_expr_t *cgexpr, cgen_eres_t *ares,
+static int cgen_store_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
     cgen_eres_t *vres, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
@@ -9761,7 +9761,7 @@ static int cgen_store_record(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	assert(vres->cgtype->ntype == cgn_record);
 
 	/* Generate IR type expression for the record type */
-	rc = cgen_cgtype(cgexpr->cgen, vres->cgtype, &recte);
+	rc = cgen_cgtype(cgproc->cgen, vres->cgtype, &recte);
 	if (rc != EOK)
 		goto error;
 
@@ -9797,15 +9797,15 @@ error:
 	return rc;
 }
 
-/** Generate code for storing a value (in an assignment expression).
+/** Generate code for storing a value.
  *
- * @param cgexpr Code generator for expression
+ * @param cgproc Code generator for procedure
  * @param ares Address expression result
  * @param vres Value expression result
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
-static int cgen_store(cgen_expr_t *cgexpr, cgen_eres_t *ares,
+static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
     cgen_eres_t *vres, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
@@ -9816,23 +9816,23 @@ static int cgen_store(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 
 	/* Check the type */
 	if (vres->cgtype->ntype == cgn_basic) {
-		bits = cgen_basic_type_bits(cgexpr->cgen,
+		bits = cgen_basic_type_bits(cgproc->cgen,
 		    (cgtype_basic_t *)vres->cgtype->ext);
 		if (bits == 0) {
 			fprintf(stderr, "Unimplemented variable type.\n");
-			cgexpr->cgen->error = true; // TODO
+			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
 		}
 	} else if (vres->cgtype->ntype == cgn_pointer) {
 		bits = cgen_pointer_bits;
 	} else if (vres->cgtype->ntype == cgn_record) {
-		return cgen_store_record(cgexpr, ares, vres, lblock);
+		return cgen_store_record(cgproc, ares, vres, lblock);
 	} else if (vres->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
 		fprintf(stderr, "Unimplemented variable type.\n");
-		cgexpr->cgen->error = true; // TODO
+		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
@@ -9914,7 +9914,7 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the converted value */
-	rc = cgen_store(cgexpr, &lres, &cres, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &cres, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -9983,7 +9983,7 @@ static int cgen_plus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &laddr, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &laddr, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10056,7 +10056,7 @@ static int cgen_minus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &laddr, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &laddr, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10132,7 +10132,7 @@ static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10206,7 +10206,7 @@ static int cgen_divide_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10280,7 +10280,7 @@ static int cgen_modulo_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10377,7 +10377,7 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10477,7 +10477,7 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10574,7 +10574,7 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10675,7 +10675,7 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10776,7 +10776,7 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -13147,7 +13147,7 @@ static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
 	}
 
 	/* Store the updated value */
-	rc = cgen_store(cgexpr, &baddr, &ares, lblock);
+	rc = cgen_store(cgexpr->cgproc, &baddr, &ares, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -13230,7 +13230,7 @@ static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
 	}
 
 	/* Store the updated value */
-	rc = cgen_store(cgexpr, &baddr, &ares, lblock);
+	rc = cgen_store(cgexpr->cgproc, &baddr, &ares, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -17157,7 +17157,7 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 			goto error;
 
 		/* Store the converted value */
-		rc = cgen_store(&cgproc->cgexpr, &lres, &cres, lblock);
+		rc = cgen_store(cgproc, &lres, &cres, lblock);
 		if (rc != EOK)
 			goto error;
 	}
@@ -17983,6 +17983,133 @@ error:
 	return rc;
 }
 
+/** Generate code for function lvalue arguments.
+ *
+ * Declare a variable for each argument and initialize it with the argument
+ * value.
+ *
+ * @param cgen Code generator for procedure
+ * @param ident Function identifier token
+ * @param ftype Function type
+ * @param dfun  Function declarator
+ * @param irproc IR procedure to which the arguments should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
+    cgtype_t *ftype, ast_dfun_t *dfun, ir_proc_t *proc)
+{
+	ir_texpr_t *atype = NULL;
+	char *vident = NULL;
+	char *arg_ident = NULL;
+	cgtype_func_t *dtfunc;
+	cgtype_func_arg_t *dtarg;
+	ast_dfun_arg_t *arg;
+	cgtype_t *stype;
+	ir_lvar_t *lvar = NULL;
+	ast_tok_t *aident;
+	comp_tok_t *caident;
+	const char *cident;
+	unsigned next_var;
+	unsigned argidx;
+	cgen_eres_t ares;
+	cgen_eres_t vres;
+	int rc;
+	int rv;
+
+	(void)ident;
+	assert(ftype->ntype == cgn_func);
+	dtfunc = (cgtype_func_t *)ftype->ext;
+
+	next_var = 0;
+	cgen_eres_init(&ares);
+	cgen_eres_init(&vres);
+
+	/* Arguments */
+	dtarg = cgtype_func_first(dtfunc);
+	arg = ast_dfun_first(dfun);
+	argidx = 1;
+	while (dtarg != NULL) {
+		aident = ast_decl_get_ident(arg->decl);
+		caident = (comp_tok_t *) aident->data;
+		cident = caident->tok.text;
+
+		assert(dtarg != NULL);
+		stype = dtarg->atype;
+
+		rv = asprintf(&arg_ident, "%%%d", next_var++);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		/* Generate argument type */
+		rc = cgen_fun_arg_type(cgproc->cgen, stype, &atype);
+		if (rc != EOK)
+			goto error;
+
+
+		/* Generate an IR variable name */
+		rc = cgen_create_loc_var_name(cgproc, cident, &vident);
+		if (rc != EOK) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		/* Insert identifier into argument scope */
+		rc = scope_insert_lvar(cgproc->arg_scope, &caident->tok,
+		    stype, vident);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_lvar_create(vident, atype, &lvar);
+		if (rc != EOK)
+			goto error;
+
+		atype = NULL; /* ownership transferred */
+
+		ir_proc_append_lvar(cgproc->irproc, lvar);
+		lvar = NULL;
+
+		rc = cgen_lvaraddr(cgproc, vident, cgproc->irproc->lblock,
+		    &ares);
+		if (rc != EOK)
+			goto error;
+
+		/* Argument value */
+		vres.varname = arg_ident;
+		vres.valtype = cgen_rvalue;
+		vres.cgtype = stype;
+
+		rc = cgen_store(cgproc, &ares, &vres, cgproc->irproc->lblock);
+		vres.cgtype = NULL;
+		if (rc != EOK)
+			goto error;
+
+		free(arg_ident);
+		arg_ident = NULL;
+
+		++argidx;
+		dtarg = cgtype_func_next(dtarg);
+		arg = ast_dfun_next(arg);
+	}
+
+	proc->variadic = dtfunc->variadic;
+
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&vres);
+	return EOK;
+error:
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&vres);
+	if (lvar != NULL)
+		ir_lvar_destroy(lvar);
+	if (arg_ident != NULL)
+		free(arg_ident);
+	if (atype != NULL)
+		ir_texpr_destroy(atype);
+	return rc;
+}
+
 /** Generate IR type expression for CG type.
  *
  * @param cgen Code generator
@@ -18445,19 +18572,12 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		if (rc != EOK)
 			goto error;
 
-		/* Insert identifier into argument scope */
-		rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
-		    ptype, arg_ident);
-		if (rc != EOK) {
-			if (rc == EEXIST) {
-				lexer_dprint_tok(&tok->tok, stderr);
-				fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
-				    tok->tok.text);
-				cgen->error = true; // XXX
-				rc = EINVAL;
+		if ((cgproc->cgen->flags & cgf_lvalue_args) == 0) {
+			/* Insert identifier into argument scope */
+			rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
+			    ptype, arg_ident);
+			if (rc != EOK)
 				goto error;
-			}
-			goto error;
 		}
 
 		cgtype_destroy(ptype);
@@ -18474,6 +18594,14 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	rc = cgen_fun_args(cgproc->cgen, ident, ctype, proc);
 	if (rc != EOK)
 		goto error;
+
+	/* Lvalue arguments? */
+	if ((cgproc->cgen->flags & cgf_lvalue_args) != 0) {
+		/* Create an initialized variable for each argument. */
+		rc = cgen_fun_lvalue_args(cgproc, ident, ctype, dfun, proc);
+		if (rc != EOK)
+			goto error;
+	}
 
 	/* Check return type for completeness */
 	if (cgen_type_is_incomplete(cgen, dtfunc->rtype)) {

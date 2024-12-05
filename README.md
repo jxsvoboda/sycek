@@ -251,7 +251,6 @@ These are NOT supported yet:
  * Bit fields
  * Floating point
  * Integer promotion
- * Lvalue arguments
  * Passing or returning struct/union by value
  * C99-style qualified struct/array initialization
  * Variable-length arrays
@@ -322,6 +321,12 @@ program in various compilation stages to the standard output:
  * `--dump-toks` Dump tokenized source file
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
+
+The following code generation options are available:
+ * `--lvalue-args` Make function arguments lvalues (addressable/modifiable)
+
+NOTE: By default arguments are rvalues. This is just a temporary measure
+to produce more efficient code (as we do not have copy elimination).
 
 User service routines
 ---------------------

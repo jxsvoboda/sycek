@@ -1,5 +1,5 @@
 #
-# Copyright 2023 Jiri Svoboda
+# Copyright 2024 Jiri Svoboda
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # copy of this software and associated documentation files (the "Software"),
@@ -132,6 +132,7 @@ binary_syc = syc
 binary_syc_hos = syc-hos
 binary_syc_z80 = syc-z80.bin
 syc = ./$(binary_syc)
+sycflags = --lvalue-args
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
@@ -268,7 +269,7 @@ z80asms: $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
 %.z80.pp.asm:%.z80.pp.c $(syc)
-	$(syc) $<
+	$(syc) $(sycflags) $<
 
 %.z80.o: %.z80.asm
 	z80asm -r0x6400 --output=$@ $<
