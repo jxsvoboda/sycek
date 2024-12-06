@@ -18990,7 +18990,6 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 	unsigned bits;
 	symbol_t *initsym;
 	int64_t initval;
-	char *sident = NULL;
 	int rc;
 
 	cgen_eres_init(&eres);
@@ -19056,18 +19055,10 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 	} else if (stype->ntype == cgn_pointer) {
 
 		if (initsym != NULL) {
-			rc = cgen_gprefix(initsym->ident->tok.text,
-			    &sident);
+			rc = ir_dentry_create_ptr(cgen_pointer_bits,
+			    initsym->irident, initval, &dentry);
 			if (rc != EOK)
 				goto error;
-
-			rc = ir_dentry_create_ptr(cgen_pointer_bits, sident,
-			    initval, &dentry);
-			if (rc != EOK)
-				goto error;
-
-			free(sident);
-			sident = NULL;
 		} else {
 			rc = ir_dentry_create_int(cgen_pointer_bits, initval,
 			    &dentry);
@@ -19101,8 +19092,6 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 	cgen_eres_fini(&eres);
 	return EOK;
 error:
-	if (sident != NULL)
-		free(sident);
 	cgen_eres_fini(&eres);
 	ir_dentry_destroy(dentry);
 	return rc;
