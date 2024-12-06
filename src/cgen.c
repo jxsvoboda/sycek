@@ -214,12 +214,17 @@ static bool cgen_type_is_signed(cgen_t *cgen, cgtype_t *cgtype)
 {
 	cgtype_basic_t *tbasic;
 
-	(void) cgen;
+	assert(cgtype->ntype == cgn_basic || cgtype->ntype == cgn_enum);
 
-	assert(cgtype->ntype == cgn_basic);
-
-	tbasic = (cgtype_basic_t *)cgtype->ext;
-	return cgen_basic_type_signed(cgen, tbasic);
+	switch (cgtype->ntype) {
+	case cgn_basic:
+		tbasic = (cgtype_basic_t *)cgtype->ext;
+		return cgen_basic_type_signed(cgen, tbasic);
+	case cgn_enum:
+		return true;
+	default:
+		assert(false);
+	}
 }
 
 /** Determine if type is an integer type.
@@ -5568,12 +5573,12 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		return EINVAL;
 	}
 
-	/* Pointer/array + integer */
-	if (l_ptra && r_int)
+	/* Pointer/array + integer/enum */
+	if (l_ptra && (r_int || r_enum))
 		return cgen_add_ptra_int(cgexpr, ctok, lres, rres, lblock, eres);
 
-	/* Integer + pointer/array */
-	if (l_int && r_ptra) {
+	/* Integer/enum + pointer/array */
+	if ((l_int || l_enum) && r_ptra) {
 		/* Produce a style warning and switch the operands */
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Pointer should be the left "
@@ -11653,8 +11658,8 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 	cgtype_t *cgtype;
 	bool b_ptra;
 	bool i_ptra;
-	bool b_int;
-	bool i_int;
+	bool b_inte;
+	bool i_inte;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -11676,8 +11681,11 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 	if (rc != EOK)
 		goto error;
 
-	b_int = cgen_type_is_integer(cgexpr->cgen, bres.cgtype);
-	i_int = cgen_type_is_integer(cgexpr->cgen, ires.cgtype);
+	b_inte = cgen_type_is_integer(cgexpr->cgen, bres.cgtype) ||
+	    bres.cgtype->ntype == cgn_enum;
+
+	i_inte = cgen_type_is_integer(cgexpr->cgen, ires.cgtype) ||
+	    ires.cgtype->ntype == cgn_enum;
 
 	b_ptra = bres.cgtype->ntype == cgn_pointer ||
 	    bres.cgtype->ntype == cgn_array;
@@ -11694,7 +11702,7 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 		goto error;
 	}
 
-	if ((b_ptra && !i_int) || (i_ptra && !b_int)) {
+	if ((b_ptra && !i_inte) || (i_ptra && !b_inte)) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Subscript index is not an integer.\n");
 		cgexpr->cgen->error = true; // TODO

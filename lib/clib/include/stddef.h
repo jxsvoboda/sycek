@@ -24,6 +24,7 @@
 #define _STDDEF_H
 
 #define NULL (void *)0
+#define offsetof(type, member) &(((type *)0)->member)
 typedef unsigned size_t;
 
 #endif

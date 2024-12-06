@@ -32,7 +32,17 @@ typedef signed long int32_t;
 typedef unsigned long long uint64_t;
 typedef signed long long int64_t;
 
+#define PRId8 "d"
+#define PRId16 "d"
+#define PRId32 "ld"
 #define PRId64 "lld"
+#define PRIu8 "u"
+#define PRIu16 "u"
+#define PRIu32 "lu"
 #define PRIu64 "llu"
+#define PRIx8 "x"
+#define PRIx16 "x"
+#define PRIx32 "lx"
+#define PRIx64 "llx"
 
 #endif

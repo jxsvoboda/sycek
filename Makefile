@@ -123,6 +123,10 @@ sources_z80test = \
     $(sources_z80test_common) \
     $(sources_hcompat)
 
+sources_z80test_z80 = \
+    $(sources_z80test_common) \
+    $(sources_hcompat)
+
 binary_ccheck = ccheck
 binary_ccheck_hos = ccheck-hos
 binary_ccheck_z80 = ccheck-z80.bin
