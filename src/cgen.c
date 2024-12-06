@@ -14890,6 +14890,97 @@ error:
 	return rc;
 }
 
+/** Convert expression result from pointer to integer.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	unsigned bits;
+	cgtype_t *cgtype;
+	cgtype_basic_t *tbasic = NULL;
+	cgen_eres_t icres;
+	int rc;
+
+	cgen_eres_init(&icres);
+
+	assert(ares->cgtype->ntype == cgn_pointer);
+	assert(dtype->ntype == cgn_basic);
+
+	bits = cgen_basic_type_bits(cgexpr->cgen,
+	    (cgtype_basic_t *)dtype->ext);
+
+	rc = cgtype_clone(dtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	if (expl != cgen_explicit) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from "
+		    "pointer to integer.\n");
+		++cgexpr->cgen->warnings;
+	}
+
+	if (bits != cgen_pointer_bits) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Converting from pointer to integer "
+		    "of different size.\n");
+		++cgexpr->cgen->warnings;
+
+		rc = cgtype_basic_create(cgelm_uint, &tbasic);
+		if (rc != EOK)
+			goto error;
+
+		/* Pointer converted to unsigned int. */
+		icres.varname = ares->varname;
+		icres.valtype = ares->valtype;
+		icres.cgtype = &tbasic->cgtype;
+		icres.valused = ares->valused;
+		icres.cvknown = ares->cvknown;
+		icres.cvint = ares->cvint;
+		icres.cvsymbol = ares->cvsymbol;
+		icres.tfirst = ares->tfirst;
+		icres.tlast = ares->tlast;
+
+		rc = cgen_type_convert_integer(cgexpr, ctok, &icres,
+		    &tbasic->cgtype, expl, lblock, cres);
+		if (rc != EOK)
+			goto error;
+
+		cgen_eres_fini(&icres);
+	} else {
+		cres->varname = ares->varname;
+		cres->valtype = ares->valtype;
+		cres->cgtype = cgtype;
+		cres->valused = ares->valused;
+		cres->cvknown = ares->cvknown;
+		cres->cvint = ares->cvint;
+		cres->cvsymbol = ares->cvsymbol;
+		cres->tfirst = ares->tfirst;
+		cres->tlast = ares->tlast;
+	}
+
+	return EOK;
+error:
+	if (cgtype != NULL)
+		cgtype_destroy(cgtype);
+	if (tbasic != NULL)
+		cgtype_destroy(&tbasic->cgtype);
+	cgen_eres_fini(&icres);
+	return rc;
+}
+
 /** Convert value expression result to the specified type.
  *
  * @param cgexpr Code generator for expression
@@ -14945,10 +15036,17 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		    lblock, cres);
 	}
 
-	/* Source and destination types are pointers */
+	/* Source is an integer and destination is a pointer. */
 	if (cgen_type_is_integer(cgexpr->cgen, ares->cgtype) &&
 	    dtype->ntype == cgn_pointer) {
 		return cgen_type_convert_int_ptr(cgexpr, ctok, ares, dtype,
+		    expl, lblock, cres);
+	}
+
+	/* Source is a pointer and destination is an integer. */
+	if (ares->cgtype->ntype == cgn_pointer &&
+	    cgen_type_is_integer(cgexpr->cgen, dtype)) {
+		return cgen_type_convert_ptr_int(cgexpr, ctok, ares, dtype,
 		    expl, lblock, cres);
 	}
 

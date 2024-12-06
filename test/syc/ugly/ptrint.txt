@@ -1,0 +1,4 @@
+<test/syc/ugly/ptrint.c:13:11:'='>: Warning: Implicit conversion from pointer to integer.
+<test/syc/ugly/ptrint.c:26:13:'('>: Warning: Converting from pointer to integer of different size.
+<test/syc/ugly/ptrint.c:26:11:'='>: Warning: Conversion may loose significant digits.
+<test/syc/ugly/ptrint.c:32:13:'('>: Warning: Converting from pointer to integer of different size.
