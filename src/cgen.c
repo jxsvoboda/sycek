@@ -13690,7 +13690,6 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	} else {
 		fprintf(stderr, "Unimplemented variable type (%d).\n",
 		    (int)res->cgtype->ntype);
-		abort();
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -18005,6 +18004,7 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 	cgtype_func_arg_t *dtarg;
 	ast_dfun_arg_t *arg;
 	cgtype_t *stype;
+	cgtype_t *ptype = NULL;
 	ir_lvar_t *lvar = NULL;
 	ast_tok_t *aident;
 	comp_tok_t *caident;
@@ -18047,6 +18047,9 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		if (rc != EOK)
 			goto error;
 
+		rc = cgen_fun_arg_passed_type(cgproc->cgen, stype, &ptype);
+		if (rc != EOK)
+			goto error;
 
 		/* Generate an IR variable name */
 		rc = cgen_create_loc_var_name(cgproc, cident, &vident);
@@ -18078,10 +18081,10 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		/* Argument value */
 		vres.varname = arg_ident;
 		vres.valtype = cgen_rvalue;
-		vres.cgtype = stype;
+		vres.cgtype = ptype;
+		ptype = NULL;
 
 		rc = cgen_store(cgproc, &ares, &vres, cgproc->irproc->lblock);
-		vres.cgtype = NULL;
 		if (rc != EOK)
 			goto error;
 
@@ -18099,6 +18102,8 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 	cgen_eres_fini(&vres);
 	return EOK;
 error:
+	if (ptype != NULL)
+		cgtype_destroy(ptype);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&vres);
 	if (lvar != NULL)

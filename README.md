@@ -248,6 +248,7 @@ Specifically, these language features are supported:
 
 These are NOT supported yet:
 
+ * Bool
  * Bit fields
  * Floating point
  * Integer promotion
