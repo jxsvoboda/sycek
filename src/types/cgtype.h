@@ -162,6 +162,8 @@ typedef struct {
 	cgtype_t cgtype;
 	/** Array element type */
 	cgtype_t *etype;
+	/** Array index type or @c NULL if not known */
+	cgtype_t *itype;
 	/** @c true iff array has a specified size */
 	bool have_size;
 	/** Array size (only valid if @c have_size is @c true) */

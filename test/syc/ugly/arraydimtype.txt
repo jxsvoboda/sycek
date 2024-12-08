@@ -1,0 +1,2 @@
+<test/syc/ugly/arraydimtype.c:18:10:'['>: Warning: Implicit conversion from 'int' to 'enum e'.
+<test/syc/ugly/arraydimtype.c:25:10:'['>: Warning: Implicit conversion from 'enum e' to 'int'.

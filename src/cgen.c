@@ -4137,6 +4137,7 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 	cgtype_t *btype_copy = NULL;
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
+	cgtype_t *size_type;
 	cgen_eres_t szres;
 	bool have_size;
 	uint64_t asize;
@@ -4159,10 +4160,12 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 
 		have_size = true;
 		asize = szres.cvint;
+		size_type = szres.cgtype;
 	} else {
 		/* Array size not specified */
 		have_size = false;
 		asize = 0;
+		size_type = NULL;
 	}
 
 	if (cgen_type_is_incomplete(cgen, btype)) {
@@ -4177,7 +4180,8 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 	if (rc != EOK)
 		goto error;
 
-	rc = cgtype_array_create(btype_copy, have_size, asize, &arrtype);
+	rc = cgtype_array_create(btype_copy, size_type, have_size, asize,
+	    &arrtype);
 	if (rc != EOK)
 		goto error;
 
@@ -4754,6 +4758,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	ir_dblock_t *dblock = NULL;
 	char *pident = NULL;
 	cgtype_basic_t *btype = NULL;
+	cgtype_basic_t *itype = NULL;
 	cgtype_array_t *atype = NULL;
 	ast_estring_lit_t *lit;
 	bool wide;
@@ -4777,12 +4782,19 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	if (rc != EOK)
 		goto error;
 
+	/* Create array index type */
+	rc = cgtype_basic_create(cgelm_int, &itype);
+	if (rc != EOK)
+		goto error;
+
 	/* Create array type with unknown size */
-	rc = cgtype_array_create(&btype->cgtype, false, 0, &atype);
+	rc = cgtype_array_create(&btype->cgtype, &itype->cgtype, false, 0,
+	    &atype);
 	if (rc != EOK)
 		goto error;
 
 	btype = NULL;
+	itype = NULL;
 
 	/* Create 'anonymous' symbol (no C identifer, only IR identifier) */
 	rc = symbols_insert(cgexpr->cgen->symbols, st_var, NULL, pident,
@@ -4836,6 +4848,8 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 error:
 	if (pident != NULL)
 		free(pident);
+	if (itype != NULL)
+		cgtype_destroy(&itype->cgtype);
 	if (btype != NULL)
 		cgtype_destroy(&btype->cgtype);
 	if (dblock != NULL)
@@ -5369,25 +5383,27 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 
 	idx_signed = cgen_type_is_signed(cgexpr->cgen, rres->cgtype);
 
-	rc = cgtype_int_construct(idx_signed, cgir_int, &idxtype);
-	if (rc != EOK)
-		goto error;
-
-	/* Convert index to be same size as pointer */
-	rc = cgen_type_convert(cgexpr, optok, rres, idxtype,
-	    cgen_implicit, lblock, &cres);
-	if (rc != EOK)
-		goto error;
-
-	cgtype_destroy(idxtype);
-	idxtype = NULL;
-
 	/*
 	 * If the left operand is a pointer, we need to convert it
 	 * to rvalue. We leave an array as an lvalue. In either case
 	 * we end up with the base address stored in the result variable.
 	 */
 	if (lres->cgtype->ntype == cgn_pointer) {
+		rc = cgtype_int_construct(idx_signed, cgir_int, &idxtype);
+		if (rc != EOK)
+			goto error;
+
+		/* Convert index to be same size as pointer */
+		fprintf(stderr, "convert to pointer sized int...\n");
+		rc = cgen_type_convert(cgexpr, optok, rres, idxtype,
+		    cgen_implicit, lblock, &cres);
+		if (rc != EOK)
+			goto error;
+		fprintf(stderr, "convert to pointer sized int...DONE\n");
+
+		cgtype_destroy(idxtype);
+		idxtype = NULL;
+
 		/* Value of left hand expression */
 		rc = cgen_eres_rvalue(cgexpr, lres, lblock, &lval);
 		if (rc != EOK)
@@ -5415,8 +5431,32 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 			goto error;
 
 	} else {
+		/* Indexing an array. */
 		assert(lres->cgtype->ntype == cgn_array);
 		arrt = (cgtype_array_t *)lres->cgtype->ext;
+
+		/*
+		 * If the type of array dimension (int, enum) is known,
+		 * we can convert the subscript to it, thus checking
+		 * if its type matches the dimension type. Otherwise,
+		 * we will assume that the array dimension is an integer.
+		 */
+		if (arrt->itype == NULL) {
+			rc = cgtype_int_construct(idx_signed, cgir_int,
+			    &idxtype);
+			if (rc != EOK)
+				goto error;
+		}
+
+		/* Convert index to be same size as pointer */
+		rc = cgen_type_convert(cgexpr, optok, rres,
+		    arrt->itype != NULL ? arrt->itype : idxtype,
+		    cgen_implicit, lblock, &cres);
+		if (rc != EOK)
+			goto error;
+
+		cgtype_destroy(idxtype);
+		idxtype = NULL;
 
 		if (cres.cvknown) {
 			if (cgen_cvint_is_negative(cgexpr->cgen,

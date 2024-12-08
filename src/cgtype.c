@@ -814,13 +814,14 @@ static void cgtype_enum_destroy(cgtype_enum_t *tenum)
 /** Create array type.
  *
  * @param etype Array element type (ownership transferred)
+ * @param itype Index type or @c NULL (ownership transferred)
  * @param have_size @c true iff array has a specified size
  * @param asize Array size
  * @param rarray Place to store pointer to new array type
  * @return EOK on success, ENOMEM if out of memory
  */
-int cgtype_array_create(cgtype_t *etype, bool have_size, uint64_t asize,
-    cgtype_array_t **rarray)
+int cgtype_array_create(cgtype_t *etype, cgtype_t *itype, bool have_size,
+    uint64_t asize, cgtype_array_t **rarray)
 {
 	cgtype_array_t *array;
 
@@ -831,6 +832,7 @@ int cgtype_array_create(cgtype_t *etype, bool have_size, uint64_t asize,
 	array->cgtype.ntype = cgn_array;
 	array->cgtype.ext = array;
 	array->etype = etype;
+	array->itype = itype;
 	array->have_size = have_size;
 	array->asize = asize;
 	*rarray = array;
@@ -846,17 +848,32 @@ int cgtype_array_create(cgtype_t *etype, bool have_size, uint64_t asize,
  */
 static int cgtype_array_print(cgtype_array_t *array, FILE *f)
 {
+	int rc;
 	int rv;
 
+	rv = fputc('[', f);
+	if (rv < 0)
+		return EIO;
+
 	if (array->have_size) {
-		rv = fputs("[]", f);
-		if (rv < 0)
-			return EIO;
-	} else {
-		rv = fprintf(f, "[%" PRIu64 "]", array->asize);
+		rv = fprintf(f, PRIu64, array->asize);
 		if (rv < 0)
 			return EIO;
 	}
+
+	if (array->itype != NULL) {
+		rv = fputc(':', f);
+		if (rv < 0)
+			return EIO;
+
+		rc = cgtype_print(array->itype, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	rv = fputc(']', f);
+	if (rv < 0)
+		return EIO;
 
 	return cgtype_print(array->etype, f);
 }
@@ -872,15 +889,24 @@ static int cgtype_array_clone(cgtype_array_t *orig, cgtype_t **rcopy)
 {
 	cgtype_array_t *copy = NULL;
 	cgtype_t *ecopy = NULL;
+	cgtype_t *icopy = NULL;
 	int rc;
 
 	rc = cgtype_clone(orig->etype, &ecopy);
 	if (rc != EOK)
 		return rc;
 
-	rc = cgtype_array_create(ecopy, orig->have_size, orig->asize, &copy);
+	if (orig->itype != NULL) {
+		rc = cgtype_clone(orig->itype, &icopy);
+		if (rc != EOK)
+			return rc;
+	}
+
+	rc = cgtype_array_create(ecopy, icopy, orig->have_size, orig->asize,
+	    &copy);
 	if (rc != EOK) {
 		cgtype_destroy(ecopy);
+		cgtype_destroy(icopy);
 		return rc;
 	}
 
@@ -901,13 +927,14 @@ static int cgtype_array_compose(cgtype_array_t *a, cgtype_array_t *b,
 {
 	cgtype_array_t *comp = NULL;
 	cgtype_t *ecomp = NULL;
+	cgtype_t *icomp = NULL;
 	bool have_size;
 	uint64_t asize;
 	int rc;
 
 	rc = cgtype_compose(a->etype, b->etype, &ecomp);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	have_size = false;
 	asize = 0;
@@ -922,7 +949,17 @@ static int cgtype_array_compose(cgtype_array_t *a, cgtype_array_t *b,
 		asize = b->asize;
 	}
 
-	rc = cgtype_array_create(ecomp, have_size, asize, &comp);
+	if (a->itype != NULL) {
+		rc = cgtype_clone(a->itype, &icomp);
+		if (rc != EOK)
+			goto error;
+	} else if (b->itype != NULL) {
+		rc = cgtype_clone(b->itype, &icomp);
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = cgtype_array_create(ecomp, icomp, have_size, asize, &comp);
 	if (rc != EOK) {
 		cgtype_destroy(ecomp);
 		return rc;
@@ -930,6 +967,10 @@ static int cgtype_array_compose(cgtype_array_t *a, cgtype_array_t *b,
 
 	*rcomp = &comp->cgtype;
 	return EOK;
+error:
+	cgtype_destroy(ecomp);
+	cgtype_destroy(icomp);
+	return rc;
 }
 
 /** Destroy array type.
