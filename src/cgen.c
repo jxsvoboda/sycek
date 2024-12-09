@@ -18885,7 +18885,7 @@ static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
 		if (cgen->cur_scope->parent != NULL) {
 			lexer_dprint_tok(&ctok->tok, stderr);
 			fprintf(stderr, ": Warning: Type definition in a "
-			    " non-global scope.\n");
+			    "non-global scope.\n");
 			++cgen->warnings;
 
 			/* Check for shadowing a wider-scope identifier */

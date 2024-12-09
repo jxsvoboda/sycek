@@ -1,3 +1,3 @@
-<test/syc/ugly/typedef.c:11:22-24:id:foo>: Warning: Type definition in a  non-global scope.
+<test/syc/ugly/typedef.c:11:22-24:id:foo>: Warning: Type definition in a non-global scope.
 <test/syc/ugly/typedef.c:11:22-24:id:foo>: Warning: Declaration of 'foo' shadows a wider-scope declaration.
 <test/syc/ugly/typedef.c:11:22-24:id:foo>: Warning: 'foo' is defined, but not used.
