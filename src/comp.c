@@ -318,36 +318,6 @@ static comp_tok_t *comp_next_tok(comp_tok_t *tok)
 	return list_get_instance(link, comp_tok_t, ltoks);
 }
 
-/** Parse a C module.
- *
- * @param mod Compiler module
- * @return EOK on success or error code
- */
-static int comp_module_parse(comp_module_t *mod)
-{
-	ast_module_t *amod;
-	parser_t *parser;
-	comp_parser_input_t pinput;
-	int rc;
-
-	rc = parser_create(&comp_parser_input, &pinput,
-	    comp_module_first_tok(mod), 0, false, &parser);
-	if (rc != EOK)
-		return rc;
-
-	rc = parser_process_module(parser, &amod);
-	if (rc != EOK)
-		goto error;
-
-	mod->ast = amod;
-	parser_destroy(parser);
-
-	return EOK;
-error:
-	parser_destroy(parser);
-	return rc;
-}
-
 /** Parse an IR module.
  *
  * @param comp Compiler
@@ -406,54 +376,6 @@ static int comp_build_toks(comp_t *comp)
 	return EOK;
 }
 
-/** Make sure compiler AST is available.
- *
- * If AST hasn't been built yet, build it
- *
- * @param comp Compiler
- * @return EOK on success or error code
- */
-static int comp_build_ast(comp_t *comp)
-{
-	int rc;
-
-	rc = comp_build_toks(comp);
-	if (rc != EOK)
-		return rc;
-
-	if (comp->mod->ast == NULL) {
-		rc = comp_module_parse(comp->mod);
-		if (rc != EOK)
-			return rc;
-	}
-
-	return EOK;
-}
-
-/** Run all compiler steps needed to get AST.
- *
- * If some parts are already built, they are skipped.
- *
- * @param comp Compiler
- * @return EOK on success or an error code
- */
-int comp_make_ast(comp_t *comp)
-{
-	int rc;
-
-	/* Skip C parsing for IR modules */
-	if (comp->mtype == cmt_ir)
-		return EOK;
-
-	if (comp->mod == NULL || comp->mod->ast == NULL) {
-		rc = comp_build_ast(comp);
-		if (rc != EOK)
-			return rc;
-	}
-
-	return EOK;
-}
-
 /** Run all compiler steps needed to get IR.
  *
  * If some parts are already built, they are skipped.
@@ -464,6 +386,9 @@ int comp_make_ast(comp_t *comp)
 int comp_make_ir(comp_t *comp)
 {
 	int rc;
+	parser_t *parser = NULL;
+	comp_parser_input_t pinput;
+	ast_module_t *amod;
 	cgen_t *cgen = NULL;
 
 	if (comp->mtype == cmt_ir && (comp->mod == NULL ||
@@ -473,11 +398,23 @@ int comp_make_ir(comp_t *comp)
 			goto error;
 	}
 
-	rc = comp_make_ast(comp);
+	rc = comp_build_toks(comp);
 	if (rc != EOK)
-		goto error;
+		return rc;
 
 	if (comp->mod->ir == NULL) {
+		rc = parser_create(&comp_parser_input, &pinput,
+		    comp_module_first_tok(comp->mod), 0, false, &parser);
+		if (rc != EOK)
+			return rc;
+
+		rc = parser_process_module(parser, &amod);
+		if (rc != EOK)
+			goto error;
+
+		parser_destroy(parser);
+		comp->mod->ast = amod;
+
 		rc = cgen_create(&cgen);
 		if (rc != EOK)
 			goto error;
@@ -593,7 +530,7 @@ int comp_dump_ast(comp_t *comp, FILE *f)
 {
 	int rc;
 
-	rc = comp_make_ast(comp);
+	rc = comp_make_ir(comp);
 	if (rc != EOK)
 		return rc;
 

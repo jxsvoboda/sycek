@@ -6371,14 +6371,30 @@ error:
 	return rc;
 }
 
-/** Parse global (macro, extern) declaration.
+/** Handle global (macro, extern) declaration.
  *
  * @param parser Parser
  * @param rnode Place to store pointer to new AST node
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_global_decln(parser_t *parser, ast_node_t **rnode)
+static int parser_handle_global_decln(parser_t *parser, ast_node_t **rnode)
+{
+	if (parser->cb != NULL && parser->cb->process_global_decln != NULL)
+		return parser->cb->process_global_decln(parser->cb_arg, rnode);
+	else
+		return parser_process_global_decln(parser, rnode);
+}
+
+/** Parse global (macro, extern) declaration (implementation).
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to new AST node
+ *
+ * @return EOK on success or non-zero error code
+ */
+int parser_process_global_decln(parser_t *parser,
+    ast_node_t **rnode)
 {
 	ast_node_t *node = NULL;
 	ast_gmdecln_t *gmdecln = NULL;
@@ -6498,7 +6514,7 @@ static int parser_process_externc(parser_t *parser, ast_externc_t **rexternc)
 
 	ltt = parser_next_ttype(parser);
 	while (ltt != ltt_rbrace) {
-		rc = parser_process_global_decln(parser, &node);
+		rc = parser_handle_global_decln(parser, &node);
 		if (rc != EOK)
 			goto error;
 
@@ -6540,7 +6556,7 @@ int parser_process_module(parser_t *parser, ast_module_t **rmodule)
 
 	ltt = parser_next_ttype(parser);
 	while (ltt != ltt_eof) {
-		rc = parser_process_global_decln(parser, &node);
+		rc = parser_handle_global_decln(parser, &node);
 		if (rc != EOK)
 			goto error;
 
