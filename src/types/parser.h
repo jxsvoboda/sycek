@@ -50,7 +50,7 @@ typedef struct {
 } parser_cb_t;
 
 /** Parser */
-typedef struct {
+typedef struct parser {
 	/** Input ops */
 	parser_input_ops_t *input_ops;
 	/** Input argument */

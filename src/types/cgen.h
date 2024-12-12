@@ -46,6 +46,8 @@ typedef struct {
 	bool error;
 	/** Number of warnings produced by code generator */
 	int warnings;
+	/** Parser */
+	struct parser *parser;
 	/** Module scope */
 	struct scope *scope;
 	/** Current (innermost) scope */
@@ -68,6 +70,8 @@ typedef struct {
 	unsigned callsign_cnt;
 	/** Output IR module */
 	struct ir_module *irmod;
+	/** Output module AST */
+	ast_module_t *astmod;
 	/** Flags */
 	cgen_flags_t flags;
 } cgen_t;

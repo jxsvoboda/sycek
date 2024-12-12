@@ -30,10 +30,12 @@
 #include <types/ast.h>
 #include <types/cgen.h>
 #include <types/ir.h>
+#include <types/parser.h>
 #include <types/symbols.h>
 
 extern int cgen_create(cgen_t **);
-extern int cgen_module(cgen_t *, ast_module_t *, symbols_t *, ir_module_t **);
+extern int cgen_module(cgen_t *, parser_input_ops_t *, void *, void *,
+    symbols_t *, ir_module_t **);
 extern void cgen_destroy(cgen_t *);
 
 #endif

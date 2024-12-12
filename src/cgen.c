@@ -40,6 +40,7 @@
 #include <labels.h>
 #include <lexer.h>
 #include <merrno.h>
+#include <parser.h>
 #include <scope.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -110,6 +111,7 @@ static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, comp_tok_t *,
     ast_cinit_elem_t **, ir_dblock_t *);
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
     ast_estring_t *, ir_dblock_t *);
+static int cgen_global_decln(cgen_t *, ast_node_t *);
 
 enum {
 	cgen_pointer_bits = 16,
@@ -119,6 +121,30 @@ enum {
 	cgen_lchar_bits = 16,
 	cgen_lchar_max = 65535
 };
+
+static int cgen_process_global_decln(void *, ast_node_t **);
+
+static parser_cb_t cgen_parser_cb = {
+	.process_global_decln = cgen_process_global_decln
+};
+
+static int cgen_process_global_decln(void *arg, ast_node_t **rnode)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	ast_node_t *decln;
+	int rc;
+
+	rc = parser_process_global_decln(cgen->parser, &decln);
+	if (rc != EOK)
+		return rc;
+
+	rc = cgen_global_decln(cgen, decln);
+	if (rc != EOK)
+		return rc;
+
+	*rnode = decln;
+	return EOK;
+}
 
 /** Return the bit width of an arithmetic type.
  *
@@ -5394,12 +5420,10 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 			goto error;
 
 		/* Convert index to be same size as pointer */
-		fprintf(stderr, "convert to pointer sized int...\n");
 		rc = cgen_type_convert(cgexpr, optok, rres, idxtype,
 		    cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;
-		fprintf(stderr, "convert to pointer sized int...DONE\n");
 
 		cgtype_destroy(idxtype);
 		idxtype = NULL;
@@ -20241,18 +20265,29 @@ error:
 /** Generate code for module.
  *
  * @param cgen Code generator
- * @param astmod AST module
+ * @param inops Parser input ops
+ * @param inarg Parser input arg
+ * @param stok Staring token
  * @param symbols Symbol directory to fill in
  * @param rirmod Place to store pointer to new IR module
  * @return EOK on success or an error code
  */
-int cgen_module(cgen_t *cgen, ast_module_t *astmod, symbols_t *symbols,
-    ir_module_t **rirmod)
+int cgen_module(cgen_t *cgen, parser_input_ops_t *inops, void *inarg,
+    void *stok, symbols_t *symbols, ir_module_t **rirmod)
 {
 	int rc;
-	ast_node_t *decln;
+	ast_module_t *amod;
 	ir_module_t *irmod = NULL;
+	parser_t *parser = NULL;
 
+	rc = parser_create(inops, inarg, stok, 0, false, &parser);
+	if (rc != EOK)
+		return rc;
+
+	parser->cb = &cgen_parser_cb;
+	parser->cb_arg = (void *)cgen;
+
+	cgen->parser = parser;
 	cgen->symbols = symbols;
 
 	rc = ir_module_create(&irmod);
@@ -20261,22 +20296,21 @@ int cgen_module(cgen_t *cgen, ast_module_t *astmod, symbols_t *symbols,
 
 	cgen->irmod = irmod;
 
-	decln = ast_module_first(astmod);
-	while (decln != NULL) {
-		rc = cgen_global_decln(cgen, decln);
-		if (rc != EOK)
-			goto error;
+	rc = parser_process_module(parser, &amod);
+	if (rc != EOK)
+		goto error;
 
-		decln = ast_module_next(decln);
-	}
+	cgen->astmod = amod;
 
 	rc = cgen_module_symdecls(cgen, symbols);
 	if (rc != EOK)
 		goto error;
 
+	parser_destroy(parser);
 	*rirmod = irmod;
 	return EOK;
 error:
+	parser_destroy(parser);
 	ir_module_destroy(irmod);
 	return rc;
 }

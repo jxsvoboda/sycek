@@ -388,7 +388,6 @@ int comp_make_ir(comp_t *comp)
 	int rc;
 	parser_t *parser = NULL;
 	comp_parser_input_t pinput;
-	ast_module_t *amod;
 	cgen_t *cgen = NULL;
 
 	if (comp->mtype == cmt_ir && (comp->mod == NULL ||
@@ -403,18 +402,6 @@ int comp_make_ir(comp_t *comp)
 		return rc;
 
 	if (comp->mod->ir == NULL) {
-		rc = parser_create(&comp_parser_input, &pinput,
-		    comp_module_first_tok(comp->mod), 0, false, &parser);
-		if (rc != EOK)
-			return rc;
-
-		rc = parser_process_module(parser, &amod);
-		if (rc != EOK)
-			goto error;
-
-		parser_destroy(parser);
-		comp->mod->ast = amod;
-
 		rc = cgen_create(&cgen);
 		if (rc != EOK)
 			goto error;
@@ -425,7 +412,8 @@ int comp_make_ir(comp_t *comp)
 		/* Configure code generator. */
 		cgen->flags = comp->cgflags;
 
-		rc = cgen_module(cgen, comp->mod->ast, comp->mod->symbols,
+		rc = cgen_module(cgen, &comp_parser_input, &pinput,
+		    comp_module_first_tok(comp->mod), comp->mod->symbols,
 		    &comp->mod->ir);
 		if (rc != EOK)
 			goto error;
@@ -436,7 +424,10 @@ int comp_make_ir(comp_t *comp)
 			goto error;
 		}
 
+		comp->mod->ast = cgen->astmod;
+
 		cgen_destroy(cgen);
+		parser_destroy(parser);
 		cgen = NULL;
 	}
 

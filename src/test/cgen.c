@@ -31,6 +31,20 @@
 #include <symbols.h>
 #include <test/cgen.h>
 
+static void parser_test_read_tok(void *, void *, unsigned, bool, lexer_tok_t *);
+static void *parser_test_next_tok(void *, void *);
+static void *parser_test_tok_data(void *, void *);
+
+static parser_input_ops_t parser_test_input = {
+	.read_tok = parser_test_read_tok,
+	.next_tok = parser_test_next_tok,
+	.tok_data = parser_test_tok_data
+};
+
+lexer_toktype_t toks[] = {
+	ltt_eof
+};
+
 /** Test code generation for module.
  *
  * @return EOK on success or non-zero error code
@@ -55,7 +69,8 @@ static int test_cgen_module(void)
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_module(cgen, amodule, symbols, &module);
+	rc = cgen_module(cgen, &parser_test_input, NULL, (void *)0,
+	    symbols, &module);
 	if (rc != EOK)
 		goto error;
 
@@ -88,4 +103,34 @@ int test_cgen(void)
 		return rc;
 
 	return EOK;
+}
+
+/** Parser input from a global array */
+static void parser_test_read_tok(void *apinput, void *atok, unsigned indlvl,
+    bool seccont, lexer_tok_t *tok)
+{
+	size_t idx = (size_t)atok;
+	(void) apinput;
+	(void) indlvl;
+	(void) seccont;
+
+	tok->ttype = toks[idx];
+	tok->bpos.col = idx;
+	tok->epos.col = idx;
+}
+
+/** Parser input from a global array */
+static void *parser_test_next_tok(void *apinput, void *atok)
+{
+	size_t idx = (size_t)atok;
+	(void) apinput;
+
+	return (void *)(idx + 1);
+}
+
+/** Parser input from a global array */
+static void *parser_test_tok_data(void *apinput, void *tok)
+{
+	(void) apinput;
+	return tok;
 }
