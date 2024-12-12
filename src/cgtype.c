@@ -980,6 +980,7 @@ error:
 static void cgtype_array_destroy(cgtype_array_t *array)
 {
 	cgtype_destroy(array->etype);
+	cgtype_destroy(array->itype);
 	free(array);
 }
 

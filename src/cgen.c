@@ -4187,6 +4187,7 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 		have_size = true;
 		asize = szres.cvint;
 		size_type = szres.cgtype;
+		szres.cgtype = NULL;
 	} else {
 		/* Array size not specified */
 		have_size = false;
@@ -14993,10 +14994,6 @@ static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)dtype->ext);
 
-	rc = cgtype_clone(dtype, &cgtype);
-	if (rc != EOK)
-		goto error;
-
 	if (expl != cgen_explicit) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Implicit conversion from "
@@ -15032,6 +15029,10 @@ static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 		cgen_eres_fini(&icres);
 	} else {
+		rc = cgtype_clone(dtype, &cgtype);
+		if (rc != EOK)
+			goto error;
+
 		cres->varname = ares->varname;
 		cres->valtype = ares->valtype;
 		cres->cgtype = cgtype;
