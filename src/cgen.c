@@ -10317,7 +10317,7 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgen_eres_fini(&rres);
 	cgen_eres_fini(&cres);
 
-	eres->varname = rres.varname;
+	eres->varname = cres.varname;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
@@ -16364,8 +16364,9 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 	/* False branch */
 
 	rc = parser_process_if_else(cgproc->cgen->parser, aif);
-	if (rc != EOK && rc != ENOENT)
+	if (rc != EOK && rc != ENOENT) {
 		goto error;
+	}
 
 	if (rc != ENOENT) {
 		rc = parser_process_block(cgproc->cgen->parser, &aif->fbranch);
