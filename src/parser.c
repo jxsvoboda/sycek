@@ -3041,19 +3041,17 @@ int parser_process_if_else(parser_t *parser, ast_if_t *aif)
 	int rc;
 
 	ltt = parser_next_ttype(parser);
-	if (ltt == ltt_else) {
-		parser_skip(parser, &delse);
+	if (ltt != ltt_else)
+		return ENOENT;
 
-		if (parser->cb != NULL && parser->cb->process_if != NULL) {
-			fbranch = NULL;
-		} else {
-			rc = parser_process_block(parser, &fbranch);
-			if (rc != EOK)
-				goto error;
-		}
-	} else {
-		delse = NULL;
+	parser_skip(parser, &delse);
+
+	if (parser->cb != NULL && parser->cb->process_if != NULL) {
 		fbranch = NULL;
+	} else {
+		rc = parser_process_block(parser, &fbranch);
+		if (rc != EOK)
+			goto error;
 	}
 
 	aif->telse.data = delse;
