@@ -49,8 +49,8 @@
  * If a 16-bit register is required, they are allocated, in order:
  *   - HL, DE, BC
  *
- * Variadic functions (TODO): Fixed arguments can be treated just like with a
- * normal function (they are never accessed by va_arg().
+ * Variadic functions: Fixed arguments can be treated just like with a
+ * normal function (they are never accessed by va_arg(). (TODO)
  *
  * Variable arguments can be passed in registers, but they must be
  * allocated to the same registers regardless of the argument type.
@@ -360,8 +360,10 @@ int z80_argloc_alloc(z80_argloc_t *argloc, const char *ident, unsigned bytes,
 				 * be either entirely in registers or entirely
 				 * on the stack. Undo register entries.
 				 */
-				eidx = 0;
-				rem_bytes = bytes;
+				if (argloc->variadic) {
+					eidx = 0;
+					rem_bytes = bytes;
+				}
 				break;
 			}
 
