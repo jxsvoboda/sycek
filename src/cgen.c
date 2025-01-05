@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -55,6 +55,8 @@ static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
 static void cgen_error_expr_not_constant(cgen_t *, ast_tok_t *);
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
+static int cgen_dspecs(cgen_t *, ast_dspecs_t *, ast_sclass_type_t *,
+    cgen_rd_flags_t *, cgtype_t **);
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
 static int cgen_gsym_ptr(cgen_proc_t *, symbol_t *, ir_lblock_t *,
@@ -104,6 +106,8 @@ static int cgen_switch_find_value(cgen_switch_t *, int64_t, cgen_switch_value_t 
 static int cgen_loop_switch_create(cgen_loop_switch_t *, cgen_loop_switch_t **);
 static void cgen_loop_switch_destroy(cgen_loop_switch_t *);
 static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
+static int cgen_stmt(cgen_proc_t *, ast_node_t *, ir_lblock_t *);
+
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
 static int cgen_fun_arg_passed_type(cgen_t *, cgtype_t *, cgtype_t **);
@@ -112,6 +116,12 @@ static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, comp_tok_t *,
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
     ast_estring_t *, ir_dblock_t *);
 static int cgen_global_decln(cgen_t *, ast_node_t *);
+static int cgen_fundef(cgen_t *, ast_gdecln_t *, ast_sclass_type_t, cgtype_t *);
+static int cgen_if(cgen_proc_t *, ast_if_t *, ir_lblock_t *);
+static int cgen_while(cgen_proc_t *, ast_while_t *, ir_lblock_t *);
+static int cgen_do(cgen_proc_t *, ast_do_t *, ir_lblock_t *);
+static int cgen_for(cgen_proc_t *, ast_for_t *, ir_lblock_t *);
+static int cgen_switch(cgen_proc_t *, ast_switch_t *, ir_lblock_t *);
 
 enum {
 	cgen_pointer_bits = 16,
@@ -122,17 +132,45 @@ enum {
 	cgen_lchar_max = 65535
 };
 
-static int cgen_process_global_decln(void *, ast_node_t **);
+static int cgen_process_global_decln(void *, parser_t *, ast_node_t **);
+static int cgen_process_fundef(void *, parser_t *, ast_gdecln_t *);
+static int cgen_process_stmt(void *, parser_t *, ast_node_t **);
+static int cgen_process_block(void *, parser_t *, ast_block_t *);
+static int cgen_process_if(void *, parser_t *, ast_if_t *);
+static int cgen_process_while(void *, parser_t *, ast_while_t *);
+static int cgen_process_do(void *, parser_t *, ast_do_t *);
+static int cgen_process_for(void *, parser_t *, ast_for_t *);
+static int cgen_process_switch(void *, parser_t *, ast_switch_t *);
+static bool cgen_ident_is_type(void *, const char *);
 
 static parser_cb_t cgen_parser_cb = {
-	.process_global_decln = cgen_process_global_decln
+	.process_global_decln = cgen_process_global_decln,
+	.process_fundef = cgen_process_fundef,
+	.process_stmt = cgen_process_stmt,
+	.process_block = cgen_process_block,
+	.process_if = cgen_process_if,
+	.process_while = cgen_process_while,
+	.process_do = cgen_process_do,
+	.process_for = cgen_process_for,
+	.process_switch = cgen_process_switch,
+	.ident_is_type = cgen_ident_is_type
 };
 
-static int cgen_process_global_decln(void *arg, ast_node_t **rnode)
+/** Parser callback to process global declaration.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param rnode Place to store pointer to AST
+ * @return EOK on success or an error code
+ */
+static int cgen_process_global_decln(void *arg, parser_t *parser,
+    ast_node_t **rnode)
 {
 	cgen_t *cgen = (cgen_t *)arg;
 	ast_node_t *decln;
 	int rc;
+
+	cgen->parser = parser;
 
 	rc = parser_process_global_decln(cgen->parser, &decln);
 	if (rc != EOK)
@@ -144,6 +182,269 @@ static int cgen_process_global_decln(void *arg, ast_node_t **rnode)
 
 	*rnode = decln;
 	return EOK;
+}
+
+/** Parser callback to process function definition.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param gdecln Global declaration
+ * @return EOK on success or an error code
+ */
+static int cgen_process_fundef(void *arg, parser_t *parser, ast_gdecln_t *gdecln)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgtype_t *stype = NULL;
+	ast_sclass_type_t sctype;
+	cgen_rd_flags_t flags;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	/* Process declaration specifiers */
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &flags, &stype);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_fundef(cgen, gdecln, sctype, stype);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(stype);
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgtype_destroy(stype);
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process statement.
+ *
+ * @param arg Argument (cgen_proc_t *)
+ * @param parser Parser (can be different every time)
+ * @param rnode Place to store pointer to AST
+ * @return EOK on success or an error code
+ */
+static int cgen_process_stmt(void *arg, parser_t *parser, ast_node_t **rnode)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	ast_node_t *stmt;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = parser_process_stmt(cgproc->cgen->parser, &stmt);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_stmt(cgproc, stmt, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	*rnode = stmt;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process block.
+ *
+ * @param arg Argument (cgen_proc_t *)
+ * @param parser Parser (can be different every time)
+ * @param block Block
+ * @return EOK on success or an error code
+ */
+static int cgen_process_block(void *arg, parser_t *parser, ast_block_t *block)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = cgen_block(cgproc, block, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process if statement.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param aif If statement
+ * @return EOK on success or an error code
+ */
+static int cgen_process_if(void *arg, parser_t *parser, ast_if_t *aif)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = cgen_if(cgproc, aif, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process while statement.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param awhile While statement
+ * @return EOK on success or an error code
+ */
+static int cgen_process_while(void *arg, parser_t *parser, ast_while_t *awhile)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = cgen_while(cgproc, awhile, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process do statement.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param ado Do statement
+ * @return EOK on success or an error code
+ */
+static int cgen_process_do(void *arg, parser_t *parser, ast_do_t *ado)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = cgen_do(cgproc, ado, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process for statement.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param afor For statement
+ * @return EOK on success or an error code
+ */
+static int cgen_process_for(void *arg, parser_t *parser, ast_for_t *afor)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = cgen_for(cgproc, afor, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to process switch statement.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param parser Parser (can be different every time)
+ * @param afor For statement
+ * @return EOK on success or an error code
+ */
+static int cgen_process_switch(void *arg, parser_t *parser,
+    ast_switch_t *aswitch)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	cgen_proc_t *cgproc = cgen->cur_cgproc;
+	parser_t *old_parser;
+	int rc;
+
+	old_parser = cgen->parser;
+	cgen->parser = parser;
+
+	rc = cgen_switch(cgproc, aswitch, cgen->cur_lblock);
+	if (rc != EOK)
+		goto error;
+
+	cgen->parser = old_parser;
+	return EOK;
+error:
+	cgen->parser = old_parser;
+	return rc;
+}
+
+/** Parser callback to determine if identifier is a type name.
+ *
+ * @param arg Argument (cgen_t *)
+ * @param ident Identifier
+ * @return @c true iff the identifier is a defined type name
+ */
+static bool cgen_ident_is_type(void *arg, const char *ident)
+{
+	cgen_t *cgen = (cgen_t *)arg;
+	scope_member_t *member;
+
+	/* Check if the identifier is defined. */
+	member = scope_lookup(cgen->cur_scope, ident);
+	if (member == NULL)
+		return false;
+
+	/* Is it actually a type definition? */
+	if (member->mtype != sm_tdef)
+		return false;
+
+	return true;
 }
 
 /** Return the bit width of an arithmetic type.
@@ -1231,7 +1532,10 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	ir_lblock_t *lblock = NULL;
 	ir_proc_t *irproc = NULL;
 	cgen_proc_t *cgproc = NULL;
+	cgen_proc_t *old_cgproc;
 	int rc;
+
+	old_cgproc = cgen->cur_cgproc;
 
 	/*
 	 * Create a dummy labeled block where the code will be emitted
@@ -1258,10 +1562,13 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	cgexpr.cexpr = true;
 	cgexpr.icexpr = true;
 
+	cgen->cur_cgproc = cgproc;
+
 	rc = cgen_expr_rvalue(&cgexpr, expr, irproc->lblock, eres);
 	if (rc != EOK)
 		goto error;
 
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
@@ -1269,6 +1576,7 @@ static int cgen_intexpr_val(cgen_t *cgen, ast_node_t *expr, cgen_eres_t *eres)
 	assert(eres->cvknown);
 	return EOK;
 error:
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
@@ -1294,8 +1602,11 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 	ir_lblock_t *lblock = NULL;
 	ir_proc_t *irproc = NULL;
 	cgen_proc_t *cgproc = NULL;
+	cgen_proc_t *old_cgproc;
 	cgen_eres_t bres;
 	int rc;
+
+	old_cgproc = cgen->cur_cgproc;
 
 	cgen_eres_init(&bres);
 
@@ -1317,6 +1628,8 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 	if (rc != EOK)
 		goto error;
 
+	cgen->cur_cgproc = cgproc;
+
 	/* Code generator for a constant expression */
 	cgen_expr_init(&cgexpr);
 	cgexpr.cgen = cgen;
@@ -1337,6 +1650,7 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 		goto error;
 	}
 
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
@@ -1344,6 +1658,7 @@ static int cgen_constexpr_val(cgen_t *cgen, ast_node_t *expr, comp_tok_t *itok,
 	return EOK;
 error:
 	cgen_eres_fini(&bres);
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
@@ -1368,8 +1683,10 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	ir_lblock_t *lblock = NULL;
 	ir_proc_t *irproc = NULL;
 	cgen_proc_t *cgproc = NULL;
+	cgen_proc_t *old_cgproc;
 	int rc;
 
+	old_cgproc = cgen->cur_cgproc;
 	cgen_eres_init(&eres);
 
 	/*
@@ -1390,6 +1707,8 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	if (rc != EOK)
 		goto error;
 
+	cgen->cur_cgproc = cgproc;
+
 	/* Code generator for an integer constant expression */
 	cgen_expr_init(&cgexpr);
 	cgexpr.cgen = cgproc->cgen;
@@ -1399,6 +1718,7 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	if (rc != EOK)
 		goto error;
 
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
@@ -1410,6 +1730,7 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	return EOK;
 error:
 	cgen_eres_fini(&eres);
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	ir_proc_destroy(irproc);
 	ir_lblock_destroy(lblock);
@@ -15944,7 +16265,7 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 	/* True branch */
 
-	rc = cgen_block(cgproc, aif->tbranch, lblock);
+	rc = parser_process_block(cgproc->cgen->parser, &aif->tbranch);
 	if (rc != EOK)
 		goto error;
 
@@ -15975,6 +16296,10 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 	/* Else-if branches */
 
+	rc = parser_process_if_elseif(cgproc->cgen->parser, aif);
+	if (rc != EOK && rc != ENOENT)
+		goto error;
+
 	elsif = ast_if_first(aif);
 	while (elsif != NULL) {
 		/* Prepare cres for reuse */
@@ -15998,7 +16323,8 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 			goto error;
 
 		/* Else-if branch */
-		rc = cgen_block(cgproc, elsif->ebranch, lblock);
+		rc = parser_process_block(cgproc->cgen->parser,
+		    &elsif->ebranch);
 		if (rc != EOK)
 			goto error;
 
@@ -16028,13 +16354,21 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 		free(fiflabel);
 		fiflabel = NULL;
 
+		rc = parser_process_if_elseif(cgproc->cgen->parser, aif);
+		if (rc != EOK && rc != ENOENT)
+			goto error;
+
 		elsif = ast_if_next(elsif);
 	}
 
 	/* False branch */
 
-	if (aif->fbranch != NULL) {
-		rc = cgen_block(cgproc, aif->fbranch, lblock);
+	rc = parser_process_if_else(cgproc->cgen->parser, aif);
+	if (rc != EOK && rc != ENOENT)
+		goto error;
+
+	if (rc != ENOENT) {
+		rc = parser_process_block(cgproc->cgen->parser, &aif->fbranch);
 		if (rc != EOK)
 			goto error;
 	}
@@ -16120,7 +16454,7 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	/* Body */
 
-	rc = cgen_block(cgproc, awhile->body, lblock);
+	rc = parser_process_block(cgproc->cgen->parser, &awhile->body);
 	if (rc != EOK)
 		goto error;
 
@@ -16235,13 +16569,17 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 
 	/* Body */
 
-	rc = cgen_block(cgproc, ado->body, lblock);
+	rc = parser_process_block(cgproc->cgen->parser, &ado->body);
 	if (rc != EOK)
 		goto error;
 
 	/* label next_do */
 
 	ir_lblock_append(lblock, ndlabel, NULL);
+
+	rc = parser_process_do_while(cgproc->cgen->parser, ado);
+	if (rc != EOK)
+		goto error;
 
 	/* Jump to %do if condition is true */
 
@@ -16368,7 +16706,7 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	/* Body */
 
-	rc = cgen_block(cgproc, afor->body, lblock);
+	rc = parser_process_block(cgproc->cgen->parser, &afor->body);
 	if (rc != EOK)
 		goto error;
 
@@ -16512,6 +16850,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Switch expression does not have integer type.\n");
 		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
 		goto error;
 	}
 
@@ -16547,7 +16886,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	/* Body */
 
-	rc = cgen_block(cgproc, aswitch->body, lblock);
+	rc = parser_process_block(cgproc->cgen->parser, &aswitch->body);
 	if (rc != EOK)
 		goto error;
 
@@ -17802,19 +18141,11 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 		rc = cgen_return(cgproc, (ast_return_t *) stmt->ext, lblock);
 		break;
 	case ant_if:
-		rc = cgen_if(cgproc, (ast_if_t *) stmt->ext, lblock);
-		break;
 	case ant_while:
-		rc = cgen_while(cgproc, (ast_while_t *) stmt->ext, lblock);
-		break;
 	case ant_do:
-		rc = cgen_do(cgproc, (ast_do_t *) stmt->ext, lblock);
-		break;
 	case ant_for:
-		rc = cgen_for(cgproc, (ast_for_t *) stmt->ext, lblock);
-		break;
 	case ant_switch:
-		rc = cgen_switch(cgproc, (ast_switch_t *) stmt->ext, lblock);
+		rc = EOK; /* already processed */
 		break;
 	case ant_clabel:
 		rc = cgen_clabel(cgproc, (ast_clabel_t *) stmt->ext, lblock);
@@ -17887,14 +18218,21 @@ static int cgen_block(cgen_proc_t *cgproc, ast_block_t *block,
 	/* Enter block scope */
 	cgproc->cgen->cur_scope = block_scope;
 
-	stmt = ast_block_first(block);
-	while (stmt != NULL) {
-		rc = cgen_stmt(cgproc, stmt, lblock);
+	(void)lblock;
+
+	do {
+		rc = parser_process_stmt(cgproc->cgen->parser, &stmt);
+		if (rc == ENOENT)
+			break;
 		if (rc != EOK)
 			goto error;
 
-		stmt = ast_block_next(stmt);
-	}
+		ast_block_append(block, stmt);
+
+		rc = cgen_stmt(cgproc, stmt, lblock);
+		if (rc != EOK)
+			goto error;
+	} while (true);
 
 	/* Check for defined, but unused, identiiers */
 	cgen_check_scope_unused(cgproc, block_scope);
@@ -18477,6 +18815,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	cgen_proc_t *cgproc = NULL;
+	cgen_proc_t *old_cgproc;
 	ast_idlist_entry_t *idle;
 	ast_dfun_t *dfun;
 	ast_dfun_arg_t *arg;
@@ -18502,6 +18841,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	ir_linkage_t linkage;
 	int rc;
 	int rv;
+
+	old_cgproc = cgen->cur_cgproc;
 
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
@@ -18654,6 +18995,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
+	cgen->cur_cgproc = cgproc;
+
 	/* Remember return type for use in return statement */
 	rc = cgtype_clone(dtfunc->rtype, &cgproc->rtype);
 	if (rc != EOK)
@@ -18798,17 +19141,18 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	/* Enter argument scope */
 	prev_scope = cgen->cur_scope;
 	cgen->cur_scope = cgproc->arg_scope;
+	cgen->cur_lblock = proc->lblock;
 
-	if (gdecln->body != NULL) {
-		rc = cgen_block(cgproc, gdecln->body, proc->lblock);
-		if (rc != EOK)
-			goto error;
+	rc = parser_process_block(cgen->parser, &gdecln->body);
+	if (rc != EOK)
+		goto error;
 
-		/* Make sure we return if control reaches '}' */
-		rc = cgen_ret(cgproc, proc->lblock);
-		if (rc != EOK)
-			goto error;
-	}
+	cgen->cur_lblock = NULL;
+
+	/* Make sure we return if control reaches '}' */
+	rc = cgen_ret(cgproc, proc->lblock);
+	if (rc != EOK)
+		goto error;
 
 	free(pident);
 	pident = NULL;
@@ -18833,15 +19177,19 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	cgproc = NULL;
 
 	return EOK;
 error:
+	cgen->cur_lblock = NULL;
+
 	if (prev_scope != NULL)
 		cgen->cur_scope = prev_scope;
 
 	ir_proc_destroy(proc);
+	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
 	if (lblock != NULL)
 		ir_lblock_destroy(lblock);
@@ -19931,6 +20279,11 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 	comp_tok_t *tok;
 	int rc;
 
+	if (gdecln->body != NULL) {
+		/* Function definition was already processed. */
+		return EOK;
+	}
+
 	/* Process declaration specifiers */
 	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &flags, &stype);
 	if (rc != EOK)
@@ -19940,10 +20293,6 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 		rc = cgen_typedef(cgen,
 		    ast_tree_first_tok(&gdecln->dspecs->node),
 		    gdecln->idlist, stype);
-		if (rc != EOK)
-			goto error;
-	} else if (gdecln->body != NULL) {
-		rc = cgen_fundef(cgen, gdecln, sctype, stype);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {

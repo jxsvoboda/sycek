@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -54,9 +54,10 @@ static int parser_process_econcat(parser_t *, ast_node_t **);
 static int parser_process_expr(parser_t *, ast_node_t **);
 static int parser_process_cinit(parser_t *, ast_cinit_t **);
 static int parser_process_init(parser_t *, ast_node_t **);
-static int parser_process_block(parser_t *, ast_block_t **);
 static int parser_process_nulldecln(parser_t *, ast_nulldecln_t **);
 static int parser_process_externc(parser_t *, ast_externc_t **);
+static int parser_handle_fundef(parser_t *, ast_gdecln_t *);
+static int parser_handle_stmt(parser_t *, ast_node_t **);
 
 /** Create parser.
  *
@@ -108,6 +109,8 @@ static int parser_create_silent_sub(parser_t *parent, parser_t **rparser)
 	if (rc != EOK)
 		return rc;
 
+	(*rparser)->cb = parent->cb;
+	(*rparser)->cb_arg = parent->cb_arg;
 	(*rparser)->silent = true;
 	return EOK;
 }
@@ -130,6 +133,8 @@ static int parser_create_indent_sub(parser_t *parent, parser_t **rparser)
 	if (rc != EOK)
 		return rc;
 
+	(*rparser)->cb = parent->cb;
+	(*rparser)->cb_arg = parent->cb_arg;
 	(*rparser)->silent = parent->silent;
 	return EOK;
 }
@@ -152,6 +157,8 @@ static int parser_create_secindent_sub(parser_t *parent, parser_t **rparser)
 	if (rc != EOK)
 		return rc;
 
+	(*rparser)->cb = parent->cb;
+	(*rparser)->cb_arg = parent->cb_arg;
 	(*rparser)->silent = parent->silent;
 	return EOK;
 }
@@ -176,6 +183,8 @@ static int parser_create_invindent_sub(parser_t *parent, parser_t **rparser)
 	if (rc != EOK)
 		return rc;
 
+	(*rparser)->cb = parent->cb;
+	(*rparser)->cb_arg = parent->cb_arg;
 	return EOK;
 }
 
@@ -662,6 +671,9 @@ error:
  */
 static int parser_process_ecast(parser_t *parser, ast_node_t **rexpr)
 {
+	lexer_toktype_t ltt;
+	lexer_tok_t ltok;
+	void *itok;
 	ast_eparen_t *eparen = NULL;
 	ast_node_t *bexpr = NULL;
 	ast_ecast_t *ecast = NULL;
@@ -669,11 +681,33 @@ static int parser_process_ecast(parser_t *parser, ast_node_t **rexpr)
 	ast_node_t *decl = NULL;
 	void *dlparen;
 	void *drparen;
+	bool is_type;
 	int rc;
 
 	rc = parser_match(parser, ltt_lparen, &dlparen);
 	if (rc != EOK)
 		goto error;
+
+	/*
+	 * If the first token inside parentheses is an identifier,
+	 * we may need to verify that it is a defined type name.
+	 */
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_ident && parser->cb != NULL &&
+	    parser->cb->ident_is_type != NULL) {
+		parser_next_input_tok(parser, parser->tok, &itok, &ltok);
+		is_type = parser->cb->ident_is_type(parser->cb_arg,
+		    ltok.text);
+		if (!is_type) {
+			if (!parser->silent) {
+				fprintf(stderr, "Error: ");
+				lexer_dprint_tok(&ltok, stderr);
+				fprintf(stderr, " is not a type.\n");
+			}
+			rc = EINVAL;
+			goto error;
+		}
+	}
 
 	/* Try parsing as a type cast */
 	rc = parser_process_dspecs(parser, 0, NULL, &dspecs);
@@ -870,8 +904,9 @@ static int parser_process_eparen(parser_t *parser, ast_node_t **rexpr)
 	/* Try parsing the as an expression in parentheses */
 
 	rc = parser_process_eparexpr(parser, rexpr);
-	if (rc != EOK)
+	if (rc != EOK) {
 		goto error;
+	}
 
 	return EOK;
 error:
@@ -2926,6 +2961,111 @@ error:
 	return rc;
 }
 
+/** Parse else-if part of if statement.
+ *
+ * @param parser Parser
+ * @param aif If statement
+ *
+ * @return EOK on success, ENOENT if else-if does not follow, or
+ *         another non-zero error code
+ */
+int parser_process_if_elseif(parser_t *parser, ast_if_t *aif)
+{
+	lexer_toktype_t ltt, ltt2;
+	void *dif;
+	void *dlparen;
+	ast_node_t *cond = NULL;
+	void *drparen;
+	void *delse;
+	ast_block_t *ebranch = NULL;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt != ltt_else)
+		return ENOENT;
+
+	ltt2 = parser_next_next_ttype(parser);
+	if (ltt2 != ltt_if)
+		return ENOENT;
+
+	parser_skip(parser, &delse);
+	parser_skip(parser, &dif);
+
+	rc = parser_match(parser, ltt_lparen, &dlparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_process_expr(parser, &cond);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_rparen, &drparen);
+	if (rc != EOK)
+		goto error;
+
+	if (parser->cb != NULL && parser->cb->process_if != NULL) {
+		ebranch = NULL;
+	} else {
+		rc = parser_process_block(parser, &ebranch);
+		if (rc != EOK)
+			goto error;
+	}
+
+	rc = ast_if_append(aif, delse, dif, dlparen, cond, drparen,
+	    ebranch);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (cond != NULL)
+		ast_tree_destroy(cond);
+	if (ebranch != NULL)
+		ast_tree_destroy(&ebranch->node);
+	return rc;
+}
+
+/** Parse else part of if statement.
+ *
+ * @param parser Parser
+ * @param aif If statement
+ *
+ * @return EOK on success, ENOENT if else not present, or other non-zero
+ *         error code
+ */
+int parser_process_if_else(parser_t *parser, ast_if_t *aif)
+{
+	lexer_toktype_t ltt;
+	void *delse;
+	ast_block_t *fbranch = NULL;
+	int rc;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_else) {
+		parser_skip(parser, &delse);
+
+		if (parser->cb != NULL && parser->cb->process_if != NULL) {
+			fbranch = NULL;
+		} else {
+			rc = parser_process_block(parser, &fbranch);
+			if (rc != EOK)
+				goto error;
+		}
+	} else {
+		delse = NULL;
+		fbranch = NULL;
+	}
+
+	aif->telse.data = delse;
+	aif->fbranch = fbranch;
+
+	return EOK;
+error:
+	if (fbranch != NULL)
+		ast_tree_destroy(&fbranch->node);
+	return rc;
+}
+
 /** Parse if statement.
  *
  * @param parser Parser
@@ -2935,16 +3075,12 @@ error:
  */
 static int parser_process_if(parser_t *parser, ast_node_t **rif)
 {
-	lexer_toktype_t ltt, ltt2;
 	ast_if_t *aif = NULL;
 	void *dif;
 	void *dlparen;
 	ast_node_t *cond = NULL;
 	void *drparen;
 	ast_block_t *tbranch = NULL;
-	void *delse;
-	ast_block_t *fbranch = NULL;
-	ast_block_t *ebranch = NULL;
 	int rc;
 
 	rc = ast_if_create(&aif);
@@ -2967,69 +3103,34 @@ static int parser_process_if(parser_t *parser, ast_node_t **rif)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_block(parser, &tbranch);
-	if (rc != EOK)
-		goto error;
-
 	aif->tif.data = dif;
 	aif->tlparen.data = dlparen;
 	aif->cond = cond;
 	aif->trparen.data = drparen;
-	aif->tbranch = tbranch;
 	cond = NULL;
-	tbranch = NULL;
 
-	ltt = parser_next_ttype(parser);
-	while (ltt == ltt_else) {
-		parser_skip(parser, &delse);
-
-		ltt2 = parser_next_ttype(parser);
-		if (ltt2 != ltt_if)
-			break;
-
-		/* Else-if part */
-		rc = parser_match(parser, ltt_if, &dif);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_match(parser, ltt_lparen, &dlparen);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_process_expr(parser, &cond);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_match(parser, ltt_rparen, &drparen);
-		if (rc != EOK)
-			goto error;
-
-		rc = parser_process_block(parser, &ebranch);
-		if (rc != EOK)
-			goto error;
-
-		rc = ast_if_append(aif, delse, dif, dlparen, cond, drparen,
-		    ebranch);
-		if (rc != EOK)
-			goto error;
-
-		cond = NULL;
-		ebranch = NULL;
-
-		ltt = parser_next_ttype(parser);
-	}
-
-	if (ltt == ltt_else) {
-		rc = parser_process_block(parser, &fbranch);
+	if (parser->cb != NULL && parser->cb->process_if != NULL) {
+		rc = parser->cb->process_if(parser->cb_arg, parser, aif);
 		if (rc != EOK)
 			goto error;
 	} else {
-		delse = NULL;
-		fbranch = NULL;
-	}
+		rc = parser_process_block(parser, &tbranch);
+		if (rc != EOK)
+			goto error;
 
-	aif->telse.data = delse;
-	aif->fbranch = fbranch;
+		aif->tbranch = tbranch;
+		tbranch = NULL;
+
+		do {
+			rc = parser_process_if_elseif(parser, aif);
+			if (rc != EOK && rc != ENOENT)
+				goto error;
+		} while (rc == EOK);
+
+		rc = parser_process_if_else(parser, aif);
+		if (rc != EOK && rc != ENOENT)
+			goto error;
+	}
 
 	*rif = &aif->node;
 	return EOK;
@@ -3040,10 +3141,6 @@ error:
 		ast_tree_destroy(cond);
 	if (tbranch != NULL)
 		ast_tree_destroy(&tbranch->node);
-	if (fbranch != NULL)
-		ast_tree_destroy(&fbranch->node);
-	if (ebranch != NULL)
-		ast_tree_destroy(&ebranch->node);
 	return rc;
 }
 
@@ -3081,10 +3178,6 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_block(parser, &body);
-	if (rc != EOK)
-		goto error;
-
 	rc = ast_while_create(&awhile);
 	if (rc != EOK)
 		goto error;
@@ -3093,7 +3186,20 @@ static int parser_process_while(parser_t *parser, ast_node_t **rwhile)
 	awhile->tlparen.data = dlparen;
 	awhile->cond = cond;
 	awhile->trparen.data = drparen;
-	awhile->body = body;
+	cond = NULL;
+
+	if (parser->cb != NULL && parser->cb->process_while != NULL) {
+		rc = parser->cb->process_while(parser->cb_arg, parser,
+		    awhile);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+
+		awhile->body = body;
+	}
 
 	*rwhile = &awhile->node;
 	return EOK;
@@ -3103,6 +3209,8 @@ error:
 		parser_destroy(iparser);
 	}
 
+	if (awhile != NULL)
+		ast_tree_destroy(&awhile->node);
 	if (cond != NULL)
 		ast_tree_destroy(cond);
 	if (body != NULL)
@@ -3110,32 +3218,21 @@ error:
 	return rc;
 }
 
-/** Parse do loop statement.
+/** Parse the trailing while part of do loop statement.
  *
  * @param parser Parser
- * @param rdo Place to store pointer to new do loop statement
+ * @param ado Do loop statement
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_do(parser_t *parser, ast_node_t **rdo)
+int parser_process_do_while(parser_t *parser, ast_do_t *ado)
 {
-	ast_do_t *ado = NULL;
-	void *ddo;
-	ast_block_t *body = NULL;
 	void *dwhile;
 	void *dlparen;
 	ast_node_t *cond = NULL;
 	void *drparen;
 	void *dscolon;
 	int rc;
-
-	rc = parser_match(parser, ltt_do, &ddo);
-	if (rc != EOK)
-		goto error;
-
-	rc = parser_process_block(parser, &body);
-	if (rc != EOK)
-		goto error;
 
 	rc = parser_match(parser, ltt_while, &dwhile);
 	if (rc != EOK)
@@ -3157,23 +3254,63 @@ static int parser_process_do(parser_t *parser, ast_node_t **rdo)
 	if (rc != EOK)
 		goto error;
 
-	rc = ast_do_create(&ado);
-	if (rc != EOK)
-		goto error;
-
-	ado->tdo.data = ddo;
-	ado->body = body;
 	ado->twhile.data = dwhile;
 	ado->tlparen.data = dlparen;
 	ado->cond = cond;
 	ado->trparen.data = drparen;
 	ado->tscolon.data = dscolon;
 
-	*rdo = &ado->node;
 	return EOK;
 error:
 	if (cond != NULL)
 		ast_tree_destroy(cond);
+	return rc;
+}
+
+/** Parse do loop statement.
+ *
+ * @param parser Parser
+ * @param rdo Place to store pointer to new do loop statement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_do(parser_t *parser, ast_node_t **rdo)
+{
+	ast_do_t *ado = NULL;
+	void *ddo;
+	ast_block_t *body = NULL;
+	int rc;
+
+	rc = parser_match(parser, ltt_do, &ddo);
+	if (rc != EOK)
+		goto error;
+
+	rc = ast_do_create(&ado);
+	if (rc != EOK)
+		goto error;
+
+	ado->tdo.data = ddo;
+
+	if (parser->cb != NULL && parser->cb->process_do != NULL) {
+		rc = parser->cb->process_do(parser->cb_arg, parser,
+		    ado);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+
+		ado->body = body;
+
+		rc = parser_process_do_while(parser, ado);
+		if (rc != EOK)
+			goto error;
+	}
+
+	*rdo = &ado->node;
+	return EOK;
+error:
 	if (body != NULL)
 		ast_tree_destroy(&body->node);
 	return rc;
@@ -3274,10 +3411,6 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_block(parser, &body);
-	if (rc != EOK)
-		goto error;
-
 	rc = ast_for_create(&afor);
 	if (rc != EOK)
 		goto error;
@@ -3292,11 +3425,30 @@ static int parser_process_for(parser_t *parser, ast_node_t **rfor)
 	afor->tscolon2.data = dscolon2;
 	afor->lnext = lnext;
 	afor->trparen.data = drparen;
-	afor->body = body;
+	linit = NULL;
+	dspecs = NULL;
+	idlist = NULL;
+	lcond = NULL;
+	lnext = NULL;
+
+	if (parser->cb != NULL && parser->cb->process_for != NULL) {
+		rc = parser->cb->process_for(parser->cb_arg, parser,
+		    afor);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+
+		afor->body = body;
+	}
 
 	*rfor = &afor->node;
 	return EOK;
 error:
+	if (afor != NULL)
+		ast_tree_destroy(&afor->node);
 	if (linit != NULL)
 		ast_tree_destroy(linit);
 	if (dspecs != NULL)
@@ -3345,10 +3497,6 @@ static int parser_process_switch(parser_t *parser, ast_node_t **rswitch)
 	if (rc != EOK)
 		goto error;
 
-	rc = parser_process_block(parser, &body);
-	if (rc != EOK)
-		goto error;
-
 	rc = ast_switch_create(&aswitch);
 	if (rc != EOK)
 		goto error;
@@ -3357,11 +3505,26 @@ static int parser_process_switch(parser_t *parser, ast_node_t **rswitch)
 	aswitch->tlparen.data = dlparen;
 	aswitch->sexpr = sexpr;
 	aswitch->trparen.data = drparen;
-	aswitch->body = body;
+	sexpr = NULL;
+
+	if (parser->cb != NULL && parser->cb->process_switch != NULL) {
+		rc = parser->cb->process_switch(parser->cb_arg, parser,
+		    aswitch);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = parser_process_block(parser, &body);
+		if (rc != EOK)
+			goto error;
+
+		aswitch->body = body;
+	}
 
 	*rswitch = &aswitch->node;
 	return EOK;
 error:
+	if (aswitch != NULL)
+		ast_tree_destroy(&aswitch->node);
 	if (sexpr != NULL)
 		ast_tree_destroy(sexpr);
 	if (body != NULL)
@@ -3924,7 +4087,7 @@ error:
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
+int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 {
 	lexer_toktype_t ltt, ltt2;
 	parser_t *sparser;
@@ -3933,6 +4096,8 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
 	ltt = parser_next_ttype(parser);
 
 	switch (ltt) {
+	case ltt_rbrace:
+		return ENOENT;
 	case ltt_asm:
 		return parser_process_asm(parser, rstmt);
 	case ltt_break:
@@ -4004,7 +4169,7 @@ static int parser_process_stmt(parser_t *parser, ast_node_t **rstmt)
  *
  * @return EOK on success or non-zero error code
  */
-static int parser_process_block(parser_t *parser, ast_block_t **rblock)
+int parser_process_block(parser_t *parser, ast_block_t **rblock)
 {
 	ast_block_t *block;
 	ast_braces_t braces;
@@ -4031,12 +4196,19 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 
 	if (braces == ast_braces) {
 		/* Brace-enclosed block */
-		while (parser_next_ttype(iparser) != ltt_rbrace) {
-			rc = parser_process_stmt(iparser, &stmt);
+		if (parser->cb != NULL && parser->cb->process_block != NULL) {
+			rc = parser->cb->process_block(parser->cb_arg, iparser,
+			    block);
 			if (rc != EOK)
 				goto error;
+		} else {
+			while (parser_next_ttype(iparser) != ltt_rbrace) {
+				rc = parser_handle_stmt(iparser, &stmt);
+				if (rc != EOK)
+					goto error;
 
-			ast_block_append(block, stmt);
+				ast_block_append(block, stmt);
+			}
 		}
 
 		parser_mark(iparser);
@@ -4050,7 +4222,7 @@ static int parser_process_block(parser_t *parser, ast_block_t **rblock)
 		block->tclose.data = dclose;
 	} else {
 		/* Single statement */
-		rc = parser_process_stmt(iparser, &stmt);
+		rc = parser_handle_stmt(iparser, &stmt);
 		if (rc != EOK)
 			goto error;
 
@@ -6151,10 +6323,18 @@ again:
 			goto error;
 	}
 
+	rc = ast_gdecln_create(dspecs, idlist, malist, NULL, &gdecln);
+	if (rc != EOK)
+		goto error;
+
+	/* Ownership transferred. */
+	dspecs = NULL;
+	idlist = NULL;
+	malist = NULL;
+
 	ltt = parser_next_ttype(parser);
 	switch (ltt) {
 	case ltt_scolon:
-		body = NULL;
 		parser_skip(parser, &dscolon);
 		have_scolon = true;
 		break;
@@ -6170,7 +6350,7 @@ again:
 			goto error;
 		}
 
-		rc = parser_process_block(parser, &body);
+		rc = parser_handle_fundef(parser, gdecln);
 		if (rc != EOK)
 			goto error;
 
@@ -6180,10 +6360,8 @@ again:
 	default:
 		if (more_idents) {
 			++add_idents;
-			ast_tree_destroy(&dspecs->node);
-			dspecs = NULL;
-			ast_tree_destroy(&idlist->node);
-			idlist = NULL;
+			ast_tree_destroy(&gdecln->node);
+			gdecln = NULL;
 			goto again;
 		}
 
@@ -6196,10 +6374,6 @@ again:
 		rc = EINVAL;
 		goto error;
 	}
-
-	rc = ast_gdecln_create(dspecs, idlist, malist, body, &gdecln);
-	if (rc != EOK)
-		goto error;
 
 	if (have_scolon) {
 		gdecln->have_scolon = true;
@@ -6380,10 +6554,67 @@ error:
  */
 static int parser_handle_global_decln(parser_t *parser, ast_node_t **rnode)
 {
-	if (parser->cb != NULL && parser->cb->process_global_decln != NULL)
-		return parser->cb->process_global_decln(parser->cb_arg, rnode);
-	else
+	if (parser->cb != NULL && parser->cb->process_global_decln != NULL) {
+		return parser->cb->process_global_decln(parser->cb_arg,
+		    parser, rnode);
+	} else {
 		return parser_process_global_decln(parser, rnode);
+	}
+}
+
+/** Parse function definition.
+ *
+ * @param parser Parser
+ * @param gdecln Global declaration
+ * @param rblock Place to store pointer to new AST block
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_fundef(parser_t *parser, ast_gdecln_t *gdecln)
+{
+	int rc;
+
+	rc = parser_process_block(parser, &gdecln->body);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Handle function definition.
+ *
+ * @param parser Parser
+ * @param gdecln Global declaration
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_handle_fundef(parser_t *parser, ast_gdecln_t *gdecln)
+{
+	if (parser->cb != NULL && parser->cb->process_fundef != NULL) {
+		return parser->cb->process_fundef(parser->cb_arg, parser,
+		    gdecln);
+	} else {
+		return parser_process_fundef(parser, gdecln);
+	}
+}
+
+/** Handle statement.
+ *
+ * @param parser Parser
+ * @param rnode Place to store pointer to AST node.
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_handle_stmt(parser_t *parser, ast_node_t **rnode)
+{
+	if (parser->cb != NULL && parser->cb->process_stmt != NULL) {
+		return parser->cb->process_stmt(parser->cb_arg, parser,
+		    rnode);
+	} else {
+		return parser_process_stmt(parser, rnode);
+	}
 }
 
 /** Parse global (macro, extern) declaration (implementation).

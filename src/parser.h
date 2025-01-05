@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -35,6 +35,11 @@ extern int parser_create(parser_input_ops_t *, void *, void *, unsigned,
 extern void parser_destroy(parser_t *);
 extern int parser_process_module(parser_t *, ast_module_t **);
 extern int parser_process_global_decln(parser_t *, ast_node_t **);
+extern int parser_process_block(parser_t *, ast_block_t **);
+extern int parser_process_stmt(parser_t *, ast_node_t **);
+extern int parser_process_if_elseif(parser_t *, ast_if_t *);
+extern int parser_process_if_else(parser_t *, ast_if_t *);
+extern int parser_process_do_while(parser_t *, ast_do_t *);
 extern bool parser_ttype_ignore(lexer_toktype_t);
 
 #endif

@@ -1,2 +1,2 @@
-<test/syc/ugly/gnblock.c:9:9:'{'>: Warning: Gratuitous nested block.
 <test/syc/ugly/gnblock.c:10:21:id:a>: Warning: Declaration of 'a' shadows a wider-scope declaration.
+<test/syc/ugly/gnblock.c:9:9:'{'>: Warning: Gratuitous nested block.

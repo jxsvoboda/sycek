@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -52,6 +52,10 @@ typedef struct {
 	struct scope *scope;
 	/** Current (innermost) scope */
 	struct scope *cur_scope;
+	/** Current code generator for procedure or @c NULL */
+	struct cgen_proc *cur_cgproc;
+	/** Current output lblock */
+	struct ir_lblock *cur_lblock;
 	/** Module symbols */
 	struct symbols *symbols;
 	/** Record definitions */
