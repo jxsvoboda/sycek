@@ -6233,6 +6233,7 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	char *tmpname;
+	cgen_eres_t lval;
 	cgen_eres_t cres;
 	cgtype_t *idxtype = NULL;
 	cgtype_t *cgtype = NULL;
@@ -6240,6 +6241,7 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_pointer_t *ptrt;
 	int rc;
 
+	cgen_eres_init(&lval);
 	cgen_eres_init(&cres);
 
 	rc = cgtype_int_construct(false, cgir_int, &idxtype);
@@ -6260,6 +6262,11 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	ptrt = (cgtype_pointer_t *)lres->cgtype->ext;
 
 	rc = cgtype_clone(lres->cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Value of left hand expression */
+	rc = cgen_eres_rvalue(cgexpr, lres, lblock, &lval);
 	if (rc != EOK)
 		goto error;
 
@@ -6315,7 +6322,7 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(lres->varname, &larg);
+	rc = ir_oper_var_create(lval.varname, &larg);
 	if (rc != EOK)
 		goto error;
 
@@ -6338,10 +6345,12 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
+	cgen_eres_fini(&lval);
 	cgen_eres_fini(&cres);
 
 	return EOK;
 error:
+	cgen_eres_fini(&lval);
 	cgen_eres_fini(&cres);
 	ir_instr_destroy(instr);
 	if (carg != NULL)
