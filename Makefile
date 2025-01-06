@@ -1,5 +1,5 @@
 #
-# Copyright 2024 Jiri Svoboda
+# Copyright 2025 Jiri Svoboda
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # copy of this software and associated documentation files (the "Software"),
@@ -429,7 +429,7 @@ examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) \
     test/selfcheck.out
-test_z80: $(test_syc_good_asms) $(test_syc_good_z80ts)
+test_z80: $(test_syc_good_asms) $(test_syc_good_z80ts) z80asms
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk

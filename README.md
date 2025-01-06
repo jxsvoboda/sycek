@@ -5,7 +5,7 @@ Sycek aims to provide tools based around a modular C language frontend.
 The available tools are
 
   * `ccheck` a C code style checker
-  * `syc` a C compiler for ZX Spectrum, lint, static checker (WIP)
+  * `syc` a C compiler for ZX Spectrum, lint / checker
   * `z80test` a simple test harness / Z80 emulator
 
 Sycek is available under an MIT-style license.
@@ -36,8 +36,8 @@ Sycek is available under an MIT-style license.
 
 Syc
 ---
-NOTE: This is a work in progress. Some C language features are
-not implemented yet.
+NOTE: This is a work in progress. Most, but not all C language features are
+implemented.
 
 `syc` is meant to work as a compiler, lint-like tool and static checker.
 Currently it can compile a subset of C for the Sinclair ZX Spectrum
@@ -49,6 +49,10 @@ preprocessing and compiling the source code.
 
 `syc` can thus be used as a lint / checker / shadow compiler.
 See the section Syc as a checker for details.
+
+`syc` can compile the entire Sycek code base (syc, ccheck, z80test) for the
+Z80 architecture, albeit the resulting machine code is not 100% functional yet
+(mainly due to unfinished support for memory paging).
 
 z80test
 -------
@@ -578,10 +582,13 @@ To test functionality of generated Z80 code run `make test_z80` which
  * Assembles all of them using `z80asm` into binary files
  * Runs `z80test` for all `.scr` files under `test/syc/good` which verifies
    correct function of the generated code
+ * Compiles all Sycek componets using syc (making sure there are no errors
+   reported)
 
-For this to work you need to have `z80asm` from z88dk. Note that this
+For this to work you need to have `z80asm` from z88dk to convert .asm files
+to binary, plus `gcc` for preprocessing C source files. Note that this
 requirement is only temporary and will be removed once Syc can produce
-binary files directly.
+binary files directly and it implements its own preprocessor, respectively.
 
 Run Clang Analyzer using the command
 
