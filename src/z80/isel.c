@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -4349,7 +4349,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		proc = (ir_proc_t *)pdecln->ext;
 	}
 
-	rc = z80_argloc_create(isproc->irproc->variadic, &argloc);
+	rc = z80_argloc_create(proc->variadic, &argloc);
 	if (rc != EOK)
 		goto error;
 
