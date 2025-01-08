@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -79,6 +79,7 @@ static int binary_load(const char *fname, uint16_t org, bool quiet)
 	nr = fread(mem + org, 1, mem_size - org, f);
 	if (nr == 0) {
 		fprintf(stderr, "Error reading '%s'.\n", fname);
+		fclose(f);
 		return -1;
 	}
 

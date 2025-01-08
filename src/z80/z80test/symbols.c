@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -185,6 +185,9 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 	while (true) {
 		/* Stop if not an identifier */
 		c = fgetc(f);
+		if (c < 0)
+			goto error;
+
 		if (c != '_' && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') &&
 		    (c < '0' || c > '9'))
 			break;
@@ -197,11 +200,13 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 		    (c >= '0' && c <= '9') || c == '_') {
 			if (i >= max_id_len) {
 				printf("Identifier too long.\n");
-				return EINVAL;
+				goto error;
 			}
 
 			ident[i++] = c;
 			c = fgetc(f);
+			if (c < 0)
+				goto error;
 		}
 
 		ident[i++] = '\0';
@@ -212,16 +217,19 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 		}
 
 		if (c != '=')
-			return EIO;
-		c = fgetc(f);
+			goto error;
 
+		c = fgetc(f);
 		if (c != ' ')
-			return EIO;
-		c = fgetc(f);
+			goto error;
 
-		if (c != '$')
-			return EIO;
 		c = fgetc(f);
+		if (c != '$')
+			goto error;
+
+		c = fgetc(f);
+		if (c < 0)
+			goto error;
 
 		/* Read the address */
 		addr = 0;
@@ -236,18 +244,27 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 
 			addr = addr * 16 + digit;
 			c = fgetc(f);
+			if (c < 0)
+				goto error;
 		}
 
 		/* Skip the rest of the line */
 		while (c >= '\0' && c != '\n') {
 			c = fgetc(f);
+			if (c < 0)
+				goto error;
 		}
 
 		rc = symbols_insert(symbols, ident, addr);
-		if (rc != 0)
+		if (rc != 0) {
+			fclose(f);
 			return rc;
+		}
 	}
 
 	fclose(f);
 	return 0;
+error:
+	fclose(f);
+	return EIO;
 }

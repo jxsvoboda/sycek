@@ -15311,7 +15311,7 @@ static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *cres)
 {
 	unsigned bits;
-	cgtype_t *cgtype;
+	cgtype_t *cgtype = NULL;
 	cgtype_basic_t *tbasic = NULL;
 	cgen_eres_t icres;
 	int rc;
@@ -18049,6 +18049,7 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 		    "does not take variable arguments.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
+		goto error;
 	}
 
 	/* Evaluate ap expression */
@@ -20056,7 +20057,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 	ir_texpr_t *vtype = NULL;
 	symbol_t *symbol;
 	scope_member_t *member;
-	cgtype_t *ctype;
+	cgtype_t *ctype = NULL;
 	cgtype_enum_t *tenum;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
