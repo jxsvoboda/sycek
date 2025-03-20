@@ -1,0 +1,1 @@
+<test/syc/bad/initidxneg.c:6:14:'='>: Array index exceeds array bounds.

@@ -110,9 +110,13 @@ static int cgen_stmt(cgen_proc_t *, ast_node_t *, ir_lblock_t *);
 
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
+static void cgen_init_destroy(cgen_init_t *);
+static int cgen_init_digest(cgen_t *, cgen_init_t *, cgtype_t *, int,
+    ir_dblock_t *);
+static int cgen_uninit_digest(cgen_t *, cgtype_t *, ir_dblock_t *);
 static int cgen_fun_arg_passed_type(cgen_t *, cgtype_t *, cgtype_t **);
 static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, comp_tok_t *,
-    ast_cinit_elem_t **, ir_dblock_t *);
+    ast_cinit_elem_t **, cgen_init_t *);
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
     ast_estring_t *, ir_dblock_t *);
 static int cgen_global_decln(cgen_t *, ast_node_t *);
@@ -11678,7 +11682,7 @@ static void cgen_check_passed_array_dim(cgen_t *cgen, comp_tok_t *tok,
  * @param cgen Code generator
  * @param ftype Function type
  * @param rcstype Place to store pointer to type expression
- * @return EOK on succes or an erro
+ * @return EOK on success or an erro
  */
 static int cgen_callsign(cgen_t *cgen, cgtype_func_t *ftype,
     ir_texpr_t **rcstype)
@@ -12831,7 +12835,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 
 	mtok = (comp_tok_t *)emember->tmember.data;
 
-	elem = cgen_record_elem_find(record, mtok->tok.text);
+	elem = cgen_record_elem_find(record, mtok->tok.text, NULL);
 	if (elem == NULL) {
 		ctok = (comp_tok_t *)emember->tperiod.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
@@ -12981,7 +12985,7 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 
 	mtok = (comp_tok_t *)eindmember->tmember.data;
 
-	elem = cgen_record_elem_find(record, mtok->tok.text);
+	elem = cgen_record_elem_find(record, mtok->tok.text, NULL);
 	if (elem == NULL) {
 		ctok = (comp_tok_t *)eindmember->tarrow.data;
 		lexer_dprint_tok(&ctok->tok, stderr);
@@ -19498,6 +19502,591 @@ error:
 	return rc;
 }
 
+/** Create designated initializer.
+ *
+ * @param rinit Place to store pointer to new initializer
+ * @return EOK on success or an error code
+ */
+static int cgen_init_create(cgen_init_t **rinit)
+{
+	cgen_init_t *init;
+	int rc;
+
+	init = calloc(1, sizeof(cgen_init_t));
+	if (init == NULL)
+		return ENOMEM;
+
+	rc = ir_dblock_create(&init->dblock);
+	if (rc != EOK) {
+		free(init);
+		return ENOMEM;
+	}
+
+	list_initialize(&init->inits);
+	init->next = 0;
+	*rinit = init;
+	return EOK;
+}
+
+/** Get first child initializer.
+ *
+ * @param parent Parent initializer
+ * @return First child initializer
+ */
+static cgen_init_t *cgen_init_first(cgen_init_t *parent)
+{
+	link_t *link;
+
+	link = list_first(&parent->inits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_init_t, linits);
+}
+
+/** Get next child initializer.
+ *
+ * @param cur Current child initializer
+ * @return Next child initializer
+ */
+static cgen_init_t *cgen_init_next(cgen_init_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->linits, &cur->parent->inits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_init_t, linits);
+}
+
+/** Get last child initializer.
+ *
+ * @param parent Parent initializer
+ * @return First child initializer
+ */
+static cgen_init_t *cgen_init_last(cgen_init_t *parent)
+{
+	link_t *link;
+
+	link = list_last(&parent->inits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_init_t, linits);
+}
+
+/** Get previous child initializer.
+ *
+ * @param cur Current child initializer
+ * @return Previous child initializer
+ */
+static cgen_init_t *cgen_init_prev(cgen_init_t *cur)
+{
+	link_t *link;
+
+	link = list_prev(&cur->linits, &cur->parent->inits);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_init_t, linits);
+}
+
+/** Destroy initializer.
+ *
+ * @param init Initializer
+ */
+static void cgen_init_destroy(cgen_init_t *init)
+{
+	cgen_init_t *child;
+
+	if (init->parent != NULL)
+		list_remove(&init->linits);
+	ir_dblock_destroy(init->dblock);
+
+	child = cgen_init_first(init);
+	while (child != NULL) {
+		cgen_init_destroy(child);
+		child = cgen_init_first(init);
+	}
+
+	free(init);
+}
+
+/** Insert new initializer.
+ *
+ * @param parent Parent initializer
+ * @param dsg Designator
+ * @param rinit Place to store pointer to new intializer
+ * @return EOK on success or an error code
+ */
+static int cgen_init_insert(cgen_init_t *parent, uint64_t dsg,
+    cgen_init_t **rinit)
+{
+	cgen_init_t *init;
+	cgen_init_t *old;
+	int rc;
+
+	old = cgen_init_last(parent);
+	while (old != NULL && dsg < old->dsg)
+		old = cgen_init_prev(old);
+
+	if (old != NULL && dsg == old->dsg) {
+		*rinit = old;
+		return EOK;
+	}
+
+	rc = cgen_init_create(&init);
+	if (rc != EOK)
+		return rc;
+
+	init->dsg = dsg;
+	init->parent = parent;
+
+	if (old != NULL)
+		list_insert_after(&init->linits, &old->linits);
+	else
+		list_prepend(&init->linits, &parent->inits);
+
+	parent->next = dsg + 1;
+	*rinit = init;
+	return EOK;
+}
+
+/** Look up (designated) initializer.
+ *
+ * @param cgen Code generator
+ * @param parent Parent initializer
+ * @param cgtype Type of variable being initialized
+ * @param elem Initializer element
+ * @param rcgtype Place to store pointer to type of field
+ * @param rinit Place to store pointer to new initializer
+ */
+static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
+    ast_cinit_elem_t *elem, cgtype_t **rcgtype, cgen_init_t **rinit)
+{
+	ast_cinit_acc_t *acc;
+	comp_tok_t *tassign;
+	comp_tok_t *ctok;
+	cgen_init_t *pinit;
+	cgen_init_t *init = NULL;
+	cgen_eres_t eres;
+	cgtype_array_t *tarray;
+	cgtype_record_t *trecord;
+	cgen_rec_elem_t *relem;
+	int64_t dsg;
+	uint64_t udsg;
+	int rc;
+
+	pinit = parent;
+	cgen_eres_init(&eres);
+
+	acc = ast_cinit_elem_first(elem);
+	while (acc != NULL) {
+		tassign = (comp_tok_t *)elem->tassign.data;
+
+		switch (acc->atype) {
+		case aca_index:
+			if (cgtype->ntype != cgn_array) {
+				lexer_dprint_tok(&tassign->tok, stderr);
+				fprintf(stderr, ": Array index in non-array "
+				    "initializer.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+			tarray = (cgtype_array_t *)cgtype->ext;
+			rc = cgen_intexpr_val(cgen, acc->index, &eres);
+			if (rc != EOK)
+				goto error;
+			assert(eres.cvknown);
+			dsg = eres.cvint;
+			if (dsg < 0 || (tarray->have_size &&
+			    dsg >= (int64_t)tarray->asize)) {
+				lexer_dprint_tok(&tassign->tok, stderr);
+				fprintf(stderr, ": Array index exceeds array "
+				    "bounds.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+			cgtype = tarray->etype;
+			break;
+		case aca_member:
+			dsg = 0;
+			if (cgtype->ntype != cgn_record) {
+				lexer_dprint_tok(&tassign->tok, stderr);
+				fprintf(stderr, ": Member access in non-record "
+				    "initializer.\n");
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+			ctok = (comp_tok_t *)acc->tmember.data;
+			trecord = (cgtype_record_t *)cgtype->ext;
+			relem = cgen_record_elem_find(trecord->record,
+			    ctok->tok.text, &udsg);
+			if (relem == NULL) {
+				lexer_dprint_tok(&tassign->tok, stderr);
+				fprintf(stderr, ": Record type ");
+				(void)cgtype_print(cgtype, stderr);
+				fprintf(stderr, " has no member named '%s'.\n",
+				    ctok->tok.text);
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+			dsg = (int64_t)udsg;
+
+			cgtype = relem->cgtype;
+			break;
+		}
+
+		/* Find or create initializer. */
+		rc = cgen_init_insert(pinit, dsg, &init);
+		if (rc != EOK)
+			goto error;
+
+		pinit = init;
+		acc = ast_cinit_elem_next(acc);
+	}
+
+	if (init == NULL) {
+		/* There were no designators. */
+		rc = cgen_init_insert(parent, parent->next, &init);
+		if (rc != EOK)
+			goto error;
+
+		cgtype = NULL;
+	}
+
+	cgen_eres_fini(&eres);
+	*rcgtype = cgtype;
+	*rinit = init;
+	return EOK;
+error:
+	cgen_eres_fini(&eres);
+	return rc;
+}
+
+/** Generate zero-filled data block for uninitialized array.
+ *
+ * @param cgen Code generator
+ * @param tarray Array type
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_digest_array(cgen_t *cgen, cgtype_array_t *tarray,
+    ir_dblock_t *dest)
+{
+	uint64_t i;
+	int rc;
+
+	assert(tarray->have_size);
+	for (i = 0; i < tarray->asize; i++) {
+		rc = cgen_uninit_digest(cgen, tarray->etype, dest);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
+/** Generate zero-filled data block for uninitialized record.
+ *
+ * @param cgen Code generator
+ * @param trecord Record type
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_digest_record(cgen_t *cgen, cgtype_record_t *trecord,
+    ir_dblock_t *dest)
+{
+	cgen_rec_elem_t *elem;
+	int rc;
+
+	elem = cgen_record_first(trecord->record);
+	while (elem != NULL) {
+		rc = cgen_uninit_digest(cgen, elem->cgtype, dest);
+		if (rc != EOK)
+			return rc;
+
+		elem = cgen_record_next(elem);
+	}
+
+	return EOK;
+}
+
+/** Generate zero-filled data block for uninitialized basic type.
+ *
+ * @param cgen Code generator
+ * @param tbasic Basic type
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_digest_basic(cgen_t *cgen, cgtype_basic_t *tbasic,
+    ir_dblock_t *dest)
+{
+	unsigned bits;
+	ir_dentry_t *dentry = NULL;
+	int rc;
+
+	bits = cgen_basic_type_bits(cgen, tbasic);
+	assert(bits != 0);
+
+	rc = ir_dentry_create_int(bits, 0, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_append(dest, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Generate zero-filled data block for uninitialized pointer type.
+ *
+ * @param cgen Code generator
+ * @param tpointer Pointer type
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_digest_pointer(cgen_t *cgen, cgtype_pointer_t *tpointer,
+    ir_dblock_t *dest)
+{
+	ir_dentry_t *dentry = NULL;
+	int rc;
+
+	(void)cgen;
+	(void)tpointer;
+
+	rc = ir_dentry_create_int(cgen_pointer_bits, 0, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_append(dest, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Generate zero-filled data block for uninitialized enum type.
+ *
+ * @param cgen Code generator
+ * @param tenum Enum type
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_digest_enum(cgen_t *cgen, cgtype_enum_t *tenum,
+    ir_dblock_t *dest)
+{
+	ir_dentry_t *dentry = NULL;
+	int rc;
+
+	(void)cgen;
+	(void)tenum;
+
+	rc = ir_dentry_create_int(cgen_enum_bits, 0, &dentry);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_dblock_append(dest, dentry);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
+	return rc;
+}
+
+/** Generate zero-filled data block for uninitialized variable.
+ *
+ * @param cgen Code generator
+ * @param cgtype Variable type
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_digest(cgen_t *cgen, cgtype_t *cgtype, ir_dblock_t *dest)
+{
+	cgtype_array_t *tarray;
+	cgtype_basic_t *tbasic;
+	cgtype_pointer_t *tpointer;
+	cgtype_record_t *trecord;
+	cgtype_enum_t *tenum;
+
+	switch (cgtype->ntype) {
+	case cgn_array:
+		tarray = (cgtype_array_t *)cgtype->ext;
+		return cgen_uninit_digest_array(cgen, tarray, dest);
+	case cgn_basic:
+		tbasic = (cgtype_basic_t *)cgtype->ext;
+		return cgen_uninit_digest_basic(cgen, tbasic, dest);
+	case cgn_pointer:
+		tpointer = (cgtype_pointer_t *)cgtype->ext;
+		return cgen_uninit_digest_pointer(cgen, tpointer, dest);
+	case cgn_record:
+		trecord = (cgtype_record_t *)cgtype->ext;
+		return cgen_uninit_digest_record(cgen, trecord, dest);
+	case cgn_enum:
+		tenum = (cgtype_enum_t *)cgtype->ext;
+		return cgen_uninit_digest_enum(cgen, tenum, dest);
+	default:
+		assert(false);
+	}
+}
+
+/** Generate data block for initialized array variable.
+ *
+ * @param cgen Code generator
+ * @param parent Inititializer
+ * @param tarray Array type
+ * @param lvl Nesting level
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_init_digest_array(cgen_t *cgen, cgen_init_t *parent,
+    cgtype_array_t *tarray, int lvl, ir_dblock_t *dest)
+{
+	cgen_init_t *init;
+	uint64_t i;
+	int rc;
+
+	if (!tarray->have_size) {
+		/* Determine array size */
+		init = cgen_init_last(parent);
+		if (init != NULL)
+			tarray->asize = init->dsg + 1;
+
+		tarray->have_size = true;
+	}
+
+	init = cgen_init_first(parent);
+	for (i = 0; i < tarray->asize; i++) {
+		printf("i=%lu\n", i);
+		if (init != NULL)
+			printf("init->dsg=%lu\n", init->dsg);
+		while (init != NULL && init->dsg < i) {
+			printf("init->dsg=%lu, go to next\n", init->dsg);
+			init = cgen_init_next(init);
+		}
+		if (init != NULL)
+			printf("init->dsg=%lu\n", init->dsg);
+
+		if (init != NULL && init->dsg == i) {
+			/* Initialized field */
+			cgen_init_digest(cgen, init, tarray->etype, lvl + 1,
+			    dest);
+		} else {
+			/* Uninitialized field */
+			rc = cgen_uninit_digest(cgen, tarray->etype, dest);
+			if (rc != EOK)
+				return rc;
+		}
+	}
+
+	return EOK;
+}
+
+/** Generate data block for initialized record variable.
+ *
+ * @param cgen Code generator
+ * @param parent Inititializer
+ * @param trecord Record type
+ * @param lvl Nesting level
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_init_digest_record(cgen_t *cgen, cgen_init_t *parent,
+    cgtype_record_t *trecord, int lvl, ir_dblock_t *dest)
+{
+	cgen_init_t *init;
+	cgen_rec_elem_t *elem;
+	uint64_t i;
+	int rc;
+
+	init = cgen_init_first(parent);
+	i = 0;
+	elem = cgen_record_first(trecord->record);
+	while (elem != NULL) {
+		printf("i=%lu\n", i);
+		if (init != NULL)
+			printf("init->dsg=%lu\n", init->dsg);
+		while (init != NULL && init->dsg < i) {
+			printf("init->dsg=%lu, go to next\n", init->dsg);
+			init = cgen_init_next(init);
+		}
+		if (init != NULL)
+			printf("init->dsg=%lu\n", init->dsg);
+
+		if (init != NULL && init->dsg == i) {
+			/* Initialized field */
+			cgen_init_digest(cgen, init, elem->cgtype, lvl + 1,
+			    dest);
+		} else {
+			/* Uninitialized field */
+			rc = cgen_uninit_digest(cgen, elem->cgtype, dest);
+			if (rc != EOK)
+				return rc;
+		}
+
+		++i;
+		elem = cgen_record_next(elem);
+	}
+
+	return EOK;
+}
+
+/** Generate data block for initialized variable.
+ *
+ * @param cgen Code generator
+ * @param parent Inititializer
+ * @param cgtype Variable type
+ * @param lvl Nesting level
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_init_digest(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
+    int lvl, ir_dblock_t *dest)
+{
+	cgtype_array_t *tarray;
+	cgtype_record_t *trecord;
+	int rc;
+	int i;
+
+	for (i = 0; i < lvl; i++)
+		printf("  ");
+	printf("[%lu\n", parent->dsg);
+
+	if (cgtype->ntype == cgn_array) {
+		tarray = (cgtype_array_t *)cgtype->ext;
+		rc = cgen_init_digest_array(cgen, parent, tarray, lvl, dest);
+		if (rc != EOK)
+			return rc;
+	} else if (cgtype->ntype == cgn_record) {
+		trecord = (cgtype_record_t *)cgtype->ext;
+		rc = cgen_init_digest_record(cgen, parent, trecord, lvl, dest);
+		if (rc != EOK)
+			return rc;
+	}
+
+	ir_dblock_print(parent->dblock, stdout);
+	ir_dblock_transfer_to_end(parent->dblock, dest);
+
+	for (i = 0; i < lvl; i++)
+		printf("  ");
+	printf("]\n");
+	return EOK;
+}
+
 /** Generate data entries for initializing a scalar type.
  *
  * @param cgen Code generator
@@ -19633,38 +20222,41 @@ error:
  * @param tarray Array type
  * @param itok Initialization token (for printing diagnostics)
  * @param elem Compound initializer element pointer
- * @param dblock Data block to which data should be appended
+ * @param parent Initializer
  * @return EOK on success or an error code
  */
 static int cgen_init_dentries_array(cgen_t *cgen, cgtype_array_t *tarray,
-    comp_tok_t *itok, ast_cinit_elem_t **elem, ir_dblock_t *dblock)
+    comp_tok_t *itok, ast_cinit_elem_t **elem, cgen_init_t *parent)
 {
 	uint64_t i;
+	uint64_t dsg;
+	cgen_init_t *init = NULL;
+	cgtype_t *cgtype;
 	size_t entries;
 	int rc;
 
-	if (tarray->have_size) {
-		/* Size of array is known. Process that number of entries. */
-		for (i = 0; i < tarray->asize; i++) {
-			rc = cgen_init_dentries_cinit(cgen, tarray->etype, itok,
-			    elem, dblock);
-			if (rc != EOK)
-				goto error;
-		}
-	} else {
-		/* Size of array is not known. Process and count all entries. */
-		entries = 0;
-		while (*elem != NULL) {
-			rc = cgen_init_dentries_cinit(cgen, tarray->etype, itok,
-			    elem, dblock);
-			if (rc != EOK)
-				goto error;
-			++entries;
+	i = 0;
+	entries = 0;
+	while (*elem != NULL) {
+		dsg = parent->next;
+		rc = cgen_init_lookup(cgen, parent, &tarray->cgtype, *elem,
+		    &cgtype, &init);
+		if (rc != EOK)
+			goto error;
+
+		/* No designators? */
+		if (cgtype == NULL) {
+			cgtype = tarray->etype;
+			if (tarray->have_size && dsg >= tarray->asize)
+				return EOK;
 		}
 
-		/* Fix up array type */
-		tarray->have_size = true;
-		tarray->asize = entries;
+		rc = cgen_init_dentries_cinit(cgen, cgtype, itok,
+		    elem, init);
+		if (rc != EOK)
+			goto error;
+		++i;
+		++entries;
 	}
 
 	return EOK;
@@ -19678,26 +20270,48 @@ error:
  * @param trecord Record type
  * @param itok Initialization token (for printing diagnostics)
  * @param elem Compound initializer element pointer
- * @param dblock Data block to which data should be appended
+ * @param parent Initializer
  * @return EOK on success or an error code
  */
 static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
-    comp_tok_t *itok, ast_cinit_elem_t **elem, ir_dblock_t *dblock)
+    comp_tok_t *itok, ast_cinit_elem_t **elem, cgen_init_t *parent)
 {
+	uint64_t i;
+	cgen_init_t *init = NULL;
+	cgtype_t *cgtype;
 	cgen_rec_elem_t *relem;
 	int rc;
 
+	i = 0;
 	relem = cgen_record_first(trecord->record);
-	while (relem != NULL) {
-		rc = cgen_init_dentries_cinit(cgen, relem->cgtype, itok,
-		    elem, dblock);
+	while (*elem != NULL) {
+		/* Ran out of record elements? */
+		if (relem == NULL)
+			return EOK;
+
+		rc = cgen_init_lookup(cgen, parent, &trecord->cgtype, *elem,
+		    &cgtype, &init);
 		if (rc != EOK)
 			goto error;
 
-		/* In case of union, only initialize the first element. */
-		if (trecord->record->rtype == cgr_union)
-			break;
+		/* No designators? */
+		if (cgtype == NULL) {
+			cgtype = relem->cgtype;
+			/*
+			 * Only the first union element can be initialized
+			 * without a designator.
+			 */
+			if (trecord->record->rtype == cgr_union &&
+			    relem != cgen_record_first(trecord->record)) {
+				return EOK;
+			}
+		}
 
+		rc = cgen_init_dentries_cinit(cgen, cgtype, itok,
+		    elem, init);
+		if (rc != EOK)
+			goto error;
+		++i;
 		relem = cgen_record_next(relem);
 	}
 
@@ -19717,7 +20331,7 @@ error:
  * @return EOK on success or an error code
  */
 static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
-    ast_cinit_elem_t **elem, ir_dblock_t *dblock)
+    ast_cinit_elem_t **elem, cgen_init_t *parent)
 {
 	ir_dentry_t *dentry = NULL;
 	ir_texpr_t *vtype = NULL;
@@ -19737,14 +20351,14 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *i
 				cgarr = (cgtype_array_t *)stype->ext;
 
 				rc = cgen_init_dentries_array(cgen, cgarr, itok,
-				    &melem, dblock);
+				    &melem, parent);
 				if (rc != EOK)
 					goto error;
 			} else {
 				cgrec = (cgtype_record_t *)stype->ext;
 
 				rc = cgen_init_dentries_record(cgen, cgrec,
-				    itok, &melem, dblock);
+				    itok, &melem, parent);
 				if (rc != EOK)
 					goto error;
 
@@ -19773,14 +20387,14 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *i
 				cgarr = (cgtype_array_t *)stype->ext;
 
 				rc = cgen_init_dentries_array(cgen, cgarr, itok,
-				    elem, dblock);
+				    elem, parent);
 				if (rc != EOK)
 					goto error;
 			} else {
 				cgrec = (cgtype_record_t *)stype->ext;
 
 				rc = cgen_init_dentries_record(cgen, cgrec,
-				    itok, elem, dblock);
+				    itok, elem, parent);
 				if (rc != EOK)
 					goto error;
 			}
@@ -19792,7 +20406,8 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *i
 		else
 			init = NULL;
 
-		rc = cgen_init_dentries_scalar(cgen, stype, itok, init, dblock);
+		rc = cgen_init_dentries_scalar(cgen, stype, itok, init,
+		    parent->dblock);
 		if (rc != EOK)
 			goto error;
 
@@ -19978,7 +20593,12 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 	cgtype_array_t *cgarr;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
+	cgen_init_t *parent;
 	int rc;
+
+	rc = cgen_init_create(&parent);
+	if (rc != EOK)
+		return rc;
 
 	if (stype->ntype == cgn_array || stype->ntype == cgn_record) {
 		if (init == NULL || init->ntype == ant_cinit) {
@@ -19989,14 +20609,14 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 				cgarr = (cgtype_array_t *)stype->ext;
 
 				rc = cgen_init_dentries_array(cgen, cgarr, itok,
-				    &celem, dblock);
+				    &celem, parent);
 				if (rc != EOK)
 					goto error;
 			} else {
 				cgrec = (cgtype_record_t *)stype->ext;
 
 				rc = cgen_init_dentries_record(cgen, cgrec,
-				    itok, &celem, dblock);
+				    itok, &celem, parent);
 				if (rc != EOK)
 					goto error;
 			}
@@ -20011,7 +20631,7 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 			}
 		} else if (init->ntype == ant_estring) {
 			rc = cgen_init_dentries_string(cgen, stype, itok,
-			    (ast_estring_t *)init->ext, dblock);
+			    (ast_estring_t *)init->ext, parent->dblock);
 			if (rc != EOK)
 				goto error;
 		} else {
@@ -20023,11 +20643,14 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 			return EINVAL;
 		}
 	} else {
-		rc = cgen_init_dentries_scalar(cgen, stype, itok, init, dblock);
+		rc = cgen_init_dentries_scalar(cgen, stype, itok, init,
+		    parent->dblock);
 		if (rc != EOK)
 			goto error;
 	}
 
+	cgen_init_digest(cgen, parent, stype, 0, dblock);
+	cgen_init_destroy(parent);
 	return EOK;
 error:
 	ir_dentry_destroy(dentry);

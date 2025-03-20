@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -519,6 +519,24 @@ int ir_dblock_append(ir_dblock_t *dblock, ir_dentry_t *dentry)
 
 	entry->dentry = dentry;
 	return EOK;
+}
+
+/** Move entries from IR data block to end of another data block.
+ *
+ * @param src Source IR data block
+ * @param dest Destination IR data block
+ */
+void ir_dblock_transfer_to_end(ir_dblock_t *src, ir_dblock_t *dest)
+{
+	ir_dblock_entry_t *entry;
+
+	entry = ir_dblock_first(src);
+	while (entry != NULL) {
+		list_remove(&entry->lentries);
+		list_append(&entry->lentries, &dest->entries);
+		entry->dblock = dest;
+		entry = ir_dblock_first(src);
+	}
 }
 
 /** Print IR integer data entry.

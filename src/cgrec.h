@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
 #ifndef CGREC_H
 #define CGREC_H
 
+#include <stdint.h>
 #include <types/cgrec.h>
 #include <types/cgtype.h>
 #include <types/ir.h>
@@ -44,6 +45,6 @@ extern int cgen_record_append(cgen_record_t *, const char *,
 extern cgen_rec_elem_t *cgen_record_first(cgen_record_t *);
 extern cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *);
 extern cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *,
-    const char *);
+    const char *, uint64_t *);
 
 #endif

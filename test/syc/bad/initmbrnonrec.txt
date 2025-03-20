@@ -1,0 +1,1 @@
+<test/syc/bad/initmbrnonrec.c:6:12:'='>: Member access in non-record initializer.

@@ -1,0 +1,75 @@
+mapfile "initarraydsg.map";
+ldbin "initarraydsg.bin", 0x8000;
+
+verify word ptr (@_i1), 0;
+verify word ptr (@_i1 + 2), 0;
+verify word ptr (@_i1 + 4), 0;
+verify word ptr (@_i1 + 6), 0;
+verify word ptr (@_i1 + 8), 0;
+verify word ptr (@_i1 + 10), 0;
+verify word ptr (@_i1 + 12), 0;
+verify word ptr (@_i1 + 14), 0;
+verify word ptr (@_i1 + 16), 0;
+verify word ptr (@_i1 + 18), 0;
+
+verify word ptr (@_i1sz), 20;
+
+verify word ptr (@_p1), 0;
+verify word ptr (@_p1 + 2), 0;
+verify word ptr (@_p1 + 4), 0;
+verify word ptr (@_p1 + 6), 0;
+verify word ptr (@_p1 + 8), 0;
+verify word ptr (@_p1 + 10), 0;
+verify word ptr (@_p1 + 12), 0;
+verify word ptr (@_p1 + 14), 0;
+verify word ptr (@_p1 + 16), 0;
+verify word ptr (@_p1 + 18), 0;
+
+verify word ptr (@_p1sz), 20;
+
+verify word ptr (@_s1), 0;
+verify word ptr (@_s1 + 2), 0;
+verify word ptr (@_s1 + 4), 0;
+verify word ptr (@_s1 + 6), 0;
+verify word ptr (@_s1 + 8), 0;
+verify word ptr (@_s1 + 10), 0;
+verify word ptr (@_s1 + 12), 0;
+verify word ptr (@_s1 + 14), 0;
+verify word ptr (@_s1 + 16), 0;
+verify word ptr (@_s1 + 18), 0;
+
+verify word ptr (@_s1sz), 20;
+
+verify word ptr (@_e1), 0;
+verify word ptr (@_e1 + 2), 0;
+verify word ptr (@_e1 + 4), 0;
+verify word ptr (@_e1 + 6), 0;
+verify word ptr (@_e1 + 8), 0;
+verify word ptr (@_e1 + 10), 0;
+verify word ptr (@_e1 + 12), 0;
+verify word ptr (@_e1 + 14), 0;
+verify word ptr (@_e1 + 16), 0;
+verify word ptr (@_e1 + 18), 0;
+
+verify word ptr (@_e1sz), 20;
+
+verify word ptr (@_i2), 0;
+verify word ptr (@_i2 + 2), 1;
+verify word ptr (@_i2 + 4), 2;
+verify word ptr (@_i2 + 6), 3;
+verify word ptr (@_i2 + 8), 4;
+verify word ptr (@_i2 + 10), 0;
+
+verify word ptr (@_i3), 0;
+verify word ptr (@_i3 + 2), 0;
+verify word ptr (@_i3 + 4), 0;
+verify word ptr (@_i3 + 6), 3;
+
+verify word ptr (@_i3sz), 8;
+
+verify word ptr (@_i4), 0;
+verify word ptr (@_i4 + 2), 1;
+verify word ptr (@_i4 + 4), 2;
+verify word ptr (@_i4 + 6), 3;
+verify word ptr (@_i4 + 8), 4;
+verify word ptr (@_i4 + 10), 5;

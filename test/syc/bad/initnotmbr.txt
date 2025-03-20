@@ -1,0 +1,1 @@
+<test/syc/bad/initnotmbr.c:11:12:'='>: Record type struct s has no member named 'x'.

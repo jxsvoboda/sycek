@@ -246,7 +246,8 @@ Specifically, these language features are supported:
  * Constant expressions
  * Sizeof
  * Character literals
- * Structure and array initializers (C89-style)
+ * Structure and array initializers
+ * Designated struct/array initialization (C99)
  * String initializers, string literals
  * Conditional operator
 
@@ -257,7 +258,6 @@ These are NOT supported yet:
  * Floating point
  * Integer promotion
  * Passing or returning struct/union by value
- * C99-style qualified struct/array initialization
  * Variable-length arrays
  * Alignof
  * Type qualifiers (const, volatile)

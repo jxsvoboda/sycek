@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -50,6 +50,7 @@ extern void ir_var_destroy(ir_var_t *);
 extern int ir_var_print(ir_var_t *, FILE *);
 extern int ir_dblock_create(ir_dblock_t **);
 extern int ir_dblock_append(ir_dblock_t *, ir_dentry_t *);
+extern void ir_dblock_transfer_to_end(ir_dblock_t *, ir_dblock_t *);
 extern int ir_dblock_print(ir_dblock_t *, FILE *);
 extern void ir_dblock_destroy(ir_dblock_t *);
 extern ir_dblock_entry_t *ir_dblock_first(ir_dblock_t *);

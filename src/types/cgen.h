@@ -290,4 +290,20 @@ typedef enum {
 	cgrd_prevdef = 0x8
 } cgen_rd_flags_t;
 
+/** (Designated) initializer. */
+typedef struct cgen_init {
+	/** Containing initializers list */
+	struct cgen_init *parent;
+	/** Link to parent->inits */
+	link_t linits;
+	/** Designator */
+	uint64_t dsg;
+	/** Data block with data for this initializer. */
+	struct ir_dblock *dblock;
+	/** Subordinate initializers list (of cgen_init_t) */
+	list_t inits;
+	/** Next designator */
+	uint64_t next;
+} cgen_init_t;
+
 #endif

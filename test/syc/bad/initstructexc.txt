@@ -1,0 +1,2 @@
+<test/syc/bad/initstructexc.c:10:23:num:3>: Excess initializer.
+'

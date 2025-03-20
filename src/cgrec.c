@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2025 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -211,7 +211,7 @@ int cgen_record_append(cgen_record_t *record, const char *ident,
 	cgen_rec_elem_t *elem;
 	int rc;
 
-	elem = cgen_record_elem_find(record, ident);
+	elem = cgen_record_elem_find(record, ident, NULL);
 	if (elem != NULL)
 		return EEXIST;
 
@@ -241,18 +241,25 @@ int cgen_record_append(cgen_record_t *record, const char *ident,
  *
  * @param record Record definition
  * @param ident Element indentifier
+ * @param ridx Place to store element index or @c NULL if not interested
  * @return Record element or @c NULL if not found
  */
 cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *record,
-    const char *ident)
+    const char *ident, uint64_t *ridx)
 {
 	cgen_rec_elem_t *elem;
+	uint64_t idx;
 
 	elem = cgen_record_first(record);
+	idx = 0;
 	while (elem != NULL) {
-		if (strcmp(elem->ident, ident) == 0)
+		if (strcmp(elem->ident, ident) == 0) {
+			if (ridx != NULL)
+				*ridx = idx;
 			return elem;
+		}
 
+		++idx;
 		elem = cgen_record_next(elem);
 	}
 

@@ -1,0 +1,1 @@
+<test/syc/bad/initidxnonarray.c:6:16:'='>: Array index in non-array initializer.
