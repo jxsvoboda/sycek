@@ -49,6 +49,7 @@ extern int ir_var_create(const char *, ir_texpr_t *, ir_linkage_t,
 extern void ir_var_destroy(ir_var_t *);
 extern int ir_var_print(ir_var_t *, FILE *);
 extern int ir_dblock_create(ir_dblock_t **);
+extern void ir_dblock_empty(ir_dblock_t *);
 extern int ir_dblock_append(ir_dblock_t *, ir_dentry_t *);
 extern void ir_dblock_transfer_to_end(ir_dblock_t *, ir_dblock_t *);
 extern int ir_dblock_print(ir_dblock_t *, FILE *);

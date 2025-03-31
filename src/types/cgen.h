@@ -304,6 +304,8 @@ typedef struct cgen_init {
 	list_t inits;
 	/** Next designator */
 	uint64_t next;
+	/** Next record element */
+	struct cgen_rec_elem *next_elem;
 } cgen_init_t;
 
 #endif

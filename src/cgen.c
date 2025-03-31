@@ -19524,6 +19524,7 @@ static int cgen_init_create(cgen_init_t **rinit)
 
 	list_initialize(&init->inits);
 	init->next = 0;
+	init->next_elem = NULL;
 	*rinit = init;
 	return EOK;
 }
@@ -19616,15 +19617,18 @@ static void cgen_init_destroy(cgen_init_t *init)
 /** Insert new initializer.
  *
  * @param parent Parent initializer
- * @param dsg Designator
+ * @param etype Element type
+ * @param dsg Designator or zero
+ * @param relem Which record element this is
  * @param rinit Place to store pointer to new intializer
  * @return EOK on success or an error code
  */
-static int cgen_init_insert(cgen_init_t *parent, uint64_t dsg,
-    cgen_init_t **rinit)
+static int cgen_init_insert(cgen_init_t *parent, cgtype_t *etype, uint64_t dsg,
+    cgen_rec_elem_t *relem, cgen_init_t **rinit)
 {
 	cgen_init_t *init;
 	cgen_init_t *old;
+	cgtype_record_t *trecord;
 	int rc;
 
 	old = cgen_init_last(parent);
@@ -19632,6 +19636,9 @@ static int cgen_init_insert(cgen_init_t *parent, uint64_t dsg,
 		old = cgen_init_prev(old);
 
 	if (old != NULL && dsg == old->dsg) {
+		parent->next = dsg + 1;
+		if (relem != NULL)
+			parent->next_elem = cgen_record_next(relem);
 		*rinit = old;
 		return EOK;
 	}
@@ -19642,6 +19649,12 @@ static int cgen_init_insert(cgen_init_t *parent, uint64_t dsg,
 
 	init->dsg = dsg;
 	init->parent = parent;
+	if (etype->ntype == cgn_record) {
+		trecord = (cgtype_record_t *)etype->ext;
+		init->next_elem = cgen_record_first(trecord->record);
+	} else {
+		init->next_elem = NULL;
+	}
 
 	if (old != NULL)
 		list_insert_after(&init->linits, &old->linits);
@@ -19649,6 +19662,8 @@ static int cgen_init_insert(cgen_init_t *parent, uint64_t dsg,
 		list_prepend(&init->linits, &parent->inits);
 
 	parent->next = dsg + 1;
+	if (relem != NULL)
+		parent->next_elem = cgen_record_next(relem);
 	*rinit = init;
 	return EOK;
 }
@@ -19676,14 +19691,17 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 	cgen_rec_elem_t *relem;
 	int64_t dsg;
 	uint64_t udsg;
+	bool first;
 	int rc;
 
 	pinit = parent;
 	cgen_eres_init(&eres);
 
+	first = true;
 	acc = ast_cinit_elem_first(elem);
 	while (acc != NULL) {
 		tassign = (comp_tok_t *)elem->tassign.data;
+		relem = NULL;
 
 		switch (acc->atype) {
 		case aca_index:
@@ -19709,6 +19727,13 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
+			}
+			/*
+			 * The topmost designator needs to update the current
+			 * designator used for non-designated fields.
+			 */
+			if (first) {
+				parent->next = dsg;
 			}
 			cgtype = tarray->etype;
 			break;
@@ -19738,22 +19763,50 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			}
 			dsg = (int64_t)udsg;
 
+			/*
+			 * The topmost designator needs to update the current
+			 * record element used for non-designated fields.
+			 */
+			if (first)
+				parent->next_elem = relem;
+
 			cgtype = relem->cgtype;
 			break;
 		}
 
 		/* Find or create initializer. */
-		rc = cgen_init_insert(pinit, dsg, &init);
+		rc = cgen_init_insert(pinit, cgtype, dsg, relem, &init);
 		if (rc != EOK)
 			goto error;
 
+		first = false;
 		pinit = init;
 		acc = ast_cinit_elem_next(acc);
 	}
 
 	if (init == NULL) {
 		/* There were no designators. */
-		rc = cgen_init_insert(parent, parent->next, &init);
+
+		/*
+		 * Determine element type.
+		 */
+		if (cgtype->ntype == cgn_array) {
+			tarray = (cgtype_array_t *)cgtype->ext;
+			cgtype = tarray->etype;
+		} else {
+			assert(cgtype->ntype == cgn_record);
+
+			/*
+			 * If parent->next_elem == NULL, it is an excess
+			 * initializer, which will be caught later on.
+			 */
+			if (parent->next_elem != NULL)
+				cgtype = parent->next_elem->cgtype;
+		}
+
+		rc = cgen_init_insert(parent, cgtype, parent->next,
+		    parent->next_elem,
+		    &init);
 		if (rc != EOK)
 			goto error;
 
@@ -19971,15 +20024,9 @@ static int cgen_init_digest_array(cgen_t *cgen, cgen_init_t *parent,
 
 	init = cgen_init_first(parent);
 	for (i = 0; i < tarray->asize; i++) {
-		printf("i=%lu\n", i);
-		if (init != NULL)
-			printf("init->dsg=%lu\n", init->dsg);
 		while (init != NULL && init->dsg < i) {
-			printf("init->dsg=%lu, go to next\n", init->dsg);
 			init = cgen_init_next(init);
 		}
-		if (init != NULL)
-			printf("init->dsg=%lu\n", init->dsg);
 
 		if (init != NULL && init->dsg == i) {
 			/* Initialized field */
@@ -20017,15 +20064,9 @@ static int cgen_init_digest_record(cgen_t *cgen, cgen_init_t *parent,
 	i = 0;
 	elem = cgen_record_first(trecord->record);
 	while (elem != NULL) {
-		printf("i=%lu\n", i);
-		if (init != NULL)
-			printf("init->dsg=%lu\n", init->dsg);
 		while (init != NULL && init->dsg < i) {
-			printf("init->dsg=%lu, go to next\n", init->dsg);
 			init = cgen_init_next(init);
 		}
-		if (init != NULL)
-			printf("init->dsg=%lu\n", init->dsg);
 
 		if (init != NULL && init->dsg == i) {
 			/* Initialized field */
@@ -20060,11 +20101,6 @@ static int cgen_init_digest(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 	cgtype_array_t *tarray;
 	cgtype_record_t *trecord;
 	int rc;
-	int i;
-
-	for (i = 0; i < lvl; i++)
-		printf("  ");
-	printf("[%lu\n", parent->dsg);
 
 	if (cgtype->ntype == cgn_array) {
 		tarray = (cgtype_array_t *)cgtype->ext;
@@ -20078,12 +20114,7 @@ static int cgen_init_digest(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			return rc;
 	}
 
-	ir_dblock_print(parent->dblock, stdout);
 	ir_dblock_transfer_to_end(parent->dblock, dest);
-
-	for (i = 0; i < lvl; i++)
-		printf("  ");
-	printf("]\n");
 	return EOK;
 }
 
@@ -20144,6 +20175,22 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			rc = cgen_constexpr_val(cgen, init, itok, stype, &eres);
 			if (rc != EOK)
 				goto error;
+		}
+
+		/* Initializer already has valid data? */
+		if (ir_dblock_first(dblock) != NULL) {
+			atok = ast_tree_first_tok(init);
+			ctok = (comp_tok_t *)atok->data;
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Initializer field "
+			    "overwritten.\n");
+			++cgen->warnings;
+
+			/*
+			 * Empty the block so that it can be filled with
+			 * new data.
+			 */
+			ir_dblock_empty(dblock);
 		}
 
 		initval = eres.cvint;
@@ -20283,11 +20330,8 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 	int rc;
 
 	i = 0;
-	relem = cgen_record_first(trecord->record);
 	while (*elem != NULL) {
-		/* Ran out of record elements? */
-		if (relem == NULL)
-			return EOK;
+		relem = parent->next_elem;
 
 		rc = cgen_init_lookup(cgen, parent, &trecord->cgtype, *elem,
 		    &cgtype, &init);
@@ -20296,6 +20340,10 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 
 		/* No designators? */
 		if (cgtype == NULL) {
+			/* Ran out of record elements? */
+			if (relem == NULL) {
+				return EOK;
+			}
 			cgtype = relem->cgtype;
 			/*
 			 * Only the first union element can be initialized
@@ -20312,7 +20360,6 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 		if (rc != EOK)
 			goto error;
 		++i;
-		relem = cgen_record_next(relem);
 	}
 
 	return EOK;
@@ -20614,6 +20661,8 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 					goto error;
 			} else {
 				cgrec = (cgtype_record_t *)stype->ext;
+				parent->next_elem = cgen_record_first(
+				    cgrec->record);
 
 				rc = cgen_init_dentries_record(cgen, cgrec,
 				    itok, &celem, parent);

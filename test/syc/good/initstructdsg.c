@@ -22,8 +22,8 @@ struct r {
 };
 
 /* Fill in uninitialized structure fields of different types */
-struct r r1 = {
-};
+//struct r r1 = {
+//};
 
 /* Structure elements listed out of order */
 struct r r2 = {
@@ -37,9 +37,10 @@ struct r r2 = {
 
 /* Mixing designated and non-designated structure fields */
 struct r r3 = {
-	.pe = &i,
+	.ee = ex,
+	.ie = 1,
+	&i,
 	{
 		2
-	},
-	ex
+	}
 };

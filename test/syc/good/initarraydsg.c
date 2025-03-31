@@ -50,11 +50,9 @@ int i3[] = {
 
 int i3sz = sizeof(i3);
 
-/* Mixing designated and non-designated fields */
-int i4[6] = {
-	[3] = 3,
-	[4] = 4,
-	5,
-	[1] = 1,
-	2
+/* Designated fields update current index for non-deisgnated fields */
+int i4[3] = {
+	[2] = 2,
+	[0] = 0,
+	1
 };

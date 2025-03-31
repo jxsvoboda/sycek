@@ -539,6 +539,24 @@ void ir_dblock_transfer_to_end(ir_dblock_t *src, ir_dblock_t *dest)
 	}
 }
 
+/** Remove all entries from IR data block.
+ *
+ * @param dblock IR data block
+ */
+void ir_dblock_empty(ir_dblock_t *dblock)
+{
+	ir_dblock_entry_t *entry;
+
+	entry = ir_dblock_first(dblock);
+	while (entry != NULL) {
+		list_remove(&entry->lentries);
+		ir_dentry_destroy(entry->dentry);
+		free(entry);
+
+		entry = ir_dblock_first(dblock);
+	}
+}
+
 /** Print IR integer data entry.
  *
  * @param dentry IR integer data entry
@@ -607,20 +625,10 @@ int ir_dblock_print(ir_dblock_t *dblock, FILE *f)
  */
 void ir_dblock_destroy(ir_dblock_t *dblock)
 {
-	ir_dblock_entry_t *entry;
-
 	if (dblock == NULL)
 		return;
 
-	entry = ir_dblock_first(dblock);
-	while (entry != NULL) {
-		list_remove(&entry->lentries);
-		ir_dentry_destroy(entry->dentry);
-		free(entry);
-
-		entry = ir_dblock_first(dblock);
-	}
-
+	ir_dblock_empty(dblock);
 	free(dblock);
 }
 
