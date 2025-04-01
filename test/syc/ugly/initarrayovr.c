@@ -23,7 +23,7 @@ int a3[2] = {
 };
 
 /* Not fully bracketed field overwritten by designated field */
-/*TODOint a4[2][2] = {
+int a4[2][2] = {
 	1, 2, 3, 4,
 	[0][0] = 5
-};*/
+};

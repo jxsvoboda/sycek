@@ -32,7 +32,7 @@ struct s s3 = {
 };
 
 /* Not fully bracketed field overwritten by designated field */
-/*TODO struct t1 = {
+struct t t1 = {
 	1, 2, 3, 4,
 	.x.a = 5
-};*/
+};

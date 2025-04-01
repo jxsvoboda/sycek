@@ -19676,6 +19676,8 @@ static int cgen_init_insert(cgen_init_t *parent, cgtype_t *etype, uint64_t dsg,
  * @param elem Initializer element
  * @param rcgtype Place to store pointer to type of field
  * @param rinit Place to store pointer to new initializer
+ * @return EOK on success, EDOM if this initializer should be skipped hoping
+ *         to apply it in the parent scope, or other error code on error.
  */
 static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
     ast_cinit_elem_t *elem, cgtype_t **rcgtype, cgen_init_t **rinit)
@@ -19706,6 +19708,11 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 		switch (acc->atype) {
 		case aca_index:
 			if (cgtype->ntype != cgn_array) {
+				if (parent->parent != NULL) {
+					/* Try going one level up. */
+					rc = EDOM;
+					goto error;
+				}
 				lexer_dprint_tok(&tassign->tok, stderr);
 				fprintf(stderr, ": Array index in non-array "
 				    "initializer.\n");
@@ -19740,6 +19747,11 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 		case aca_member:
 			dsg = 0;
 			if (cgtype->ntype != cgn_record) {
+				if (parent->parent != NULL) {
+					/* Try going one level up. */
+					rc = EDOM;
+					goto error;
+				}
 				lexer_dprint_tok(&tassign->tok, stderr);
 				fprintf(stderr, ": Member access in non-record "
 				    "initializer.\n");
@@ -19752,6 +19764,11 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			relem = cgen_record_elem_find(trecord->record,
 			    ctok->tok.text, &udsg);
 			if (relem == NULL) {
+				if (parent->parent != NULL) {
+					/* Try going one level up. */
+					rc = EDOM;
+					goto error;
+				}
 				lexer_dprint_tok(&tassign->tok, stderr);
 				fprintf(stderr, ": Record type ");
 				(void)cgtype_print(cgtype, stderr);
@@ -20288,6 +20305,9 @@ static int cgen_init_dentries_array(cgen_t *cgen, cgtype_array_t *tarray,
 		dsg = parent->next;
 		rc = cgen_init_lookup(cgen, parent, &tarray->cgtype, *elem,
 		    &cgtype, &init);
+		/* EDOM means break and try this initializer in outer scope */
+		if (rc == EDOM)
+			return EOK;
 		if (rc != EOK)
 			goto error;
 
@@ -20335,6 +20355,9 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 
 		rc = cgen_init_lookup(cgen, parent, &trecord->cgtype, *elem,
 		    &cgtype, &init);
+		/* EDOM means break and try this initializer in outer scope */
+		if (rc == EDOM)
+			return EOK;
 		if (rc != EOK)
 			goto error;
 

@@ -1,3 +1,6 @@
 <test/syc/ugly/initstructovr.c:17:14:num:2>: Warning: Initializer field overwritten.
 <test/syc/ugly/initstructovr.c:24:9:num:2>: Warning: Initializer field overwritten.
 <test/syc/ugly/initstructovr.c:31:14:num:3>: Warning: Initializer field overwritten.
+<test/syc/ugly/initstructovr.c:36:9:num:1>: Warning: Initialization is not fully bracketed.
+<test/syc/ugly/initstructovr.c:36:15:num:3>: Warning: Initialization is not fully bracketed.
+<test/syc/ugly/initstructovr.c:37:16:num:5>: Warning: Initializer field overwritten.
