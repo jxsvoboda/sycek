@@ -416,6 +416,7 @@ It can detect the following types of problems and style issues:
  * array passed to function is too small
  * excess braces around scalar initializer
  * initialization is not fully bracketed
+ * initializer field overwritten
  * non-static <variable> was previously declared as static
  * extern <symbol> was previously declared as non-extern
  * non-extern <symbol> was previously declared as extern

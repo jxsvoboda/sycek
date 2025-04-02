@@ -1,9 +1,7 @@
 /*
  * Excess initializer (union initialization)
  *
- * In case of union only the first element is initialized. The
- * fact that we get an excess initializer warning for the second
- * initializer hints that this rule is probably observed.
+ * In case of union only the first element can be initialized
  */
 
 union u {

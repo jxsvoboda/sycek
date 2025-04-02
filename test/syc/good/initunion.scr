@@ -1,0 +1,7 @@
+mapfile "initunion.map";
+ldbin "initunion.bin", 0x8000;
+
+verify word ptr (@_u1), 1;
+
+verify byte ptr (@_v1), 1;
+verify byte ptr (@_v1 + 1), 0;

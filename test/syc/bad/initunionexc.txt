@@ -1,2 +1,2 @@
-<test/syc/bad/initunionexc.c:14:18:num:2>: Excess initializer.
+<test/syc/bad/initunionexc.c:12:18:num:2>: Excess initializer.
 '

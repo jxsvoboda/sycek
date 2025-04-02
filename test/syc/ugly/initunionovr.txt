@@ -1,0 +1,2 @@
+<test/syc/ugly/initunionovr.c:12:10:id:b>: Warning: Initializer field overwritten.
+<test/syc/ugly/initunionovr.c:27:10:id:b>: Warning: Initializer field overwritten.

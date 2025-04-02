@@ -7,4 +7,11 @@ union u {
 	char c;
 };
 
-union u a = { 1 };
+union u u1 = { 1 };
+
+union v {
+	char c;
+	int i;
+};
+
+union v v1 = { 1 };

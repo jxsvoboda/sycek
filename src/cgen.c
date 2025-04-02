@@ -2960,6 +2960,18 @@ static void cgen_warn_array_index_oob(cgen_t *cgen, comp_tok_t *tok)
 	++cgen->warnings;
 }
 
+/** Generate warning: array index is out of bounds.
+ *
+ * @param cgen Code generator
+ * @param tok Operator token
+ */
+static void cgen_warn_init_field_overwritten(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Initializer field overwritten.\n");
+	++cgen->warnings;
+}
+
 /** Generate code for record definition.
  *
  * @param cgen Code generator
@@ -19687,6 +19699,7 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 	comp_tok_t *ctok;
 	cgen_init_t *pinit;
 	cgen_init_t *init = NULL;
+	cgen_init_t *old_init;
 	cgen_eres_t eres;
 	cgtype_array_t *tarray;
 	cgtype_record_t *trecord;
@@ -19781,6 +19794,20 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			dsg = (int64_t)udsg;
 
 			/*
+			 * If it's a union and there is already some
+			 * initialized field.
+			 */
+			old_init = cgen_init_first(parent);
+			if (trecord->record->rtype == cgr_union &&
+			    old_init != NULL) {
+				ctok = (comp_tok_t *)acc->tmember.data;
+				cgen_warn_init_field_overwritten(cgen, ctok);
+
+				/* Remove previous initializer */
+				cgen_init_destroy(old_init);
+			}
+
+			/*
 			 * The topmost designator needs to update the current
 			 * record element used for non-designated fields.
 			 */
@@ -19836,6 +19863,39 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 	return EOK;
 error:
 	cgen_eres_fini(&eres);
+	return rc;
+}
+
+/** Generate zero-filled data block of specified size.
+ *
+ * @param cgen Code generator
+ * @param nbytes Number of bytes
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_uninit_zeros(cgen_t *cgen, size_t nbytes, ir_dblock_t *dest)
+{
+	ir_dentry_t *dentry = NULL;
+	size_t i;
+	int rc;
+
+	(void)cgen;
+
+	for (i = 0; i < nbytes; i++) {
+		rc = ir_dentry_create_int(8, 0, &dentry);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_dblock_append(dest, dentry);
+		if (rc != EOK)
+			goto error;
+
+		dentry = NULL;
+	}
+
+	return EOK;
+error:
+	ir_dentry_destroy(dentry);
 	return rc;
 }
 
@@ -20060,7 +20120,7 @@ static int cgen_init_digest_array(cgen_t *cgen, cgen_init_t *parent,
 	return EOK;
 }
 
-/** Generate data block for initialized record variable.
+/** Generate data block for initialized struct variable.
  *
  * @param cgen Code generator
  * @param parent Inititializer
@@ -20069,7 +20129,7 @@ static int cgen_init_digest_array(cgen_t *cgen, cgen_init_t *parent,
  * @param dest Destination data block
  * @return EOK on success or an error code
  */
-static int cgen_init_digest_record(cgen_t *cgen, cgen_init_t *parent,
+static int cgen_init_digest_struct(cgen_t *cgen, cgen_init_t *parent,
     cgtype_record_t *trecord, int lvl, ir_dblock_t *dest)
 {
 	cgen_init_t *init;
@@ -20103,6 +20163,68 @@ static int cgen_init_digest_record(cgen_t *cgen, cgen_init_t *parent,
 	return EOK;
 }
 
+/** Generate data block for initialized union variable.
+ *
+ * @param cgen Code generator
+ * @param parent Inititializer
+ * @param trecord Record type
+ * @param lvl Nesting level
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_init_digest_union(cgen_t *cgen, cgen_init_t *parent,
+    cgtype_record_t *trecord, int lvl, ir_dblock_t *dest)
+{
+	cgen_init_t *init;
+	cgen_rec_elem_t *elem;
+	size_t usize;
+	size_t esize;
+	uint64_t i;
+	int rc;
+
+	init = cgen_init_first(parent);
+	i = 0;
+	elem = cgen_record_first(trecord->record);
+	while (elem != NULL) {
+		while (init != NULL && init->dsg < i) {
+			init = cgen_init_next(init);
+		}
+
+		if (init != NULL && init->dsg == i) {
+			/* Initialized field */
+			cgen_init_digest(cgen, init, elem->cgtype, lvl + 1,
+			    dest);
+			break;
+		}
+
+		++i;
+		elem = cgen_record_next(elem);
+	}
+
+	if (init != NULL) {
+		/*
+		 * Pad the initialized field zith zeros to the size
+		 * of the union.
+		 */
+		esize = cgen_type_sizeof(cgen, elem->cgtype);
+		usize = cgen_record_size(cgen, trecord->record);
+
+		assert(usize >= esize);
+		rc = cgen_uninit_zeros(cgen, usize - esize, dest);
+		if (rc != EOK)
+			return rc;
+	} else {
+		/* Union is not initialized. Fill it with zeros. */
+		usize = cgen_record_size(cgen, trecord->record);
+		rc = cgen_uninit_zeros(cgen, usize, dest);
+		if (rc != EOK)
+			return rc;
+
+	}
+
+	return EOK;
+}
+
 /** Generate data block for initialized variable.
  *
  * @param cgen Code generator
@@ -20126,9 +20248,17 @@ static int cgen_init_digest(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			return rc;
 	} else if (cgtype->ntype == cgn_record) {
 		trecord = (cgtype_record_t *)cgtype->ext;
-		rc = cgen_init_digest_record(cgen, parent, trecord, lvl, dest);
-		if (rc != EOK)
-			return rc;
+		if (trecord->record->rtype == cgr_struct) {
+			rc = cgen_init_digest_struct(cgen, parent, trecord,
+			    lvl, dest);
+			if (rc != EOK)
+				return rc;
+		} else {
+			rc = cgen_init_digest_union(cgen, parent, trecord,
+			    lvl, dest);
+			if (rc != EOK)
+				return rc;
+		}
 	}
 
 	ir_dblock_transfer_to_end(parent->dblock, dest);
@@ -20198,10 +20328,7 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 		if (ir_dblock_first(dblock) != NULL) {
 			atok = ast_tree_first_tok(init);
 			ctok = (comp_tok_t *)atok->data;
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Initializer field "
-			    "overwritten.\n");
-			++cgen->warnings;
+			cgen_warn_init_field_overwritten(cgen, ctok);
 
 			/*
 			 * Empty the block so that it can be filled with
