@@ -1,0 +1,1 @@
+<test/syc/bad/unexpinit.c:6:10:'='>: Unexpected initializer.

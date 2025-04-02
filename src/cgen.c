@@ -21145,6 +21145,16 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 				if (rc != EOK)
 					goto error;
 			} else if (entry->decl->ntype == ant_dnoident) {
+				if (entry->have_init) {
+					tok = (comp_tok_t *)
+					    entry->tassign.data;
+					lexer_dprint_tok(&tok->tok, stderr);
+					fprintf(stderr, ": Unexpected "
+					    "initializer.\n");
+					cgen->error = true; // XXX
+					rc = EINVAL;
+					goto error;
+				}
 				if ((flags & cgrd_ident) == 0) {
 					atok = ast_tree_first_tok(&gdecln->dspecs->node);
 					cgen_warn_useless_type(cgen, atok);
