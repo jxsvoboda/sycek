@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -45,5 +45,6 @@ extern cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *,
     const char *);
 extern cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *,
     int);
+extern int cgen_enum_max_val(cgen_enum_t *);
 
 #endif

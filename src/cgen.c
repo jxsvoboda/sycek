@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -181,8 +181,10 @@ static int cgen_process_global_decln(void *arg, parser_t *parser,
 		return rc;
 
 	rc = cgen_global_decln(cgen, decln);
-	if (rc != EOK)
+	if (rc != EOK) {
+		ast_tree_destroy(decln);
 		return rc;
+	}
 
 	*rnode = decln;
 	return EOK;
@@ -794,29 +796,29 @@ static bool cgen_enum_types_are_compatible(cgen_t *cgen, cgtype_t *atype,
 static unsigned cgen_record_size(cgen_t *cgen, cgen_record_t *record)
 {
 	unsigned sz;
-	unsigned esz;
-	cgen_rec_elem_t *e;
+	unsigned susz;
+	cgen_rec_stor_t *su;
 
 	sz = 0;
 
 	if (record->rtype == cgr_struct) {
-		/* Sum up sizes of all elements */
-		e = cgen_record_first(record);
-		while (e != NULL) {
-			sz += cgen_type_sizeof(cgen, e->cgtype);
-			e = cgen_record_next(e);
+		/* Sum up sizes of all storage units */
+		su = cgen_record_first_stor(record);
+		while (su != NULL) {
+			sz += cgen_type_sizeof(cgen, su->cgtype);
+			su = cgen_record_next_stor(su);
 		}
 	} else {
 		assert(record->rtype == cgr_union);
 
-		/* Size is the maximum of element sizes */
-		e = cgen_record_first(record);
-		while (e != NULL) {
-			esz = cgen_type_sizeof(cgen, e->cgtype);
-			if (esz > sz)
-				sz = esz;
+		/* Size is the maximum of storage unit sizes */
+		su = cgen_record_first_stor(record);
+		while (su != NULL) {
+			susz = cgen_type_sizeof(cgen, su->cgtype);
+			if (susz > sz)
+				sz = susz;
 
-			e = cgen_record_next(e);
+			su = cgen_record_next_stor(su);
 		}
 	}
 
@@ -870,18 +872,18 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 {
 	unsigned off;
-	cgen_rec_elem_t *e;
+	cgen_rec_stor_t *su;
 
 	/* In a union all elements start at zero offset */
 	if (elem->record->rtype == cgr_union)
 		return 0;
 
-	/* Sum up sizes of all preceding elements */
+	/* Sum up sizes of all preceding storage units */
 	off = 0;
-	e = cgen_record_first(elem->record);
-	while (e != elem) {
-		off += cgen_type_sizeof(cgen, e->cgtype);
-		e = cgen_record_next(e);
+	su = cgen_record_first_stor(elem->record);
+	while (su != elem->stor) {
+		off += cgen_type_sizeof(cgen, su->cgtype);
+		su = cgen_record_next_stor(su);
 	}
 
 	return off;
@@ -2636,6 +2638,21 @@ static void cgen_warn_bitop_enum_mix(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: bitfield width is an enum.
+ *
+ * @param cgen Code generator
+ * @param atok Operator token
+ */
+static void cgen_warn_bitfield_width_enum(cgen_t *cgen, ast_tok_t *atok)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) atok->data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Bitfield width is an enum.\n'");
+	++cgen->warnings;
+}
+
 /** Generate warning: suspicious arithmetic operation involving truth values.
  *
  * @param cgen Code generator
@@ -2981,41 +2998,29 @@ static void cgen_warn_init_field_overwritten(cgen_t *cgen, comp_tok_t *tok)
 static int cgen_record(cgen_t *cgen, cgen_record_t *record)
 {
 	ir_texpr_t *irtype = NULL;
-	cgen_rec_elem_t *elem;
-	char *irident = NULL;
+	cgen_rec_stor_t *su;
 	int rc;
-	int rv;
 
-	elem = cgen_record_first(record);
-	while (elem != NULL) {
-		rc = cgen_cgtype(cgen, elem->cgtype, &irtype);
+	su = cgen_record_first_stor(record);
+	while (su != NULL) {
+		rc = cgen_cgtype(cgen, su->cgtype, &irtype);
 		if (rc != EOK)
 			goto error;
 
-		rv = asprintf(&irident, "@%s", elem->ident);
-		if (rv < 0) {
-			rc = ENOMEM;
-			goto error;
-		}
-
-		rc = ir_record_append(record->irrecord, irident,
+		rc = ir_record_append(record->irrecord, su->irident,
 		    irtype, NULL);
 		if (rc != EOK)
 			goto error;
 
-		free(irident);
-		irident = NULL;
 		ir_texpr_destroy(irtype);
 		irtype = NULL;
 
-		elem = cgen_record_next(elem);
+		su = cgen_record_next_stor(su);
 	}
 
 	return EOK;
 error:
 	ir_texpr_destroy(irtype);
-	if (irident != NULL)
-		free(irident);
 	return rc;
 }
 
@@ -3074,56 +3079,228 @@ static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
 	return cgen_tident(cgen, &tsident->tident, rstype);
 }
 
+static int cgen_tsrecord_emit_stor(cgen_rec_t *cgrec, cgen_record_t *record)
+{
+	cgen_rec_stor_t *stor;
+	cgen_rec_elem_t *cgelem;
+	char *irident;
+	int rc;
+	int rv;
+
+	if (!cgrec->is_bitfield)
+		return EOK;
+
+	cgrec->is_bitfield = false;
+	cgrec->bf_pos = 0;
+
+	rv = asprintf(&irident, "@@Bf%u", cgrec->bf_su_cnt++);
+	if (rv < 0)
+		return ENOMEM;
+
+	rc = cgen_record_append_stor(record, cgrec->su_cgtype, irident, &stor);
+	if (rc != EOK) {
+		free(irident);
+		return rc;
+	}
+
+	free(irident);
+
+	/*
+	 * Patch all elements without storage unit to this one.
+	 */
+	cgelem = cgen_record_last_elem(record);
+	while (cgelem != NULL && cgelem->stor == NULL) {
+		cgelem->stor = stor;
+		cgelem = cgen_record_prev_elem(cgelem);
+	}
+
+	cgtype_destroy(cgrec->su_cgtype);
+	cgrec->su_cgtype = NULL;
+	return EOK;
+}
+
+static int cgen_tsrecord_update_su_type(cgen_rec_t *cgrec, cgtype_t *cgtype,
+    comp_tok_t *ident)
+{
+	int rc;
+	cgtype_int_rank_t cur_rank;
+	cgtype_int_rank_t new_rank;
+
+	if (!cgen_type_is_integral(cgrec->cgen, cgtype)) {
+		lexer_dprint_tok(&ident->tok, stderr);
+		fprintf(stderr, ": Bitfield has incorrect type.\n");
+		cgrec->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (cgrec->su_cgtype == NULL) {
+		/*
+		 * We don't care about the signedness of the type,
+		 * just the size. (Signedness has no effect on IR).
+		 */
+		rc = cgtype_clone(cgtype, &cgrec->su_cgtype);
+		if (rc != EOK)
+			goto error;
+	} else {
+		cur_rank = cgtype_int_rank(cgrec->su_cgtype);
+		new_rank = cgtype_int_rank(cgtype);
+
+		/* New type is larger. Change storage unit type. */
+		if (new_rank > cur_rank) {
+			cgtype_destroy(cgrec->su_cgtype);
+			cgrec->su_cgtype = NULL;
+
+			rc = cgtype_clone(cgtype, &cgrec->su_cgtype);
+			if (rc != EOK)
+				goto error;
+		}
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate code for record type specifier element.
  *
  * In outher words, one field of a struct or union definition.
  *
- * @param cgen Code generator
+ * @param cgrec Code generator for record
  * @param elem Record type specifier element
  * @param record Record definition
  * @return EOK on success or an error code
  */
-static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
+static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
     cgen_record_t *record)
 {
+	cgen_t *cgen = cgrec->cgen;
 	ast_dlist_entry_t *dlentry;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	ast_tok_t *aident;
 	comp_tok_t *ident;
+	ast_tok_t *tok;
 	comp_tok_t *ctok;
 	ir_texpr_t *irtype = NULL;
-	char *irident;
+	cgen_eres_t bwres, bwires;
+	unsigned su_bits;
+	unsigned bitwidth;
+	char *irident = NULL;
+	cgtype_enum_t *cgenum;
+	int enum_max;
+	bool converted;
 	int rc;
 	int rv;
 
 	/* When compiling we should not get a macro declaration */
 	assert(elem->mdecln == NULL);
 
-	rc = cgen_sqlist(cgen, elem->sqlist, &stype);
+	cgen_eres_init(&bwres);
+	cgen_eres_init(&bwires);
+
+	rc = cgen_sqlist(cgrec->cgen, elem->sqlist, &stype);
 	if (rc != EOK)
 		goto error;
 
 	dlentry = ast_dlist_first(elem->dlist);
 	while (dlentry != NULL) {
-		rc = cgen_decl(cgen, stype, dlentry->decl,
-		    dlentry->aslist, &dtype);
+		rc = cgen_decl(cgen, stype, dlentry->decl, dlentry->aslist,
+		    &dtype);
 		if (rc != EOK)
 			goto error;
 
 		aident = ast_decl_get_ident(dlentry->decl);
+		if (aident == NULL) {
+			rc = cgen_tsrecord_emit_stor(cgrec, record);
+			if (rc != EOK)
+				goto error;
+
+			goto skip;
+		}
+
 		ident = (comp_tok_t *) aident->data;
 
 		if (dlentry->have_bitwidth) {
-			ctok = (comp_tok_t *)dlentry->tcolon.data;
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Unimplemented bit field.\n");
-			cgen->error = true; // TODO
-			rc = EINVAL;
+			/* Bitfield width specified */
+			rc = cgen_intexpr_val(cgen, dlentry->bitwidth,
+			    &bwres);
+			if (rc != EOK)
+				goto error;
+
+			/* Truth value should not be used */
+			if (cgen_type_is_logic(cgen, bwres.cgtype)) {
+				tok = ast_tree_first_tok(dlentry->bitwidth);
+				ctok = (comp_tok_t *)tok->data;
+				cgen_warn_truth_as_int(cgen, ctok);
+			}
+
+			/* Strict enum should not be used */
+			rc = cgen_enum2int(cgen, &bwres, &bwires, &converted);
+			if (rc != EOK)
+				goto error;
+
+			if (converted) {
+				tok = ast_tree_first_tok(dlentry->bitwidth);
+				cgen_warn_bitfield_width_enum(cgen, tok);
+			}
+			bitwidth = bwres.cvint;
+		} else {
+			bitwidth = 0;
+		}
+
+		if (bitwidth > 0) {
+			cgrec->is_bitfield = true;
+			rc = cgen_tsrecord_update_su_type(cgrec, dtype,
+			    ident);
+			if (rc != EOK)
+				goto error;
+		}
+
+		/*
+		 * Not a bitfield or field does not fith within current
+		 * storage unit.
+		 */
+		if (bitwidth > 0) {
+			su_bits = 8 * cgen_type_sizeof(cgen, cgrec->su_cgtype);
+			if (bitwidth > su_bits) {
+				lexer_dprint_tok(&ident->tok, stderr);
+				fprintf(stderr, ": Bitfield '%s' is wider than "
+				    "its type.\n", ident->tok.text);
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+			if (dtype->ntype == cgn_enum) {
+				cgenum = (cgtype_enum_t *)dtype->ext;
+				enum_max = cgen_enum_max_val(cgenum->cgenum);
+				if (1 << bitwidth <= enum_max) {
+					lexer_dprint_tok(&ident->tok, stderr);
+					fprintf(stderr, ": Warning: Bitfield "
+					    "'%s' is narrower than the values "
+					    "of its type.\n", ident->tok.text);
+					++cgen->warnings;
+				}
+			}
+			if (cgrec->bf_pos + bitwidth > su_bits) {
+				rc = cgen_tsrecord_emit_stor(cgrec, record);
+				if (rc != EOK)
+					goto error;
+			}
+		} else {
+			rc = cgen_tsrecord_emit_stor(cgrec, record);
+			if (rc != EOK)
+				goto error;
+		}
+
+		rv = asprintf(&irident, "@%s", ident->tok.text);
+		if (rv < 0) {
+			rc = ENOMEM;
 			goto error;
 		}
 
-		rc = cgen_record_append(record, ident->tok.text, dtype);
+		rc = cgen_record_append(record, ident->tok.text,
+		    bitwidth, cgrec->bf_pos, dtype, irident);
 		if (rc == EEXIST) {
 			lexer_dprint_tok(&ident->tok, stderr);
 			fprintf(stderr, ": Duplicate record member '%s'.\n",
@@ -3134,6 +3311,14 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 		}
 		if (rc != EOK)
 			goto error;
+
+		free(irident);
+		irident = NULL;
+
+		if (bitwidth > 0) {
+			cgrec->bf_pos += bitwidth;
+			cgrec->is_bitfield = true;
+		}
 
 		/* Check for function type */
 		if (dtype->ntype == cgn_func) {
@@ -3157,17 +3342,10 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 		if (rc != EOK)
 			goto error;
 
-		rv = asprintf(&irident, "@%s", ident->tok.text);
-		if (rv < 0) {
-			rc = ENOMEM;
-			goto error;
-		}
-
-		free(irident);
-		irident = NULL;
 		ir_texpr_destroy(irtype);
 		irtype = NULL;
 
+	skip:
 		cgtype_destroy(dtype);
 		dtype = NULL;
 
@@ -3175,11 +3353,17 @@ static int cgen_tsrecord_elem(cgen_t *cgen, ast_tsrecord_elem_t *elem,
 	}
 
 	cgtype_destroy(stype);
+	cgen_eres_fini(&bwres);
+	cgen_eres_fini(&bwires);
 	return EOK;
 error:
+	if (irident != NULL)
+		free(irident);
 	ir_texpr_destroy(irtype);
 	cgtype_destroy(stype);
 	cgtype_destroy(dtype);
+	cgen_eres_fini(&bwres);
+	cgen_eres_fini(&bwires);
 	return rc;
 }
 
@@ -3201,6 +3385,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	ast_tok_t *tok;
 	comp_tok_t *ctok;
 	cgtype_record_t *rectype;
+	cgen_rec_t cgrec;
 	const char *rtype;
 	ir_record_type_t irrtype;
 	scope_rec_type_t srtype;
@@ -3216,6 +3401,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	int rv;
 
 	flags = cgrd_none;
+	cgrec.su_cgtype = NULL;
 
 	if (tsrecord->rtype == ar_struct) {
 		rtype = "struct";
@@ -3236,7 +3422,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		fprintf(stderr, ": Unimplemented attribute specifier "
 		    "in this context.\n");
 		cgen->error = true; // TODO
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	if (tsrecord->have_ident) {
@@ -3290,7 +3477,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		fprintf(stderr, ": Redefinition of '%s' as a different kind of tag.\n",
 		    member->tident->text);
 		cgen->error = true; // TODO
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	/* Look for a usable previous declaration */
@@ -3309,7 +3497,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 			fprintf(stderr, ": Redefinition of '%s'.\n",
 			    member->tident->text);
 			cgen->error = true; // TODO
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
 	}
 
@@ -3320,7 +3509,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		fprintf(stderr, ": Unimplemented attribute specifier "
 		    "in this context.\n");
 		cgen->error = true; // TODO
-		return EINVAL;
+		rc = EINVAL;
+		goto error;
 	}
 
 	if (dmember != NULL) {
@@ -3339,8 +3529,10 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		if (tsrecord->have_ident) {
 			/* Construct IR identifier */
 			rv = asprintf(&irident, "@@%s", ident);
-			if (rv < 0)
-				return ENOMEM;
+			if (rv < 0) {
+				rc = ENOMEM;
+				goto error;
+			}
 
 			/*
 			 * Since multiple structs/unions with the same name could
@@ -3360,16 +3552,20 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 				/* Construct IR identifier with number */
 				++seqno;
 				rv = asprintf(&irident, "@@%s.%d", ident, seqno);
-				if (rv < 0)
-					return ENOMEM;
+				if (rv < 0) {
+					rc = ENOMEM;
+					goto error;
+				}
 
 				rc = ir_module_find(cgen->irmod, irident, &decln);
 			}
 		} else {
 			++cgen->anon_tag_cnt;
 			rv = asprintf(&irident, "@@%d", cgen->anon_tag_cnt);
-			if (rv < 0)
-				return ENOMEM;
+			if (rv < 0) {
+				rc = ENOMEM;
+				goto error;
+			}
 		}
 
 		/* Create new record definition */
@@ -3378,7 +3574,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		    &record);
 		if (rc != EOK) {
 			free(irident);
-			return rc;
+			goto error;
 		}
 
 		free(irident);
@@ -3391,8 +3587,10 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 			/* Insert new record scope member */
 			rc = scope_insert_record(cgen->cur_scope, &ident_tok->tok,
 			    srtype, record, &dmember);
-			if (rc != EOK)
-				return EINVAL;
+			if (rc != EOK) {
+				rc = EINVAL;
+				goto error;
+			}
 		}
 	}
 
@@ -3403,27 +3601,41 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 			fprintf(stderr, ": Nested redefinition of '%s'.\n",
 			    record->cident);
 			cgen->error = true; // TODO
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
 		record->defining = true;
 	}
 
+	cgrec.cgen = cgen;
+	cgrec.is_bitfield = false;
+	cgrec.bf_pos = 0;
+	cgrec.bf_su_cnt = 0;
+
+	/* cgrec.su_cgtype can be set by cgen_tsrecord_elem() */
+
 	++cgen->tsrec_cnt;
 	elem = ast_tsrecord_first(tsrecord);
 	while (elem != NULL) {
-		rc = cgen_tsrecord_elem(cgen, elem, record);
+		rc = cgen_tsrecord_elem(&cgrec, elem, record);
 		if (rc != EOK)  {
 			assert(cgen->tsrec_cnt > 0);
 			--cgen->tsrec_cnt;
 			if (tsrecord->have_def)
 				record->defining = false;
-			return EINVAL;
+			rc = EINVAL;
+			goto error;
 		}
 
 		elem = ast_tsrecord_next(elem);
 	}
 	assert(cgen->tsrec_cnt > 0);
 	--cgen->tsrec_cnt;
+
+	/* Emit any unfinished bitfield storage unit. */
+	rc = cgen_tsrecord_emit_stor(&cgrec, record);
+	if (rc != EOK)
+		goto error;
 
 	if (tsrecord->have_def)
 		record->defining = false;
@@ -3432,13 +3644,13 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		/* Create IR definition */
 		rc = ir_record_create(record->irident, irrtype, &irrecord);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		record->irrecord = irrecord;
 
 		rc = cgen_record(cgen, record);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		ir_module_append(cgen->irmod, &irrecord->decln);
 	}
@@ -3446,16 +3658,23 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	/* Record type */
 	rc = cgtype_record_create(record, &rectype);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
 	if (tsrecord->have_ident)
 		flags |= cgrd_ident;
 	if (tsrecord->have_def)
 		flags |= cgrd_def;
 
+	if (cgrec.su_cgtype != NULL)
+		cgtype_destroy(cgrec.su_cgtype);
+
 	*rflags = flags;
 	*rstype = &rectype->cgtype;
 	return EOK;
+error:
+	if (cgrec.su_cgtype != NULL)
+		cgtype_destroy(cgrec.su_cgtype);
+	return rc;
 }
 
 /** Generate code for enum type specifier element.
@@ -19650,7 +19869,7 @@ static int cgen_init_insert(cgen_init_t *parent, cgtype_t *etype, uint64_t dsg,
 	if (old != NULL && dsg == old->dsg) {
 		parent->next = dsg + 1;
 		if (relem != NULL)
-			parent->next_elem = cgen_record_next(relem);
+			parent->next_elem = cgen_record_next_elem(relem);
 		*rinit = old;
 		return EOK;
 	}
@@ -19663,7 +19882,7 @@ static int cgen_init_insert(cgen_init_t *parent, cgtype_t *etype, uint64_t dsg,
 	init->parent = parent;
 	if (etype->ntype == cgn_record) {
 		trecord = (cgtype_record_t *)etype->ext;
-		init->next_elem = cgen_record_first(trecord->record);
+		init->next_elem = cgen_record_first_elem(trecord->record);
 	} else {
 		init->next_elem = NULL;
 	}
@@ -19675,7 +19894,7 @@ static int cgen_init_insert(cgen_init_t *parent, cgtype_t *etype, uint64_t dsg,
 
 	parent->next = dsg + 1;
 	if (relem != NULL)
-		parent->next_elem = cgen_record_next(relem);
+		parent->next_elem = cgen_record_next_elem(relem);
 	*rinit = init;
 	return EOK;
 }
@@ -19739,6 +19958,9 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 				goto error;
 			assert(eres.cvknown);
 			dsg = eres.cvint;
+			/* eres may be reused, so need to clean it up. */
+			cgen_eres_fini(&eres);
+			cgen_eres_init(&eres);
 			if (dsg < 0 || (tarray->have_size &&
 			    dsg >= (int64_t)tarray->asize)) {
 				lexer_dprint_tok(&tassign->tok, stderr);
@@ -19932,16 +20154,16 @@ static int cgen_uninit_digest_array(cgen_t *cgen, cgtype_array_t *tarray,
 static int cgen_uninit_digest_record(cgen_t *cgen, cgtype_record_t *trecord,
     ir_dblock_t *dest)
 {
-	cgen_rec_elem_t *elem;
+	cgen_rec_stor_t *su;
 	int rc;
 
-	elem = cgen_record_first(trecord->record);
-	while (elem != NULL) {
-		rc = cgen_uninit_digest(cgen, elem->cgtype, dest);
+	su = cgen_record_first_stor(trecord->record);
+	while (su != NULL) {
+		rc = cgen_uninit_digest(cgen, su->cgtype, dest);
 		if (rc != EOK)
 			return rc;
 
-		elem = cgen_record_next(elem);
+		su = cgen_record_next_stor(su);
 	}
 
 	return EOK;
@@ -20139,7 +20361,7 @@ static int cgen_init_digest_struct(cgen_t *cgen, cgen_init_t *parent,
 
 	init = cgen_init_first(parent);
 	i = 0;
-	elem = cgen_record_first(trecord->record);
+	elem = cgen_record_first_elem(trecord->record);
 	while (elem != NULL) {
 		while (init != NULL && init->dsg < i) {
 			init = cgen_init_next(init);
@@ -20157,7 +20379,7 @@ static int cgen_init_digest_struct(cgen_t *cgen, cgen_init_t *parent,
 		}
 
 		++i;
-		elem = cgen_record_next(elem);
+		elem = cgen_record_next_elem(elem);
 	}
 
 	return EOK;
@@ -20184,7 +20406,7 @@ static int cgen_init_digest_union(cgen_t *cgen, cgen_init_t *parent,
 
 	init = cgen_init_first(parent);
 	i = 0;
-	elem = cgen_record_first(trecord->record);
+	elem = cgen_record_first_elem(trecord->record);
 	while (elem != NULL) {
 		while (init != NULL && init->dsg < i) {
 			init = cgen_init_next(init);
@@ -20198,7 +20420,7 @@ static int cgen_init_digest_union(cgen_t *cgen, cgen_init_t *parent,
 		}
 
 		++i;
-		elem = cgen_record_next(elem);
+		elem = cgen_record_next_elem(elem);
 	}
 
 	if (init != NULL) {
@@ -20500,7 +20722,7 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 			 * without a designator.
 			 */
 			if (trecord->record->rtype == cgr_union &&
-			    relem != cgen_record_first(trecord->record)) {
+			    relem != cgen_record_first_elem(trecord->record)) {
 				return EOK;
 			}
 		}
@@ -20811,7 +21033,7 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 					goto error;
 			} else {
 				cgrec = (cgtype_record_t *)stype->ext;
-				parent->next_elem = cgen_record_first(
+				parent->next_elem = cgen_record_first_elem(
 				    cgrec->record);
 
 				rc = cgen_init_dentries_record(cgen, cgrec,

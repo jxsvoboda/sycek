@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,18 @@ typedef enum {
 	cgr_union
 } cgen_rec_type_t;
 
+/** Record bitfield storage unit */
+typedef struct cgen_rec_stor {
+	/** Containing record definition */
+	struct cgen_record *record;
+	/** Link to @c record->stors */
+	link_t lstors;
+	/** IR identifier */
+	char *irident;
+	/** Storage unit type */
+	struct cgtype *cgtype;
+} cgen_rec_stor_t;
+
 /** Record element */
 typedef struct cgen_rec_elem {
 	/** Containing record definition */
@@ -46,6 +58,12 @@ typedef struct cgen_rec_elem {
 	link_t lelems;
 	/** Member identifier */
 	char *ident;
+	/** Storage unit */
+	cgen_rec_stor_t *stor;
+	/** Bit width (bit field) or zero (not a bitfield) */
+	unsigned width;
+	/** Bit position within storage unit (bit field) */
+	unsigned bitpos;
 	/** Member type */
 	struct cgtype *cgtype;
 } cgen_rec_elem_t;
@@ -68,6 +86,8 @@ typedef struct cgen_record {
 	bool defining;
 	/** Record elements (of cgen_rec_elem_t) */
 	list_t elems;
+	/** Record storage units (of cgen_rec_stor_t) */
+	list_t stors;
 } cgen_record_t;
 
 /** Record definitions */

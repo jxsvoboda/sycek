@@ -1,0 +1,1 @@
+<test/syc/bad/bitfieldwidth.c:6:14-16:id:bf1>: Bitfield 'bf1' is wider than its type.

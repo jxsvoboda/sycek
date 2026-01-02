@@ -1,0 +1,2 @@
+<test/syc/ugly/bitfieldwenum.c:10:18-19:id:e1>: Warning: Bitfield width is an enum.
+'

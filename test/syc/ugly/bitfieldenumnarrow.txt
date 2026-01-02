@@ -1,0 +1,1 @@
+<test/syc/ugly/bitfieldenumnarrow.c:12:16-18:id:ebf>: Warning: Bitfield 'ebf' is narrower than the values of its type.

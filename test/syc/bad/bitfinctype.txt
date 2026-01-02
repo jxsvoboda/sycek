@@ -1,0 +1,1 @@
+<test/syc/bad/bitfinctype.c:6:14:id:a>: Bitfield has incorrect type.

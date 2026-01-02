@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -40,11 +40,17 @@ extern cgen_record_t *cgen_records_find(cgen_records_t *, const char *);
 extern cgen_record_t *cgen_records_first(cgen_records_t *);
 extern cgen_record_t *cgen_records_next(cgen_record_t *);
 extern void cgen_record_destroy(cgen_record_t *);
-extern int cgen_record_append(cgen_record_t *, const char *,
-    cgtype_t *);
-extern cgen_rec_elem_t *cgen_record_first(cgen_record_t *);
-extern cgen_rec_elem_t *cgen_record_next(cgen_rec_elem_t *);
+extern int cgen_record_append(cgen_record_t *, const char *, unsigned,
+    unsigned, cgtype_t *, const char *);
+extern int cgen_record_append_stor(cgen_record_t *, cgtype_t *, const char *,
+    cgen_rec_stor_t **);
+extern cgen_rec_elem_t *cgen_record_first_elem(cgen_record_t *);
+extern cgen_rec_elem_t *cgen_record_next_elem(cgen_rec_elem_t *);
+extern cgen_rec_elem_t *cgen_record_last_elem(cgen_record_t *);
+extern cgen_rec_elem_t *cgen_record_prev_elem(cgen_rec_elem_t *);
 extern cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *,
     const char *, uint64_t *);
+extern cgen_rec_stor_t *cgen_record_first_stor(cgen_record_t *);
+extern cgen_rec_stor_t *cgen_record_next_stor(cgen_rec_stor_t *);
 
 #endif

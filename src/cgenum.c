@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -263,6 +263,27 @@ cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *cgenum, int val)
 	}
 
 	return NULL;
+}
+
+/** Get the maximum value of any enum element.
+ *
+ * @param cgenum Enum definition
+ */
+int cgen_enum_max_val(cgen_enum_t *cgenum)
+{
+	cgen_enum_elem_t *elem;
+	int max;
+
+	max = 0;
+	elem = cgen_enum_first(cgenum);
+	while (elem != NULL) {
+		if (elem->value > max)
+			max = elem->value;
+
+		elem = cgen_enum_next(elem);
+	}
+
+	return max;
 }
 
 /** Return first enum element.

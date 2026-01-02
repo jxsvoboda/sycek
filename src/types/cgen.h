@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -119,6 +119,20 @@ typedef struct cgen_proc {
 	/** Identifier of last fixed argument */
 	char *last_arg;
 } cgen_proc_t;
+
+/** Code generator for record */
+typedef struct cgen_rec {
+	/** Containing code generator */
+	cgen_t *cgen;
+	/** Currently constructing a bit field */
+	bool is_bitfield;
+	/** Current bit field position */
+	unsigned bf_pos;
+	/** Storage unit type */
+	cgtype_t *su_cgtype;
+	/** Bitfield storage unit counter */
+	unsigned bf_su_cnt;
+} cgen_rec_t;
 
 /** Code generator for declaration specifies / specifier-qualifier list.
  *
