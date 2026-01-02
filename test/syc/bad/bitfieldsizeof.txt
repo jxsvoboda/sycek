@@ -1,0 +1,1 @@
+<test/syc/bad/bitfieldsizeof.c:13:28:'('>: Sizeof operator applied to bitfield.

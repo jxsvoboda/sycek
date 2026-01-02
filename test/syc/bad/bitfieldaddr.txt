@@ -1,0 +1,1 @@
+<test/syc/bad/bitfieldaddr.c:10:11:'&'>: Cannot take address of bitfield.

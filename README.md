@@ -388,6 +388,7 @@ It can detect the following types of problems and style issues:
  * comparison of different enum types
  * comparison of enum and non-enum type
  * bitfield width is an enum
+ * bitfield is narrower than the values of its type
  * converting to pointer from integer of different size
  * pointer should be the left operand while indexing
  * type definition in a non-global scope

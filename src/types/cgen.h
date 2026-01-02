@@ -163,9 +163,9 @@ typedef struct {
  * The type of value resulting from an expression.
  */
 typedef enum {
-	/** Lvalue (address) */
-	cgen_rvalue,
 	/** Rvalue (value) */
+	cgen_rvalue,
+	/** Lvalue (address) */
 	cgen_lvalue
 } cgen_valtype_t;
 
@@ -184,6 +184,10 @@ typedef struct {
 	 * for lvalue it contains the address of a memory location.
 	 */
 	cgen_valtype_t valtype;
+	/** Bitfield width or zero if not a bitfield (only for lvalue). */
+	uint8_t bitwidth;
+	/** Bitfield position */
+	uint8_t bitpos;
 	/** C type */
 	struct cgtype *cgtype;
 	/** Value used.

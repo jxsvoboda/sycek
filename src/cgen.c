@@ -1690,6 +1690,8 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	ir_proc_t *irproc = NULL;
 	cgen_proc_t *cgproc = NULL;
 	cgen_proc_t *old_cgproc;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
 	int rc;
 
 	old_cgproc = cgen->cur_cgproc;
@@ -1723,6 +1725,16 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	rc = cgen_expr(&cgexpr, expr, irproc->lblock, &eres);
 	if (rc != EOK)
 		goto error;
+
+	if (eres.bitwidth > 0) {
+		atok = ast_tree_first_tok(expr);
+		ctok = (comp_tok_t *)atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Sizeof operator applied to bitfield.\n");
+		cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
 
 	cgen->cur_cgproc = old_cgproc;
 	cgen_proc_destroy(cgproc);
@@ -12465,6 +12477,15 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
 		++cgexpr->cgen->warnings;
 	}
 
+	if (bres.bitwidth > 0) {
+		ctok = (comp_tok_t *)eaddr->tamper.data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Cannot take address of bitfield.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Construct the type */
 	rc = cgtype_pointer_create(bres.cgtype, &ptrtype);
 	if (rc != EOK)
@@ -13039,10 +13060,8 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
 	unsigned mbroff;
-	char *irident = NULL;
 	ir_texpr_t *recte = NULL;
 	int rc;
-	int rv;
 
 	cgen_eres_init(&bres);
 
@@ -13078,12 +13097,6 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 		goto error;
 	}
 
-	rv = asprintf(&irident, "@%s", mtok->tok.text);
-	if (rv < 0) {
-		rc = ENOMEM;
-		goto error;
-	}
-
 	/* Generate IR type expression for the record type */
 	rc = cgen_cgtype(cgexpr->cgen, btype, &recte);
 	if (rc != EOK)
@@ -13101,7 +13114,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(irident, &rarg);
+	rc = ir_oper_var_create(elem->stor->irident, &rarg);
 	if (rc != EOK)
 		goto error;
 
@@ -13121,6 +13134,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_lvalue;
+	eres->bitwidth = elem->width;
 	eres->cgtype = mtype;
 	eres->valused = true;
 
@@ -13135,11 +13149,8 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	}
 
 	cgen_eres_fini(&bres);
-	free(irident);
 	return EOK;
 error:
-	if (irident != NULL)
-		free(irident);
 	ir_texpr_destroy(recte);
 	ir_instr_destroy(instr);
 	if (dest != NULL)
@@ -13271,6 +13282,7 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 
 	eres->varname = dest->varname;
 	eres->valtype = cgen_lvalue;
+	eres->bitwidth = elem->width;
 	eres->cgtype = mtype;
 	eres->valused = true;
 
@@ -17921,9 +17933,6 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	vtype = NULL; /* ownership transferred */
 	ir_proc_append_lvar(cgproc->irproc, lvar);
 
-	cgtype_destroy(dtype);
-	dtype = NULL;
-
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&ires);
 	cgen_eres_fini(&lres);
@@ -17932,7 +17941,6 @@ error:
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&ires);
 	cgen_eres_fini(&lres);
-	cgtype_destroy(dtype);
 	if (vident != NULL)
 		free(vident);
 	if (vtype != NULL)
@@ -18035,6 +18043,9 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		    identry->init, lblock);
 		if (rc != EOK)
 			goto error;
+
+		cgtype_destroy(dtype);
+		dtype = NULL;
 
 		identry = ast_idlist_next(identry);
 	}
