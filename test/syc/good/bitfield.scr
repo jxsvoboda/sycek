@@ -1,0 +1,38 @@
+mapfile "bitfield.map";
+ldbin "bitfield.bin", 0x8000;
+
+ld byte ptr (@_s1), 0x00;
+call @_bf1_read;
+verify byte ptr (@_data), 0x00;
+
+ld byte ptr (@_s1), 0xf9;
+call @_bf1_read;
+verify byte ptr (@_data), 0x00;
+
+ld byte ptr (@_s1), 0x02;
+call @_bf1_read;
+verify byte ptr (@_data), 0x01;
+
+ld byte ptr (@_s1), 0x06;
+call @_bf1_read;
+verify byte ptr (@_data), 0xff;
+
+ld byte ptr (@_s1), 0x00;
+ld byte ptr (@_data), 0x01;
+call @_bf1_write;
+verify byte ptr (@_s1), 0x02;
+
+ld byte ptr (@_s1), 0x00;
+ld byte ptr (@_data), 0x02;
+call @_bf1_write;
+verify byte ptr (@_s1), 0x04;
+
+ld byte ptr (@_s1), 0x00;
+ld byte ptr (@_data), 0x03;
+call @_bf1_write;
+verify byte ptr (@_s1), 0x06;
+
+ld byte ptr (@_s1), 0x00;
+ld byte ptr (@_data), 0xff;
+call @_bf1_write;
+verify byte ptr (@_s1), 0x06;

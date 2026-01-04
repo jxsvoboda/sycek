@@ -1507,6 +1507,8 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 
 	dres->varname = res->varname;
 	dres->valtype = res->valtype;
+	dres->bitwidth = res->bitwidth;
+	dres->bitpos = res->bitpos;
 	dres->cgtype = cgtype;
 	dres->cvint = res->cvint;
 	dres->cvsymbol = res->cvsymbol;
@@ -10444,6 +10446,312 @@ error:
 	return rc;
 }
 
+/** Generate code for storing value into a bitfield.
+ *
+ * @param cgproc Code generator for procedure
+ * @param ares Address expression result
+ * @param vres Value expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @return EOK on success or an error code
+ */
+static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
+    cgen_eres_t *vres, ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_imm_t *imm = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	ir_oper_var_t *var = NULL;
+	ir_oper_var_t *suval = NULL;
+	ir_oper_var_t *sumasked = NULL;
+	ir_oper_var_t *mask = NULL;
+	ir_oper_var_t *filt = NULL;
+	ir_oper_var_t *valfilt = NULL;
+	ir_oper_var_t *lshift = NULL;
+	ir_oper_var_t *shlval = NULL;
+	ir_oper_var_t *combval = NULL;
+	const char *suvalvn;
+	const char *maskvn;
+	const char *sumaskedvn;
+	const char *filtvn;
+	const char *valfiltvn;
+	const char *lshiftvn;
+	const char *shlvalvn;
+	const char *combvalvn;
+	unsigned bits;
+
+	uint64_t bfmask;
+	uint64_t bffilt;
+	int rc;
+
+	bits = cgen_type_sizeof(cgproc->cgen, vres->cgtype) * 8;
+	bffilt = (1 << ares->bitwidth) - 1;
+	bfmask = ~(bffilt << ares->bitpos);
+
+	/* Load storage unit. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &suval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = bits;
+	instr->dest = &suval->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	suvalvn = suval->varname;
+	instr = NULL;
+	suval = NULL;
+	var = NULL;
+
+	/* Introduce mask value. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &mask);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(bfmask, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = bits;
+	instr->dest = &mask->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+	imm = NULL;
+	maskvn = mask->varname;
+	mask = NULL;
+
+	/* Mask out bitfield. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &sumasked);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(suvalvn, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(maskvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_and;
+	instr->width = bits;
+	instr->dest = &sumasked->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+	larg = NULL;
+	rarg = NULL;
+	sumaskedvn = sumasked->varname;
+	sumasked = NULL;
+
+	/* Introduce filter value. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &filt);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(bffilt, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = bits;
+	instr->dest = &filt->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+	imm = NULL;
+	filtvn = filt->varname;
+	filt = NULL;
+
+	/* Clear any extra bits from value. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &valfilt);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(vres->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(filtvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_and;
+	instr->width = bits;
+	instr->dest = &valfilt->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+	larg = NULL;
+	rarg = NULL;
+	valfiltvn = valfilt->varname;
+	valfilt = NULL;
+
+	/* Number of bits to shift by to the left. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &lshift);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(ares->bitpos, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = bits;
+	instr->dest = &lshift->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	lshiftvn = lshift->varname;
+	imm = NULL;
+	lshift = NULL;
+
+	/* Shift value to correct position. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &shlval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(valfiltvn, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lshiftvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_shl;
+	instr->width = bits;
+	instr->dest = &shlval->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	shlvalvn = shlval->varname;
+	instr = NULL;
+	shlval = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	/* Add value to storage unit. */
+	(void)sumaskedvn;
+	(void)shlvalvn;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &combval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(sumaskedvn, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(shlvalvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_or;
+	instr->width = bits;
+	instr->dest = &combval->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	instr = NULL;
+	larg = NULL;
+	rarg = NULL;
+	combvalvn = combval->varname;
+	combval = NULL;
+
+	/* Write storage unit back. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(combvalvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_write;
+	instr->width = bits;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
 /** Generate code for storing a value.
  *
  * @param cgproc Code generator for procedure
@@ -10460,6 +10768,10 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	ir_oper_var_t *rarg = NULL;
 	unsigned bits;
 	int rc;
+
+	/* Bitfield? */
+	if (ares->bitwidth != 0)
+		return cgen_store_bitfield(cgproc, ares, vres, lblock);
 
 	/* Check the type */
 	if (vres->cgtype->ntype == cgn_basic) {
@@ -13135,6 +13447,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	eres->varname = dest->varname;
 	eres->valtype = cgen_lvalue;
 	eres->bitwidth = elem->width;
+	eres->bitpos = elem->bitpos;
 	eres->cgtype = mtype;
 	eres->valused = true;
 
@@ -14270,9 +14583,7 @@ error:
 	return rc;
 }
 
-/** Generate code for converting expression result to rvalue.
- *
- * If the result is an lvalue, read it to produce an rvalue.
+/** Generate code for loading value from bitfield.
  *
  * @param cgexpr Code generator for expression
  * @param res Original expression result
@@ -14280,7 +14591,221 @@ error:
  * @param eres Place to store rvalue expression result
  * @return EOK on success or an error code
  */
-static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
+static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *suval = NULL;
+	ir_oper_var_t *lshift = NULL;
+	ir_oper_var_t *rshift = NULL;
+	ir_oper_var_t *var = NULL;
+	ir_oper_var_t *shlval = NULL;
+	ir_oper_var_t *shrval = NULL;
+	ir_oper_imm_t *imm = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	const char *suvalvn;
+	const char *lshiftvn;
+	const char *rshiftvn;
+	const char *shlvalvn;
+	const char *shrvalvn;
+	bool is_signed;
+
+	cgtype_t *cgtype;
+	unsigned bits;
+	int rc;
+
+	bits = cgen_type_sizeof(cgexpr->cgen, res->cgtype) * 8;
+	is_signed = cgen_type_is_signed(cgexpr->cgen, res->cgtype);
+
+	/* Load storage unit. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &suval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(res->varname, &var);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_read;
+	instr->width = bits;
+	instr->dest = &suval->oper;
+	instr->op1 = &var->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	suvalvn = suval->varname;
+	instr = NULL;
+	suval = NULL;
+	var = NULL;
+
+	/* Number of bits to shift by to the left. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &lshift);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(bits - (res->bitpos + res->bitwidth), &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = bits;
+	instr->dest = &lshift->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	lshiftvn = lshift->varname;
+	imm = NULL;
+	lshift = NULL;
+
+	/* Shift left to remove bits above. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &shlval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(suvalvn, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(lshiftvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_shl;
+	instr->width = bits;
+	instr->dest = &shlval->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	shlvalvn = shlval->varname;
+	instr = NULL;
+	shlval = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	/* Number of bits to shift by to the right. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &rshift);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(bits - res->bitwidth, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = bits;
+	instr->dest = &rshift->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	rshiftvn = rshift->varname;
+	imm = NULL;
+	rshift = NULL;
+
+	/* Shift right to remove bits below + sign extend if signed. */
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &shrval);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(shlvalvn, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(rshiftvn, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	/* For signed bitfields, sign extend. */
+	instr->itype = is_signed ? iri_shra : iri_shrl;
+	instr->width = bits;
+	instr->dest = &shrval->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	shrvalvn = shrval->varname;
+	instr = NULL;
+	shrval = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = cgtype_clone(res->cgtype, &cgtype);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = shrvalvn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+	eres->valused = res->valused;
+	eres->cvknown = false;
+	eres->tfirst = res->tfirst;
+	eres->tlast = res->tlast;
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (lshift != NULL)
+		ir_oper_destroy(&lshift->oper);
+	if (rshift != NULL)
+		ir_oper_destroy(&rshift->oper);
+	if (var != NULL)
+		ir_oper_destroy(&var->oper);
+	if (shlval != NULL)
+		ir_oper_destroy(&shlval->oper);
+	if (shrval != NULL)
+		ir_oper_destroy(&shrval->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&larg->oper);
+
+	return rc;
+}
+
+/** Generate code for loading value from variable.
+ *
+ * @param cgexpr Code generator for expression
+ * @param res Original expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store rvalue expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
@@ -14290,38 +14815,15 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	unsigned bits;
 	int rc;
 
-	/*
-	 * If we already have an rvalue or we have a record or array type,
-	 * which are always handled via a pointer, then we don't need
-	 * to do anything.
-	 */
-	if (res->valtype == cgen_rvalue || res->cgtype->ntype == cgn_record) {
-		rc = cgtype_clone(res->cgtype, &cgtype);
-		if (rc != EOK)
-			goto error;
-
-		eres->varname = res->varname;
-		eres->valtype = cgen_rvalue;
-		eres->cgtype = cgtype;
-		eres->valused = res->valused;
-		eres->cvknown = res->cvknown;
-		eres->cvint = res->cvint;
-		eres->cvsymbol = res->cvsymbol;
-		eres->tfirst = res->tfirst;
-		eres->tlast = res->tlast;
-		return EOK;
+	/* Reading variables is not allowed in constant expressions */
+	if (cgexpr->cexpr) {
+		cgen_error_expr_not_constant(cgexpr->cgen, res->tfirst);
+		return EINVAL;
 	}
 
-	/*
-	 * If it is an array, we need to convert it to a pointer.
-	 */
-	if (res->cgtype->ntype == cgn_array) {
-		rc = cgen_array_to_ptr(cgexpr, res, eres);
-		if (rc != EOK)
-			goto error;
-
-		return EOK;
-	}
+	/* Bitfield? */
+	if (res->bitwidth != 0)
+		return cgen_load_bitfield(cgexpr, res, lblock, eres);
 
 	/* Check the type */
 	if (res->cgtype->ntype == cgn_basic) {
@@ -14345,13 +14847,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		goto error;
 	}
 
-	/* Reading variables is not allowed in constant expressions */
-	if (cgexpr->cexpr) {
-		cgen_error_expr_not_constant(cgexpr->cgen, res->tfirst);
-		return EINVAL;
-	}
-
-	/* Need to read the value in */
+	/* Read the value in. */
 
 	rc = ir_instr_create(&instr);
 	if (rc != EOK)
@@ -14392,6 +14888,60 @@ error:
 		ir_oper_destroy(&dest->oper);
 	if (var != NULL)
 		ir_oper_destroy(&var->oper);
+	return rc;
+}
+
+/** Generate code for converting expression result to rvalue.
+ *
+ * If the result is an lvalue, read it to produce an rvalue.
+ *
+ * @param cgexpr Code generator for expression
+ * @param res Original expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store rvalue expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgtype_t *cgtype;
+	int rc;
+
+	/*
+	 * If we already have an rvalue or we have a record or array type,
+	 * which are always handled via a pointer, then we don't need
+	 * to do anything.
+	 */
+	if (res->valtype == cgen_rvalue || res->cgtype->ntype == cgn_record) {
+		rc = cgtype_clone(res->cgtype, &cgtype);
+		if (rc != EOK)
+			goto error;
+
+		eres->varname = res->varname;
+		eres->valtype = cgen_rvalue;
+		eres->cgtype = cgtype;
+		eres->valused = res->valused;
+		eres->cvknown = res->cvknown;
+		eres->cvint = res->cvint;
+		eres->cvsymbol = res->cvsymbol;
+		eres->tfirst = res->tfirst;
+		eres->tlast = res->tlast;
+		return EOK;
+	}
+
+	/*
+	 * If it is an array, we need to convert it to a pointer.
+	 */
+	if (res->cgtype->ntype == cgn_array) {
+		rc = cgen_array_to_ptr(cgexpr, res, eres);
+		if (rc != EOK)
+			goto error;
+
+		return EOK;
+	}
+
+	return cgen_load(cgexpr, res, lblock, eres);
+error:
 	return rc;
 }
 
