@@ -10451,11 +10451,12 @@ error:
  * @param cgproc Code generator for procedure
  * @param ares Address expression result
  * @param vres Value expression result
+ * @param ctok Token to use when printing diagnostics
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
 static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
-    cgen_eres_t *vres, ir_lblock_t *lblock)
+    cgen_eres_t *vres, comp_tok_t *ctok, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_imm_t *imm = NULL;
@@ -10482,11 +10483,29 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 
 	uint64_t bfmask;
 	uint64_t bffilt;
+	uint64_t mskcv;
 	int rc;
 
 	bits = cgen_type_sizeof(cgproc->cgen, vres->cgtype) * 8;
 	bffilt = (1 << ares->bitwidth) - 1;
 	bfmask = ~(bffilt << ares->bitpos);
+
+	if (vres->cvknown) {
+		/* Try passing value through bitfield to see if it changes. */
+		mskcv = vres->cvint & bffilt;
+		if (cgen_type_is_signed(cgproc->cgen, vres->cgtype)) {
+			/* Sign extend. */
+			if ((mskcv & (1 << (ares->bitwidth - 1))) != 0)
+				mskcv |= ~bffilt;
+		}
+		/* Value changed? */
+		if (mskcv != (uint64_t)vres->cvint) {
+			lexer_dprint_tok(&ctok->tok, stderr);
+			fprintf(stderr, ": Warning: Value does not fit in "
+			    "bit field.\n");
+			++cgproc->cgen->warnings;
+		}
+	}
 
 	/* Load storage unit. */
 
@@ -10757,11 +10776,12 @@ error:
  * @param cgproc Code generator for procedure
  * @param ares Address expression result
  * @param vres Value expression result
+ * @param ctok Token to use when printing diagnostics
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
 static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
-    cgen_eres_t *vres, ir_lblock_t *lblock)
+    cgen_eres_t *vres, comp_tok_t *ctok, ir_lblock_t *lblock)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *larg = NULL;
@@ -10771,7 +10791,7 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 
 	/* Bitfield? */
 	if (ares->bitwidth != 0)
-		return cgen_store_bitfield(cgproc, ares, vres, lblock);
+		return cgen_store_bitfield(cgproc, ares, vres, ctok, lblock);
 
 	/* Check the type */
 	if (vres->cgtype->ntype == cgn_basic) {
@@ -10873,7 +10893,7 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Store the converted value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &cres, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &cres, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10908,6 +10928,7 @@ error:
 static int cgen_plus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t laddr;
 	cgen_eres_t lval;
 	cgen_eres_t rres;
@@ -10941,8 +10962,10 @@ static int cgen_plus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &laddr, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &laddr, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10981,6 +11004,7 @@ error:
 static int cgen_minus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t laddr;
 	cgen_eres_t lval;
 	cgen_eres_t rres;
@@ -11014,8 +11038,10 @@ static int cgen_minus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &laddr, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &laddr, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11054,6 +11080,7 @@ error:
 static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -11090,8 +11117,10 @@ static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11130,6 +11159,7 @@ error:
 static int cgen_divide_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -11164,8 +11194,10 @@ static int cgen_divide_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11204,6 +11236,7 @@ error:
 static int cgen_modulo_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -11238,8 +11271,10 @@ static int cgen_modulo_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11278,6 +11313,7 @@ error:
 static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -11335,8 +11371,10 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11378,6 +11416,7 @@ error:
 static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t ares;
 	cgen_eres_t bres;
@@ -11435,8 +11474,10 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11479,6 +11520,7 @@ error:
 static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t res1;
 	cgen_eres_t res2;
@@ -11532,8 +11574,10 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11580,6 +11624,7 @@ error:
 static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t res1;
 	cgen_eres_t res2;
@@ -11633,8 +11678,10 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -11681,6 +11728,7 @@ error:
 static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t lres;
 	cgen_eres_t res1;
 	cgen_eres_t res2;
@@ -11734,8 +11782,10 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
+	ctok = (comp_tok_t *) ebinop->top.data;
+
 	/* Store the resulting value */
-	rc = cgen_store(cgexpr->cgproc, &lres, &ores, lblock);
+	rc = cgen_store(cgexpr->cgproc, &lres, &ores, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -14067,6 +14117,7 @@ error:
 static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t baddr;
 	cgen_eres_t bval;
 	cgen_eres_t adj;
@@ -14109,8 +14160,10 @@ static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
 			goto error;
 	}
 
+	ctok = (comp_tok_t *) epreadj->tadj.data;
+
 	/* Store the updated value */
-	rc = cgen_store(cgexpr->cgproc, &baddr, &ares, lblock);
+	rc = cgen_store(cgexpr->cgproc, &baddr, &ares, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -14150,6 +14203,7 @@ error:
 static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	comp_tok_t *ctok;
 	cgen_eres_t baddr;
 	cgen_eres_t bval;
 	cgen_eres_t adj;
@@ -14192,8 +14246,10 @@ static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
 			goto error;
 	}
 
+	ctok = (comp_tok_t *) epostadj->tadj.data;
+
 	/* Store the updated value */
-	rc = cgen_store(cgexpr->cgproc, &baddr, &ares, lblock);
+	rc = cgen_store(cgexpr->cgproc, &baddr, &ares, ctok, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -18473,7 +18529,7 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 			goto error;
 
 		/* Store the converted value */
-		rc = cgen_store(cgproc, &lres, &cres, lblock);
+		rc = cgen_store(cgproc, &lres, &cres, itok, lblock);
 		if (rc != EOK)
 			goto error;
 	}
@@ -19400,7 +19456,7 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		vres.cgtype = ptype;
 		ptype = NULL;
 
-		rc = cgen_store(cgproc, &ares, &vres, cgproc->irproc->lblock);
+		rc = cgen_store(cgproc, &ares, &vres, caident, cgproc->irproc->lblock);
 		if (rc != EOK)
 			goto error;
 
