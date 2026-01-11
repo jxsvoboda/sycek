@@ -52,5 +52,7 @@ extern cgen_rec_elem_t *cgen_record_elem_find(cgen_record_t *,
     const char *, uint64_t *);
 extern cgen_rec_stor_t *cgen_record_first_stor(cgen_record_t *);
 extern cgen_rec_stor_t *cgen_record_next_stor(cgen_rec_stor_t *);
+extern cgen_rec_elem_t *cgen_rec_stor_first_elem(cgen_rec_stor_t *);
+extern cgen_rec_elem_t *cgen_rec_stor_next_elem(cgen_rec_elem_t *);
 
 #endif

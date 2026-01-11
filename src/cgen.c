@@ -114,8 +114,10 @@ static void cgen_init_destroy(cgen_init_t *);
 static int cgen_init_digest(cgen_t *, cgen_init_t *, cgtype_t *, int,
     ir_dblock_t *);
 static int cgen_uninit_digest(cgen_t *, cgtype_t *, ir_dblock_t *);
+static int cgen_init_digest_bitfield(cgen_t *, cgen_init_t **, uint64_t *,
+    cgen_rec_stor_t *, int, ir_dblock_t *);
 static int cgen_fun_arg_passed_type(cgen_t *, cgtype_t *, cgtype_t **);
-static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, comp_tok_t *,
+static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, uint8_t, comp_tok_t *,
     ast_cinit_elem_t **, cgen_init_t *);
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
     ast_estring_t *, ir_dblock_t *);
@@ -2792,6 +2794,18 @@ static void cgen_warn_integer_overflow(cgen_t *cgen, ast_tok_t *atok)
 	++cgen->warnings;
 }
 
+/** Generate warning: value does not fit in bit field.
+ *
+ * @param cgen Code generator
+ * @param top Operator token
+ */
+static void cgen_warn_value_dnf_bitfield(cgen_t *cgen, comp_tok_t *ctok)
+{
+	lexer_dprint_tok(&ctok->tok, stderr);
+	fprintf(stderr, ": Warning: Value does not fit in bit field.\n");
+	++cgen->warnings;
+}
+
 /** Generate warning: shift amount exceeds operand width.
  *
  * @param cgen Code generator
@@ -3125,6 +3139,7 @@ static int cgen_tsrecord_emit_stor(cgen_rec_t *cgrec, cgen_record_t *record)
 	cgelem = cgen_record_last_elem(record);
 	while (cgelem != NULL && cgelem->stor == NULL) {
 		cgelem->stor = stor;
+		list_prepend(&cgelem->lstor_elems, &stor->elems);
 		cgelem = cgen_record_prev_elem(cgelem);
 	}
 
@@ -10499,12 +10514,8 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 				mskcv |= ~bffilt;
 		}
 		/* Value changed? */
-		if (mskcv != (uint64_t)vres->cvint) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Value does not fit in "
-			    "bit field.\n");
-			++cgproc->cgen->warnings;
-		}
+		if (mskcv != (uint64_t)vres->cvint)
+			cgen_warn_value_dnf_bitfield(cgproc->cgen, ctok);
 	}
 
 	/* Load storage unit. */
@@ -20972,31 +20983,38 @@ static int cgen_init_digest_struct(cgen_t *cgen, cgen_init_t *parent,
     cgtype_record_t *trecord, int lvl, ir_dblock_t *dest)
 {
 	cgen_init_t *init;
-	cgen_rec_elem_t *elem;
+	cgen_rec_stor_t *stor;
 	uint64_t i;
 	int rc;
 
 	init = cgen_init_first(parent);
 	i = 0;
-	elem = cgen_record_first_elem(trecord->record);
-	while (elem != NULL) {
+	stor = cgen_record_first_stor(trecord->record);
+	while (stor != NULL) {
 		while (init != NULL && init->dsg < i) {
 			init = cgen_init_next(init);
 		}
 
-		if (init != NULL && init->dsg == i) {
+		if (stor->bitfield) {
+			/*
+			 * Bitfields can be partially initialized so always
+			 * process them.
+			 */
+			cgen_init_digest_bitfield(cgen, &init, &i, stor, lvl,
+			    dest);
+		} else if (init != NULL && init->dsg == i) {
 			/* Initialized field */
-			cgen_init_digest(cgen, init, elem->cgtype, lvl + 1,
+			cgen_init_digest(cgen, init, stor->cgtype, lvl + 1,
 			    dest);
 		} else {
 			/* Uninitialized field */
-			rc = cgen_uninit_digest(cgen, elem->cgtype, dest);
+			rc = cgen_uninit_digest(cgen, stor->cgtype, dest);
 			if (rc != EOK)
 				return rc;
 		}
 
 		++i;
-		elem = cgen_record_next_elem(elem);
+		stor = cgen_record_next_stor(stor);
 	}
 
 	return EOK;
@@ -21104,17 +21122,84 @@ static int cgen_init_digest(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 	return EOK;
 }
 
+/** Generate data block for initialized bitfield.
+ *
+ * @param cgen Code generator
+ * @param init Address of initializer pointer
+ * @param i Address of initializer index
+ * @param stor Record storage unit being initialized
+ * @param lvl Nesting level
+ * @param dest Destination data block
+ * @return EOK on success or an error code
+ */
+static int cgen_init_digest_bitfield(cgen_t *cgen, cgen_init_t **init,
+    uint64_t *i, cgen_rec_stor_t *stor, int lvl, ir_dblock_t *dest)
+{
+	cgen_rec_elem_t *elem;
+	ir_dblock_entry_t *dbentry;
+	ir_dentry_t *dentry;
+	int rc;
+	uint8_t subits;
+	uint64_t suval;
+	uint64_t bffilt;
+	uint64_t value;
+
+	(void)cgen;
+	(void)lvl;
+	(void)dest;
+
+	/*
+	 * Pack individual element values into storage unit (suval).
+	 */
+	suval = 0;
+
+	elem = cgen_rec_stor_first_elem(stor);
+	while (elem != NULL) {
+		/* Skip unitialized elements. */
+		while (*init != NULL && (*init)->dsg > *i) {
+			++*i;
+			elem = cgen_rec_stor_next_elem(elem);
+		}
+
+		if (*init != NULL) {
+			dbentry = ir_dblock_first((*init)->dblock);
+			value = dbentry->dentry->value;
+			bffilt = (1 << elem->width) - 1;
+
+			*init = cgen_init_next(*init);
+			suval |= (value & bffilt) << elem->bitpos;
+		}
+
+		++*i;
+		elem = cgen_rec_stor_next_elem(elem);
+	}
+
+	subits = cgen_type_sizeof(cgen, stor->cgtype) * 8;
+	rc = ir_dentry_create_int(subits, suval, &dentry);
+	if (rc != EOK)
+		return rc;
+
+	rc = ir_dblock_append(dest, dentry);
+	if (rc != EOK) {
+		ir_dentry_destroy(dentry);
+		return rc;
+	}
+
+	return EOK;
+}
+
 /** Generate data entries for initializing a scalar type.
  *
  * @param cgen Code generator
- * @param tbasic Basic variable type
+ * @param stype Specified type
+ * @param width Bit width or zero if not a bitfield
  * @param itok Initialization token (for printing diagnostics)
  * @param init Initializer or @c NULL
  * @param dblock Data block to which data should be appended
  * @return EOK on success or an error code
  */
 static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
-    comp_tok_t *itok, ast_node_t *init, ir_dblock_t *dblock)
+    uint8_t width, comp_tok_t *itok, ast_node_t *init, ir_dblock_t *dblock)
 {
 	ir_dentry_t *dentry = NULL;
 	cgen_eres_t eres;
@@ -21126,6 +21211,8 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 	unsigned bits;
 	symbol_t *initsym;
 	int64_t initval;
+	uint64_t bffilt;
+	uint64_t mskval;
 	int rc;
 
 	cgen_eres_init(&eres);
@@ -21142,7 +21229,7 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 
 			elem = ast_cinit_first(cinit);
 
-			rc = cgen_init_dentries_scalar(cgen, stype, itok,
+			rc = cgen_init_dentries_scalar(cgen, stype, width, itok,
 			    elem->init, dblock);
 			if (rc != EOK)
 				goto error;
@@ -21192,6 +21279,27 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
+		}
+
+		bffilt = (1 << width) - 1;
+
+		if (width > 0) {
+			/*
+			 * Try passing value through bitfield to see if
+			 * it changes.
+			 */
+			mskval = initval & bffilt;
+			if (cgen_type_is_signed(cgen, stype)) {
+				/* Sign extend. */
+				if ((mskval & (1 << (width - 1))) != 0)
+					mskval |= ~bffilt;
+			}
+			/* Value changed? */
+			if (mskval != (uint64_t)initval) {
+				atok = ast_tree_first_tok(init);
+				ctok = (comp_tok_t *)atok->data;
+				cgen_warn_value_dnf_bitfield(cgen, ctok);
+			}
 		}
 
 		rc = ir_dentry_create_int(bits, initval, &dentry);
@@ -21284,7 +21392,7 @@ static int cgen_init_dentries_array(cgen_t *cgen, cgtype_array_t *tarray,
 				return EOK;
 		}
 
-		rc = cgen_init_dentries_cinit(cgen, cgtype, itok,
+		rc = cgen_init_dentries_cinit(cgen, cgtype, 0, itok,
 		    elem, init);
 		if (rc != EOK)
 			goto error;
@@ -21313,11 +21421,14 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 	cgen_init_t *init = NULL;
 	cgtype_t *cgtype;
 	cgen_rec_elem_t *relem;
+	uint8_t width;
 	int rc;
 
 	i = 0;
 	while (*elem != NULL) {
 		relem = parent->next_elem;
+		/* Bit width or zero if not a bitfield */
+		width = relem != 0 ? relem->width : 0;
 
 		rc = cgen_init_lookup(cgen, parent, &trecord->cgtype, *elem,
 		    &cgtype, &init);
@@ -21344,7 +21455,7 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 			}
 		}
 
-		rc = cgen_init_dentries_cinit(cgen, cgtype, itok,
+		rc = cgen_init_dentries_cinit(cgen, cgtype, width, itok,
 		    elem, init);
 		if (rc != EOK)
 			goto error;
@@ -21361,13 +21472,15 @@ error:
  *
  * @param cgen Code generator
  * @param stype Variable type
+ * @param width Bit width or zero if not a bitfield
  * @param itok Initialization token (for printing diagnostics)
  * @param elem Compound initializer element pointer
  * @param dblock Data block to which data should be appended
  * @return EOK on success or an error code
  */
-static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
-    ast_cinit_elem_t **elem, cgen_init_t *parent)
+static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype,
+    uint8_t width, comp_tok_t *itok, ast_cinit_elem_t **elem,
+    cgen_init_t *parent)
 {
 	ir_dentry_t *dentry = NULL;
 	ir_texpr_t *vtype = NULL;
@@ -21442,7 +21555,7 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype, comp_tok_t *i
 		else
 			init = NULL;
 
-		rc = cgen_init_dentries_scalar(cgen, stype, itok, init,
+		rc = cgen_init_dentries_scalar(cgen, stype, width, itok, init,
 		    parent->dblock);
 		if (rc != EOK)
 			goto error;
@@ -21681,7 +21794,7 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 			return EINVAL;
 		}
 	} else {
-		rc = cgen_init_dentries_scalar(cgen, stype, itok, init,
+		rc = cgen_init_dentries_scalar(cgen, stype, 0, itok, init,
 		    parent->dblock);
 		if (rc != EOK)
 			goto error;

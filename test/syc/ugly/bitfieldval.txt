@@ -1,2 +1,3 @@
 <test/syc/ugly/bitfieldval.c:16:16:'='>: Warning: Value does not fit in bit field.
 <test/syc/ugly/bitfieldval.c:21:16:'='>: Warning: Value does not fit in bit field.
+<test/syc/ugly/bitfieldval.c:25:16:num:2>: Warning: Value does not fit in bit field.

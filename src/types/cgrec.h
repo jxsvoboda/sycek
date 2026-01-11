@@ -44,6 +44,10 @@ typedef struct cgen_rec_stor {
 	struct cgen_record *record;
 	/** Link to @c record->stors */
 	link_t lstors;
+	/** Elements of this storage unit (cgen_stor_elem_t) */
+	list_t elems;
+	/** True iff this storage unit contains a bitfield */
+	bool bitfield;
 	/** IR identifier */
 	char *irident;
 	/** Storage unit type */
@@ -55,7 +59,9 @@ typedef struct cgen_rec_elem {
 	/** Containing record definition */
 	struct cgen_record *record;
 	/** Link to @c record->elems */
-	link_t lelems;
+	link_t lrec_elems;
+	/** Linkt to @c cgen_rec_stor_t.elems */
+	link_t lstor_elems;
 	/** Member identifier */
 	char *ident;
 	/** Storage unit */

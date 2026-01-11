@@ -250,11 +250,11 @@ Specifically, these language features are supported:
  * Designated struct/array initialization (C99)
  * String initializers, string literals
  * Conditional operator
+ * Bit fields
 
 These are NOT supported yet:
 
  * Bool
- * Bit fields
  * Floating point
  * Integer promotion
  * Passing or returning struct/union by value

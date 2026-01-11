@@ -1,0 +1,14 @@
+mapfile "bitfieldinit.map";
+ldbin "bitfieldinit.bin", 0x8000;
+
+verify byte ptr (@_s0), 0x00;
+verify byte ptr (@_sa), 0x02;
+verify byte ptr (@_sab), 0x0e;
+verify byte ptr (@_sabc), 0x3e;
+verify byte ptr (@_sda), 0x02;
+verify byte ptr (@_sdb), 0x0c;
+verify byte ptr (@_sdab), 0x0e;
+verify byte ptr (@_sdc), 0x30;
+verify byte ptr (@_sdac), 0x32;
+verify byte ptr (@_sdbc), 0x3c;
+verify byte ptr (@_sdabc), 0x3e;

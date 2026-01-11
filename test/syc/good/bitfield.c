@@ -1,5 +1,5 @@
 /*
- * Bit field
+ * Bit field declaration, reading and writing.
  */
 
 struct s {
@@ -11,12 +11,7 @@ struct s {
 
 char data;
 
-/* Bit field initialization */
-struct s s1 = {
-	1,
-	2,
-	433
-};
+struct s s1;
 
 void bf1_read(void)
 {

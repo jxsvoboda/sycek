@@ -288,7 +288,7 @@ int cgen_record_append(cgen_record_t *record, const char *ident,
 		list_append(&stor->lstors, &record->stors);
 	}
 
-	list_append(&elem->lelems, &record->elems);
+	list_append(&elem->lrec_elems, &record->elems);
 	return EOK;
 error:
 	if (elem != NULL) {
@@ -327,7 +327,9 @@ int cgen_record_append_stor(cgen_record_t *record, cgtype_t *cgtype,
 		goto error;
 	}
 
+	list_initialize(&stor->elems);
 	stor->record = record;
+	stor->bitfield = true;
 	stor->irident = strdup(irident);
 	if (stor->irident == NULL) {
 		rc = ENOMEM;
@@ -396,7 +398,7 @@ cgen_rec_elem_t *cgen_record_first_elem(cgen_record_t *record)
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, cgen_rec_elem_t, lelems);
+	return list_get_instance(link, cgen_rec_elem_t, lrec_elems);
 }
 
 /** Return next record element.
@@ -408,11 +410,11 @@ cgen_rec_elem_t *cgen_record_next_elem(cgen_rec_elem_t *cur)
 {
 	link_t *link;
 
-	link = list_next(&cur->lelems, &cur->record->elems);
+	link = list_next(&cur->lrec_elems, &cur->record->elems);
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, cgen_rec_elem_t, lelems);
+	return list_get_instance(link, cgen_rec_elem_t, lrec_elems);
 }
 
 /** Return last record element.
@@ -428,7 +430,7 @@ cgen_rec_elem_t *cgen_record_last_elem(cgen_record_t *record)
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, cgen_rec_elem_t, lelems);
+	return list_get_instance(link, cgen_rec_elem_t, lrec_elems);
 }
 
 /** Return previous record element.
@@ -440,11 +442,11 @@ cgen_rec_elem_t *cgen_record_prev_elem(cgen_rec_elem_t *cur)
 {
 	link_t *link;
 
-	link = list_prev(&cur->lelems, &cur->record->elems);
+	link = list_prev(&cur->lrec_elems, &cur->record->elems);
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, cgen_rec_elem_t, lelems);
+	return list_get_instance(link, cgen_rec_elem_t, lrec_elems);
 }
 
 /** Destroy record element.
@@ -453,7 +455,7 @@ cgen_rec_elem_t *cgen_record_prev_elem(cgen_rec_elem_t *cur)
  */
 static void cgen_rec_elem_destroy(cgen_rec_elem_t *elem)
 {
-	list_remove(&elem->lelems);
+	list_remove(&elem->lrec_elems);
 	free(elem->ident);
 	cgtype_destroy(elem->cgtype);
 	free(elem);
@@ -501,4 +503,36 @@ static void cgen_rec_stor_destroy(cgen_rec_stor_t *stor)
 	free(stor->irident);
 	cgtype_destroy(stor->cgtype);
 	free(stor);
+}
+
+/** Return first record storage unit element.
+ *
+ * @param stor Storage unit
+ * @return First storage unit element or @c NULL there are none
+ */
+cgen_rec_elem_t *cgen_rec_stor_first_elem(cgen_rec_stor_t *stor)
+{
+	link_t *link;
+
+	link = list_first(&stor->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_rec_elem_t, lstor_elems);
+}
+
+/** Return next record storage unit element.
+ *
+ * @param cur Current record element
+ * @return Next record element or @c NULL if @cur was the last
+ */
+cgen_rec_elem_t *cgen_rec_stor_next_elem(cgen_rec_elem_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lstor_elems, &cur->stor->elems);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cgen_rec_elem_t, lstor_elems);
 }

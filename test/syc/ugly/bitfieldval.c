@@ -20,3 +20,7 @@ void foo(void)
 	s1.bf1 = 1; /* OK */
 	s1.bf1 = 2; /* does not fit */
 }
+
+struct s s2 = {
+	.bf1 = 2 /* does not fit */
+};
