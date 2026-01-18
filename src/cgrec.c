@@ -296,6 +296,7 @@ error:
 			cgtype_destroy(elem->cgtype);
 		if (elem->ident != NULL)
 			free(elem->ident);
+		free(elem);
 	}
 	if (stor != NULL) {
 		if (stor->irident != NULL)

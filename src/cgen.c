@@ -17029,7 +17029,7 @@ static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 {
 	cgen_eres_t ires;
 	cgtype_basic_t *btype;
-	cgtype_basic_t *dbtype;
+	cgtype_basic_t *dbtype = NULL;
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
@@ -21099,7 +21099,6 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			cgtype = tarray->etype;
 			break;
 		case aca_member:
-			dsg = 0;
 			if (cgtype->ntype != cgn_record) {
 				if (parent->parent != NULL) {
 					/* Try going one level up. */
@@ -21550,6 +21549,8 @@ static int cgen_init_digest_union(cgen_t *cgen, cgen_init_t *parent,
 	}
 
 	if (init != NULL) {
+		assert(elem != NULL);
+
 		/*
 		 * Pad the initialized field zith zeros to the size
 		 * of the union.
