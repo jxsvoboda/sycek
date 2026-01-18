@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -4894,6 +4894,74 @@ static ast_tok_t *ast_eint_last_tok(ast_eint_t *eint)
 	return &eint->tlit;
 }
 
+/** Create AST boolean literal expression.
+ *
+ * @param rebool Place to store pointer to new boolean literal expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ebool_create(ast_ebool_t **rebool)
+{
+	ast_ebool_t *ebool;
+
+	ebool = calloc(1, sizeof(ast_ebool_t));
+	if (ebool == NULL)
+		return ENOMEM;
+
+	ebool->node.ext = ebool;
+	ebool->node.ntype = ant_ebool;
+
+	*rebool = ebool;
+	return EOK;
+}
+
+/** Print AST boolean literal expression.
+ *
+ * @param ebool Boolean literal expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ebool_print(ast_ebool_t *ebool, FILE *f)
+{
+	(void) ebool;
+
+	if (fprintf(f, "ebool(") < 0)
+		return EIO;
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST boolean literal expression.
+ *
+ * @param ebool Boolean literal expression
+ */
+static void ast_ebool_destroy(ast_ebool_t *ebool)
+{
+	free(ebool);
+}
+
+/** Get first token of AST boolean literal expression.
+ *
+ * @param ebool Boolean literal expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ebool_first_tok(ast_ebool_t *ebool)
+{
+	return &ebool->tlit;
+}
+
+/** Get last token of AST boolean literal expression.
+ *
+ * @param ebool Boolean literal expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ebool_last_tok(ast_ebool_t *ebool)
+{
+	return &ebool->tlit;
+}
+
 /** Create AST character literal expression.
  *
  * @param rechar Place to store pointer to new character literal expression
@@ -9340,6 +9408,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_typename_print((ast_typename_t *)node->ext, f);
 	case ant_eint:
 		return ast_eint_print((ast_eint_t *)node->ext, f);
+	case ant_ebool:
+		return ast_ebool_print((ast_ebool_t *)node->ext, f);
 	case ant_echar:
 		return ast_echar_print((ast_echar_t *)node->ext, f);
 	case ant_estring:
@@ -9544,6 +9614,9 @@ void ast_tree_destroy(ast_node_t *node)
 		break;
 	case ant_eint:
 		ast_eint_destroy((ast_eint_t *)node->ext);
+		break;
+	case ant_ebool:
+		ast_ebool_destroy((ast_ebool_t *)node->ext);
 		break;
 	case ant_echar:
 		ast_echar_destroy((ast_echar_t *)node->ext);
@@ -9751,6 +9824,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_typename_first_tok((ast_typename_t *)node->ext);
 	case ant_eint:
 		return ast_eint_first_tok((ast_eint_t *)node->ext);
+	case ant_ebool:
+		return ast_ebool_first_tok((ast_ebool_t *)node->ext);
 	case ant_echar:
 		return ast_echar_first_tok((ast_echar_t *)node->ext);
 	case ant_estring:
@@ -9916,6 +9991,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_typename_last_tok((ast_typename_t *)node->ext);
 	case ant_eint:
 		return ast_eint_last_tok((ast_eint_t *)node->ext);
+	case ant_ebool:
+		return ast_ebool_last_tok((ast_ebool_t *)node->ext);
 	case ant_echar:
 		return ast_echar_last_tok((ast_echar_t *)node->ext);
 	case ant_estring:

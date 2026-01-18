@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -72,6 +72,9 @@ static int cgtype_basic_print(cgtype_basic_t *basic, FILE *f)
 	switch (basic->elmtype) {
 	case cgelm_void:
 		rv = fputs("void", f);
+		break;
+	case cgelm_bool:
+		rv = fputs("_Bool", f);
 		break;
 	case cgelm_char:
 		rv = fputs("char", f);
@@ -1156,6 +1159,7 @@ cgtype_int_rank_t cgtype_int_rank(cgtype_t *cgtype)
 
 	switch (basic->elmtype) {
 	case cgelm_void:
+	case cgelm_bool:
 	case cgelm_va_list:
 		assert(false);
 		break;

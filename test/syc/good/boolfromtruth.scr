@@ -1,0 +1,12 @@
+mapfile "boolfromtruth.map";
+ldbin "boolfromtruth.bin", 0x8000;
+
+ld byte ptr (@_x), 0x00;
+ld byte ptr (@_y), 0x00;
+call @_from_truth;
+verify byte ptr (@_b), 0x00;
+
+ld byte ptr (@_x), 0x00;
+ld byte ptr (@_y), 0x01;
+call @_from_truth;
+verify byte ptr (@_b), 0x01;

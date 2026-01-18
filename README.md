@@ -251,10 +251,10 @@ Specifically, these language features are supported:
  * String initializers, string literals
  * Conditional operator
  * Bit fields
+ * Bool
 
 These are NOT supported yet:
 
- * Bool
  * Floating point
  * Integer promotion
  * Passing or returning struct/union by value
@@ -383,6 +383,8 @@ It can detect the following types of problems and style issues:
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * implicit conversion between enum types
+ * implicit conversion from integer to `_Bool`
+ * implicit conversion from `_Bool` to integer
  * initializing enum type from incompatible type
  * suspicious arithmetic/logic operation involving enums
  * comparison of different enum types

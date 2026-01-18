@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -103,6 +103,7 @@ typedef enum {
 	ltt_attribute,
 	ltt_asm,
 	ltt_auto,
+	ltt_bool,
 	ltt_break,
 	ltt_case,
 	ltt_char,
@@ -114,6 +115,7 @@ typedef enum {
 	ltt_else,
 	ltt_enum,
 	ltt_extern,
+	ltt_false,
 	ltt_float,
 	ltt_for,
 	ltt_goto,
@@ -132,6 +134,7 @@ typedef enum {
 	ltt_static,
 	ltt_struct,
 	ltt_switch,
+	ltt_true,
 	ltt_typedef,
 	ltt_union,
 	ltt_unsigned,

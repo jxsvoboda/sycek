@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -1058,6 +1058,18 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		    p[7] == 's' && !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_alignas, 8, tok);
 		}
+		if (p[1] == 'B' && p[2] == 'o' && p[3] == 'o' &&
+		    p[4] == 'l' && !is_idcnt(p[5])) {
+			return lexer_keyword(lexer, ltt_bool, 5, tok);
+		}
+		if (p[1] == 'F' && p[2] == 'a' && p[3] == 'l' &&
+		    p[4] == 's' && p[5] == 'e' && !is_idcnt(p[6])) {
+			return lexer_keyword(lexer, ltt_false, 6, tok);
+		}
+		if (p[1] == 'T' && p[2] == 'r' && p[3] == 'u' &&
+		    p[4] == 'e' && !is_idcnt(p[5])) {
+			return lexer_keyword(lexer, ltt_true, 5, tok);
+		}
 		return lexer_ident(lexer, tok);
 	case 'a':
 		if (p[1] == 's' && p[2] == 'm' && !is_idcnt(p[3])) {
@@ -1487,6 +1499,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'asm'";
 	case ltt_auto:
 		return "'auto'";
+	case ltt_bool:
+		return "'_Bool'";
 	case ltt_break:
 		return "'break'";
 	case ltt_case:
@@ -1509,6 +1523,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'enum'";
 	case ltt_extern:
 		return "'extern'";
+	case ltt_false:
+		return "'_False'";
 	case ltt_float:
 		return "'float'";
 	case ltt_for:
@@ -1545,6 +1561,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "'struct'";
 	case ltt_switch:
 		return "'switch'";
+	case ltt_true:
+		return "'_True'";
 	case ltt_typedef:
 		return "'typedef'";
 	case ltt_union:

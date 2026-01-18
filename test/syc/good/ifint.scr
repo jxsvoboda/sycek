@@ -1,0 +1,42 @@
+mapfile "ifint.map";
+ldbin "ifint.bin", 0x8000;
+
+/* If statement with nonzero char argument */
+ld byte ptr (@_c), 0x00;
+call @_if_char;
+verify word ptr (@_d), 0;
+
+/* If statement with zero char argument */
+ld byte ptr (@_c), 0x01;
+call @_if_char;
+verify word ptr (@_d), 1;
+
+/* If statement with nonzero int argument */
+ld word ptr (@_i), 0x0000;
+call @_if_int;
+verify word ptr (@_d), 0;
+
+/* If statement with zero int argument */
+ld word ptr (@_i), 0x0001;
+call @_if_int;
+verify word ptr (@_d), 1;
+
+/* If statement with nonzero long argument */
+ld dword ptr (@_l), 0x00000000;
+call @_if_long;
+verify word ptr (@_d), 0;
+
+/* If statement with zero long argument */
+ld dword ptr (@_l), 0x00000001;
+call @_if_long;
+verify word ptr (@_d), 1;
+
+/* If statement with nonzero longlong argument */
+ld qword ptr (@_ll), 0x0000000000000000;
+call @_if_longlong;
+verify word ptr (@_d), 0;
+
+/* If statement with zero longlong argument */
+ld qword ptr (@_ll), 0x0000000000000001;
+call @_if_longlong;
+verify word ptr (@_d), 1;

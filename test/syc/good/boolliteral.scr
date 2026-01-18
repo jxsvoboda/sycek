@@ -1,0 +1,13 @@
+mapfile "boolliteral.map";
+ldbin "boolliteral.bin", 0x8000;
+
+/* Global variable initialized with boolean literal */
+
+verify byte ptr (@_bf), 0x00;
+verify byte ptr (@_bt), 0x01;
+
+call @_set_false;
+verify byte ptr (@_b), 0x00;
+
+call @_set_true;
+verify byte ptr (@_b), 0x01;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -464,10 +464,11 @@ static bool parser_next_is_tqual(parser_t *parser)
  */
 static bool parser_ttype_tsbasic(lexer_toktype_t ttype)
 {
-	return ttype == ltt_void || ttype == ltt_char || ttype == ltt_short ||
-	    ttype == ltt_int || ttype == ltt_long || ttype == ltt_int128 ||
-	    ttype == ltt_float || ttype == ltt_double || ttype == ltt_signed ||
-	    ttype == ltt_unsigned || ttype == ltt_va_list;
+	return ttype == ltt_void || ttype == ltt_bool || ttype == ltt_char ||
+	    ttype == ltt_short || ttype == ltt_int || ttype == ltt_long ||
+	    ttype == ltt_int128 || ttype == ltt_float || ttype == ltt_double ||
+	    ttype == ltt_signed || ttype == ltt_unsigned ||
+	    ttype == ltt_va_list;
 }
 
 /** Return @c true if next token is a type specifier
@@ -549,6 +550,37 @@ static int parser_process_eint(parser_t *parser, ast_node_t **rexpr)
 error:
 	if (eint != NULL)
 		ast_tree_destroy(&eint->node);
+	return rc;
+}
+
+/** Parse boolean literal.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ebool(parser_t *parser, ast_node_t **rexpr)
+{
+	ast_ebool_t *ebool = NULL;
+	lexer_toktype_t ltt;
+	void *dlit;
+	int rc;
+
+	rc = ast_ebool_create(&ebool);
+	if (rc != EOK)
+		goto error;
+
+	ltt = parser_next_ttype(parser);
+	ebool->bval = (ltt == ltt_true) ? true : false;
+	parser_skip(parser, &dlit);
+
+	ebool->tlit.data = dlit;
+	*rexpr = &ebool->node;
+	return EOK;
+error:
+	if (ebool != NULL)
+		ast_tree_destroy(&ebool->node);
 	return rc;
 }
 
@@ -941,6 +973,9 @@ static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 			return parser_process_eident(parser, rexpr);
 	case ltt_lparen:
 		return parser_process_eparen(parser, rexpr);
+	case ltt_true:
+	case ltt_false:
+		return parser_process_ebool(parser, rexpr);
 	default:
 		if (!parser->silent) {
 			fprintf(stderr, "Error: ");
@@ -4311,6 +4346,9 @@ static int parser_process_tsbasic(parser_t *parser, ast_node_t **rtype)
 	switch (ltt) {
 	case ltt_void:
 		btstype = abts_void;
+		break;
+	case ltt_bool:
+		btstype = abts_bool;
 		break;
 	case ltt_char:
 		btstype = abts_char;

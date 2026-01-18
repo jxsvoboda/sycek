@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -164,6 +164,7 @@ extern bool ast_decl_is_vardecln(ast_node_t *);
 extern ast_dfun_t *ast_decl_get_dfun(ast_node_t *);
 extern ast_tok_t *ast_gdecln_get_ident(ast_gdecln_t *);
 extern int ast_eint_create(ast_eint_t **);
+extern int ast_ebool_create(ast_ebool_t **);
 extern int ast_echar_create(ast_echar_t **);
 extern int ast_estring_create(ast_estring_t **);
 extern int ast_estring_append(ast_estring_t *, void *);

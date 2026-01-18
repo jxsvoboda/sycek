@@ -1,0 +1,14 @@
+mapfile "iftruth.map";
+ldbin "iftruth.bin", 0x8000;
+
+/* If statement with false logic expression argument (x < y) */
+ld byte ptr (@_x), 0x00;
+ld byte ptr (@_y), 0x00;
+call @_if_truth;
+verify word ptr (@_d), 0;
+
+/* If statement with true logic expression argument (x < y) */
+ld byte ptr (@_x), 0x00;
+ld byte ptr (@_y), 0x01;
+call @_if_truth;
+verify word ptr (@_d), 1;

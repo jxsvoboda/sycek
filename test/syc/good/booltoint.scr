@@ -1,0 +1,43 @@
+mapfile "booltoint.map";
+ldbin "booltoint.bin", 0x8000;
+
+/* to char */
+
+ld byte ptr (@_b), 0x00;
+call @_to_c;
+verify byte ptr (@_c), 0x00;
+
+ld byte ptr (@_b), 0x01;
+call @_to_c;
+verify byte ptr (@_c), 0x01;
+
+/* to int */
+
+ld byte ptr (@_b), 0x00;
+call @_to_i;
+verify word ptr (@_i), 0x0000;
+
+ld byte ptr (@_b), 0x01;
+call @_to_i;
+verify word ptr (@_i), 0x0001;
+
+/* to long */
+
+ld byte ptr (@_b), 0x00;
+call @_to_l;
+verify dword ptr (@_l), 0x00000000;
+
+ld byte ptr (@_b), 0x01;
+call @_to_l;
+verify dword ptr (@_l), 0x00000001;
+
+/* to long long */
+
+ld byte ptr (@_b), 0x00;
+call @_to_ll;
+verify qword ptr (@_ll), 0x0000000000000000;
+
+ld byte ptr (@_b), 0x01;
+call @_to_ll;
+verify qword ptr (@_ll), 0x0000000000000001;
+

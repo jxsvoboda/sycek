@@ -1,0 +1,12 @@
+mapfile "ifbool.map";
+ldbin "ifbool.bin", 0x8000;
+
+/* If statement with boolean false argument */
+ld byte ptr (@_b), 0x00;
+call @_if_bool;
+verify word ptr (@_d), 0;
+
+/* If statement with boolean true argument */
+ld byte ptr (@_b), 0x01;
+call @_if_bool;
+verify word ptr (@_d), 1;

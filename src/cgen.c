@@ -59,6 +59,7 @@ static int cgen_dspecs(cgen_t *, ast_dspecs_t *, ast_sclass_type_t *,
     cgen_rd_flags_t *, cgtype_t **);
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
+static int cgen_const_bool(cgen_proc_t *, bool, ir_lblock_t *, cgen_eres_t *);
 static int cgen_gsym_ptr(cgen_proc_t *, symbol_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_lvaraddr(cgen_proc_t *, const char *, ir_lblock_t *,
@@ -91,6 +92,8 @@ static int cgen_eres_rvalue(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
 static int cgen_array_to_ptr(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *);
 static int cgen_type_convert(cgen_expr_t *, comp_tok_t *, cgen_eres_t *,
     cgtype_t *, cgen_expl_t, ir_lblock_t *, cgen_eres_t *);
+static int cgen_int_notzero(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
+    cgen_eres_t *);
 static int cgen_truth_eres_cjmp(cgen_expr_t *, ast_tok_t *, cgen_eres_t *, bool,
     const char *, ir_lblock_t *);
 static int cgen_truth_expr_cjmp(cgen_expr_t *, ast_node_t *, bool, const char *,
@@ -131,6 +134,8 @@ static int cgen_switch(cgen_proc_t *, ast_switch_t *, ir_lblock_t *);
 
 enum {
 	cgen_pointer_bits = 16,
+	cgen_logic_bits = 16,
+	cgen_bool_bits = 8,
 	cgen_enum_bits = 16,
 	cgen_char_bits = 8,
 	cgen_char_max = 255,
@@ -467,6 +472,7 @@ static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 	(void) cgen;
 
 	switch (tbasic->elmtype) {
+	case cgelm_bool:
 	case cgelm_char:
 	case cgelm_uchar:
 		return 8;
@@ -657,6 +663,25 @@ static bool cgen_type_is_logic(cgen_t *cgen, cgtype_t *cgtype)
 
 	tbasic = (cgtype_basic_t *)cgtype->ext;
 	return tbasic->elmtype == cgelm_logic;
+}
+
+/** Determine if type is _Bool.
+ *
+ * @param cgen Code generator
+ * @param cgtype Code generator type
+ * @return @c true iff @a cgtype is an integer type
+ */
+static bool cgen_type_is_bool(cgen_t *cgen, cgtype_t *cgtype)
+{
+	cgtype_basic_t *tbasic;
+
+	(void) cgen;
+
+	if (cgtype->ntype != cgn_basic)
+		return false;
+
+	tbasic = (cgtype_basic_t *)cgtype->ext;
+	return tbasic->elmtype == cgelm_bool;
 }
 
 /** Determine if type is a function pointer type.
@@ -2015,6 +2040,7 @@ static int cgen_tspec_get_order(ast_node_t *tspec)
 		case abts_short:
 			return 1;
 		case abts_void:
+		case abts_bool:
 		case abts_char:
 		case abts_int:
 		case abts_int128:
@@ -4175,6 +4201,9 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 			}
 
 			switch (tsbasic->btstype) {
+			case abts_bool:
+				elmtype = cgelm_bool;
+				break;
 			case abts_char:
 				if (cgds->unsigned_cnt > 0)
 					elmtype = cgelm_uchar;
@@ -5328,6 +5357,20 @@ static int cgen_eint(cgen_expr_t *cgexpr, ast_eint_t *eint,
 	return cgen_const_int(cgexpr->cgproc, elmtype, val, lblock, eres);
 }
 
+/** Generate code for boolean literal expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ebool AST boolean literal expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ebool(cgen_expr_t *cgexpr, ast_ebool_t *ebool,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	return cgen_const_bool(cgexpr->cgproc, ebool->bval, lblock, eres);
+}
+
 /** Generate code for character literal expression.
  *
  * @param cgexpr Code generator for expression
@@ -5738,6 +5781,64 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 	eres->cgtype = &btype->cgtype;
 	eres->cvknown = true;
 	eres->cvint = val;
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	if (btype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Generate code to return boolean constant.
+ *
+ * @param cgproc Code generator for procedure
+ * @param bval Boolean value
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_const_bool(cgen_proc_t *cgproc, bool bval, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_imm_t *imm = NULL;
+	cgtype_basic_t *btype = NULL;
+	int rc;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(bval ? 1 : 0, &imm);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_bool, &btype);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_imm;
+	instr->width = cgen_bool_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &imm->oper;
+	instr->op2 = NULL;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	eres->varname = dest->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
+	eres->cvknown = true;
+	eres->cvint = bval ? 1 : 0;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -10809,7 +10910,8 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 		bits = cgen_basic_type_bits(cgproc->cgen,
 		    (cgtype_basic_t *)vres->cgtype->ext);
 		if (bits == 0) {
-			fprintf(stderr, "Unimplemented variable type.\n");
+			fprintf(stderr, "Unimplemented variable type "
+			    "[store].\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -10821,7 +10923,7 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	} else if (vres->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		fprintf(stderr, "Unimplemented variable type [store 2].\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -14475,6 +14577,10 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 	case ant_eint:
 		rc = cgen_eint(cgexpr, (ast_eint_t *) expr->ext, lblock, eres);
 		break;
+	case ant_ebool:
+		rc = cgen_ebool(cgexpr, (ast_ebool_t *) expr->ext, lblock,
+		    eres);
+		break;
 	case ant_echar:
 		rc = cgen_echar(cgexpr, (ast_echar_t *) expr->ext, lblock,
 		    eres);
@@ -15122,6 +15228,37 @@ static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
 	int rc;
 
 	rc = cgen_enum2int_rtype(cgen, res->cgtype, &rtype, converted);
+	if (rc != EOK)
+		return rc;
+
+	rres->varname = res->varname;
+	rres->valtype = res->valtype;
+	rres->cvknown = res->cvknown;
+	rres->cvint = res->cvint;
+	rres->cvsymbol = res->cvsymbol;
+	rres->tfirst = res->tfirst;
+	rres->tlast = res->tlast;
+	rres->cgtype = rtype;
+
+	return EOK;
+}
+
+/** Convert _Bool to unsigned char.
+ * *
+ * @param cgen Code generator
+ * @param res Expression result that is a _Bool
+ * @param to_sigend @c true to convert to signed char
+ * @param rres Place to store converted result
+ */
+static int cgen_bool2char(cgen_t *cgen, cgen_eres_t *res, bool to_signed,
+    cgen_eres_t *rres)
+{
+	cgtype_t *rtype = NULL;
+	int rc;
+
+	(void)cgen;
+
+	rc = cgtype_int_construct(to_signed, cgir_char, &rtype);
 	if (rc != EOK)
 		return rc;
 
@@ -16057,6 +16194,182 @@ error:
 	return rc;
 }
 
+/** Convert expression result from _Bool to a different type.
+ *
+ * Generate waring (implicit conversion of '_Bool' to 'type'
+ * and convert to unsigned char.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param dtype Destination type
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_from_bool(cgen_expr_t *cgexpr, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgtype_t *dtype, cgen_expl_t expl, ir_lblock_t *lblock,
+    cgen_eres_t *cres)
+{
+	cgen_eres_t ires;
+	int rc;
+
+	cgen_eres_init(&ires);
+
+	/* First drop to corresponding signed/unsigned char. */
+	rc = cgen_bool2char(cgexpr->cgen, ares,
+	    cgen_type_is_signed(cgexpr->cgen, dtype), &ires);
+	if (rc != EOK)
+		goto error;
+
+	if (expl == cgen_implicit) {
+		/* Generate warning. */
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from '_Bool' "
+		    "to '");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, "'.\n");
+		++cgexpr->cgen->warnings;
+	}
+
+	/* Now do the rest of the work */
+	rc = cgen_type_convert(cgexpr, ctok, &ires, dtype, expl, lblock, cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&ires);
+	return EOK;
+error:
+	cgen_eres_fini(&ires);
+	return rc;
+}
+
+/** Convert expression result from logic to _Bool.
+ *
+ * We just need to truncate the value, because logic (16 bits) is
+ * guaranteed to have value 0 or 1 (which we need for _Bool / 8 bits).
+ *
+ * @param cgexpr Code generator for expression
+ * @param ares Argument (expression result)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
+    cgen_eres_t *ares, ir_lblock_t *lblock, cgen_eres_t *cres)
+{
+	cgtype_basic_t *btype = NULL;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *sarg = NULL;
+	ir_oper_imm_t *imm = NULL;
+	int rc;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &sarg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_imm_create(cgen_logic_bits, &imm);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_trunc;
+	instr->width = cgen_bool_bits;
+	instr->dest = &dest->oper;
+	instr->op1 = &sarg->oper;
+	instr->op2 = &imm->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+	dest = NULL;
+	sarg = NULL;
+	imm = NULL;
+	instr = NULL;
+
+	/* Construct corresponding integer type */
+	rc = cgtype_basic_create(cgelm_bool, &btype);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = ares->varname;
+	cres->valtype = ares->valtype;
+	cres->cvknown = ares->cvknown;
+	cres->cvint = ares->cvint;
+	cres->cvsymbol = ares->cvsymbol;
+	cres->tfirst = ares->tfirst;
+	cres->tlast = ares->tlast;
+	cres->cgtype = &btype->cgtype;
+
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (sarg != NULL)
+		ir_oper_destroy(&sarg->oper);
+	if (imm != NULL)
+		ir_oper_destroy(&imm->oper);
+	cgtype_destroy(&btype->cgtype);
+	return rc;
+}
+
+/** Convert expression result to _Bool from am integer type.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ctok Conversion token - only used to print diagnostics
+ * @param ares Argument (expression result)
+ * @param expl Explicit (@c cgen_explicit) or implicit (@c cgen_implicit)
+ *             type conversion
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store conversion result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_type_convert_int_to_bool(cgen_expr_t *cgexpr, comp_tok_t *ctok,
+    cgen_eres_t *ares, cgen_expl_t expl, ir_lblock_t *lblock, cgen_eres_t *cres)
+{
+	cgen_eres_t tres;
+	int rc;
+
+	cgen_eres_init(&tres);
+
+	if (expl == cgen_implicit) {
+		/* Generate warning. */
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, "' to '_Bool'.\n");
+		++cgexpr->cgen->warnings;
+	}
+
+	/* Compare integer to zero -> truth value. */
+	rc = cgen_int_notzero(cgexpr, ares, lblock, &tres);
+	if (rc != EOK)
+		goto error;
+
+	/* Convert truth value to _Bool. */
+	rc = cgen_type_convert_logic_to_bool(cgexpr, &tres, lblock, cres);
+	if (rc != EOK)
+		goto error;
+
+	cgen_eres_fini(&tres);
+	return EOK;
+error:
+	cgen_eres_fini(&tres);
+	return rc;
+}
+
 /** Convert expression result from integer to pointer.
  *
  * @param cgexpr Code generator for expression
@@ -16301,6 +16614,26 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (dtype->ntype == cgn_enum) {
 		return cgen_type_convert_to_enum(cgexpr, ctok, ares, dtype, expl,
 		    lblock, cres);
+	}
+
+	/* Source type is bool (but destination is not) */
+	if (cgen_type_is_bool(cgexpr->cgen, ares->cgtype)) {
+		return cgen_type_convert_from_bool(cgexpr, ctok, ares, dtype,
+		    expl, lblock, cres);
+	}
+
+	/* Destination type is bool, source is logic. */
+	if (cgen_type_is_logic(cgexpr->cgen, ares->cgtype) &&
+	    cgen_type_is_bool(cgexpr->cgen, dtype)) {
+		return cgen_type_convert_logic_to_bool(cgexpr, ares, lblock,
+		    cres);
+	}
+
+	/* Destination type is bool, source is integer. */
+	if (cgen_type_is_integer(cgexpr->cgen, ares->cgtype) &&
+	    cgen_type_is_bool(cgexpr->cgen, dtype)) {
+		return cgen_type_convert_int_to_bool(cgexpr, ctok, ares,
+		    expl, lblock, cres);
 	}
 
 	/* Source is an integer and destination is a pointer. */
@@ -16680,6 +17013,92 @@ error:
 	return rc;
 }
 
+/** Convert integer expression result to zero.
+ *
+ * This produces a truth value (0 / 1, cgen_logic_bits wide).
+ *
+ * @param cgexpr Code generator for expression
+ * @param ares Argument (expression result)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param cres Place to store comparison result
+ *
+ * @return EOK or an error code
+ */
+static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
+    ir_lblock_t *lblock, cgen_eres_t *cres)
+{
+	cgen_eres_t ires;
+	cgtype_basic_t *btype;
+	cgtype_basic_t *dbtype;
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *dest = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	int rc;
+
+	cgen_eres_init(&ires);
+
+	assert(ares->cgtype->ntype == cgn_basic);
+	btype = (cgtype_basic_t *)ares->cgtype->ext;
+	rc = cgen_const_int(cgexpr->cgproc, btype->elmtype, 0, lblock, &ires);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgtype_basic_create(cgelm_bool, &dbtype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ires.varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_neq;
+	instr->width = cgen_basic_type_bits(cgexpr->cgen, btype);
+	instr->dest = &dest->oper;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	cres->varname = dest->varname;
+	cres->valtype = cgen_rvalue;
+	cres->cgtype = &dbtype->cgtype;
+
+	if (ares->cvknown) {
+		cres->cvknown = true;
+		cres->cvint = (ares->cvint) != 0;
+	}
+
+	cgen_eres_fini(&ires);
+	return EOK;
+error:
+	ir_instr_destroy(instr);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	if (dest != NULL)
+		ir_oper_destroy(&dest->oper);
+	if (dbtype != NULL)
+		cgtype_destroy(&btype->cgtype);
+	cgen_eres_fini(&ires);
+	return rc;
+}
+
 /** Generate code for a truth expression result test / conditional jump.
  *
  * Evaluate truth expression, then jump if it is true/non-zero (@a cval == true),
@@ -16701,7 +17120,13 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	ir_oper_var_t *larg = NULL;
 	comp_tok_t *tok;
 	cgtype_basic_t *btype;
+	cgtype_t *ttype = NULL;
+	cgen_eres_t tres;
+	bool is_integer = false;
+	uint8_t int_width = 0;
 	int rc;
+
+	cgen_eres_init(&tres);
 
 	/* Check the type */
 
@@ -16712,6 +17137,7 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		case cgelm_void:
 			cgen_error_use_void_value(cgexpr->cgen, atok);
 			return EINVAL;
+		case cgelm_bool:
 		case cgelm_char:
 		case cgelm_uchar:
 		case cgelm_short:
@@ -16729,9 +17155,14 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 			cgen_error_need_scalar(cgexpr->cgen, atok);
 			return EINVAL;
 		}
+
+		is_integer = true;
+		int_width = cgen_basic_type_bits(cgexpr->cgen, btype);
 		break;
 	case cgn_enum:
 		cgen_warn_logic_enum(cgexpr->cgen, atok);
+		is_integer = true;
+		int_width = cgen_enum_bits;
 		break;
 	case cgn_func:
 		// XXX TODO
@@ -16745,8 +17176,54 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		return EINVAL;
 	}
 
+	/*
+	 * The value must be compared to zero to produce an 'int'
+	 * with zero or non-zero value. In some cases we can skip that.
+	 */
+	if (is_integer && int_width == cgen_logic_bits) {
+		/*
+		 * It is already an integer of the same size as 'int'.
+		 * No need to do anything.
+		 */
+		rc = cgen_eres_clone(cres, &tres);
+		if (rc != EOK)
+			goto error;
+	} else if (is_integer && int_width < cgen_logic_bits) {
+		/*
+		 * It is an integer type smaller than 'int' (char, _Bool),
+		 * zero-extend it.
+		 */
+		rc = cgtype_int_construct(true, cgir_int, &ttype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgen_type_convert(cgexpr, NULL, cres, ttype,
+		    cgen_explicit, lblock, &tres);
+		if (rc != EOK)
+			goto error;
+	} else if (is_integer) {
+		/*
+		 * Integer larger than 'int'. Need to compare it with
+		 * zero, producing a truth value ('int'-sized).
+		 */
+		rc = cgen_int_notzero(cgexpr, cres, lblock, &tres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		/*
+		 * Integer larger than 'int' or a non-integral type
+		 * (float, double).
+		 */
+		fprintf(stderr, "Unimplemented variable type[truth_eres_cjmp].\n");
+
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
 	if (cres->cgtype->ntype != cgn_basic ||
-	    ((cgtype_basic_t *)cres->cgtype->ext)->elmtype != cgelm_logic) {
+	    (((cgtype_basic_t *)cres->cgtype->ext)->elmtype != cgelm_logic &&
+	    ((cgtype_basic_t *)cres->cgtype->ext)->elmtype != cgelm_bool)) {
 		tok = (comp_tok_t *) atok->data;
 		lexer_dprint_tok(&tok->tok, stderr);
 		fprintf(stderr, ": Warning: '");
@@ -16781,8 +17258,13 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	ir_lblock_append(lblock, NULL, instr);
 	instr = NULL;
 
+	cgtype_destroy(ttype);
+	cgen_eres_fini(&tres);
 	return EOK;
 error:
+	cgen_eres_fini(&tres);
+	if (ttype != NULL)
+		cgtype_destroy(ttype);
 	if (carg != NULL)
 		ir_oper_destroy(&carg->oper);
 	if (instr != NULL)
@@ -17718,6 +18200,7 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	/* Expression must be integer or enum */
 	if (!cgen_type_is_integer(cgproc->cgen, eres.cgtype) &&
+	    !cgen_type_is_bool(cgproc->cgen, eres.cgtype) &&
 	    eres.cgtype->ntype != cgn_enum) {
 		atok = ast_tree_first_tok(aswitch->sexpr);
 		tok = (comp_tok_t *)atok->data;
@@ -17928,7 +18411,8 @@ static void cgen_clabel_check_logic(cgen_proc_t *cgproc, cgtype_t *ctype,
 	switch (ctype->ntype) {
 	case cgn_basic:
 		tbasic = (cgtype_basic_t *)ctype->ext;
-		if (tbasic->elmtype != cgelm_logic) {
+		if (tbasic->elmtype != cgelm_logic &&
+		    tbasic->elmtype != cgelm_bool) {
 			lexer_dprint_tok(&tok->tok, stderr);
 			fprintf(stderr, ": Warning: Case expression is ");
 			(void) cgtype_print(ctype, stderr);
@@ -18105,7 +18589,6 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	switch (sres->cgtype->ntype) {
 	case cgn_basic:
 		ctbasic = (cgtype_basic_t *)ieres.cgtype->ext;
-		csigned = cgen_basic_type_signed(cgproc->cgen, ctbasic);
 		tbasic = (cgtype_basic_t *)sres->cgtype->ext;
 
 		atok = ast_tree_first_tok(aclabel->cexpr);
@@ -18122,7 +18605,15 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 			 * logic type
 			 */
 			cgen_clabel_check_logic(cgproc, eres.cgtype, atok);
+		} else if (tbasic->elmtype == cgelm_bool) {
+			/*
+			 * Check case expression type is compatible with
+			 * logic type
+			 */
+			cgen_clabel_check_logic(cgproc, eres.cgtype, atok);
 		} else {
+			csigned = cgen_basic_type_signed(cgproc->cgen, ctbasic);
+
 			/* Check expression value is in integer type range */
 			if (!cgen_cvint_in_tbasic_range(cgproc->cgen, csigned,
 			    eres.cvint, tbasic)) {

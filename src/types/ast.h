@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -85,6 +85,8 @@ typedef enum {
 	ant_typename,
 	/** Integer literal */
 	ant_eint,
+	/** Boolean literal */
+	ant_ebool,
 	/** Character literal */
 	ant_echar,
 	/** String literal */
@@ -339,6 +341,8 @@ typedef struct {
 typedef enum {
 	/** Void type specifier */
 	abts_void,
+	/** Bool type specifier */
+	abts_bool,
 	/** Char type specifer */
 	abts_char,
 	/** Short type specifier */
@@ -361,7 +365,10 @@ typedef enum {
 	abts_va_list
 } ast_btstype_t;
 
-/** Basic type specifier */
+/** Basic type specifier.
+ *
+ * A basic type specifier consists of a single reserved word.
+ */
 typedef struct {
 	/** Base object */
 	ast_node_t node;
@@ -819,6 +826,16 @@ typedef struct {
 	/** Literal token */
 	ast_tok_t tlit;
 } ast_eint_t;
+
+/** Boolean literal expression */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** Literal token */
+	ast_tok_t tlit;
+	/** Boolean value */
+	bool bval;
+} ast_ebool_t;
 
 /** Character literal expression */
 typedef struct {

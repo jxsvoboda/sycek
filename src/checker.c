@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -3727,6 +3727,22 @@ static int checker_check_eint(checker_scope_t *scope, ast_eint_t *eint)
 	return EOK;
 }
 
+/** Check boolean literal expression.
+ *
+ * @param scope Checker scope
+ * @param ebool Boolean literal expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ebool(checker_scope_t *scope, ast_ebool_t *ebool)
+{
+	checker_tok_t *tlit;
+
+	tlit = (checker_tok_t *) ebool->tlit.data;
+	checker_check_any(scope, tlit);
+	return EOK;
+}
+
 /** Check string literal.
  *
  * @param scope Checker scope
@@ -4579,6 +4595,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 	switch (expr->ntype) {
 	case ant_eint:
 		return checker_check_eint(scope, (ast_eint_t *) expr);
+	case ant_ebool:
+		return checker_check_ebool(scope, (ast_ebool_t *) expr);
 	case ant_echar:
 		return checker_check_echar(scope, (ast_echar_t *) expr);
 	case ant_estring:

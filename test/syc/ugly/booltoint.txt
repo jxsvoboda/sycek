@@ -1,0 +1,4 @@
+<test/syc/ugly/booltoint.c:13:11:'='>: Warning: Implicit conversion from '_Bool' to 'char'.
+<test/syc/ugly/booltoint.c:18:11:'='>: Warning: Implicit conversion from '_Bool' to 'int'.
+<test/syc/ugly/booltoint.c:23:11:'='>: Warning: Implicit conversion from '_Bool' to 'long'.
+<test/syc/ugly/booltoint.c:28:12:'='>: Warning: Implicit conversion from '_Bool' to 'long long'.
