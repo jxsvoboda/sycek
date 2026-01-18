@@ -17123,6 +17123,7 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_t *ttype = NULL;
 	cgen_eres_t tres;
 	bool is_integer = false;
+	bool is_pointer = false;
 	uint8_t int_width = 0;
 	int rc;
 
@@ -17169,6 +17170,7 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		assert(false);
 		break;
 	case cgn_pointer:
+		is_pointer = true;
 		break;
 	case cgn_record:
 	case cgn_array:
@@ -17180,10 +17182,10 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	 * The value must be compared to zero to produce an 'int'
 	 * with zero or non-zero value. In some cases we can skip that.
 	 */
-	if (is_integer && int_width == cgen_logic_bits) {
+	if ((is_integer && int_width == cgen_logic_bits) || is_pointer) {
 		/*
-		 * It is already an integer of the same size as 'int'.
-		 * No need to do anything.
+		 * It is already an integer of the same size as 'int'
+		 * or a pointer. No need to do anything.
 		 */
 		rc = cgen_eres_clone(cres, &tres);
 		if (rc != EOK)
@@ -17214,7 +17216,10 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		 * Integer larger than 'int' or a non-integral type
 		 * (float, double).
 		 */
-		fprintf(stderr, "Unimplemented variable type[truth_eres_cjmp].\n");
+		tok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, " : Unimplemented variable type "
+		    "[truth_eres_cjmp].\n");
 
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
