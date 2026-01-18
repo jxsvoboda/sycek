@@ -21925,7 +21925,7 @@ static int cgen_init_dentries_record(cgen_t *cgen, cgtype_record_t *trecord,
 	while (*elem != NULL) {
 		relem = parent->next_elem;
 		/* Bit width or zero if not a bitfield */
-		width = relem != 0 ? relem->width : 0;
+		width = (relem != NULL) ? relem->width : 0;
 
 		rc = cgen_init_lookup(cgen, parent, &trecord->cgtype, *elem,
 		    &cgtype, &init);
