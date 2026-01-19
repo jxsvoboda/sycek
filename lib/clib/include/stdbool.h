@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -23,9 +23,15 @@
 #ifndef _STDBOOL_H
 #define _STDBOOL_H
 
-typedef enum {
-	false,
-	true
-} bool;
+#define bool _Bool
+
+/*
+ * Technically C99 specified that false, true should expand to 0, 1.
+ * But to support strict boolean type, we provide actual boolean literals.
+ */
+#define false _False
+#define true _True
+
+#define __bool_true_false_are_defined 1
 
 #endif
