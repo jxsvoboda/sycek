@@ -1,0 +1,13 @@
+<test/syc/ugly/boolbitwise.c:10:15:'&'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:11:15:'&'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:12:15:'&'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:17:15:'|'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:18:15:'|'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:19:15:'|'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:24:15:'^'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:25:15:'^'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:26:15:'^'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:31:13:'~'>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:36:11-12:'|='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:41:11-12:'&='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/boolbitwise.c:46:11-12:'^='>: Warning: Suspicious arithmetic operation involving truth values.

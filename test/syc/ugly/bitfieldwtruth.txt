@@ -1,0 +1,2 @@
+<test/syc/ugly/bitfieldwtruth.c:6:17-21:'_True'>: Warning: Truth value used as an integer.
+<test/syc/ugly/bitfieldwtruth.c:7:17:num:0>: Warning: Truth value used as an integer.

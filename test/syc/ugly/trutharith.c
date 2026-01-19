@@ -56,10 +56,19 @@ void truthsign(void)
 	c = (int)-(0 < 1);
 }
 
-/* TODO / */
-/* TODO % */
-/* TODO ++ once we have _Bool */
-/* TODO -- once we have _Bool */
+void truthdiv(void)
+{
+	c = (int)((0 < 1) / 1);
+	c = (int)(1 / (0 < 1));
+	c = (int)((0 < 1) / (0 < 1));
+}
+
+void truthmod(void)
+{
+	c = (int)((0 < 1) % 1);
+	c = (int)(1 % (0 < 1));
+	c = (int)((0 < 1) % (0 < 1));
+}
 
 void truthshl(void)
 {
@@ -74,8 +83,6 @@ void truthshr(void)
 	c = (int)(1 >> (0 < 1));
 	c = (int)((0 << 1) >> (0 < 1));
 }
-
-/* TODO Left operand of compound assignment is _Bool */
 
 void truthaddassign(void)
 {
@@ -92,8 +99,15 @@ void truthmulassign(void)
 	c *= 0 < 1;
 }
 
-/* TODO /= */
-/* TODO %= */
+void truthdivassign(void)
+{
+	c /= 0 < 1;
+}
+
+void truthmodassign(void)
+{
+	c %= 0 < 1;
+}
 
 void truthshlassign(void)
 {

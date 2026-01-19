@@ -1,0 +1,2 @@
+<test/syc/ugly/condboolmix.c:11:19:':'>: Warning: Implicit conversion from '_Bool' to 'int'.
+<test/syc/ugly/condboolmix.c:12:15:'?'>: Warning: Implicit conversion from '_Bool' to 'int'.

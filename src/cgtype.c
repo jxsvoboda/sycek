@@ -1159,9 +1159,11 @@ cgtype_int_rank_t cgtype_int_rank(cgtype_t *cgtype)
 
 	switch (basic->elmtype) {
 	case cgelm_void:
-	case cgelm_bool:
 	case cgelm_va_list:
 		assert(false);
+		break;
+	case cgelm_bool:
+		rank = cgir_bool;
 		break;
 	case cgelm_char:
 	case cgelm_uchar:
@@ -1206,6 +1208,10 @@ int cgtype_int_construct(bool sign, cgtype_int_rank_t rank, cgtype_t **rtype)
 	int rc;
 
 	switch (rank) {
+	case cgir_bool:
+		etsigned = cgelm_bool;
+		etunsigned = cgelm_bool;
+		break;
 	case cgir_char:
 		etsigned = cgelm_char;
 		etunsigned = cgelm_uchar;

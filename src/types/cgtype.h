@@ -73,7 +73,9 @@ typedef enum {
  * Conversion and is defined by the standard
  */
 typedef enum {
-	/** Char is the lowest rank */
+	/** Bool is the lowest rank */
+	cgir_bool,
+	/** Char */
 	cgir_char,
 	/** Short */
 	cgir_short,

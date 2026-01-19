@@ -1,0 +1,6 @@
+<test/syc/ugly/truthshiftasgn.c:12:11-13:'<<='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/truthshiftasgn.c:17:11-13:'<<='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/truthshiftasgn.c:22:11-13:'<<='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/truthshiftasgn.c:27:11-13:'>>='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/truthshiftasgn.c:32:11-13:'>>='>: Warning: Suspicious arithmetic operation involving truth values.
+<test/syc/ugly/truthshiftasgn.c:37:11-13:'>>='>: Warning: Suspicious arithmetic operation involving truth values.

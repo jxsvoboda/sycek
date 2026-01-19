@@ -1,0 +1,2 @@
+<test/syc/ugly/arraydimtruth.c:5:7-11:'_True'>: Warning: Truth value used as an integer.
+<test/syc/ugly/arraydimtruth.c:6:7:num:0>: Warning: Truth value used as an integer.

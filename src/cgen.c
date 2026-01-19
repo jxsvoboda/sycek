@@ -49,6 +49,7 @@
 
 static unsigned cgen_type_sizeof(cgen_t *, cgtype_t *);
 static bool cgen_type_is_integral(cgen_t *, cgtype_t *);
+static bool cgen_type_is_bool(cgen_t *, cgtype_t *);
 static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
@@ -533,6 +534,7 @@ static bool cgen_basic_type_signed(cgen_t *cgen, cgtype_basic_t *tbasic)
 	case cgelm_long:
 	case cgelm_longlong:
 		return true;
+	case cgelm_bool:
 	case cgelm_uchar:
 	case cgelm_ushort:
 	case cgelm_uint:
@@ -641,6 +643,9 @@ static bool cgen_type_is_integral(cgen_t *cgen, cgtype_t *cgtype)
 		return true;
 
 	if (cgtype->ntype == cgn_enum)
+		return true;
+
+	if (cgen_type_is_bool(cgen, cgtype))
 		return true;
 
 	return false;
@@ -3284,7 +3289,8 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 				goto error;
 
 			/* Truth value should not be used */
-			if (cgen_type_is_logic(cgen, bwres.cgtype)) {
+			if (cgen_type_is_logic(cgen, bwres.cgtype) ||
+			    cgen_type_is_bool(cgen, bwres.cgtype)) {
 				tok = ast_tree_first_tok(dlentry->bitwidth);
 				ctok = (comp_tok_t *)tok->data;
 				cgen_warn_truth_as_int(cgen, ctok);
@@ -4792,7 +4798,8 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 			goto error;
 
 		/* Truth value should not be used */
-		if (cgen_type_is_logic(cgen, szres.cgtype)) {
+		if (cgen_type_is_logic(cgen, szres.cgtype) ||
+		    cgen_type_is_bool(cgen, szres.cgtype)) {
 			tok = ast_tree_first_tok(darray->asize);
 			ctok = (comp_tok_t *)tok->data;
 			cgen_warn_truth_as_int(cgen, ctok);
@@ -6291,8 +6298,10 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	ctok = (comp_tok_t *)optok->data;
 
-	l_int = cgen_type_is_integer(cgexpr->cgen, lres->cgtype);
-	r_int = cgen_type_is_integer(cgexpr->cgen, rres->cgtype);
+	l_int = cgen_type_is_integer(cgexpr->cgen, lres->cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, lres->cgtype);
+	r_int = cgen_type_is_integer(cgexpr->cgen, rres->cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, rres->cgtype);
 	l_enum = lres->cgtype->ntype == cgn_enum;
 	r_enum = rres->cgtype->ntype == cgn_enum;
 
@@ -6978,8 +6987,10 @@ static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	ctok = (comp_tok_t *)optok->data;
 
-	l_int = cgen_type_is_integer(cgexpr->cgen, lres->cgtype);
-	r_int = cgen_type_is_integer(cgexpr->cgen, rres->cgtype);
+	l_int = cgen_type_is_integer(cgexpr->cgen, lres->cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, lres->cgtype);
+	r_int = cgen_type_is_integer(cgexpr->cgen, rres->cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, rres->cgtype);
 	l_enum = lres->cgtype->ntype == cgn_enum;
 	r_enum = rres->cgtype->ntype == cgn_enum;
 
@@ -8094,7 +8105,9 @@ static int cgen_bo_shl(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Warn if truth value involved in left shift */
 	if (cgen_type_is_logic(cgexpr->cgen, lires.cgtype) ||
-	    cgen_type_is_logic(cgexpr->cgen, rires.cgtype))
+	    cgen_type_is_bool(cgexpr->cgen, lires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, rires.cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, rires.cgtype))
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
@@ -8165,7 +8178,9 @@ static int cgen_bo_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Warn if truth value involved in right shift */
 	if (cgen_type_is_logic(cgexpr->cgen, lires.cgtype) ||
-	    cgen_type_is_logic(cgexpr->cgen, rires.cgtype))
+	    cgen_type_is_bool(cgexpr->cgen, lires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, rires.cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, rires.cgtype))
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift right */
@@ -11476,7 +11491,9 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Warn if truth value involved in left shift */
 	if (cgen_type_is_logic(cgexpr->cgen, aires.cgtype) ||
-	    cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+	    cgen_type_is_bool(cgexpr->cgen, aires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, bires.cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, bires.cgtype))
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift left */
@@ -11579,7 +11596,9 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Warn if truth value involved in right shift */
 	if (cgen_type_is_logic(cgexpr->cgen, aires.cgtype) ||
-	    cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+	    cgen_type_is_bool(cgexpr->cgen, aires.cgtype) ||
+	    cgen_type_is_logic(cgexpr->cgen, bires.cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, bires.cgtype))
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Shift right */
@@ -12041,6 +12060,14 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 		    cgen_type_is_logic(cgexpr->cgen, btype)) {
 			/* Both operands have logic type */
 			return cgtype_clone(atype, rrtype);
+		} else if (cgen_type_is_logic(cgexpr->cgen, atype) &&
+		    cgen_type_is_bool(cgexpr->cgen, btype)) {
+			/* First operand is logic, second is bool. -> logic */
+			return cgtype_clone(atype, rrtype);
+		} else if (cgen_type_is_bool(cgexpr->cgen, atype) &&
+		    cgen_type_is_logic(cgexpr->cgen, btype)) {
+			/* First openad is bool, second is logic. -> logic */
+			return cgtype_clone(btype, rrtype);
 		} else if (atype->ntype == cgn_enum && btype->ntype == cgn_enum &&
 		    cgen_enum_types_are_compatible(cgexpr->cgen, atype, btype)) {
 			/* Same enum types */
@@ -13857,7 +13884,8 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 			cgen_warn_arith_enum(cgexpr->cgen, &eusign->tsign);
 
 		/* Warn if truth value involved in unary minus */
-		if (cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+		if (cgen_type_is_logic(cgexpr->cgen, bires.cgtype) ||
+		    cgen_type_is_bool(cgexpr->cgen, bires.cgtype))
 			cgen_warn_arith_truth(cgexpr->cgen, &eusign->tsign);
 
 		/* neg %<dest>, %<bires> */
@@ -14163,7 +14191,8 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	if (is_signed && !conv && !bires.cvknown)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebnot->tbnot);
 	/* Warn if truth value involved in bitwise negation */
-	if (cgen_type_is_logic(cgexpr->cgen, bires.cgtype))
+	if (cgen_type_is_logic(cgexpr->cgen, bires.cgtype) ||
+	    cgen_type_is_bool(cgexpr->cgen, bires.cgtype))
 		cgen_warn_arith_truth(cgexpr->cgen, &ebnot->tbnot);
 	/* Negative constant operand */
 	if (bires.cvknown && cgen_cvint_is_negative(cgexpr->cgen, is_signed,
@@ -15373,8 +15402,8 @@ static int cgen_uac_rtype(cgen_expr_t *cgexpr, cgtype_t *type1,
 	if (rc != EOK)
 		goto error;
 
-	if (!cgen_type_is_integer(cgexpr->cgen, itype1) ||
-	    !cgen_type_is_integer(cgexpr->cgen, itype2)) {
+	if (!cgen_type_is_integral(cgexpr->cgen, itype1) ||
+	    !cgen_type_is_integral(cgexpr->cgen, itype2)) {
 		fprintf(stderr, "Performing UAC on non-integral type(s) ");
 		(void) cgtype_print(itype1, stderr);
 		fprintf(stderr, ", ");
@@ -15483,6 +15512,8 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	bool conv2;
 	bool neg1;
 	bool neg2;
+	bool ltruth;
+	bool rtruth;
 	int rc;
 
 	*flags = cguac_none;
@@ -15504,8 +15535,8 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	if (rc != EOK)
 		goto error;
 
-	if (!cgen_type_is_integer(cgexpr->cgen, ir1.cgtype) ||
-	    !cgen_type_is_integer(cgexpr->cgen, ir2.cgtype)) {
+	if (!cgen_type_is_integral(cgexpr->cgen, ir1.cgtype) ||
+	    !cgen_type_is_integral(cgexpr->cgen, ir2.cgtype)) {
 		fprintf(stderr, "Performing UAC on non-integral type(s) ");
 		(void) cgtype_print(ir1.cgtype, stderr);
 		fprintf(stderr, ", ");
@@ -15519,13 +15550,16 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	bt1 = (cgtype_basic_t *)ir1.cgtype->ext;
 	bt2 = (cgtype_basic_t *)ir2.cgtype->ext;
 
-	/* Always warn for logic type in UAC */
+	/* Always warn for logic or bool type in UAC */
 
-	if (bt1->elmtype == cgelm_logic || bt2->elmtype == cgelm_logic)
+	ltruth = bt1->elmtype == cgelm_logic || bt1->elmtype == cgelm_bool;
+	rtruth = bt2->elmtype == cgelm_logic || bt2->elmtype == cgelm_bool;
+
+	if (ltruth || rtruth)
 		*flags |= cguac_truth;
-	if (bt1->elmtype == cgelm_logic && bt2->elmtype != cgelm_logic)
+	if (ltruth && !rtruth)
 		*flags |= cguac_truthmix;
-	if (bt1->elmtype != cgelm_logic && bt2->elmtype == cgelm_logic)
+	if (!ltruth && rtruth)
 		*flags |= cguac_truthmix;
 
 	/* Get signedness, constantness and negative flag for both operands */
@@ -16235,7 +16269,7 @@ static int cgen_type_convert_from_bool(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (rc != EOK)
 		goto error;
 
-	if (expl == cgen_implicit) {
+	if (expl == cgen_implicit && !cgen_type_is_logic(cgexpr->cgen, dtype)) {
 		/* Generate warning. */
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Implicit conversion from '_Bool' "
