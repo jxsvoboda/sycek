@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,6 @@
 
 #include <stdlib.h>
 
-#define assert(x) while (1) { if (!(x)) abort(); }
+#define assert(x) while (_True) { if (!(x)) abort(); }
 
 #endif
