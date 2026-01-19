@@ -1,0 +1,3 @@
+<test/syc/ugly/booltoptr.c:10:11:'='>: Warning: Implicit conversion from '_Bool' to '^void'.
+<test/syc/ugly/booltoptr.c:10:11:'='>: Warning: Zero used as a null pointer constant.
+<test/syc/ugly/booltoptr.c:10:11:'='>: Warning: Converting to pointer from integer of different size.

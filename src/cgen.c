@@ -16215,13 +16215,23 @@ static int cgen_type_convert_from_bool(cgen_expr_t *cgexpr, comp_tok_t *ctok,
     cgen_eres_t *cres)
 {
 	cgen_eres_t ires;
+	bool is_signed;
 	int rc;
 
 	cgen_eres_init(&ires);
 
+	/*
+	 * If we are converting to an integer, might as well
+	 * start with the correct signedness. Otherwise just
+	 * use unsigned.
+	 */
+	if (cgen_type_is_integer(cgexpr->cgen, dtype))
+		is_signed = cgen_type_is_signed(cgexpr->cgen, dtype);
+	else
+		is_signed = false;
+
 	/* First drop to corresponding signed/unsigned char. */
-	rc = cgen_bool2char(cgexpr->cgen, ares,
-	    cgen_type_is_signed(cgexpr->cgen, dtype), &ires);
+	rc = cgen_bool2char(cgexpr->cgen, ares, is_signed, &ires);
 	if (rc != EOK)
 		goto error;
 
