@@ -1,5 +1,5 @@
 #
-# Copyright 2025 Jiri Svoboda
+# Copyright 2026 Jiri Svoboda
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # copy of this software and associated documentation files (the "Software"),
@@ -267,7 +267,8 @@ test-hos: install-hos
 
 z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_z80test_z80)
 
-z80asms: $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
+asms_z80 = $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
+z80asms: $(asms_z80)
 
 %.z80.pp.c: %.c
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
@@ -299,7 +300,10 @@ clean:
 	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
-	$(example_outs) $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
+	$(example_outs) $(asms_z80)
+
+clean_z80:
+	rm -f $(asms_z80)
 
 test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
