@@ -61,6 +61,7 @@ static int cgen_dspecs(cgen_t *, ast_dspecs_t *, ast_sclass_type_t *,
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
 static int cgen_const_bool(cgen_proc_t *, bool, ir_lblock_t *, cgen_eres_t *);
+static bool cgen_eres_is_nullptr(cgen_eres_t *);
 static int cgen_gsym_ptr(cgen_proc_t *, symbol_t *, ir_lblock_t *,
     cgen_eres_t *);
 static int cgen_lvaraddr(cgen_proc_t *, const char *, ir_lblock_t *,
@@ -5858,6 +5859,24 @@ error:
 	return rc;
 }
 
+/** Determine if expression result is a null pointer.
+ *
+ * @param eres Expression result
+ */
+static bool cgen_eres_is_nullptr(cgen_eres_t *eres)
+{
+	cgtype_pointer_t *ptype;
+
+	if (eres->cgtype->ntype != cgn_pointer)
+		return false;
+
+	ptype = (cgtype_pointer_t *)eres->cgtype->ext;
+	if (!cgtype_is_void(ptype->tgtype))
+		return false;
+
+	return eres->cvknown && (eres->cvint == 0);
+}
+
 /** Generate code to return pointer to global symbol.
  *
  * @param cgproc Code generator for procedure
@@ -8349,7 +8368,9 @@ static int cgen_lt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *lres,
 	assert(rres->cgtype->ntype == cgn_pointer);
 	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
 
-	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+	if (!cgtype_ptr_compatible(tptr1, tptr2) &&
+	    !cgen_eres_is_nullptr(lres) &&
+	    !cgen_eres_is_nullptr(rres)) {
 		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
 		    rres->cgtype);
 	}
@@ -8618,7 +8639,9 @@ static int cgen_lteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	assert(rres->cgtype->ntype == cgn_pointer);
 	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
 
-	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+	if (!cgtype_ptr_compatible(tptr1, tptr2) &&
+	    !cgen_eres_is_nullptr(lres) &&
+	    !cgen_eres_is_nullptr(rres)) {
 		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
 		    rres->cgtype);
 	}
@@ -8887,7 +8910,9 @@ static int cgen_gt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	assert(rres->cgtype->ntype == cgn_pointer);
 	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
 
-	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+	if (!cgtype_ptr_compatible(tptr1, tptr2) &&
+	    !cgen_eres_is_nullptr(lres) &&
+	    !cgen_eres_is_nullptr(rres)) {
 		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
 		    rres->cgtype);
 	}
@@ -9156,7 +9181,9 @@ static int cgen_gteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	assert(rres->cgtype->ntype == cgn_pointer);
 	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
 
-	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+	if (!cgtype_ptr_compatible(tptr1, tptr2) &&
+	    !cgen_eres_is_nullptr(lres) &&
+	    !cgen_eres_is_nullptr(rres)) {
 		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
 		    rres->cgtype);
 	}
@@ -9416,7 +9443,9 @@ static int cgen_eq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	assert(rres->cgtype->ntype == cgn_pointer);
 	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
 
-	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+	if (!cgtype_ptr_compatible(tptr1, tptr2) &&
+	    !cgen_eres_is_nullptr(lres) &&
+	    !cgen_eres_is_nullptr(rres)) {
 		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
 		    rres->cgtype);
 	}
@@ -9676,7 +9705,9 @@ static int cgen_neq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	assert(rres->cgtype->ntype == cgn_pointer);
 	tptr2 = (cgtype_pointer_t *)rres->cgtype->ext;
 
-	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
+	if (!cgtype_ptr_compatible(tptr1, tptr2) &&
+	    !cgen_eres_is_nullptr(lres) &&
+	    !cgen_eres_is_nullptr(rres)) {
 		cgen_warn_cmp_incom_ptr(cgexpr->cgen, atok, lres->cgtype,
 		    rres->cgtype);
 	}
