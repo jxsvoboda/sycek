@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -46,7 +46,7 @@ int fputs(const char *, FILE *);
 size_t fread(void *, size_t, size_t, FILE *);
 int getchar(void);
 int getc(FILE *);
-void putchar(int);
+int putchar(int);
 int remove(const char *);
 int rename(const char *, const char *);
 int snprintf(char *, size_t, const char *, ...);
