@@ -1,1 +1,0 @@
-<test/syc/bad/attrunkn.c:5:31-35:id:bogus>: Unknown attribute 'bogus'.

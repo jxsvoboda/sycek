@@ -302,6 +302,7 @@ static int cgtype_func_clone(cgtype_func_t *orig, cgtype_t **rcopy)
 
 	copy->variadic = orig->variadic;
 	copy->cconv = orig->cconv;
+	copy->may_ignore_return = orig->may_ignore_return;
 	*rcopy = &copy->cgtype;
 	return EOK;
 
@@ -381,6 +382,7 @@ static int cgtype_func_compose(cgtype_func_t *a, cgtype_func_t *b,
 
 	comp->cconv = a->cconv;
 	comp->variadic = a->variadic;
+	comp->may_ignore_return = a->may_ignore_return || b->may_ignore_return;
 	*rcomp = &comp->cgtype;
 	return EOK;
 

@@ -2503,6 +2503,23 @@ static void cgen_warn_tspec_not_impl(cgen_t *cgen, ast_node_t *tspec)
 	++cgen->warnings;
 }
 
+/** Generate warning: unknown attribute.
+ *
+ * @param cgen Code generator
+ * @param attr AST attribute
+ */
+static void cgen_warn_unknown_attr(cgen_t *cgen, ast_aspec_attr_t *attr)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) attr->tname.data;
+
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Unknown attribute '%s'.\n",
+	    tok->tok.text);
+	++cgen->warnings;
+}
+
 /** Generate warning: int is superfluous.
  *
  * @param cgen Code generator
@@ -4476,6 +4493,119 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
 	return EOK;
 }
 
+/** Process usr attribute in function declaration.
+ *
+ * @param cgen Code generator
+ * @param attr AST attribute
+ * @param have_args @c true iff the function being declared has arguments
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_fun_attr_usr(cgen_t *cgen, ast_aspec_attr_t *attr,
+    bool have_args)
+{
+	comp_tok_t *tok;
+
+	if (attr->have_params) {
+		tok = (comp_tok_t *) attr->tlparen.data;
+
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Attribute 'usr' should not have any "
+		    "arguments.\n");
+		cgen->error = true; // XXX
+		return EINVAL;
+	}
+
+	if (have_args) {
+		tok = (comp_tok_t *) attr->tname.data;
+
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": User service routine cannot "
+		    "have any arguments.\n");
+		cgen->error = true; // XXX
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
+/** Process 'may_ignore_return' attribute in function declaration.
+ *
+ * @param cgen Code generator
+ * @param attr AST attribute
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_fun_attr_may_ign_return(cgen_t *cgen,
+    ast_aspec_attr_t *attr)
+{
+	comp_tok_t *tok;
+
+	if (attr->have_params) {
+		tok = (comp_tok_t *) attr->tlparen.data;
+
+		lexer_dprint_tok(&tok->tok, stderr);
+		fprintf(stderr, ": Attribute 'may_ignore_return' should not "
+		    "have any arguments.\n");
+		cgen->error = true; // XXX
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
+/** Generate code for attribute specifier in function declaration.
+ *
+ * @param cgen Code generator
+ * @param aslist AST attribute specifier list
+ * @param func Type of function being declared
+ * @param have_args @c true iff the function has arguments
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_decl_fun_aslist(cgen_t *cgen, ast_aslist_t *aslist,
+    cgtype_func_t *func, bool have_args)
+{
+	ast_aspec_t *aspec;
+	ast_aspec_attr_t *attr;
+	comp_tok_t *tok;
+	int rc;
+
+	aspec = ast_aslist_first(aslist);
+	while (aspec != NULL) {
+		attr = ast_aspec_first(aspec);
+		while (attr != NULL) {
+			tok = (comp_tok_t *) attr->tname.data;
+			if (strcmp(tok->tok.text, "usr") == 0) {
+				/* User service routine */
+				rc = cgen_decl_fun_attr_usr(cgen, attr,
+				    have_args);
+				if (rc != EOK)
+					return rc;
+
+				func->cconv = cgcc_usr;
+			} else if (strcmp(tok->tok.text,
+			    "may_ignore_return") == 0) {
+				rc = cgen_decl_fun_attr_may_ign_return(cgen,
+				    attr);
+				if (rc != EOK)
+					return rc;
+
+				func->may_ignore_return = true;
+			} else {
+				/* Warning: unknown attribute. */
+				cgen_warn_unknown_attr(cgen, attr);
+			}
+
+			attr = ast_aspec_next(attr);
+		}
+
+		aspec = ast_aslist_next(aspec);
+	}
+
+	return EOK;
+}
+
 /** Generate code for function declarator.
  *
  * Base type (@a stype) determined by the declaration specifiers is
@@ -4502,8 +4632,6 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	cgtype_t *stype = NULL;
 	cgtype_t *atype = NULL;
 	cgtype_basic_t *abasic;
-	ast_aspec_t *aspec;
-	ast_aspec_attr_t *attr;
 	ast_sclass_type_t sctype;
 	bool have_args = false;
 	ast_tok_t *aident;
@@ -4654,47 +4782,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	/* Function attributes */
 	if (aslist != NULL) {
-		aspec = ast_aslist_first(aslist);
-		while (aspec != NULL) {
-			attr = ast_aspec_first(aspec);
-			while (attr != NULL) {
-				tok = (comp_tok_t *) attr->tname.data;
-				if (strcmp(tok->tok.text, "usr") == 0) {
-					if (attr->have_params) {
-						tok = (comp_tok_t *) attr->tlparen.data;
-
-						lexer_dprint_tok(&tok->tok, stderr);
-						fprintf(stderr, ": Attribute 'usr' should not have any "
-						    "arguments.\n");
-						cgen->error = true; // XXX
-						return EINVAL;
-					}
-
-					if (have_args) {
-						tok = (comp_tok_t *) attr->tname.data;
-
-						lexer_dprint_tok(&tok->tok, stderr);
-						fprintf(stderr, ": User service routine cannot "
-						    "have any arguments.\n");
-						cgen->error = true; // XXX
-						return EINVAL;
-					}
-
-					/* User service routine */
-					func->cconv = cgcc_usr;
-				} else {
-					lexer_dprint_tok(&tok->tok, stderr);
-					fprintf(stderr, ": Unknown attribute '%s'.\n",
-					    tok->tok.text);
-					cgen->error = true; // XXX
-					return EINVAL;
-				}
-
-				attr = ast_aspec_next(attr);
-			}
-
-			aspec = ast_aslist_next(aspec);
-		}
+		rc = cgen_decl_fun_aslist(cgen, aslist, func, have_args);
+		if (rc != EOK)
+			goto error;
 	}
 
 	cgen->cur_scope = prev_scope;
@@ -12785,7 +12875,8 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	eres->varname = dest ? dest->varname : NULL;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = rtype;
-	eres->valused = cgtype_is_void(ftype->rtype);
+	eres->valused = cgtype_is_void(ftype->rtype) ||
+	    ftype->may_ignore_return;
 
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
@@ -20190,60 +20281,6 @@ error:
 	return rc;
 }
 
-/** Process function definition attribute 'usr'.
- *
- * @param cgproc Code generator for procedure
- */
-static int cgen_fundef_attr_usr(cgen_proc_t *cgproc, ast_aspec_attr_t *attr)
-{
-	comp_tok_t *tok;
-	ir_proc_attr_t *irattr = NULL;
-	int rc;
-
-	if (attr->have_params) {
-		tok = (comp_tok_t *) attr->tlparen.data;
-
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Attribute 'usr' should not have any "
-		    "arguments.\n");
-		cgproc->cgen->error = true; // XXX
-		return EINVAL;
-	}
-
-	rc = ir_proc_attr_create("@usr", &irattr);
-	if (rc != EOK)
-		return rc;
-
-	ir_proc_append_attr(cgproc->irproc, irattr);
-	return EOK;
-}
-
-/** Process one attribute of function definition.
- *
- * @param cgproc Code generator for procedure
- */
-static int cgen_fundef_attr(cgen_proc_t *cgproc, ast_aspec_attr_t *attr)
-{
-	comp_tok_t *tok;
-	int rc;
-
-	tok = (comp_tok_t *) attr->tname.data;
-
-	if (strcmp(tok->tok.text, "usr") == 0) {
-		rc = cgen_fundef_attr_usr(cgproc, attr);
-		if (rc != EOK)
-			return rc;
-	} else {
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Unknown attribute '%s'.\n",
-		    tok->tok.text);
-		cgproc->cgen->error = true; // XXX
-		return EINVAL;
-	}
-
-	return EOK;
-}
-
 /** Generate code for function definition.
  *
  * @param cgen Code generator
@@ -20278,8 +20315,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	cgtype_t *ptype = NULL;
 	cgtype_func_t *dtfunc;
 	cgtype_func_arg_t *dtarg;
-	ast_aspec_t *aspec;
-	ast_aspec_attr_t *attr;
 	scope_t *prev_scope = NULL;
 	bool vstatic = false;
 	bool old_static;
@@ -20446,23 +20481,6 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	rc = cgtype_clone(dtfunc->rtype, &cgproc->rtype);
 	if (rc != EOK)
 		goto error;
-
-	/* Attributes */
-	if (idle->aslist != NULL) {
-		aspec = ast_aslist_first(idle->aslist);
-		while (aspec != NULL) {
-			attr = ast_aspec_first(aspec);
-			while (attr != NULL) {
-				rc = cgen_fundef_attr(cgproc, attr);
-				if (rc != EOK)
-					goto error;
-
-				attr = ast_aspec_next(attr);
-			}
-
-			aspec = ast_aslist_next(aspec);
-		}
-	}
 
 	/* lblock is now owned by proc */
 	lblock = NULL;

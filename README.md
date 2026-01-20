@@ -347,6 +347,32 @@ declared with the attribute `usr`. For example:
 This is because user service routines must return value in the BC register
 pair. Normal functions return 16-bit values in the HL register pair.
 
+Ignoring function return values
+-------------------------------
+In general functions should return useful values and callers should check
+return values from functions. Syc will produce a warning (computed value
+is not used) if the return value from a function is not checked.
+
+The C standard library, however, contains a number of functions that return
+values that may safely be ignored. E.g., `strncpy()` returns a copy of
+its first argument.
+
+It would be annoying having to add a `(void)` cast to every call to such
+function and thus the C library will declare these functions
+as `__attribute__((may_ignore_return))`. This disables the warning.
+This should never be needed with any newly designed interfaces.
+
+    int silly(int a) __attribute__((may_ignore_return))
+    {
+            return a;
+    }
+
+    void foo(void)
+    {
+	    silly(1); /* this will not produce a warning */
+
+    }
+
 Syc as a checker
 ----------------
 Syc strives to produce uparalleled diagnostic coverage, warning about 

@@ -123,6 +123,8 @@ typedef struct {
 	bool variadic;
 	/** Calling convention */
 	cgtype_cconv_t cconv;
+	/** @c true not to warn if caller ignores return value */
+	bool may_ignore_return;
 } cgtype_func_t;
 
 /** Function argument type */
