@@ -1,0 +1,2 @@
+<test/syc/ugly/tqoder.c:8:15-22:'restrict'>: Warning: 'restrict' should come before 'volatile'.
+<test/syc/ugly/tqoder.c:8:24-28:'const'>: Warning: 'const' should come before 'restrict'.

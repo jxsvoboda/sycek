@@ -156,6 +156,8 @@ typedef struct {
 	int unsigned_cnt;
 	/** Storage class type */
 	ast_sclass_type_t sctype;
+	/** Mask of type qualifiers */
+	cgtype_qual_t qual;
 } cgen_dspec_t;
 
 /** Value type.

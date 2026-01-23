@@ -67,6 +67,14 @@ typedef enum {
 	cgelm_va_list
 } cgtype_elmtype_t;
 
+/** Code generator type qualifier (bitmask). */
+typedef enum {
+	cgqual_none = 0x0,
+	cgqual_const = 0x1,
+	cgqual_restrict = 0x2,
+	cgqual_volatile = 0x4
+} cgtype_qual_t;
+
 /** Integer type rank.
  *
  * This is useful for determining the result type of Usual Arithmetic
@@ -101,6 +109,8 @@ typedef struct cgtype {
 	void *ext;
 	/** Node type */
 	cgtype_ntype_t ntype;
+	/** Qualifiers */
+	cgtype_qual_t qual;
 } cgtype_t;
 
 /** Basic type */

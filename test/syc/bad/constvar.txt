@@ -1,0 +1,1 @@
+<test/syc/bad/constvar.c:10:12:'='>: Setting readonly variable.

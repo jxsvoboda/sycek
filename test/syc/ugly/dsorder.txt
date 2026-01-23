@@ -1,16 +1,12 @@
 <test/syc/ugly/dsorder.c:13:5-8:'long'>: Warning: 'long' should come before 'int'.
 <test/syc/ugly/dsorder.c:13:10-17:'unsigned'>: Warning: 'unsigned' should come before 'long'.
 <test/syc/ugly/dsorder.c:13:1-3:'int'>: superfluous 'int' used with short/long/signed/unsigned.
-<test/syc/ugly/dsorder.c:16:1-8:'volatile'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:16:10-17:'restrict'>: Warning: 'restrict' should come before 'volatile'.
-<test/syc/ugly/dsorder.c:16:10-17:'restrict'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:16:19-23:'const'>: Warning: 'const' should come before 'restrict'.
-<test/syc/ugly/dsorder.c:16:19-23:'const'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:22:5-17:'__attribute__'>: Warning: '__attribute__' should come before 'int'.
 <test/syc/ugly/dsorder.c:22:5-17:'__attribute__'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:22:26-31:'inline'>: Warning: 'inline' should come before '__attribute__'.
 <test/syc/ugly/dsorder.c:22:26-31:'inline'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:22:33-37:'const'>: Warning: 'const' should come before 'inline'.
-<test/syc/ugly/dsorder.c:22:33-37:'const'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:22:39-44:'static'>: Warning: 'static' should come before 'const'.
 <test/syc/ugly/dsorder.c:25:5-11:'typedef'>: Warning: 'typedef' should come before 'int'.

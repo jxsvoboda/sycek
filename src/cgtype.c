@@ -861,7 +861,7 @@ static int cgtype_array_print(cgtype_array_t *array, FILE *f)
 		return EIO;
 
 	if (array->have_size) {
-		rv = fprintf(f, PRIu64, array->asize);
+		rv = fprintf(f, "%" PRIu64, array->asize);
 		if (rv < 0)
 			return EIO;
 	}
@@ -1000,32 +1000,42 @@ static void cgtype_array_destroy(cgtype_array_t *array)
  */
 int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 {
+	int rc;
+
 	if (orig == NULL) {
 		*rcopy = NULL;
 		return EOK; // XXX
 	}
 
+	rc = ENOTSUP;
+
 	switch (orig->ntype) {
 	case cgn_basic:
-		return cgtype_basic_clone((cgtype_basic_t *) orig->ext, rcopy);
+		rc = cgtype_basic_clone((cgtype_basic_t *) orig->ext, rcopy);
+		break;
 	case cgn_func:
-		return cgtype_func_clone((cgtype_func_t *) orig->ext, rcopy);
+		rc = cgtype_func_clone((cgtype_func_t *) orig->ext, rcopy);
+		break;
 	case cgn_pointer:
-		return cgtype_pointer_clone((cgtype_pointer_t *) orig->ext,
+		rc = cgtype_pointer_clone((cgtype_pointer_t *) orig->ext,
 		    rcopy);
+		break;
 	case cgn_record:
-		return cgtype_record_clone((cgtype_record_t *) orig->ext,
-		    rcopy);
+		rc = cgtype_record_clone((cgtype_record_t *) orig->ext, rcopy);
+		break;
 	case cgn_enum:
-		return cgtype_enum_clone((cgtype_enum_t *) orig->ext,
-		    rcopy);
+		rc = cgtype_enum_clone((cgtype_enum_t *) orig->ext, rcopy);
+		break;
 	case cgn_array:
-		return cgtype_array_clone((cgtype_array_t *) orig->ext,
+		rc = cgtype_array_clone((cgtype_array_t *) orig->ext,
 		    rcopy);
+		break;
 	}
 
-	assert(false);
-	return EINVAL;
+	assert(rc != ENOTSUP);
+	if (rc == EOK)
+		(*rcopy)->qual = orig->qual;
+	return rc;
 }
 
 /** Construct composite type.
@@ -1041,32 +1051,44 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
  */
 int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 {
+	int rc;
+
 	if (a->ntype != b->ntype)
 		return EINVAL;
 
+	rc = ENOTSUP;
+
 	switch (a->ntype) {
 	case cgn_basic:
-		return cgtype_basic_compose((cgtype_basic_t *) a->ext,
+		rc = cgtype_basic_compose((cgtype_basic_t *) a->ext,
 		    (cgtype_basic_t *) b->ext, rcomp);
+		break;
 	case cgn_func:
-		return cgtype_func_compose((cgtype_func_t *) a->ext,
+		rc = cgtype_func_compose((cgtype_func_t *) a->ext,
 		    (cgtype_func_t *) b->ext, rcomp);
+		break;
 	case cgn_pointer:
-		return cgtype_pointer_compose((cgtype_pointer_t *) a->ext,
+		rc = cgtype_pointer_compose((cgtype_pointer_t *) a->ext,
 		    (cgtype_pointer_t *) b->ext, rcomp);
+		break;
 	case cgn_record:
-		return cgtype_record_compose((cgtype_record_t *) a->ext,
+		rc = cgtype_record_compose((cgtype_record_t *) a->ext,
 		    (cgtype_record_t *) b->ext, rcomp);
+		break;
 	case cgn_enum:
-		return cgtype_enum_compose((cgtype_enum_t *) a->ext,
+		rc = cgtype_enum_compose((cgtype_enum_t *) a->ext,
 		    (cgtype_enum_t *) b->ext, rcomp);
+		break;
 	case cgn_array:
-		return cgtype_array_compose((cgtype_array_t *) a->ext,
+		rc = cgtype_array_compose((cgtype_array_t *) a->ext,
 		    (cgtype_array_t *) b->ext, rcomp);
+		break;
 	}
 
-	assert(false);
-	return EINVAL;
+	assert(rc != ENOTSUP);
+	if (rc == EOK)
+		(*rcomp)->qual = a->qual | b->qual;
+	return rc;
 }
 
 /** Destroy code generator type.
@@ -1109,6 +1131,26 @@ void cgtype_destroy(cgtype_t *cgtype)
  */
 int cgtype_print(cgtype_t *cgtype, FILE *f)
 {
+	int rv;
+
+	if ((cgtype->qual & cgqual_const) != 0) {
+		rv = fputs("const ", f);
+		if (rv < 0)
+			return EIO;
+	}
+
+	if ((cgtype->qual & cgqual_restrict) != 0) {
+		rv = fputs("restrict ", f);
+		if (rv < 0)
+			return EIO;
+	}
+
+	if ((cgtype->qual & cgqual_volatile) != 0) {
+		rv = fputs("volatile ", f);
+		if (rv < 0)
+			return EIO;
+	}
+
 	switch (cgtype->ntype) {
 	case cgn_basic:
 		return cgtype_basic_print((cgtype_basic_t *) cgtype->ext, f);

@@ -2503,6 +2503,37 @@ static void cgen_warn_tspec_not_impl(cgen_t *cgen, ast_node_t *tspec)
 	++cgen->warnings;
 }
 
+/** Generate warning: duplicate 'xxx' type qualifier.
+ *
+ * @param cgen Code generator
+ * @param tqname Name of type qualifier
+ * @param tok Token for printing diagnostics.
+ */
+static void cgen_warn_type_already_has_qual(cgen_t *cgen, const char *tqname,
+    comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Type '%s' already has '%s' qualifier.\n",
+	    tok->tok.text, tqname);
+	++cgen->warnings;
+}
+
+/** Generate warning: duplicate type qualifier.
+ *
+ * @param cgen Code generator
+ * @param tqual Type qualifier
+ */
+static void cgen_warn_dupl_type_qual(cgen_t *cgen, ast_tqual_t *tqual)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) tqual->tqual.data;
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Duplicate '%s' type qualifier.\n",
+	    tok->tok.text);
+	++cgen->warnings;
+}
+
 /** Generate warning: unknown attribute.
  *
  * @param cgen Code generator
@@ -3105,13 +3136,16 @@ error:
  *
  * @param cgen Code generator
  * @param itok Identifier token
+ * @param qual Type qualifiers from declaration specifier list
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_t **rstype)
+static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_qual_t qual,
+    cgtype_t **rstype)
 {
 	comp_tok_t *ident;
 	scope_member_t *member;
+	cgtype_qual_t dupqual;
 	int rc;
 
 	ident = (comp_tok_t *)itok->data;
@@ -3135,11 +3169,22 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_t **rstype)
 		return EINVAL;
 	}
 
-	/* Resulting type is the same as type of the member */
+	/* Check for duplicate type qualifiers. */
+	dupqual = qual & member->cgtype->qual;
+
+	if ((dupqual & cgqual_const) != 0)
+		cgen_warn_type_already_has_qual(cgen, "const", ident);
+	if ((dupqual & cgqual_restrict) != 0)
+		cgen_warn_type_already_has_qual(cgen, "restrict", ident);
+	if ((dupqual & cgqual_volatile) != 0)
+		cgen_warn_type_already_has_qual(cgen, "volatile", ident);
+
+	/* Resulting type is the same as type of the member + qualifiers. */
 	rc = cgtype_clone(member->cgtype, rstype);
 	if (rc != EOK)
 		return rc;
 
+	(*rstype)->qual |= qual;
 	return EOK;
 }
 
@@ -3147,13 +3192,14 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_t **rstype)
  *
  * @param cgen Code generator
  * @param tsident Identifier type specifier
+ * @param qual Type qualifiers from declaration specifier list
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_tsident(cgen_t *cgen, ast_tsident_t *tsident,
-    cgtype_t **rstype)
+    cgtype_qual_t qual, cgtype_t **rstype)
 {
-	return cgen_tident(cgen, &tsident->tident, rstype);
+	return cgen_tident(cgen, &tsident->tident, qual, rstype);
 }
 
 static int cgen_tsrecord_emit_stor(cgen_rec_t *cgrec, cgen_record_t *record)
@@ -4048,6 +4094,41 @@ static void cgen_dspec_init(cgen_t *cgen, cgen_dspec_t *cgds)
 	cgds->signed_cnt = 0;
 	cgds->unsigned_cnt = 0;
 	cgds->sctype = asc_none;
+	cgds->qual = cgqual_none;
+}
+
+/** Generate code for type qualifier.
+ *
+ * @param cgen Code generator
+ * @param tqual AST type qualifier
+ * @param dqual Variable holding type qualifiers found
+ * @return EOK on success or an error code
+ */
+static int cgen_tqual(cgen_t *cgen, ast_tqual_t *tqual,
+    cgtype_qual_t *dqual)
+{
+	cgtype_qual_t qual = cgqual_none;
+
+	switch (tqual->qtype) {
+	case aqt_const:
+		qual = cgqual_const;
+		break;
+	case aqt_restrict:
+		qual = cgqual_restrict;
+		break;
+	case aqt_volatile:
+		qual = cgqual_volatile;
+		break;
+	case aqt_atomic:
+		assert(false);
+		break;
+	}
+
+	if ((*dqual & qual) != 0)
+		cgen_warn_dupl_type_qual(cgen, tqual);
+
+	*dqual |= qual;
+	return 0;
 }
 
 /** Generate code for declaration specifier / specifier-qualifier.
@@ -4057,7 +4138,6 @@ static void cgen_dspec_init(cgen_t *cgen, cgen_dspec_t *cgds)
  *
  * @param cgds Code generator for declaration specifier
  * @param dspec Declaration specifier
- * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
 static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
@@ -4066,6 +4146,7 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
 	ast_tsbasic_t *tsbasic;
 	ast_sclass_t *sclass;
 	comp_tok_t *tok;
+	int rc;
 
 	switch (dspec->ntype) {
 	case ant_tsbasic:
@@ -4149,6 +4230,12 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
 		assert(cgds->sctype == asc_none);
 		cgds->sctype = sclass->sctype;
 		break;
+	case ant_tqual:
+		rc = cgen_tqual(cgds->cgen, (ast_tqual_t *)dspec->ext,
+		    &cgds->qual);
+		if (rc != EOK)
+			return rc;
+		break;
 	default:
 		atok = ast_tree_first_tok(dspec);
 		tok = (comp_tok_t *) atok->data;
@@ -4166,7 +4253,7 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
  *
  * @param cgds Code generator for declaration specifiers
  * @param rsctype Place to store storage class type
- * @param rflags Place to store recordd declaration flags
+ * @param rflags Place to store recorrd declaration flags
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
@@ -4299,7 +4386,8 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 			break;
 		case ant_tsident:
 			rc = cgen_tsident(cgen,
-			    (ast_tsident_t *)cgds->tspec->ext, &stype);
+			    (ast_tsident_t *)cgds->tspec->ext, cgds->qual,
+			    &stype);
 			if (rc != EOK)
 				goto error;
 			break;
@@ -4358,6 +4446,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	*rsctype = cgds->sctype;
 	*rflags = flags;
 	*rstype = stype;
+	(*rstype)->qual = cgds->qual;
 	return EOK;
 error:
 	if (btype != NULL)
@@ -4485,6 +4574,7 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
 		return EINVAL;
 	}
 
+	ctok = (comp_tok_t *)dident->tident.data;
 	rc = cgtype_clone(stype, &dtype);
 	if (rc != EOK)
 		return rc;
@@ -4833,6 +4923,9 @@ static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
 {
 	cgtype_pointer_t *ptrtype;
 	cgtype_t *btype_copy = NULL;
+	cgtype_qual_t qual = cgqual_none;
+	ast_node_t *cur;
+	ast_tqual_t *cur_tq, *prev_tq;
 	int rc;
 
 	rc = cgtype_clone(btype, &btype_copy);
@@ -4842,6 +4935,26 @@ static int cgen_decl_ptr(cgen_t *cgen, cgtype_t *btype, ast_dptr_t *dptr,
 	rc = cgtype_pointer_create(btype_copy, &ptrtype);
 	if (rc != EOK)
 		goto error;
+
+	if (dptr->tqlist != NULL) {
+		cur = ast_tqlist_first(dptr->tqlist);
+		prev_tq = NULL;
+		while (cur != NULL) {
+			assert(cur->ntype == ant_tqual);
+			cur_tq = (ast_tqual_t *)cur->ext;
+			rc = cgen_tqual(cgen, cur_tq, &qual);
+			if (rc != EOK)
+				goto error;
+
+			if (prev_tq != NULL)
+				cgen_tqual_check_order(cgen, prev_tq, cur_tq);
+
+			prev_tq = cur_tq;
+			cur = ast_tqlist_next(cur);
+		}
+	}
+
+	ptrtype->cgtype.qual = qual;
 
 	rc = cgen_decl(cgen, &ptrtype->cgtype, dptr->bdecl, aslist,
 	    rdtype);
@@ -11037,6 +11150,14 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	unsigned bits;
 	int rc;
 
+	if ((ares->cgtype->qual & cgqual_const) != 0) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Setting readonly variable.\n");
+		cgproc->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Bitfield? */
 	if (ares->bitwidth != 0)
 		return cgen_store_bitfield(cgproc, ares, vres, ctok, lblock);
@@ -13277,7 +13398,7 @@ static int cgen_esizeof_expr(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 				/* It is a type identifier */
 
 				rc = cgen_tident(cgexpr->cgen, &eident->tident,
-				    &etype);
+				    cgqual_none, &etype);
 				if (rc != EOK)
 					goto error;
 			}
@@ -19132,6 +19253,7 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	cgen_eres_t cres;
 	cgen_eres_t ires;
 	cgen_eres_t lres;
+	cgtype_t *ddtype;
 	int rc;
 
 	if (cgen_type_is_incomplete(cgproc->cgen, dtype)) {
@@ -19189,6 +19311,18 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 		rc = cgen_lvaraddr(cgproc, vident, lblock, &lres);
 		if (rc != EOK)
 			goto error;
+
+		/*
+		 * FIXME cgen_lvaraddr() returns lres without a cgtype
+		 * (same as cgen_eident_gsym/arg/lvar). We neeed to
+		 * patch it in because it's needed by cgen_store().
+		 */
+		rc = cgtype_clone(dtype, &ddtype);
+		if (rc != EOK)
+			goto error;
+
+		lres.cgtype = ddtype;
+		ddtype = NULL;
 
 		/* Value of initializer expression */
 		rc = cgen_expr(&cgproc->cgexpr, iexpr, lblock, &ires);
