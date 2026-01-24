@@ -1,10 +1,8 @@
 <test/syc/ugly/dupltypequal.c:11:7-11:'const'>: Warning: Duplicate 'const' type qualifier.
-<test/syc/ugly/dupltypequal.c:13:18-25:'restrict'>: Warning: Duplicate 'restrict' type qualifier.
-<test/syc/ugly/dupltypequal.c:18:10-17:'volatile'>: Warning: Duplicate 'volatile' type qualifier.
-<test/syc/ugly/dupltypequal.c:24:7-12:id:cint_t>: Warning: Type 'cint_t' already has 'const' qualifier.
-<test/syc/ugly/dupltypequal.c:26:18-23:id:rptr_t>: Warning: Type 'rptr_t' already has 'restrict' qualifier.
-<test/syc/ugly/dupltypequal.c:31:10-15:id:vint_t>: Warning: Type 'vint_t' already has 'volatile' qualifier.
-<test/syc/ugly/dupltypequal.c:37:12-16:'const'>: Warning: Duplicate 'const' type qualifier.
-<test/syc/ugly/dupltypequal.c:39:23-30:'restrict'>: Warning: Duplicate 'restrict' type qualifier.
-<test/syc/ugly/dupltypequal.c:39:32:id:p>: Warning: 'p' is defined, but not used.
-<test/syc/ugly/dupltypequal.c:43:15-22:'volatile'>: Warning: Duplicate 'volatile' type qualifier.
+<test/syc/ugly/dupltypequal.c:12:10-17:'volatile'>: Warning: Duplicate 'volatile' type qualifier.
+<test/syc/ugly/dupltypequal.c:18:7-12:id:cint_t>: Warning: Type 'cint_t' already has 'const' qualifier.
+<test/syc/ugly/dupltypequal.c:19:10-15:id:rptr_t>: Warning: Type 'rptr_t' already has 'restrict' qualifier.
+<test/syc/ugly/dupltypequal.c:20:10-15:id:vint_t>: Warning: Type 'vint_t' already has 'volatile' qualifier.
+<test/syc/ugly/dupltypequal.c:26:12-16:'const'>: Warning: Duplicate 'const' type qualifier.
+<test/syc/ugly/dupltypequal.c:27:15-22:'restrict'>: Warning: Duplicate 'restrict' type qualifier.
+<test/syc/ugly/dupltypequal.c:28:15-22:'volatile'>: Warning: Duplicate 'volatile' type qualifier.

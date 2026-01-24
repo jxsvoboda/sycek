@@ -9,12 +9,6 @@
  */
 
 const const int i;
-
-void f1(restrict restrict *p)
-{
-	(void)p;
-}
-
 volatile volatile int j;
 
 typedef const int cint_t;
@@ -22,12 +16,7 @@ typedef char *restrict rptr_t;
 typedef volatile int vint_t;
 
 const cint_t ccint;
-
-void f2(restrict rptr_t p)
-{
-	(void)p;
-}
-
+restrict rptr_t p;
 volatile vint_t vvi;
 
 /*
@@ -35,9 +24,5 @@ volatile vint_t vvi;
  */
 
 int *const const pcc;
-
-void f3(int *restrict restrict p)
-{
-}
-
+int *restrict restrict rrp;
 int *volatile volatile pvv;

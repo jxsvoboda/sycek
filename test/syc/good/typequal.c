@@ -2,11 +2,9 @@
  * Const, restrict, volatile type qualifiers.
  */
 
-// XXX TODO
-const int i;
+const int ci;
+volatile int vj;
 
-void foo(restrict char *p)
-{
-}
-
-volatile int j;
+int *const icp;
+int *restrict irp;
+int *volatile ivp;

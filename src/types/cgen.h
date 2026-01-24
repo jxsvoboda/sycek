@@ -146,6 +146,8 @@ typedef struct {
 	cgen_t *cgen;
 	/** Type specifier (there should be exactly one) */
 	ast_node_t *tspec;
+	/** Last declaration specifier */
+	ast_node_t *lastds;
 	/** Number of 'short' specifiers */
 	int short_cnt;
 	/** Number of 'long' specifiers */

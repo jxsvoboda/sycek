@@ -1,0 +1,1 @@
+<test/syc/bad/restrictnp.c:5:10-12:'int'>: Invalid use of 'restrict'.

@@ -55,6 +55,7 @@ static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
     ast_aslist_t *, cgtype_t **);
 static void cgen_error_expr_not_constant(cgen_t *, ast_tok_t *);
+static void cgen_error_inv_restrict(cgen_t *, comp_tok_t *);
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
 static int cgen_dspecs(cgen_t *, ast_dspecs_t *, ast_sclass_type_t *,
     cgen_rd_flags_t *, cgtype_t **);
@@ -2486,6 +2487,19 @@ static void cgen_error_expr_not_constant(cgen_t *cgen, ast_tok_t *atok)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: invalid use of 'restrict'.
+ *
+ * @param cgen Code generator
+ * @param atok Token
+ */
+static void cgen_error_inv_restrict(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Invalid use of 'restrict'.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate warning: unimplemented type specifier.
  *
  * @param cgen Code generator
@@ -3185,6 +3199,11 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_qual_t qual,
 		return rc;
 
 	(*rstype)->qual |= qual;
+	if (((*rstype)->qual & cgqual_restrict) != 0 &&
+	    (*rstype)->ntype != cgn_pointer) {
+		cgen_error_inv_restrict(cgen, ident);
+		return EINVAL;
+	}
 	return EOK;
 }
 
@@ -4447,6 +4466,23 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	*rflags = flags;
 	*rstype = stype;
 	(*rstype)->qual = cgds->qual;
+
+	if (((*rstype)->qual & cgqual_restrict) != 0 &&
+	    (*rstype)->ntype != cgn_pointer) {
+		/*
+		 * Use type specifier for diagnostics. If we don't have
+		 * one, use the last declaration specifier.
+		 */
+		if (cgds->tspec != NULL)
+			atok = ast_tree_first_tok(cgds->tspec);
+		else
+			atok = ast_tree_first_tok(cgds->lastds);
+
+		tok = (comp_tok_t *)atok->data;
+		cgen_error_inv_restrict(cgen, tok);
+		return EINVAL;
+	}
+
 	return EOK;
 error:
 	if (btype != NULL)
@@ -4489,6 +4525,7 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
 		if (rc != EOK)
 			return rc;
 
+		cgds.lastds = dspec;
 		prev = dspec;
 		dspec = ast_dspecs_next(dspec);
 	}

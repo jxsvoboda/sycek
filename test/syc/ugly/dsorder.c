@@ -13,7 +13,7 @@
 int long unsigned a;
 
 /* Type qualifiers should be in order: const, restrict, volatile, (atomic?) */
-volatile restrict const int /***/b;
+int *volatile restrict const b;
 
 /*
  * Declaration specifiers should be in order:
