@@ -386,6 +386,8 @@ It can detect the following types of problems and style issues:
  * gratuitous nested block
  * out of order declaration specifiers (such as `int long unsigned`,
    `int typedef`, `volatile restrict const`).
+ * type already has `xyz` qualifier
+ * duplicate `xyz` qualifier
  * truth value used as an integer
  * suspicious arithmetic operation involving truth values
  * comparison of truth value and non-truth type
