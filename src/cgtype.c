@@ -1109,8 +1109,11 @@ int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 	if (rc != EOK)
 		return rc;
 
-	if (a->qual != b->qual)
+	if (a->qual != b->qual) {
+		cgtype_destroy(*rcomp);
+		*rcomp = NULL;
 		return EINVAL;
+	}
 
 	return EOK;
 }
