@@ -252,6 +252,7 @@ Specifically, these language features are supported:
  * Conditional operator
  * Bit fields
  * Bool
+ * Type qualifiers (const, restrict, volatile)
 
 These are NOT supported yet:
 
@@ -260,7 +261,6 @@ These are NOT supported yet:
  * Passing or returning struct/union by value
  * Variable-length arrays
  * Alignof
- * Type qualifiers (const, volatile)
 
 Supported features not related to language coverage:
  * Large stack frames (i.e. containing more than 128 bytes of virtual register

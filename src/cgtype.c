@@ -1346,6 +1346,7 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
  */
 bool cgtype_ptr_preserves_tqual(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 {
+	assert(cgtype_ptr_compatible(sptr, dptr));
 	return (sptr->tgtype->qual & ~dptr->tgtype->qual) == 0;
 }
 
@@ -1361,9 +1362,29 @@ bool cgtype_ptr_preserves_tqual(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 int cgtype_ptr_combine_qual(cgtype_pointer_t *aptr, cgtype_pointer_t *bptr,
     cgtype_t **rrtype)
 {
+	cgtype_pointer_t *rptr;
+	int rc;
+
+	/*
+	 * Pointer types are compatible. This means they differ at most
+	 * in the qualifiers of the target types.
+	 */
 	assert(cgtype_ptr_compatible(aptr, bptr));
-	// XXX TODO qualifiers
-	return cgtype_clone(&aptr->cgtype, rrtype);
+
+	/*
+	 * Clone one of the types. Does not matter which as they are
+	 * compatible.
+	 */
+	rc = cgtype_clone(&aptr->cgtype, rrtype);
+	if (rc != EOK)
+		return rc;
+
+	/* Combine qualifiers from both pointer target types. */
+	assert((*rrtype)->ntype == cgn_pointer);
+	rptr = (cgtype_pointer_t *)(*rrtype)->ext;
+
+	rptr->tgtype->qual = aptr->tgtype->qual | bptr->tgtype->qual;
+	return EOK;
 }
 
 /** Return @c true iff @a cgtype is a strict enum.

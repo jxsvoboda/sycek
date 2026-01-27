@@ -1,0 +1,2 @@
+<test/syc/ugly/condtqual.c:16:12:'='>: Warning: Converting from ^const volatile int to ^const int discards type qualifiers.
+<test/syc/ugly/condtqual.c:17:12:'='>: Warning: Converting from ^const volatile int to ^volatile int discards type qualifiers.
