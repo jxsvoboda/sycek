@@ -1038,10 +1038,11 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 	return rc;
 }
 
-/** Construct composite type.
+/** Construct composite type based on node type.
  *
  * Composite type is created by combining the elements of two compatible
- * types to produce the most specified type.
+ * types to produce the most specified type. This function does not
+ * handle type qualifiers.
  *
  * @param a First type
  * @param b Second type
@@ -1049,7 +1050,7 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
  * @return EOK on success, EINVAL if the two types are not compatible,
  *         ENOMEM if out of memory
  */
-int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
+static int cgtype_compose_node(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 {
 	int rc;
 
@@ -1086,9 +1087,32 @@ int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 	}
 
 	assert(rc != ENOTSUP);
-	if (rc == EOK)
-		(*rcomp)->qual = a->qual | b->qual;
 	return rc;
+}
+
+/** Construct composite type.
+ *
+ * Composite type is created by combining the elements of two compatible
+ * types to produce the most specified type.
+ *
+ * @param a First type
+ * @param b Second type
+ * @param rcomp Place to store pointer to new, composite type
+ * @return EOK on success, EINVAL if the two types are not compatible,
+ *         ENOMEM if out of memory
+ */
+int cgtype_compose(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
+{
+	int rc;
+
+	rc = cgtype_compose_node(a, b, rcomp);
+	if (rc != EOK)
+		return rc;
+
+	if (a->qual != b->qual)
+		return EINVAL;
+
+	return EOK;
 }
 
 /** Destroy code generator type.
@@ -1297,12 +1321,32 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 	cgtype_t *ctgtype;
 	int rc;
 
-	rc = cgtype_compose(sptr->tgtype, dptr->tgtype, &ctgtype);
+	/*
+	 * Compare type compatibility, but ignore type qualifiers
+	 * of the pointer target types themselves. We can, for example
+	 * convert int * to const int * or compare them. Hence they
+	 * need to be compatible. Further down we will check type
+	 * qualifiers as well.
+	 */
+	rc = cgtype_compose_node(sptr->tgtype, dptr->tgtype, &ctgtype);
 	if (rc != EOK)
 		return false;
 
 	cgtype_destroy(ctgtype);
 	return true;
+}
+
+/** Determine if converting from sptr to dptr preserves type qualifier
+ * of the target type.
+ *
+ * It is assumed that @a sptr and @a dptr are compatible pointers.
+ *
+ * @param sptr Source pointer type
+ * @param dptr Destination pointer type
+ */
+bool cgtype_ptr_preserves_tqual(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
+{
+	return (sptr->tgtype->qual & ~dptr->tgtype->qual) == 0;
 }
 
 /** Combine qualifiers from two compatible pointer types.

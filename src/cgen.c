@@ -16262,6 +16262,14 @@ static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		(void) cgtype_print(dtype, stderr);
 		fprintf(stderr, ".\n");
 		++cgexpr->cgen->warnings;
+	} else if (!cgtype_ptr_preserves_tqual(ptrtype1, ptrtype2)) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Converting from ");
+		(void) cgtype_print(ares->cgtype, stderr);
+		fprintf(stderr, " to ");
+		(void) cgtype_print(dtype, stderr);
+		fprintf(stderr, " discards type qualifiers.\n");
+		++cgexpr->cgen->warnings;
 	}
 
 	rc = cgtype_clone(dtype, &cgtype);

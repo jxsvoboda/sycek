@@ -1,0 +1,20 @@
+<test/syc/ugly/ptrqual.c:12:12:'='>: Warning: Converting from ^const int to ^int discards type qualifiers.
+<test/syc/ugly/ptrqual.c:14:12:'='>: Warning: Converting from const ^const int to ^int discards type qualifiers.
+<test/syc/ugly/ptrqual.c:29:20-21:'=='>: Warning: Comparison of incompatible pointer types ^^int and ^^const int.
+<test/syc/ugly/ptrqual.c:30:13:'='>: Warning: Converting from ^^const int to incompatible pointer type ^^int.
+<test/syc/ugly/ptrqual.c:32:13:'='>: Warning: Converting from ^const ^int to ^^int discards type qualifiers.
+<test/syc/ugly/ptrqual.c:33:20-21:'=='>: Warning: Comparison of incompatible pointer types ^^int and ^const ^const int.
+<test/syc/ugly/ptrqual.c:34:13:'='>: Warning: Converting from ^const ^const int to incompatible pointer type ^^int.
+<test/syc/ugly/ptrqual.c:36:21-22:'=='>: Warning: Comparison of incompatible pointer types ^^const int and ^^int.
+<test/syc/ugly/ptrqual.c:37:14:'='>: Warning: Converting from ^^int to incompatible pointer type ^^const int.
+<test/syc/ugly/ptrqual.c:38:21-22:'=='>: Warning: Comparison of incompatible pointer types ^^const int and ^const ^int.
+<test/syc/ugly/ptrqual.c:39:14:'='>: Warning: Converting from ^const ^int to incompatible pointer type ^^const int.
+<test/syc/ugly/ptrqual.c:41:14:'='>: Warning: Converting from ^const ^const int to ^^const int discards type qualifiers.
+<test/syc/ugly/ptrqual.c:45:21-22:'=='>: Warning: Comparison of incompatible pointer types ^const ^int and ^^const int.
+<test/syc/ugly/ptrqual.c:46:14:'='>: Warning: Converting from ^^const int to incompatible pointer type ^const ^int.
+<test/syc/ugly/ptrqual.c:47:21-22:'=='>: Warning: Comparison of incompatible pointer types ^const ^int and ^const ^const int.
+<test/syc/ugly/ptrqual.c:48:14:'='>: Warning: Converting from ^const ^const int to incompatible pointer type ^const ^int.
+<test/syc/ugly/ptrqual.c:50:22-23:'=='>: Warning: Comparison of incompatible pointer types ^const ^const int and ^^int.
+<test/syc/ugly/ptrqual.c:51:15:'='>: Warning: Converting from ^^int to incompatible pointer type ^const ^const int.
+<test/syc/ugly/ptrqual.c:54:22-23:'=='>: Warning: Comparison of incompatible pointer types ^const ^const int and ^const ^int.
+<test/syc/ugly/ptrqual.c:55:15:'='>: Warning: Converting from ^const ^int to incompatible pointer type ^const ^const int.

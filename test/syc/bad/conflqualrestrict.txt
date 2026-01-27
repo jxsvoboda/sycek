@@ -1,0 +1,1 @@
+<test/syc/bad/conflqualrestrict.c:6:15:id:i>: Conflicting type 'restrict ^int' for 'i', previously declared as '^int'.

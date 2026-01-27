@@ -408,6 +408,7 @@ It can detect the following types of problems and style issues:
  * conversion may loose significant digits
  * conversion from x to y changes signedness
  * number sign changed in conversion
+ * converting from x to y discards qualifiers
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * implicit conversion between enum types

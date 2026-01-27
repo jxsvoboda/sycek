@@ -1,0 +1,1 @@
+<test/syc/bad/conflqualvolatile.c:6:15:id:i>: Conflicting type '^volatile int' for 'i', previously declared as '^int'.
