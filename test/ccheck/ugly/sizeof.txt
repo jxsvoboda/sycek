@@ -1,0 +1,9 @@
+<test/ccheck/ugly/sizeof.c:2:17:num:0>: Argument to 'sizeof' should be parenthesized.
+<test/ccheck/ugly/sizeof.c:8:16:'+'>: Argument to 'sizeof' should be parenthesized.
+<test/ccheck/ugly/sizeof.c:8:10-15:'sizeof'>: Expected space before expression.
+<test/ccheck/ugly/sizeof.c:11:16:space>: Unexpected whitespace after 'sizeof'.
+<test/ccheck/ugly/sizeof.c:15:17:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/sizeof.c:15:19:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/sizeof.c:18:16:space>: Unexpected whitespace after 'sizeof'.
+<test/ccheck/ugly/sizeof.c:22:17:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/sizeof.c:22:21:space>: Unexpected whitespace before ')'.

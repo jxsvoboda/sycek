@@ -4213,6 +4213,79 @@ static int checker_check_eaddr(checker_scope_t *scope, ast_eaddr_t *eaddr)
 	return EOK;
 }
 
+/** Check alignof expression.
+ *
+ * @param scope Checker scope
+ * @param esizeof Sizeof expression
+ *
+ * @return EOK on success or error code
+ */
+static int checker_check_ealignof(checker_scope_t *scope,
+    ast_ealignof_t *ealignof)
+{
+	checker_tok_t *talignof;
+	checker_tok_t *tlparen;
+	checker_tok_t *trparen;
+	ast_tok_t *aexpr;
+	checker_tok_t *texpr;
+	int rc;
+
+	talignof = (checker_tok_t *) ealignof->talignof.data;
+	tlparen = (checker_tok_t *) ealignof->tlparen.data;
+	trparen = (checker_tok_t *) ealignof->trparen.data;
+
+	if (ealignof->bexpr == NULL) {
+		if (strcmp(talignof->tok.text, "alignof") == 0) {
+			checker_check_nows_after(scope, talignof,
+			    "Unexpected whitespace after 'alignof'.");
+		} else {
+			checker_check_nows_after(scope, talignof,
+			    "Unexpected whitespace after '_Alignof'.");
+		}
+		checker_check_nows_after(scope, tlparen,
+		    "Unexpected whitespace after '('.");
+	} else {
+		if (ealignof->bexpr->ntype != ant_eparen) {
+			aexpr = ast_tree_first_tok(ealignof->bexpr);
+			texpr = (checker_tok_t *)aexpr->data;
+			lexer_dprint_tok(&texpr->tok, stdout);
+			printf(": Argument to '%s' should be parenthesized.\n",
+			    talignof->tok.text);
+
+			rc = checker_check_brkspace_before(scope, texpr,
+			    "Expected space before expression.");
+			if (rc != EOK)
+				return rc;
+		} else {
+			if (strcmp(talignof->tok.text, "alignof") == 0) {
+				checker_check_nows_after(scope, talignof,
+				    "Unexpected whitespace after 'alignof'.");
+			} else {
+				checker_check_nows_after(scope, talignof,
+				    "Unexpected whitespace after '_Alignof'.");
+			}
+		}
+		checker_check_any(scope, talignof);
+	}
+
+	if (ealignof->bexpr != NULL) {
+		rc = checker_check_expr(scope, ealignof->bexpr);
+		if (rc != EOK)
+			return rc;
+	} else if (ealignof->atypename != NULL) {
+		rc = checker_check_typename(scope, ealignof->atypename);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (ealignof->bexpr == NULL) {
+		checker_check_nows_before(scope, trparen,
+		    "Unexpected whitespace before ')'.");
+	}
+
+	return EOK;
+}
+
 /** Check sizeof expression.
  *
  * @param scope Checker scope
@@ -4225,6 +4298,8 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 	checker_tok_t *tsizeof;
 	checker_tok_t *tlparen;
 	checker_tok_t *trparen;
+	ast_tok_t *aexpr;
+	checker_tok_t *texpr;
 	int rc;
 
 	tsizeof = (checker_tok_t *) esizeof->tsizeof.data;
@@ -4237,6 +4312,21 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 		checker_check_nows_after(scope, tlparen,
 		    "Unexpected whitespace after '('.");
 	} else {
+		if (esizeof->bexpr->ntype != ant_eparen) {
+			aexpr = ast_tree_first_tok(esizeof->bexpr);
+			texpr = (checker_tok_t *)aexpr->data;
+			lexer_dprint_tok(&texpr->tok, stdout);
+			printf(": Argument to 'sizeof' should be "
+			    "parenthesized.\n");
+
+			rc = checker_check_brkspace_before(scope, texpr,
+			    "Expected space before expression.");
+			if (rc != EOK)
+				return rc;
+		} else {
+			checker_check_nows_after(scope, tsizeof,
+			    "Unexpected whitespace after 'sizeof'.");
+		}
 		checker_check_any(scope, tsizeof);
 	}
 
@@ -4621,6 +4711,8 @@ static int checker_check_expr(checker_scope_t *scope, ast_node_t *expr)
 		return checker_check_ederef(scope, (ast_ederef_t *) expr);
 	case ant_eaddr:
 		return checker_check_eaddr(scope, (ast_eaddr_t *) expr);
+	case ant_ealignof:
+		return checker_check_ealignof(scope, (ast_ealignof_t *) expr);
 	case ant_esizeof:
 		return checker_check_esizeof(scope, (ast_esizeof_t *) expr);
 	case ant_ecast:

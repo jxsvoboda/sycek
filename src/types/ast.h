@@ -111,6 +111,8 @@ typedef enum {
 	ant_ederef,
 	/** Address expression */
 	ant_eaddr,
+	/** Alignof expression */
+	ant_ealignof,
 	/** Sizeof expression */
 	ant_esizeof,
 	/** Cast expression */
@@ -1002,6 +1004,25 @@ typedef struct {
 	/** Base expression */
 	ast_node_t *bexpr;
 } ast_eaddr_t;
+
+/** Alignof expression.
+ *
+ * The argument can either be an expression or a type name
+ */
+typedef struct {
+	/** Base object */
+	ast_node_t node;
+	/** '_Alignof'/'alignof' token */
+	ast_tok_t talignof;
+	/** Base expression (if argument is expression) */
+	ast_node_t *bexpr;
+	/** '(' token (if argument is type name) */
+	ast_tok_t tlparen;
+	/** Type name (if argument is type name) */
+	ast_typename_t *atypename;
+	/** ')' token (if argument is type name) */
+	ast_tok_t trparen;
+} ast_ealignof_t;
 
 /** Sizeof expression.
  *

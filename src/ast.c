@@ -6188,6 +6188,94 @@ static ast_tok_t *ast_eaddr_last_tok(ast_eaddr_t *eaddr)
 	return ast_tree_last_tok(eaddr->bexpr);
 }
 
+/** Create AST alignof expression.
+ *
+ * @param realignof Place to store pointer to new alignof expression
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int ast_ealignof_create(ast_ealignof_t **realignof)
+{
+	ast_ealignof_t *ealignof;
+
+	ealignof = calloc(1, sizeof(ast_ealignof_t));
+	if (ealignof == NULL)
+		return ENOMEM;
+
+	ealignof->node.ext = ealignof;
+	ealignof->node.ntype = ant_ealignof;
+
+	*realignof = ealignof;
+	return EOK;
+}
+
+/** Print AST alignof expression.
+ *
+ * @param ealignof Alignof expression
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int ast_ealignof_print(ast_ealignof_t *ealignof, FILE *f)
+{
+	int rc;
+
+	(void) ealignof;
+
+	if (fprintf(f, "ealignof(") < 0)
+		return EIO;
+
+	if (ealignof->bexpr != NULL) {
+		rc = ast_tree_print(ealignof->bexpr, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (ealignof->atypename != NULL) {
+		rc = ast_typename_print(ealignof->atypename, f);
+		if (rc != EOK)
+			return rc;
+	}
+
+	if (fprintf(f, ")") < 0)
+		return EIO;
+	return EOK;
+}
+
+/** Destroy AST alignof expression.
+ *
+ * @param ealignof Alignof expression
+ */
+static void ast_ealignof_destroy(ast_ealignof_t *ealignof)
+{
+	ast_tree_destroy(ealignof->bexpr);
+	ast_typename_destroy(ealignof->atypename);
+	free(ealignof);
+}
+
+/** Get first token of AST alignof expression.
+ *
+ * @param ealignof Alignof expression
+ * @return First token or @c NULL
+ */
+static ast_tok_t *ast_ealignof_first_tok(ast_ealignof_t *ealignof)
+{
+	return &ealignof->talignof;
+}
+
+/** Get last token of AST alignof expression.
+ *
+ * @param eaddr Alignof expression
+ * @return Last token or @c NULL
+ */
+static ast_tok_t *ast_ealignof_last_tok(ast_ealignof_t *ealignof)
+{
+	if (ealignof->atypename != NULL)
+		return &ealignof->trparen;
+	else
+		return ast_tree_last_tok(ealignof->bexpr);
+}
+
 /** Create AST sizeof expression.
  *
  * @param resizeof Place to store pointer to new sizeof expression
@@ -9436,6 +9524,8 @@ int ast_tree_print(ast_node_t *node, FILE *f)
 		return ast_eusign_print((ast_eusign_t *)node->ext, f);
 	case ant_eaddr:
 		return ast_eaddr_print((ast_eaddr_t *)node->ext, f);
+	case ant_ealignof:
+		return ast_ealignof_print((ast_ealignof_t *)node->ext, f);
 	case ant_esizeof:
 		return ast_esizeof_print((ast_esizeof_t *)node->ext, f);
 	case ant_ecast:
@@ -9657,6 +9747,9 @@ void ast_tree_destroy(ast_node_t *node)
 	case ant_eaddr:
 		ast_eaddr_destroy((ast_eaddr_t *)node->ext);
 		break;
+	case ant_ealignof:
+		ast_ealignof_destroy((ast_ealignof_t *)node->ext);
+		break;
 	case ant_esizeof:
 		ast_esizeof_destroy((ast_esizeof_t *)node->ext);
 		break;
@@ -9852,6 +9945,8 @@ ast_tok_t *ast_tree_first_tok(ast_node_t *node)
 		return ast_eusign_first_tok((ast_eusign_t *)node->ext);
 	case ant_eaddr:
 		return ast_eaddr_first_tok((ast_eaddr_t *)node->ext);
+	case ant_ealignof:
+		return ast_ealignof_first_tok((ast_ealignof_t *)node->ext);
 	case ant_esizeof:
 		return ast_esizeof_first_tok((ast_esizeof_t *)node->ext);
 	case ant_ecast:
@@ -10019,6 +10114,8 @@ ast_tok_t *ast_tree_last_tok(ast_node_t *node)
 		return ast_eusign_last_tok((ast_eusign_t *)node->ext);
 	case ant_eaddr:
 		return ast_eaddr_last_tok((ast_eaddr_t *)node->ext);
+	case ant_ealignof:
+		return ast_ealignof_last_tok((ast_ealignof_t *)node->ext);
 	case ant_esizeof:
 		return ast_esizeof_last_tok((ast_esizeof_t *)node->ext);
 	case ant_ecast:

@@ -862,7 +862,7 @@ static unsigned cgen_record_size(cgen_t *cgen, cgen_record_t *record)
 /** Return the size of a type in bytes.
  *
  * @param cgen Code generator
- * @param tbasic Basic type
+ * @param cgtype Type
  */
 static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 {
@@ -888,6 +888,29 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 		tarray = (cgtype_array_t *)cgtype->ext;
 		assert(tarray->have_size);
 		return cgen_type_sizeof(cgen, tarray->etype) * tarray->asize;
+	}
+
+	assert(false);
+	return 0;
+}
+
+/** Return the alignment of a type in bytes.
+ *
+ * @param cgen Code generator
+ * @param cgtype Type
+ */
+static unsigned cgen_type_alignof(cgen_t *cgen, cgtype_t *cgtype)
+{
+	(void)cgen;
+
+	switch (cgtype->ntype) {
+	case cgn_basic:
+	case cgn_func:
+	case cgn_pointer:
+	case cgn_record:
+	case cgn_enum:
+	case cgn_array:
+		return 1;
 	}
 
 	assert(false);
@@ -13293,6 +13316,198 @@ error:
 	return rc;
 }
 
+/** Generate code for _Alignof/alignof() with processed type.
+ *
+ * Once we processed the typename or type of the expression, i.e.,
+ * the argument to _Alignof/alignof(), this function handles the rest.
+ *
+ * @param cgexpr Code generator for expression
+ * @param etype Type for which we want to determine alignment
+ * @param ctok Token for printing diagnostics
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ealignof_cgtype(cgen_expr_t *cgexpr, cgtype_t *etype,
+    comp_tok_t *ctok, ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	unsigned sz;
+	int rc;
+
+	if (etype->ntype == cgn_func) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Alignof operator applied to a function.\n");
+		cgexpr->cgen->error = true; // TODO
+		rc = EINVAL;
+		goto error;
+	}
+
+	sz = cgen_type_alignof(cgexpr->cgen, etype);
+
+	rc = cgen_const_int(cgexpr->cgproc, cgelm_int, sz, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	return rc;
+}
+
+/** Generate code for _Alignof(typename)/alignof(typename) expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param esizeof AST alignof expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgtype_t *stype = NULL;
+	cgtype_t *etype = NULL;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+	ast_sclass_type_t sctype;
+	cgen_rd_flags_t flags;
+	int rc;
+
+	/* Declaration specifiers */
+	rc = cgen_dspecs(cgexpr->cgen, ealignof->atypename->dspecs,
+	    &sctype, &flags, &stype);
+	if (rc != EOK)
+		goto error;
+
+	atok = ast_tree_first_tok(&ealignof->atypename->node);
+	ctok = (comp_tok_t *) atok->data;
+
+	if ((flags & cgrd_def) != 0) {
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Warning: Struct/union/enum definition "
+		    "inside alignof().\n");
+		++cgexpr->cgen->warnings;
+	}
+
+	if (sctype != asc_none) {
+		atok = ast_tree_first_tok(&ealignof->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		lexer_dprint_tok(&ctok->tok, stderr);
+		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		cgexpr->cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
+
+	/* Declarator */
+	rc = cgen_decl(cgexpr->cgen, stype, ealignof->atypename->decl, NULL,
+	    &etype);
+	if (rc != EOK)
+		goto error;
+
+	rc  = cgen_ealignof_cgtype(cgexpr, etype, ctok, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(stype);
+	cgtype_destroy(etype);
+	return EOK;
+error:
+	cgtype_destroy(stype);
+	cgtype_destroy(etype);
+	return rc;
+}
+
+/** Generate code for '_Alignof/alignof <expression>' expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param esizeof AST alignof expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ealignof_expr(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	cgtype_t *etype = NULL;
+	ast_eparen_t *eparen;
+	ast_eident_t *eident;
+	comp_tok_t *ident;
+	scope_member_t *member;
+	ast_tok_t *atok;
+	comp_tok_t *ctok;
+
+	int rc;
+
+	/*
+	 * Because the parser does not have semantic information,
+	 * it misparses alignof(type-ident) as alignof applied to
+	 * a parenthesized expression. In this particular case
+	 * we need to re-interpret it as a type identifier.
+	 */
+	if (ealignof->bexpr->ntype == ant_eparen) {
+		eparen = (ast_eparen_t *)ealignof->bexpr->ext;
+
+		if (eparen->bexpr->ntype == ant_eident) {
+			/* Ambiguous case of alignof(ident) */
+			eident = (ast_eident_t *)eparen->bexpr->ext;
+
+			/* Check if it is a type identifier */
+			ident = (comp_tok_t *)eident->tident.data;
+			member = scope_lookup(cgexpr->cgen->cur_scope,
+			    ident->tok.text);
+			if (member != NULL && member->mtype == sm_tdef) {
+				/* It is a type identifier */
+
+				rc = cgen_tident(cgexpr->cgen, &eident->tident,
+				    cgqual_none, &etype);
+				if (rc != EOK)
+					goto error;
+			}
+		}
+	}
+
+	/* In the normal case */
+	if (etype == NULL) {
+		/*
+		 * 'Evaluate' the expression getting its type and ignoring both
+		 * the result and any side effects.
+		 */
+		rc = cgen_szexpr_type(cgexpr->cgen, ealignof->bexpr, &etype);
+		if (rc != EOK)
+			goto error;
+	}
+
+	atok = ast_tree_first_tok(ealignof->bexpr);
+	ctok = (comp_tok_t *) atok->data;
+
+	rc  = cgen_ealignof_cgtype(cgexpr, etype, ctok, lblock, eres);
+	if (rc != EOK)
+		goto error;
+
+	cgtype_destroy(etype);
+	return EOK;
+error:
+	cgtype_destroy(etype);
+	return rc;
+}
+
+/** Generate code for _Alignof/alignof expression.
+ *
+ * @param cgexpr Code generator for expression
+ * @param ealignof AST _Alignof/alignof expression
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_ealignof(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	if (ealignof->atypename != NULL)
+		return cgen_ealignof_typename(cgexpr, ealignof, lblock, eres);
+	else
+		return cgen_ealignof_expr(cgexpr, ealignof, lblock, eres);
+}
+
 /** Generate code for sizeof() with processed type.
  *
  * Once we processed the typename or type of the expression, i.e.,
@@ -14940,6 +15155,10 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 		break;
 	case ant_eaddr:
 		rc = cgen_eaddr(cgexpr, (ast_eaddr_t *) expr->ext, lblock,
+		    eres);
+		break;
+	case ant_ealignof:
+		rc = cgen_ealignof(cgexpr, (ast_ealignof_t *) expr->ext, lblock,
 		    eres);
 		break;
 	case ant_esizeof:

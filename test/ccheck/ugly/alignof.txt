@@ -1,0 +1,18 @@
+<test/ccheck/ugly/alignof.c:2:19:num:0>: Argument to '_Alignof' should be parenthesized.
+<test/ccheck/ugly/alignof.c:5:18:num:0>: Argument to 'alignof' should be parenthesized.
+<test/ccheck/ugly/alignof.c:11:18:'+'>: Argument to '_Alignof' should be parenthesized.
+<test/ccheck/ugly/alignof.c:11:10-17:_Alignof>: Expected space before expression.
+<test/ccheck/ugly/alignof.c:17:17:'+'>: Argument to 'alignof' should be parenthesized.
+<test/ccheck/ugly/alignof.c:17:10-16:_Alignof>: Expected space before expression.
+<test/ccheck/ugly/alignof.c:20:18:space>: Unexpected whitespace after '_Alignof'.
+<test/ccheck/ugly/alignof.c:23:17:space>: Unexpected whitespace after 'alignof'.
+<test/ccheck/ugly/alignof.c:27:19:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/alignof.c:27:21:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/alignof.c:31:18:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/alignof.c:31:20:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/alignof.c:34:18:space>: Unexpected whitespace after '_Alignof'.
+<test/ccheck/ugly/alignof.c:37:18:space>: Unexpected whitespace after 'alignof'.
+<test/ccheck/ugly/alignof.c:41:20:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/alignof.c:41:24:space>: Unexpected whitespace before ')'.
+<test/ccheck/ugly/alignof.c:45:19:space>: Unexpected whitespace after '('.
+<test/ccheck/ugly/alignof.c:45:23:space>: Unexpected whitespace before ')'.

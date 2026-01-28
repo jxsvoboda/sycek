@@ -189,6 +189,7 @@ extern ast_ecall_arg_t *ast_ecall_next(ast_ecall_arg_t *);
 extern int ast_eindex_create(ast_eindex_t **);
 extern int ast_ederef_create(ast_ederef_t **);
 extern int ast_eaddr_create(ast_eaddr_t **);
+extern int ast_ealignof_create(ast_ealignof_t **);
 extern int ast_esizeof_create(ast_esizeof_t **);
 extern int ast_ecast_create(ast_ecast_t **);
 extern int ast_ecliteral_create(ast_ecliteral_t **);

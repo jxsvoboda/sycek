@@ -99,6 +99,7 @@ typedef enum {
 	ltt_bxor_assign,
 
 	ltt_alignas,
+	ltt_alignof,
 	ltt_atomic,
 	ltt_attribute,
 	ltt_asm,

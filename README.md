@@ -251,8 +251,9 @@ Specifically, these language features are supported:
  * String initializers, string literals
  * Conditional operator
  * Bit fields
- * Bool
+ * Bool (C99)
  * Type qualifiers (const, restrict, volatile)
+ * `_Alignof()` (C11), `alignof()` (C23)
 
 These are NOT supported yet:
 
@@ -260,7 +261,6 @@ These are NOT supported yet:
  * Integer promotion
  * Passing or returning struct/union by value
  * Variable-length arrays
- * Alignof
 
 Supported features not related to language coverage:
  * Large stack frames (i.e. containing more than 128 bytes of virtual register
@@ -394,8 +394,7 @@ It can detect the following types of problems and style issues:
  * using anything but `_Bool` or a thruth value where a truth value is
    expected
  * computed expression value is not used
- * specifically, ignoring return value of a function (TODO:
-   this can be supressed on a per-function basis)
+ * specifically, ignoring return value of a function
  * unused local variable
  * unused goto label
  * unused local struct/union tag
@@ -406,9 +405,9 @@ It can detect the following types of problems and style issues:
  * bitwise operation on signed integer(s)
  * bitwise operation on negative number(s)
  * conversion may loose significant digits
- * conversion from x to y changes signedness
+ * conversion from `x` to `y` changes signedness
  * number sign changed in conversion
- * converting from x to y discards qualifiers
+ * converting from `x` to `y` discards qualifiers
  * implicit conversion between incompatible pointer types
  * implicit conversion from integer to pointer
  * implicit conversion between enum types
@@ -432,6 +431,7 @@ It can detect the following types of problems and style issues:
    outside of function declaration/definition
  * struct/union/enum definition inside a cast
  * struct/union/enum definition inside sizeof()
+ * struct/union/enum definition insid _Alignof() / alignof()
  * mixing arguments with and without an identifier
  * useless type in empty declaration
  * multiple declarations of function/variable/struct/union
@@ -444,8 +444,8 @@ It can detect the following types of problems and style issues:
  * case value is out of range of type
  * case value is not boolean
  * case value is not in enum
- * case expression is <type>, switch expression is of type <type>
- * enumeration value 'x' not handled in switch
+ * case expression is `x`, switch expression is of type `y`
+ * enumeration value `x` not handled in switch
  * array index is negative / out of bounds
  * array passed to function is too small
  * excess braces around scalar initializer
@@ -509,6 +509,23 @@ Comparing a truth value with a different type will produce a warning
     if ((0 < 1) == 1)	// Comparison of truth value and non-truth type
 	    break;
 
+Truth type is compatible with `_Bool`. You can convert implicitly convert
+between truth valiues and `_Bool`. That means we can compare truth values
+with bool:
+
+    if ((0 < 1) == true)
+	    break;
+
+and we can assign truth values to bool and use bool where truth values
+are expected:
+
+    bool b = 0 < 1;
+
+    if (b)
+	    break;
+
+and so on.
+
 ### Strict enum types
 
 In the C standard enums are mostly interchangeable with integer types.
@@ -558,7 +575,7 @@ considered strictly enum values.
 ### Integer arithmetic checking in constant expressions
 
 In C unsigned types silently wrap around on overflow. Signed integer
-types can hava different behavier on overflow depending on implementation.
+types can have different behavior on overflow depending on implementation.
 Signed integers can be either two's complement, one's complement or
 sign-magnitude. If they are not two's complement, the implementation should
 signal overflow.

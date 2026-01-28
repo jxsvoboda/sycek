@@ -1058,6 +1058,11 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		    p[7] == 's' && !is_idcnt(p[8])) {
 			return lexer_keyword(lexer, ltt_alignas, 8, tok);
 		}
+		if (p[1] == 'A' && p[2] == 'l' && p[3] == 'i' &&
+		    p[4] == 'g' && p[5] == 'n' && p[6] == 'o' &&
+		    p[7] == 'f' && !is_idcnt(p[8])) {
+			return lexer_keyword(lexer, ltt_alignof, 8, tok);
+		}
 		if (p[1] == 'B' && p[2] == 'o' && p[3] == 'o' &&
 		    p[4] == 'l' && !is_idcnt(p[5])) {
 			return lexer_keyword(lexer, ltt_bool, 5, tok);
@@ -1078,6 +1083,11 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 		if (p[1] == 'u' && p[2] == 't' && p[3] == 'o' &&
 		    !is_idcnt(p[4])) {
 			return lexer_keyword(lexer, ltt_auto, 4, tok);
+		}
+		if (p[1] == 'l' && p[2] == 'i' && p[3] == 'g' &&
+		    p[4] == 'n' && p[5] == 'o' && p[6] == 'f' &&
+		    !is_idcnt(p[7])) {
+			return lexer_keyword(lexer, ltt_alignof, 7, tok);
 		}
 		return lexer_ident(lexer, tok);
 	case 'b':
@@ -1491,6 +1501,8 @@ const char *lexer_str_ttype(lexer_toktype_t ttype)
 		return "']'";
 	case ltt_alignas:
 		return "_Alignas";
+	case ltt_alignof:
+		return "_Alignof";
 	case ltt_atomic:
 		return "_Atomic";
 	case ltt_attribute:

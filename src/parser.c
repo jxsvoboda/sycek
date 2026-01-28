@@ -1255,6 +1255,83 @@ error:
 	return rc;
 }
 
+/** Parse alignof operator expression.
+ *
+ * @param parser Parser
+ * @param rexpr Place to store pointer to new arithmetic expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int parser_process_ealignof(parser_t *parser, ast_node_t **rexpr)
+{
+	lexer_toktype_t ltt;
+	ast_ealignof_t *ealignof = NULL;
+	ast_node_t *bexpr = NULL;
+	ast_typename_t *atypename = NULL;
+	parser_t *sparser;
+	void *dalignof;
+	void *dlparen;
+	void *drparen;
+	int rc;
+
+	rc = ast_ealignof_create(&ealignof);
+	if (rc != EOK)
+		goto error;
+
+	rc = parser_match(parser, ltt_alignof, &dalignof);
+	if (rc != EOK)
+		goto error;
+
+	ealignof->talignof.data = dalignof;
+
+	ltt = parser_next_ttype(parser);
+	if (ltt == ltt_lparen) {
+		rc = parser_create_silent_sub(parser, &sparser);
+		if (rc != EOK)
+			goto error;
+
+		rc = parser_process_eparexpr(sparser, &bexpr);
+		if (rc == EOK) {
+			parser->tok = sparser->tok;
+			parser_destroy(sparser);
+			ealignof->bexpr = bexpr;
+		} else {
+			parser_skip(parser, &dlparen);
+			parser_destroy(sparser);
+
+			rc = parser_process_typename(parser, &atypename);
+			if (rc != EOK)
+				goto error;
+
+			rc = parser_match(parser, ltt_rparen, &drparen);
+			if (rc != EOK)
+				goto error;
+
+			ealignof->tlparen.data = dlparen;
+			ealignof->atypename = atypename;
+			ealignof->trparen.data = drparen;
+		}
+	} else {
+		rc = parser_process_eprefix(parser, &bexpr);
+		if (rc != EOK)
+			goto error;
+
+		ealignof->talignof.data = dalignof;
+		ealignof->bexpr = bexpr;
+	}
+
+	*rexpr = &ealignof->node;
+	return EOK;
+error:
+	if (bexpr != NULL)
+		ast_tree_destroy(bexpr);
+	if (atypename != NULL)
+		ast_tree_destroy(&atypename->node);
+	if (ealignof != NULL)
+		ast_tree_destroy(&ealignof->node);
+	return rc;
+}
+
 /** Parse sizeof operator expression.
  *
  * @param parser Parser
@@ -1512,6 +1589,11 @@ static int parser_process_eprefix(parser_t *parser, ast_node_t **rexpr)
 		eaddr->tamper.data = dop;
 		eaddr->bexpr = bexpr;
 		*rexpr = &eaddr->node;
+		break;
+	case ltt_alignof:
+		rc = parser_process_ealignof(parser, rexpr);
+		if (rc != EOK)
+			goto error;
 		break;
 	case ltt_sizeof:
 		rc = parser_process_esizeof(parser, rexpr);
