@@ -1000,14 +1000,12 @@ static void cgtype_array_destroy(cgtype_array_t *array)
  */
 int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
 {
-	int rc;
+	int rc = ENOTSUP;
 
 	if (orig == NULL) {
 		*rcopy = NULL;
 		return EOK; // XXX
 	}
-
-	rc = ENOTSUP;
 
 	switch (orig->ntype) {
 	case cgn_basic:
@@ -1052,12 +1050,10 @@ int cgtype_clone(cgtype_t *orig, cgtype_t **rcopy)
  */
 static int cgtype_compose_node(cgtype_t *a, cgtype_t *b, cgtype_t **rcomp)
 {
-	int rc;
+	int rc = ENOTSUP;
 
 	if (a->ntype != b->ntype)
 		return EINVAL;
-
-	rc = ENOTSUP;
 
 	switch (a->ntype) {
 	case cgn_basic:
@@ -1386,6 +1382,7 @@ int cgtype_ptr_combine_qual(cgtype_pointer_t *aptr, cgtype_pointer_t *bptr,
 	assert((*rrtype)->ntype == cgn_pointer);
 	rptr = (cgtype_pointer_t *)(*rrtype)->ext;
 
+	assert(rptr->tgtype != NULL);
 	rptr->tgtype->qual = aptr->tgtype->qual | bptr->tgtype->qual;
 	return EOK;
 }

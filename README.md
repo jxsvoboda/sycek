@@ -247,12 +247,12 @@ Specifically, these language features are supported:
  * Sizeof
  * Character literals
  * Structure and array initializers
- * Designated struct/array initialization (C99)
  * String initializers, string literals
  * Conditional operator
  * Bit fields
- * Bool (C99)
  * Type qualifiers (const, restrict, volatile)
+ * Bool (C99)
+ * Designated struct/array initialization (C99)
  * `_Alignof()` (C11), `alignof()` (C23)
 
 These are NOT supported yet:

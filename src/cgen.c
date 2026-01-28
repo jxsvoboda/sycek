@@ -4137,6 +4137,7 @@ static void cgen_dspec_init(cgen_t *cgen, cgen_dspec_t *cgds)
 	cgds->unsigned_cnt = 0;
 	cgds->sctype = asc_none;
 	cgds->qual = cgqual_none;
+	cgds->lastds = NULL;
 }
 
 /** Generate code for type qualifier.
@@ -4634,7 +4635,6 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
 		return EINVAL;
 	}
 
-	ctok = (comp_tok_t *)dident->tident.data;
 	rc = cgtype_clone(stype, &dtype);
 	if (rc != EOK)
 		return rc;
@@ -20449,6 +20449,7 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 	cgtype_func_arg_t *dtarg;
 	ast_dfun_arg_t *arg;
 	cgtype_t *stype;
+	cgtype_t *aptype = NULL;
 	cgtype_t *ptype = NULL;
 	ir_lvar_t *lvar = NULL;
 	ast_tok_t *aident;
@@ -20522,6 +20523,18 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		    &ares);
 		if (rc != EOK)
 			goto error;
+
+		/*
+		 * FIXME cgen_lvaraddr() returns lres without a cgtype
+		 * (same as cgen_eident_gsym/arg/lvar). We neeed to
+		 * patch it in because it's needed by cgen_store().
+		 */
+		rc = cgtype_clone(ptype, &aptype);
+		if (rc != EOK)
+			goto error;
+
+		ares.cgtype = aptype;
+		aptype = NULL;
 
 		/* Argument value */
 		vres.varname = arg_ident;
