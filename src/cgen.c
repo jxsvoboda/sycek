@@ -20970,7 +20970,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		if ((cgproc->cgen->flags & cgf_lvalue_args) == 0) {
 			/* Insert identifier into argument scope */
 			rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
-			    ptype, arg_ident);
+			    stype, arg_ident);
 			if (rc != EOK)
 				goto error;
 		}

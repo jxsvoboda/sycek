@@ -1,4 +1,8 @@
 <test/syc/ugly/arrayindex.c:12:14:'['>: Warning: Array index is negative.
 <test/syc/ugly/arrayindex.c:13:15:'['>: Warning: Array index is negative.
-<test/syc/ugly/arrayindex.c:19:14:'['>: Warning: Array index is out of bounds.
-<test/syc/ugly/arrayindex.c:24:15:'['>: Warning: Array index is out of bounds.
+<test/syc/ugly/arrayindex.c:19:14:'['>: Warning: Array index is negative.
+<test/syc/ugly/arrayindex.c:20:15:'['>: Warning: Array index is negative.
+<test/syc/ugly/arrayindex.c:26:14:'['>: Warning: Array index is out of bounds.
+<test/syc/ugly/arrayindex.c:31:15:'['>: Warning: Array index is out of bounds.
+<test/syc/ugly/arrayindex.c:37:14:'['>: Warning: Array index is out of bounds.
+<test/syc/ugly/arrayindex.c:42:15:'['>: Warning: Array index is out of bounds.

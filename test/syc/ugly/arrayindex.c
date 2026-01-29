@@ -13,6 +13,13 @@ void negative(void)
 	p = &a[-1];
 }
 
+void negative_arg(int b[10])
+{
+	/* Array index is negative */
+	r = b[-1];
+	p = &b[-1];
+}
+
 void outofbounds(void)
 {
 	/* Array index is out of bounds */
@@ -22,4 +29,15 @@ void outofbounds(void)
 	 * as a special case, so we just emit a warning anyway.
 	 */
 	p = &a[10];
+}
+
+void outofbounds_arg(int b[10])
+{
+	/* Array index is out of bounds */
+	r = b[10];
+	/*
+	 * Defined behavior in C, but we cannot easily detect this
+	 * as a special case, so we just emit a warning anyway.
+	 */
+	p = &b[10];
 }
