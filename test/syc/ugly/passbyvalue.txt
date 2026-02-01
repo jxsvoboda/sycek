@@ -1,0 +1,2 @@
+<test/syc/ugly/passbyvalue.c:29:15-16:id:s0>: Warning: Pasing struct/union by value.
+<test/syc/ugly/passbyvalue.c:34:15-16:id:u0>: Warning: Pasing struct/union by value.

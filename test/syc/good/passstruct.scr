@@ -1,0 +1,13 @@
+mapfile "passstruct.map";
+ldbin "passstruct.bin", 0x8000;
+
+/* overparenthesized call */
+ld byte ptr (@_origv), 1;
+ld byte ptr (@_newv), 2;
+ld byte ptr (@_readv), 0;
+ld byte ptr (@_finalv), 0;
+
+call @_bar;
+verify byte ptr (@_readv), 1;
+verify word ptr (@_finalv), 1;
+

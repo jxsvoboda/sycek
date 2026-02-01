@@ -254,12 +254,13 @@ Specifically, these language features are supported:
  * Bool (C99)
  * Designated struct/array initialization (C99)
  * `_Alignof()` (C11), `alignof()` (C23)
+ * Passing struct/union by value
 
 These are NOT supported yet:
 
  * Floating point
  * Integer promotion
- * Passing or returning struct/union by value
+ * Returning struct/union by value
  * Variable-length arrays
 
 Supported features not related to language coverage:
@@ -459,6 +460,7 @@ It can detect the following types of problems and style issues:
  * explicitly dereferencing function pointer is not necessary
  * conditional with void operands can be rewritten as an if-else statement
  * zero used as a null pointer constant
+ * passing struct/union by value
 
 ### Strict truth type
 

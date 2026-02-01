@@ -123,6 +123,7 @@ static int cgen_uninit_digest(cgen_t *, cgtype_t *, ir_dblock_t *);
 static int cgen_init_digest_bitfield(cgen_t *, cgen_init_t **, uint64_t *,
     cgen_rec_stor_t *, int, ir_dblock_t *);
 static int cgen_fun_arg_passed_type(cgen_t *, cgtype_t *, cgtype_t **);
+static int cgen_fun_arg_received_type(cgen_t *, cgtype_t *, cgtype_t **);
 static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, uint8_t, comp_tok_t *,
     ast_cinit_elem_t **, cgen_init_t *);
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
@@ -3134,6 +3135,18 @@ static void cgen_warn_init_field_overwritten(cgen_t *cgen, comp_tok_t *tok)
 	++cgen->warnings;
 }
 
+/** Generate warning: passing struct/union by value.
+ *
+ * @param cgen Code generator
+ * @param tok Operator token
+ */
+static void cgen_warn_pass_su_by_value(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Pasing struct/union by value.\n");
+	++cgen->warnings;
+}
+
 /** Generate code for record definition.
  *
  * @param cgen Code generator
@@ -5808,6 +5821,7 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
  * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param vident Identifier of IR variable holding the argument
+ * @param cgtype Argument type
  * @param idx Argument index
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
@@ -5815,9 +5829,11 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
  * @return EOK on success or an error code
  */
 static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
-    const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
+    const char *vident, cgtype_t *cgtype, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
-	(void) lblock;
+	(void)lblock;
+	(void)cgtype;
 
 	if (cgexpr->cexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
@@ -5946,7 +5962,7 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		break;
 	case sm_arg:
 		rc = cgen_eident_arg(cgexpr, eident, member->m.arg.vident,
-		    lblock, eres);
+		    cgtype, lblock, eres);
 		break;
 	case sm_lvar:
 		rc = cgen_eident_lvar(cgexpr, eident, member->m.lvar.vident,
@@ -11276,6 +11292,41 @@ error:
 	return rc;
 }
 
+/** Generate code to take address of expression result.
+ *
+ * @param bres Base expression result
+ * @param eres Place to store expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_address(cgen_eres_t *bres, cgen_eres_t *eres)
+{
+	cgtype_t *cgtype;
+	cgtype_pointer_t *ptrtype;
+	int rc;
+
+	/* Construct the type */
+	rc = cgtype_pointer_create(bres->cgtype, &ptrtype);
+	if (rc != EOK)
+		goto error;
+
+	/* Ownership transferred to ptrtype */
+	bres->cgtype = NULL;
+
+	cgtype = &ptrtype->cgtype;
+
+	/* Return address as rvalue */
+	eres->varname = bres->varname;
+	eres->valtype = cgen_rvalue;
+	eres->cvknown = bres->cvknown;
+	eres->cvint = bres->cvint;
+	eres->cvsymbol = bres->cvsymbol;
+	eres->cgtype = cgtype;
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Generate code for assignment expression.
  *
  * @param cgexpr Code generator for expression
@@ -12826,6 +12877,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	char *pident = NULL;
 	ast_ecall_arg_t *earg;
 	cgen_eres_t ares;
+	cgen_eres_t rres;
 	cgen_eres_t cres;
 	cgen_eres_t fres;
 	cgen_eres_t frres;
@@ -12844,6 +12896,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 
 	cgen_eres_init(&ares);
 	cgen_eres_init(&cres);
+	cgen_eres_init(&rres);
 	cgen_eres_init(&fres);
 	cgen_eres_init(&frres);
 
@@ -12954,12 +13007,29 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 				    farg->atype, ares.cgtype);
 			}
 
+			/* Is it a record? */
+			if (farg->atype->ntype == cgn_record) {
+				cgen_warn_pass_su_by_value(cgexpr->cgen, tok);
+
+				/*
+				 * Get its address. We pass a record
+				 * by reference and the called function makes
+				 * a copy to make it modifiable.
+				 */
+				rc = cgen_address(&ares, &rres);
+			} else {
+				rc = cgen_eres_clone(&ares, &rres);
+			}
+
+			if (rc != EOK)
+				goto error;
+
 			rc = cgen_fun_arg_passed_type(cgexpr->cgen, farg->atype,
 			    &argtype);
 			if (rc != EOK)
 				goto error;
 
-			rc = cgen_type_convert(cgexpr, tok, &ares, argtype,
+			rc = cgen_type_convert(cgexpr, tok, &rres, argtype,
 			    cgen_implicit, lblock, &cres);
 			if (rc != EOK)
 				goto error;
@@ -12985,9 +13055,11 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		/* Prepare result for reuse */
 		cgen_eres_fini(&ares);
 		cgen_eres_fini(&cres);
+		cgen_eres_fini(&rres);
 
 		cgen_eres_init(&ares);
 		cgen_eres_init(&cres);
+		cgen_eres_init(&rres);
 
 		earg = ast_ecall_next(earg);
 		if (farg != NULL)
@@ -13061,6 +13133,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
+	cgen_eres_fini(&rres);
 	cgen_eres_fini(&fres);
 	cgen_eres_fini(&frres);
 	return EOK;
@@ -13080,6 +13153,7 @@ error:
 		free(pident);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
+	cgen_eres_fini(&rres);
 	cgen_eres_fini(&fres);
 	cgen_eres_fini(&frres);
 	cgtype_destroy(rtype);
@@ -13262,8 +13336,6 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	cgen_eres_t bres;
-	cgtype_t *cgtype;
-	cgtype_pointer_t *ptrtype;
 	comp_tok_t *ctok;
 	int rc;
 
@@ -13291,25 +13363,11 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
 		goto error;
 	}
 
-	/* Construct the type */
-	rc = cgtype_pointer_create(bres.cgtype, &ptrtype);
+	rc = cgen_address(&bres, eres);
 	if (rc != EOK)
 		goto error;
 
-	/* Ownership transferred to ptrtype */
-	bres.cgtype = NULL;
-
-	cgtype = &ptrtype->cgtype;
 	cgen_eres_fini(&bres);
-
-	/* Return address as rvalue */
-	eres->varname = bres.varname;
-	eres->valtype = cgen_rvalue;
-	eres->cvknown = bres.cvknown;
-	eres->cvint = bres.cvint;
-	eres->cvsymbol = bres.cvsymbol;
-	eres->cgtype = cgtype;
-
 	return EOK;
 error:
 	cgen_eres_fini(&bres);
@@ -20244,7 +20302,7 @@ error:
 
 /** Adjust type when passing to a function.
  *
- * Arrays are passed as pointers, other types are unchanged.
+ * Arrays and records are passed as pointers, other types are unchanged.
  *
  * @param cgen Code generator
  * @param stype Specified type
@@ -20255,6 +20313,7 @@ static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
 {
 	cgtype_t *etype = NULL;
 	cgtype_t *ltype = NULL;
+	cgtype_t *rtype = NULL;
 	cgtype_array_t *arrt;
 	cgtype_pointer_t *ptrt;
 	int rc;
@@ -20280,6 +20339,23 @@ static int cgen_fun_arg_passed_type(cgen_t *cgen, cgtype_t *stype,
 
 		*ptype = &ptrt->cgtype;
 		etype = NULL;
+	} else if (stype->ntype == cgn_record) {
+		/*
+		 * An record is really passed as a pointer.
+		 */
+
+		rc = cgtype_clone(stype, &rtype);
+		if (rc != EOK)
+			goto error;
+
+		rc = cgtype_pointer_create(rtype, &ptrt);
+		if (rc != EOK) {
+			cgtype_destroy(etype);
+			goto error;
+		}
+
+		*ptype = &ptrt->cgtype;
+		rtype = NULL;
 	} else if (stype->ntype == cgn_basic &&
 	    ((cgtype_basic_t *)stype->ext)->elmtype == cgelm_va_list) {
 		/*
@@ -20311,6 +20387,38 @@ error:
 		cgtype_destroy(etype);
 	if (ltype != NULL)
 		cgtype_destroy(ltype);
+	if (ltype != NULL)
+		cgtype_destroy(rtype);
+	return rc;
+}
+
+/** Adjust type after passing to a function.
+ *
+ * Records (passed as pointers) become records again.
+ *
+ * @param cgen Code generator
+ * @param stype Specified type
+ * @param ptype Place to store passed type
+ */
+static int cgen_fun_arg_received_type(cgen_t *cgen, cgtype_t *stype,
+    cgtype_t **ptype)
+{
+	int rc;
+
+	if (stype->ntype == cgn_record) {
+		/* Record becomes a record again inside the function. */
+		rc = cgtype_clone(stype, ptype);
+		if (rc != EOK)
+			goto error;
+	} else {
+		/* Other types remain as passed. */
+		rc = cgen_fun_arg_passed_type(cgen, stype, ptype);
+		if (rc != EOK)
+			goto error;
+	}
+
+	return EOK;
+error:
 	return rc;
 }
 
@@ -20488,12 +20596,27 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 			goto error;
 		}
 
-		/* Generate argument type */
-		rc = cgen_fun_arg_type(cgproc->cgen, stype, &atype);
-		if (rc != EOK)
-			goto error;
+		/*
+		 * Generate type for local variable.
+		 */
+		if (stype->ntype == cgn_record) {
+			/* Variable is a record, same as C argument type. */
+			rc = cgen_cgtype(cgproc->cgen, stype, &atype);
+			if (rc != EOK)
+				goto error;
+		} else {
+			/* Skip non-record args if not --lvalue-args */
+			if ((cgproc->cgen->flags & cgf_lvalue_args) == 0) {
+				goto skip;
+			}
 
-		rc = cgen_fun_arg_passed_type(cgproc->cgen, stype, &ptype);
+			/* Same as IR argument type. */
+			rc = cgen_fun_arg_type(cgproc->cgen, stype, &atype);
+			if (rc != EOK)
+				goto error;
+		}
+
+		rc = cgen_fun_arg_received_type(cgproc->cgen, stype, &ptype);
 		if (rc != EOK)
 			goto error;
 
@@ -20524,6 +20647,9 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		if (rc != EOK)
 			goto error;
 
+		free(vident);
+		vident = NULL;
+
 		/*
 		 * FIXME cgen_lvaraddr() returns lres without a cgtype
 		 * (same as cgen_eident_gsym/arg/lvar). We neeed to
@@ -20546,6 +20672,7 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		if (rc != EOK)
 			goto error;
 
+	skip:
 		free(arg_ident);
 		arg_ident = NULL;
 
@@ -20570,6 +20697,8 @@ error:
 		free(arg_ident);
 	if (atype != NULL)
 		ir_texpr_destroy(atype);
+	if (vident != NULL)
+		free(vident);
 	return rc;
 }
 
@@ -20967,7 +21096,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		if (rc != EOK)
 			goto error;
 
-		if ((cgproc->cgen->flags & cgf_lvalue_args) == 0) {
+		if ((cgproc->cgen->flags & cgf_lvalue_args) == 0 &&
+		    stype->ntype != cgn_record) {
 			/* Insert identifier into argument scope */
 			rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
 			    stype, arg_ident);
@@ -20990,13 +21120,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
-	/* Lvalue arguments? */
-	if ((cgproc->cgen->flags & cgf_lvalue_args) != 0) {
-		/* Create an initialized variable for each argument. */
-		rc = cgen_fun_lvalue_args(cgproc, ident, ctype, dfun, proc);
-		if (rc != EOK)
-			goto error;
-	}
+	/* Lvalue arguments. */
+	rc = cgen_fun_lvalue_args(cgproc, ident, ctype, dfun, proc);
+	if (rc != EOK)
+		goto error;
 
 	/* Check return type for completeness */
 	if (cgen_type_is_incomplete(cgen, dtfunc->rtype)) {
