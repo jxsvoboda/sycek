@@ -16691,6 +16691,7 @@ static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	if (!cgtype_ptr_compatible(ptrtype1, ptrtype2) &&
 	    expl != cgen_explicit &&
+	    !cgtype_is_void(ptrtype1->tgtype) &&
 	    !cgtype_is_void(ptrtype2->tgtype)) {
 		lexer_dprint_tok(&ctok->tok, stderr);
 		fprintf(stderr, ": Warning: Converting from ");
