@@ -1,1 +1,2 @@
+<test/syc/bad/incomarg.c:5:19:id:a>: Warning: Pasing struct/union by value.
 <test/syc/bad/incomarg.c:5:6:id:f>: Argument 1 has incomplete type.

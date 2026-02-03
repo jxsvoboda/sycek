@@ -102,6 +102,8 @@ typedef struct cgen_proc {
 	cgtype_t *rtype;
 	/** Next local variable number to allocate */
 	unsigned next_var;
+	/** Next temporary local variable number */
+	unsigned next_tmp;
 	/** Argument scope for this procedure */
 	struct scope *arg_scope;
 	/** Next label number to allocate */

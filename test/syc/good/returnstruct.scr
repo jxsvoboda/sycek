@@ -1,0 +1,8 @@
+mapfile "returnstruct.map";
+ldbin "returnstruct.bin", 0x8000;
+
+/* Sign extend 8 to 16 bits (non-negative) */
+ld byte ptr (@_a), 0x01;
+ld byte ptr (@_b), 0x00;
+call @_bar;
+verify word ptr (@_b), 0x01;

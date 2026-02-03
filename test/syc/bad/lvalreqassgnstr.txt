@@ -1,0 +1,2 @@
+<test/syc/bad/lvalreqassgnstr.c:11:10-12:id:foo>: Warning: Returning struct/union by value.
+<test/syc/bad/lvalreqassgnstr.c:22:9-11:id:foo>: Lvalue required.

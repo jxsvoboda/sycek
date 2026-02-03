@@ -36,12 +36,10 @@ Sycek is available under an MIT-style license.
 
 Syc
 ---
-NOTE: This is a work in progress. Most, but not all C language features are
-implemented.
+NOTE: Floating point support is not implemented yet.
 
-`syc` is meant to work as a compiler, lint-like tool and static checker.
-Currently it can compile a subset of C for the Sinclair ZX Spectrum
-(Zilog Z80 processor).
+`syc` is a compiler, lint-like tool / checker. It compiles C for the
+Sinclair ZX Spectrum (Zilog Z80 processor).
 
 `syc` also complements `ccheck` checking for certain programming
 iand C style issues that cannot be reliably detected withough actually
@@ -222,9 +220,9 @@ parsable by ccheck.
 
 Using Syc
 ---------
-Syc is a C cross-compiler under construction, targetting the Sinclair
-ZX Spectrum platform / Zilog Z80 processor. Most C language features
-are implemented, but some things are still missing.
+Syc is a C cross-compiler, targetting the Sinclair ZX Spectrum platform
+/ Zilog Z80 processor. Most C language features are implemented, with
+a few exceptions.
 
 Specifically, these language features are supported:
 
@@ -254,13 +252,12 @@ Specifically, these language features are supported:
  * Bool (C99)
  * Designated struct/array initialization (C99)
  * `_Alignof()` (C11), `alignof()` (C23)
- * Passing struct/union by value
+ * Passing and returning struct/union by value
 
 These are NOT supported yet:
 
  * Floating point
  * Integer promotion
- * Returning struct/union by value
  * Variable-length arrays
 
 Supported features not related to language coverage:
@@ -371,15 +368,19 @@ This should never be needed with any newly designed interfaces.
     void foo(void)
     {
 	    silly(1); /* this will not produce a warning */
-
     }
 
 Syc as a checker
 ----------------
-Syc strives to produce uparalleled diagnostic coverage, warning about 
+Syc strives to produce uparalleled diagnostic coverage, warning about
 all the potential programming errors that would be typically reported by
 compilers, lint-like tools, as well as complementing ccheck in the C style
 area.
+
+While most compilers issue a pretty arbitrary set of warnings, trying
+to cover the most typical mistakes, Syc tries to systematically cover
+all areas and dark corners of C and prevent the programmer from straying
+away from good practice.
 
 It can detect the following types of problems and style issues:
 
@@ -461,6 +462,7 @@ It can detect the following types of problems and style issues:
  * conditional with void operands can be rewritten as an if-else statement
  * zero used as a null pointer constant
  * passing struct/union by value
+ * returning struct/union by value
 
 ### Strict truth type
 

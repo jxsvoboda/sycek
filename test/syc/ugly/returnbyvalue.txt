@@ -1,0 +1,1 @@
+<test/syc/ugly/returnbyvalue.c:11:10-12:id:foo>: Warning: Returning struct/union by value.

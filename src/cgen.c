@@ -1469,6 +1469,34 @@ error:
 	return rc;
 }
 
+/** Create new temporary local variable name.
+ *
+ * These are IR local variables that do not have any C counterpart.
+ *
+ * @param cgproc Code generator for procedure
+ * @param prefix Variable name prefix (e.g., "Rrec")
+ * @param rname Place to store pointer to new variable name
+ * @return EOK on success or an error code
+ */
+static int cgen_create_tmp_var_name(cgen_proc_t *cgproc, const char *prefix,
+    char **rname)
+{
+	char *vident = NULL;
+	int rv;
+	int rc;
+
+	rv = asprintf(&vident, "%%%%%s%u", prefix, cgproc->next_tmp++);
+	if (rv < 0) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	*rname = vident;
+	return EOK;
+error:
+	return rc;
+}
+
 /** Create new local label.
  *
  * @param cgproc Code generator for procedure
@@ -2524,6 +2552,18 @@ static void cgen_error_inv_restrict(cgen_t *cgen, comp_tok_t *tok)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: Lvalue required.
+ *
+ * @param cgen Code generator
+ * @param tok Token
+ */
+static void cgen_error_lvalue_required(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr); // XXX Print range
+	fprintf(stderr, ": Lvalue required.\n");
+	cgen->error = true;
+}
+
 /** Generate warning: unimplemented type specifier.
  *
  * @param cgen Code generator
@@ -3144,6 +3184,18 @@ static void cgen_warn_pass_su_by_value(cgen_t *cgen, comp_tok_t *tok)
 {
 	lexer_dprint_tok(&tok->tok, stderr);
 	fprintf(stderr, ": Warning: Pasing struct/union by value.\n");
+	++cgen->warnings;
+}
+
+/** Generate warning: returning struct/union by value.
+ *
+ * @param cgen Code generator
+ * @param tok Operator token
+ */
+static void cgen_warn_return_su_by_value(cgen_t *cgen, comp_tok_t *tok)
+{
+	lexer_dprint_tok(&tok->tok, stderr);
+	fprintf(stderr, ": Warning: Returning struct/union by value.\n");
 	++cgen->warnings;
 }
 
@@ -4823,6 +4875,13 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	prev_scope = cgen->cur_scope;
 	cgen->cur_scope = arg_scope;
 
+	/* Returning structure/union by value? */
+	if (func->rtype->ntype == cgn_record) {
+		atok = ast_decl_get_ident(&dfun->node);
+		tok = (comp_tok_t *) atok->data;
+		cgen_warn_return_su_by_value(cgen, tok);
+	}
+
 	++cgen->arglist_cnt;
 	arg_with_ident = false;
 	arg_without_ident = false;
@@ -4853,6 +4912,13 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		if (rc != EOK) {
 			--cgen->arglist_cnt;
 			goto error;
+		}
+
+		/* Passing structure/union by value? */
+		if (atype->ntype == cgn_record) {
+			atok = ast_tree_first_tok(arg->decl);
+			tok = (comp_tok_t *) atok->data;
+			cgen_warn_pass_su_by_value(cgen, tok);
 		}
 
 		aident = ast_decl_get_ident(arg->decl);
@@ -12860,6 +12926,76 @@ error:
 	return rc;
 }
 
+/** Pass address of return structure.
+ *
+ * When generating call to a function that returns a structure, we need
+ * to create a temporary variable of the structure type and pass it
+ * to the function as the first argument.
+ *
+ * @param cgexpr Code generator for expression
+ * @param rtype Function return type (should be a record type)
+ * @param args List of arguments passed to the function (empty, will
+ *        append extra first argument)
+ * @param lblock IR labeled block to which the code should be appended
+ * @param rvlvaraddr Place to store operand with VR containing address of
+ *                   temporary local variable.
+ */
+static int cgen_ecall_rrec_pass_addr(cgen_expr_t *cgexpr, cgtype_t *rtype,
+    ir_oper_list_t *args, ir_lblock_t *lblock, ir_oper_var_t **rlvaraddr)
+{
+	char *vident = NULL;
+	ir_texpr_t *atype = NULL;
+	ir_lvar_t *lvar = NULL;
+	ir_oper_var_t *arg = NULL;
+	cgen_eres_t ares;
+	int rc;
+
+	cgen_eres_init(&ares);
+
+	/* Generate an IR temporary variable name */
+	rc = cgen_create_tmp_var_name(cgexpr->cgproc, "Rrec", &vident);
+	if (rc != EOK) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	rc = cgen_cgtype(cgexpr->cgen, rtype, &atype);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_lvar_create(vident, atype, &lvar);
+	if (rc != EOK)
+		goto error;
+
+	atype = NULL; /* ownership transferred */
+
+	ir_proc_append_lvar(cgexpr->cgproc->irproc, lvar);
+
+	rc = cgen_lvaraddr(cgexpr->cgproc, vident, lblock, &ares);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares.varname, &arg);
+	if (rc != EOK)
+		goto error;
+
+	ir_oper_list_append(args, &arg->oper);
+
+	cgen_eres_fini(&ares);
+	free(vident);
+	*rlvaraddr = arg;
+	return EOK;
+error:
+	cgen_eres_fini(&ares);
+	if (vident != NULL)
+		free(vident);
+	if (atype != NULL)
+		ir_texpr_destroy(atype);
+	if (arg != NULL)
+		ir_oper_destroy(&arg->oper);
+	return rc;
+}
+
 /** Generate code for call expression.
  *
  * @param cgexpr Code generator for expression
@@ -12892,6 +13028,8 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	cgtype_func_arg_t *farg;
 	cgtype_t *argtype = NULL;
 	ir_texpr_t *cstype = NULL;
+	ir_oper_var_t *rvaraddr;
+	bool ret_record;
 	int rc;
 
 	cgen_eres_init(&ares);
@@ -12958,6 +13096,20 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	if (rc != EOK)
 		goto error;
 
+	/* Function returning struct/union? */
+	ret_record = rtype->ntype == cgn_record;
+	if (ret_record) {
+		/*
+		 * Create a temporary variable of the record type and
+		 * pass its address as an extra first argument to the
+		 * function.
+		 */
+		rc = cgen_ecall_rrec_pass_addr(cgexpr, rtype, args, lblock,
+		    &rvaraddr);
+		if (rc != EOK)
+			goto error;
+	}
+
 	/*
 	 * Each argument needs to be evaluated. The code for evaluating
 	 * arguments will precede the call instruction. The resulting
@@ -13009,8 +13161,6 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 
 			/* Is it a record? */
 			if (farg->atype->ntype == cgn_record) {
-				cgen_warn_pass_su_by_value(cgexpr->cgen, tok);
-
 				/*
 				 * Get its address. We pass a record
 				 * by reference and the called function makes
@@ -13081,7 +13231,11 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		goto error;
 	}
 
-	if (!cgtype_is_void(ftype->rtype)) {
+	/*
+	 * Non-void functions return result in destination, except
+	 * for struct/union, which is returned via first argument.
+	 */
+	if (!cgtype_is_void(ftype->rtype) && !ret_record) {
 		rc = cgen_create_new_lvar_oper(cgexpr->cgproc, &dest);
 		if (rc != EOK)
 			goto error;
@@ -13130,6 +13284,14 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 	eres->cgtype = rtype;
 	eres->valused = cgtype_is_void(ftype->rtype) ||
 	    ftype->may_ignore_return;
+
+	/*
+	 * If the function returns a record type, the result is found in
+	 * the temporary local variable which we previously created.
+	 */
+	if (!cgtype_is_void(rtype) && ret_record) {
+		eres->varname = rvaraddr->varname;
+	}
 
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
@@ -14121,7 +14283,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	cgen_eres_init(&bres);
 
 	/* Evaluate expression */
-	rc = cgen_expr(cgexpr, emember->bexpr, lblock, &bres);
+	rc = cgen_expr_lvalue(cgexpr, emember->bexpr, lblock, &bres);
 	if (rc != EOK)
 		goto error;
 
@@ -15300,9 +15462,7 @@ static int cgen_expr_lvalue(cgen_expr_t *cgexpr, ast_node_t *expr,
 	if (eres->valtype != cgen_lvalue) {
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr); // XXX Print range
-		fprintf(stderr, ": Lvalue required.\n");
-		cgexpr->cgen->error = true;
+		cgen_error_lvalue_required(cgexpr->cgen, tok);
 		return EINVAL;
 	}
 
@@ -18076,6 +18236,54 @@ error:
 	return rc;
 }
 
+static int cgen_return_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
+    ir_lblock_t *lblock)
+{
+	ir_instr_t *instr = NULL;
+	ir_oper_var_t *larg = NULL;
+	ir_oper_var_t *rarg = NULL;
+	ir_texpr_t *recte = NULL;
+	int rc;
+
+	assert(ares->cgtype->ntype == cgn_record);
+
+	/* Generate IR type expression for the record type */
+	rc = cgen_cgtype(cgproc->cgen, ares->cgtype, &recte);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_instr_create(&instr);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create("%0", &larg);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_oper_var_create(ares->varname, &rarg);
+	if (rc != EOK)
+		goto error;
+
+	instr->itype = iri_reccopy;
+	instr->width = 0;
+	instr->dest = NULL;
+	instr->op1 = &larg->oper;
+	instr->op2 = &rarg->oper;
+	instr->opt = recte;
+
+	ir_lblock_append(lblock, NULL, instr);
+
+	return EOK;
+error:
+	ir_texpr_destroy(recte);
+	ir_instr_destroy(instr);
+	if (larg != NULL)
+		ir_oper_destroy(&larg->oper);
+	if (rarg != NULL)
+		ir_oper_destroy(&rarg->oper);
+	return rc;
+}
+
 /** Generate code for return statement.
  *
  * @param cgproc Code generator for procedure
@@ -18151,6 +18359,11 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 			bits = cgen_enum_bits;
 		} else if (cgproc->rtype->ntype == cgn_pointer) {
 			bits = cgen_pointer_bits;
+		} else if (cgproc->rtype->ntype == cgn_record) {
+			rc = cgen_return_record(cgproc, &cres, lblock);
+			if (rc != EOK)
+				goto error;
+			bits = 0;
 		} else {
 			fprintf(stderr, "Unimplemented return type.\n");
 			cgproc->cgen->error = true; // TODO
@@ -18162,15 +18375,23 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 		if (rc != EOK)
 			goto error;
 
-		rc = ir_oper_var_create(cres.varname, &arg);
-		if (rc != EOK)
-			goto error;
+		if (bits > 0) {
+			rc = ir_oper_var_create(cres.varname, &arg);
+			if (rc != EOK)
+				goto error;
 
-		instr->itype = iri_retv;
-		instr->width = bits;
-		instr->dest = NULL;
-		instr->op1 = &arg->oper;
-		instr->op2 = NULL;
+			instr->itype = iri_retv;
+			instr->width = bits;
+			instr->dest = NULL;
+			instr->op1 = &arg->oper;
+			instr->op2 = NULL;
+		} else {
+			instr->itype = iri_ret;
+			instr->width = 0;
+			instr->dest = NULL;
+			instr->op1 = NULL;
+			instr->op2 = NULL;
+		}
 
 		ir_lblock_append(lblock, NULL, instr);
 
@@ -20480,6 +20701,30 @@ static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
 
 	next_var = 0;
 
+	/* Pass address of destination record as extra first argument. */
+	if (dtfunc->rtype->ntype == cgn_record) {
+		rv = asprintf(&arg_ident, "%%%d", next_var++);
+		if (rv < 0) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		/* Generate argument type */
+		rc = ir_texpr_ptr_create(cgen_pointer_bits, &atype);
+		if (rc != EOK)
+			goto error;
+
+		rc = ir_proc_arg_create(arg_ident, atype, &iarg);
+		if (rc != EOK)
+			goto error;
+
+		free(arg_ident);
+		arg_ident = NULL;
+		atype = NULL; /* ownership transferred */
+
+		ir_proc_append_arg(proc, iarg);
+	}
+
 	/* Arguments */
 	dtarg = cgtype_func_first(dtfunc);
 	argidx = 1;
@@ -20814,9 +21059,12 @@ static int cgen_fun_rtype(cgen_t *cgen, cgtype_t *ftype,
 	dtfunc = (cgtype_func_t *)ftype->ext;
 	stype = dtfunc->rtype;
 
-	rc = cgen_cgtype(cgen, stype, &proc->rtype);
-	if (rc != EOK)
-		goto error;
+	/* Records are returned via an extra shadow argument. */
+	if (dtfunc->rtype->ntype != cgn_record) {
+		rc = cgen_cgtype(cgen, stype, &proc->rtype);
+		if (rc != EOK)
+			goto error;
+	}
 
 	return EOK;
 error:
@@ -21018,6 +21266,12 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		goto error;
 
 	cgen->cur_cgproc = cgproc;
+
+	/* Function returning a struct/union? */
+	if (dtfunc->rtype->ntype == cgn_record) {
+		/* Allocate number for shadow pointer argument. */
+		cgproc->next_var++;
+	}
 
 	/* Remember return type for use in return statement */
 	rc = cgtype_clone(dtfunc->rtype, &cgproc->rtype);

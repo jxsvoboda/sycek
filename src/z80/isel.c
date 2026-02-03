@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -115,10 +115,13 @@ static int z80_isel_mangle_lvar_ident(const char *proc,
 	if (rv < 0)
 		return ENOMEM;
 
-	/* Replace middling '@' signs with '_', which is allowed in Z80 asm */
+	/*
+	 * Replace middling '@' and '%' signs with '_', which is
+	 * allowed in Z80 asm
+	 */
 	cp = ident;
 	while (*cp != '\0') {
-		if (*cp == '@')
+		if (*cp == '@' || *cp == '%')
 			*cp = '_';
 		++cp;
 	}
