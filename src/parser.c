@@ -424,9 +424,9 @@ static int parser_match(parser_t *parser, lexer_toktype_t mtype, void **rdata)
 	ltype = parser_next_ttype(parser);
 	if (ltype != mtype) {
 		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected %s.\n",
+			(void)fprintf(stderr, "Error: ");
+			(void)parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr, " unexpected, expected %s.\n",
 			    lexer_str_ttype(mtype));
 		}
 		return EINVAL;
@@ -732,9 +732,9 @@ static int parser_process_ecast(parser_t *parser, ast_node_t **rexpr)
 		    ltok.text);
 		if (!is_type) {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				lexer_dprint_tok(&ltok, stderr);
-				fprintf(stderr, " is not a type.\n");
+				(void)fprintf(stderr, "Error: ");
+				(void)lexer_dprint_tok(&ltok, stderr);
+				(void)fprintf(stderr, " is not a type.\n");
 			}
 			rc = EINVAL;
 			goto error;
@@ -978,9 +978,10 @@ static int parser_process_eterm(parser_t *parser, ast_node_t **rexpr)
 		return parser_process_ebool(parser, rexpr);
 	default:
 		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected expression.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr,
+			    " unexpected, expected expression.\n");
 		}
 		return EINVAL;
 	}
@@ -4500,9 +4501,9 @@ static int parser_process_tsident(parser_t *parser, ast_node_t **rtype)
 		break;
 	default:
 		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected type "
+			(void)fprintf(stderr, "Error: ");
+			(void)parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr, " unexpected, expected type "
 			    "identifer.\n");
 		}
 		return EINVAL;
@@ -5003,10 +5004,10 @@ static int parser_process_tspec(parser_t *parser, ast_node_t **rtype)
 			rc = parser_process_tsbasic(parser, rtype);
 		} else {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, " unexpected, expected type "
-				    "specifier.\n");
+				(void)fprintf(stderr, "Error: ");
+				(void)parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr, " unexpected, expected "
+				    "type specifier.\n");
 			}
 			return EINVAL;
 		}
@@ -5069,9 +5070,9 @@ static int parser_process_sqlist(parser_t *parser, ast_sqlist_t **rsqlist)
 		} else {
 			/* Unexpected */
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, " unexpected, expected "
+				(void)fprintf(stderr, "Error: ");
+				(void)parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr, " unexpected, expected "
 				    "type specifier or qualifier.\n");
 			}
 
@@ -5166,9 +5167,10 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 	do {
 		if (parser_ttype_sclass(ltt)) {
 			if (have_sclass && !parser->silent) {
-				fprintf(stderr, "Error: ");
-				parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, ": Multiple storage classes.\n");
+				(void)fprintf(stderr, "Error: ");
+				(void)parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr,
+				    ": Multiple storage classes.\n");
 
 				rc = EINVAL;
 				goto error;
@@ -5224,9 +5226,9 @@ static int parser_process_dspecs(parser_t *parser, unsigned add_idents,
 		} else {
 			/* Unexpected */
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, " unexpected, expected "
+				(void)fprintf(stderr, "Error: ");
+				(void)parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr, " unexpected, expected "
 				    "declaration specifier.\n");
 			}
 
@@ -5612,9 +5614,9 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 		if (first && ast_decl_is_abstract(decl) &&
 		    aallow != ast_abs_allow && ltt != ltt_colon) {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				lexer_dprint_tok(&dtok, stderr);
-				fprintf(stderr, " unexpected abstract "
+				(void)fprintf(stderr, "Error: ");
+				(void)lexer_dprint_tok(&dtok, stderr);
+				(void)fprintf(stderr, " unexpected abstract "
 				    "declarator.\n");
 			}
 			rc = EINVAL;
@@ -5629,10 +5631,10 @@ static int parser_process_dlist(parser_t *parser, ast_abs_allow_t aallow,
 		 */
 		if (first && decl->ntype == ant_dparen) {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				lexer_dprint_tok(&dtok, stderr);
-				fprintf(stderr, " parenthesized declarator "
-				    "(cough).\n");
+				(void)fprintf(stderr, "Error: ");
+				(void)lexer_dprint_tok(&dtok, stderr);
+				(void)fprintf(stderr,
+				    " parenthesized declarator (cough).\n");
 			}
 			rc = EINVAL;
 			goto error;
@@ -5727,9 +5729,9 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 
 		if (ast_decl_is_abstract(decl) && aallow != ast_abs_allow) {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				lexer_dprint_tok(&dtok, stderr);
-				fprintf(stderr, " unexpected abstract "
+				(void)fprintf(stderr, "Error: ");
+				(void)lexer_dprint_tok(&dtok, stderr);
+				(void)fprintf(stderr, " unexpected abstract "
 				    "declarator.\n");
 			}
 			rc = EINVAL;
@@ -5743,10 +5745,10 @@ static int parser_process_idlist(parser_t *parser, ast_abs_allow_t aallow,
 		 */
 		if (decl->ntype == ant_dparen) {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				lexer_dprint_tok(&dtok, stderr);
-				fprintf(stderr, " parenthesized declarator "
-				    "(cough).\n");
+				(void)fprintf(stderr, "Error: ");
+				(void)lexer_dprint_tok(&dtok, stderr);
+				(void)fprintf(stderr,
+				    " parenthesized declarator (cough).\n");
 			}
 			rc = EINVAL;
 			goto error;
@@ -6084,9 +6086,9 @@ static int parser_process_aspec_attr(parser_t *parser, ast_aspec_attr_t **rattr)
 	/* XXX Attribute name can also be a reserved word */
 	ltt = parser_next_ttype(parser);
 	if (ltt != ltt_ident && !lexer_is_resword(ltt)) {
-		fprintf(stderr, "Error: ");
-		parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected identifier or "
+		(void)fprintf(stderr, "Error: ");
+		(void)parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected identifier or "
 		    "reserved word.\n");
 
 		rc = EINVAL;
@@ -6251,9 +6253,9 @@ static int parser_process_aslist(parser_t *parser, ast_aslist_t **raslist)
 		} else {
 			/* Unexpected */
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, " unexpected, expected "
+				(void)fprintf(stderr, "Error: ");
+				(void)parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr, " unexpected, expected "
 				    "attribute specifier.\n");
 			}
 			return EINVAL;
@@ -6459,9 +6461,9 @@ again:
 	case ltt_lbrace:
 		if (more_decls) {
 			if (!parser->silent) {
-				fprintf(stderr, "Error: ");
-				parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, " '{' unexpected, "
+				(void)fprintf(stderr, "Error: ");
+				(void)parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr, " '{' unexpected, "
 				    "expected ';'.\n");
 			}
 			rc = EINVAL;
@@ -6484,9 +6486,10 @@ again:
 		}
 
 		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr,
+			    " unexpected, expected '{' or ';'.\n");
 		}
 
 		rc = EINVAL;
@@ -6636,9 +6639,10 @@ static int parser_process_gmdecln(parser_t *parser, ast_gmdecln_t **rgmdecln)
 		break;
 	default:
 		if (!parser->silent) {
-			fprintf(stderr, "Error: ");
-			parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected '{' or ';'.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr,
+			    " unexpected, expected '{' or ';'.\n");
 		}
 		rc = EINVAL;
 		goto error;

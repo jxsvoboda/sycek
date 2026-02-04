@@ -199,6 +199,8 @@ typedef struct {
 	src_pos_t pos;
 	/** EOF hit in input */
 	bool in_eof;
+	/** Error hit in input */
+	bool in_error;
 	/** Input ops */
 	lexer_input_ops_t *input_ops;
 	/** Input argument */

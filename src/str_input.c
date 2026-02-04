@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -56,10 +56,6 @@ static int str_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	/* Advance source position */
 	for (i = 0; i < len; i++)
 		src_pos_fwd_char(&sinput->cpos, sinput->str[sinput->pos++]);
-
-	printf("str_lexer_read: pos=");
-	src_pos_print_range(&sinput->cpos, &sinput->cpos, stdout);
-	printf("\n");
 
 	return EOK;
 }

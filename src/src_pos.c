@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,7 @@ enum {
  * @param epos Position of the end of the range (inclusive)
  * @param f Output file
  *
- * @return EOK on success, EIO on I.O error
+ * @return EOK on success, EIO on I/O error
  */
 int src_pos_print_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
 {
@@ -68,7 +68,7 @@ int src_pos_print_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
  */
 void src_pos_set(src_pos_t *pos, const char *fname, size_t line, size_t col)
 {
-	snprintf(pos->file, src_pos_fname_max, "%s", fname);
+	(void)snprintf(pos->file, src_pos_fname_max, "%s", fname);
 	pos->line = line;
 	pos->col = col;
 }

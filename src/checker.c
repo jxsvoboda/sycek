@@ -645,6 +645,7 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 {
 	int rc;
 	size_t i;
+	int rv;
 
 	checker_check_any(scope, tok);
 	if (!scope->secindent) {
@@ -670,8 +671,12 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 					return rc;
 			}
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -684,11 +689,19 @@ static int checker_check_lbegin(checker_scope_t *scope, checker_tok_t *tok,
 /** Check no whitespace before.
  *
  * There should be non-whitespace before the token
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_nows_before(checker_scope_t *scope,
+static int checker_check_nows_before(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
+	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -700,20 +713,34 @@ static void checker_check_nows_before(checker_scope_t *scope,
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
+
+	return EOK;
 }
 
 /** Check no whitespace after.
  *
  * There should be non-whitespace after the token
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_nows_after(checker_scope_t *scope,
+static int checker_check_nows_after(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
+	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -725,20 +752,34 @@ static void checker_check_nows_after(checker_scope_t *scope,
 		if (scope->fix) {
 			checker_remove_ws_after(tok);
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
+
+	return EOK;
 }
 
 /** Check non-spacing break before.
  *
  * There should be either non-whitespace or a line break before the token.
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_nsbrk_before(checker_scope_t *scope,
+static int checker_check_nsbrk_before(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
+	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -752,10 +793,16 @@ static void checker_check_nsbrk_before(checker_scope_t *scope,
 		if (scope->fix) {
 			checker_remove_ws_before(tok);
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
+
+	return EOK;
 }
 
 /** Check non-spacing break before.
@@ -763,24 +810,44 @@ static void checker_check_nsbrk_before(checker_scope_t *scope,
  * There should be either non-whitespace or a line break before the token.
  * If there is a line break, the token must not be indented as a continuation
  * line.
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_nsbrk_before_nocont(checker_scope_t *scope,
+static int checker_check_nsbrk_before_nocont(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
-	checker_check_nsbrk_before(scope, tok, msg);
+	int rc;
+
+	rc = checker_check_nsbrk_before(scope, tok, msg);
+	if (rc < 0)
+		return rc;
 
 	if (checker_is_tok_lbegin(tok))
 		tok->lbegin = true;
+
+	return EOK;
 }
 
 /** Check non-spacing break after.
  *
  * There should be either non-whitespace or a line break after the token.
+ *
+ * @param scope Checker scope
+ * @param tok Token
+ * @param msg Messge to print if check fails
+ * @return EOK on success (regardless whether issues are found), error code
+ *         if an error occurred.
  */
-static void checker_check_nsbrk_after(checker_scope_t *scope,
+static int checker_check_nsbrk_after(checker_scope_t *scope,
     checker_tok_t *tok, const char *msg)
 {
 	checker_tok_t *p;
+	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -793,10 +860,16 @@ static void checker_check_nsbrk_after(checker_scope_t *scope,
 		if (scope->fix) {
 			checker_remove_ws_after(tok);
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
+
+	return EOK;
 }
 
 /** Breakable space before token.
@@ -809,6 +882,7 @@ static int checker_check_brkspace_before(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -822,8 +896,12 @@ static int checker_check_brkspace_before(checker_scope_t *scope,
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -862,6 +940,7 @@ static int checker_check_brkspace_after(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -875,8 +954,12 @@ static int checker_check_brkspace_after(checker_scope_t *scope,
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -898,6 +981,7 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -914,8 +998,12 @@ static int checker_check_nbspace_before(checker_scope_t *scope,
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&p->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&p->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -937,6 +1025,7 @@ static int checker_check_binop_not_lbegin(checker_scope_t *scope,
 {
 	checker_tok_t *p;
 	int rc;
+	int rv;
 
 	checker_check_any(scope, tok);
 
@@ -957,8 +1046,12 @@ static int checker_check_binop_not_lbegin(checker_scope_t *scope,
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": %s\n", msg);
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": %s\n", msg);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -1058,14 +1151,6 @@ static int checker_module_parse(checker_module_t *mod)
 	if (rc != EOK)
 		goto error;
 
-	if (0) {
-		putchar('\n');
-		rc = ast_tree_print(&amod->node, stdout);
-		if (rc != EOK)
-			goto error;
-		putchar('\n');
-	}
-
 	mod->ast = amod;
 	parser_destroy(parser);
 
@@ -1102,11 +1187,15 @@ static int checker_check_asm_op(checker_scope_t *scope, ast_asm_op_t *aop)
 		if (rc != EOK)
 			return rc;
 
-		checker_check_nows_before(scope, tsymname,
+		rc = checker_check_nows_before(scope, tsymname,
 		    "Unexpected whitespace before symbolic name.");
+		if (rc != EOK)
+			return rc;
 
-		checker_check_nows_before(scope, trbracket,
+		rc = checker_check_nows_before(scope, trbracket,
 		    "Unexpected whitespace before ']'.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	tconstraint = (checker_tok_t *)aop->tconstraint.data;
@@ -1124,19 +1213,25 @@ static int checker_check_asm_op(checker_scope_t *scope, ast_asm_op_t *aop)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_after(scope, tlparen,
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, aop->expr);
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	if (tcomma != NULL) {
-		checker_check_nows_before(scope, tcomma,
+		rc = checker_check_nows_before(scope, tcomma,
 		    "Unexpected whitespace before ','.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -1165,8 +1260,10 @@ static int checker_check_asm_clobber(checker_scope_t *scope,
 		return rc;
 
 	if (tcomma != NULL) {
-		checker_check_nows_before(scope, tcomma,
+		rc = checker_check_nows_before(scope, tcomma,
 		    "Unexpected whitespace before ','.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -1194,8 +1291,10 @@ static int checker_check_asm_label(checker_scope_t *scope,
 		return rc;
 
 	if (tcomma != NULL) {
-		checker_check_nows_before(scope, tcomma,
+		rc = checker_check_nows_before(scope, tcomma,
 		    "Unexpected whitespace before ','.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -1255,8 +1354,10 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 	if (rc != EOK)
 		goto error;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		goto error;
 
 	rc = checker_check_expr(scope, aasm->atemplate);
 	if (rc != EOK)
@@ -1318,11 +1419,15 @@ static int checker_check_asm(checker_scope_t *scope, ast_asm_t *aasm)
 		}
 	}
 
-	checker_check_nsbrk_before_nocont(scope, trparen,
+	rc = checker_check_nsbrk_before_nocont(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		goto error;
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		goto error;
 
 	checker_scope_destroy(siscope);
 	return EOK;
@@ -1352,8 +1457,10 @@ static int checker_check_break(checker_scope_t *scope, ast_break_t *abreak)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1379,8 +1486,10 @@ static int checker_check_continue(checker_scope_t *scope,
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1409,8 +1518,10 @@ static int checker_check_goto(checker_scope_t *scope, ast_goto_t *agoto)
 
 	checker_check_any(scope, ttarget);
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1441,8 +1552,10 @@ static int checker_check_return(checker_scope_t *scope, ast_return_t *areturn)
 			return rc;
 	}
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1477,15 +1590,19 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, aif->cond);
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "There must not be whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_block(scope, aif->tbranch, cns_disallow);
 	if (rc != EOK)
@@ -1523,15 +1640,19 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		if (rc != EOK)
 			return rc;
 
-		checker_check_nsbrk_after(scope, tlparen,
+		rc = checker_check_nsbrk_after(scope, tlparen,
 		    "Unexpected space after '('.");
+		if (rc != EOK)
+			return rc;
 
 		rc = checker_check_expr(scope, elseif->cond);
 		if (rc != EOK)
 			return rc;
 
-		checker_check_nows_before(scope, trparen,
+		rc = checker_check_nows_before(scope, trparen,
 		    "There must not be whitespace before ')'.");
+		if (rc != EOK)
+			return rc;
 
 		rc = checker_check_block(scope, elseif->ebranch, cns_disallow);
 		if (rc != EOK)
@@ -1592,15 +1713,19 @@ static int checker_check_while(checker_scope_t *scope, ast_while_t *awhile)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, awhile->cond);
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_block(scope, awhile->body, cns_allow);
 	if (rc != EOK)
@@ -1623,6 +1748,7 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 	checker_tok_t *trparen;
 	checker_tok_t *tscolon;
 	int rc;
+	int rv;
 
 	tdo = (checker_tok_t *)ado->tdo.data;
 	twhile = (checker_tok_t *)ado->twhile.data;
@@ -1641,8 +1767,12 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 
 	if (ado->body->braces != ast_braces &&
 	    checker_scfg(scope)->loop) {
-		lexer_dprint_tok(&tdo->tok, stdout);
-		printf(": Body of 'do' loop should always have braces.\n");
+		rc = lexer_dprint_tok(&tdo->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Body of 'do' loop should always have braces.\n");
+		if (rv < 0)
+			return EIO;
 	}
 
 	if (ado->body->braces) {
@@ -1663,18 +1793,24 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, ado->cond);
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -1695,6 +1831,7 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	checker_tok_t *tscolon2;
 	checker_tok_t *trparen;
 	int rc;
+	int rv;
 
 	tfor = (checker_tok_t *)afor->tfor.data;
 	tlparen = (checker_tok_t *)afor->tlparen.data;
@@ -1712,8 +1849,10 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	if (afor->linit != NULL) {
 		rc = checker_check_expr(scope, afor->linit);
@@ -1740,8 +1879,10 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 			return rc;
 	}
 
-	checker_check_nows_before(scope, tscolon1,
+	rc = checker_check_nows_before(scope, tscolon1,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_brkspace_after(scope, tscolon1,
 	    "Expected space after ';'.");
@@ -1753,8 +1894,10 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		if (rc != EOK)
 			return rc;
 
-		checker_check_nows_before(scope, tscolon2,
+		rc = checker_check_nows_before(scope, tscolon2,
 		    "Unexpected whitespace before ';'.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	rc = checker_check_brkspace_after(scope, tscolon2,
@@ -1767,15 +1910,21 @@ static int checker_check_for(checker_scope_t *scope, ast_for_t *afor)
 		if (rc != EOK)
 			return rc;
 
-		checker_check_nows_before(scope, trparen,
+		rc = checker_check_nows_before(scope, trparen,
 		    "Unexpected whitespace before ')'.");
+		if (rc != EOK)
+			return rc;
 	} else {
 		checker_check_any(scope, trparen);
 
 		if (checker_scfg(scope)->loop) {
-			lexer_dprint_tok(&trparen->tok, stdout);
-			printf(": For loop with empty next expression. "
+			rc = lexer_dprint_tok(&trparen->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": For loop with empty next expression. "
 			    "Use while instead.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -1813,15 +1962,19 @@ static int checker_check_switch(checker_scope_t *scope, ast_switch_t *aswitch)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, aswitch->sexpr);
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_block(scope, aswitch->body, cns_disallow);
 	if (rc != EOK)
@@ -1872,10 +2025,12 @@ static int checker_check_clabel(checker_scope_t *scope, ast_clabel_t *clabel)
 		return rc;
 	}
 
-	checker_check_nows_before(scope, tcolon,
+	rc = checker_check_nows_before(scope, tcolon,
 	    "Unexpected whitespace before ':'.");
-	++scope->indlvl;
+	if (rc != EOK)
+		return rc;
 
+	++scope->indlvl;
 	return EOK;
 }
 
@@ -1903,10 +2058,12 @@ static int checker_check_dlabel(checker_scope_t *scope, ast_dlabel_t *dlabel)
 		return rc;
 	}
 
-	checker_check_nows_before(scope, tcolon,
+	rc = checker_check_nows_before(scope, tcolon,
 	    "Unexpected whitespace before ':'.");
-	++scope->indlvl;
+	if (rc != EOK)
+		return rc;
 
+	++scope->indlvl;
 	return EOK;
 }
 
@@ -1934,10 +2091,12 @@ static int checker_check_glabel(checker_scope_t *scope, ast_glabel_t *glabel)
 		return rc;
 	}
 
-	checker_check_nows_before(scope, tcolon,
+	rc = checker_check_nows_before(scope, tcolon,
 	    "Unexpected whitespace before ':'.");
-	++scope->indlvl;
+	if (rc != EOK)
+		return rc;
 
+	++scope->indlvl;
 	return EOK;
 }
 
@@ -1968,8 +2127,10 @@ static int checker_check_stexpr(checker_scope_t *scope, ast_stexpr_t *stexpr)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2012,8 +2173,10 @@ static int checker_check_stdecln(checker_scope_t *scope, ast_stdecln_t *stdecln)
 		goto error;
 
 	tscolon = (checker_tok_t *)stdecln->tscolon.data;
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 error:
@@ -2031,6 +2194,7 @@ static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull,
     checker_ns_allow_t nsallow)
 {
 	int rc;
+	int rv;
 	checker_tok_t *tscolon;
 
 	tscolon = (checker_tok_t *)stnull->tscolon.data;
@@ -2040,8 +2204,12 @@ static int checker_check_stnull(checker_scope_t *scope, ast_stnull_t *stnull,
 		return rc;
 
 	if (nsallow != cns_allow && checker_scfg(scope)->estmt) {
-		lexer_dprint_tok(&tscolon->tok, stdout);
-		printf(": Unexpected null statement.\n");
+		rc = lexer_dprint_tok(&tscolon->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Unexpected null statement.\n");
+		if (rv < 0)
+			return EIO;
 	}
 
 	return EOK;
@@ -2069,20 +2237,26 @@ static int checker_check_stva_end(checker_scope_t *scope,
 		return rc;
 
 	tlparen = (checker_tok_t *)stva_end->tlparen.data;
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, stva_end->apexpr);
 	if (rc != EOK)
 		return rc;
 
 	trparen = (checker_tok_t *)stva_end->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	tscolon = (checker_tok_t *)stva_end->tscolon.data;
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2110,16 +2284,20 @@ static int checker_check_stva_copy(checker_scope_t *scope,
 		return rc;
 
 	tlparen = (checker_tok_t *)stva_copy->tlparen.data;
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, stva_copy->dexpr);
 	if (rc != EOK)
 		return rc;
 
 	tcomma = (checker_tok_t *)stva_copy->tcomma.data;
-	checker_check_nows_before(scope, tcomma,
+	rc = checker_check_nows_before(scope, tcomma,
 	    "Unexpected whitespace before ','.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_brkspace_after(scope, tcomma,
 	    "Expected space after ','.");
@@ -2131,12 +2309,16 @@ static int checker_check_stva_copy(checker_scope_t *scope,
 		return rc;
 
 	trparen = (checker_tok_t *)stva_copy->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	tscolon = (checker_tok_t *)stva_copy->tscolon.data;
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2164,16 +2346,20 @@ static int checker_check_stva_start(checker_scope_t *scope,
 		return rc;
 
 	tlparen = (checker_tok_t *)stva_start->tlparen.data;
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, stva_start->apexpr);
 	if (rc != EOK)
 		return rc;
 
 	tcomma = (checker_tok_t *)stva_start->tcomma.data;
-	checker_check_nows_before(scope, tcomma,
+	rc = checker_check_nows_before(scope, tcomma,
 	    "Unexpected whitespace before ','.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_brkspace_after(scope, tcomma,
 	    "Expected space after ','.");
@@ -2185,12 +2371,16 @@ static int checker_check_stva_start(checker_scope_t *scope,
 		return rc;
 
 	trparen = (checker_tok_t *)stva_start->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	tscolon = (checker_tok_t *)stva_start->tscolon.data;
-	checker_check_nows_before(scope, tscolon,
+	rc = checker_check_nows_before(scope, tscolon,
 	    "Unexpected whitespace before ';'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2238,13 +2428,20 @@ static int checker_check_stblock(checker_scope_t *scope, ast_block_t *block)
 	checker_tok_t *trbrace;
 	ast_node_t *stmt;
 	int rc;
+	int rv;
 
 	assert(block->braces);
 	tlbrace = (checker_tok_t *)block->topen.data;
 
 	if (checker_scfg(scope)->nblock) {
-		lexer_dprint_tok(&tlbrace->tok, stdout);
-		printf(": Gratuitous nested block.\n");
+		rc = lexer_dprint_tok(&tlbrace->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Gratuitous nested block.\n");
+		if (rv < 0) {
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	rc = checker_check_lbegin(scope, tlbrace,
@@ -2371,14 +2568,19 @@ static int checker_check_dparen(checker_scope_t *scope, ast_dparen_t *dparen)
 {
 	checker_tok_t *tlparen;
 	checker_tok_t *trparen;
+	int rc;
 
 	tlparen = (checker_tok_t *)dparen->tlparen.data;
-	checker_check_nows_after(scope, tlparen,
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	trparen = (checker_tok_t *)dparen->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return checker_check_decl(scope, dparen->bdecl);
 }
@@ -2396,8 +2598,10 @@ static int checker_check_dptr(checker_scope_t *scope, ast_dptr_t *dptr)
 
 	tasterisk = (checker_tok_t *)dptr->tasterisk.data;
 	/* XXX Should be nows */
-	checker_check_nsbrk_after(scope, tasterisk,
+	rc = checker_check_nsbrk_after(scope, tasterisk,
 	    "Unexpected whitespace after '*'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_tqlist(scope, dptr->tqlist);
 	if (rc != EOK)
@@ -2423,6 +2627,7 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 	checker_tok_t *tellipsis;
 	checker_tok_t *trparen;
 	int rc;
+	int rv;
 
 	rc = checker_check_decl(scope, dfun->bdecl);
 	if (rc != EOK)
@@ -2442,16 +2647,22 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 			 * we could detect function pointer declaration
 			 * missing both parentheses and '*'.
 			 */
-			lexer_dprint_tok(&tlparen->tok, stdout);
-			printf(": Superfluous parentheses around "
+			rc = lexer_dprint_tok(&tlparen->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Superfluous parentheses around "
 			    "function identifier or function pointer "
 			    "declaration is missing '*'.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
 	tlparen = (checker_tok_t *)dfun->tlparen.data;
-	checker_check_nsbrk_after(scope, tlparen,
-	    "There mustnot be space after '('.");
+	rc = checker_check_nsbrk_after(scope, tlparen,
+	    "There must not be space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
@@ -2480,8 +2691,10 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 
 		tcomma = (checker_tok_t *)arg->tcomma.data;
 		if (tcomma != NULL) {
-			checker_check_nows_before(scope, tcomma,
+			rc = checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				return rc;
 			rc = checker_check_brkspace_after(scope, tcomma,
 			    "Expected whitespace after ','.");
 			if (rc != EOK)
@@ -2497,8 +2710,10 @@ static int checker_check_dfun(checker_scope_t *scope, ast_dfun_t *dfun)
 	}
 
 	trparen = (checker_tok_t *)dfun->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2521,8 +2736,10 @@ static int checker_check_darray(checker_scope_t *scope,
 		return rc;
 
 	tlbracket = (checker_tok_t *)darray->tlbracket.data;
-	checker_check_nows_after(scope, tlbracket,
+	rc = checker_check_nows_after(scope, tlbracket,
 	    "Unexpected whitespace after '['.");
+	if (rc != EOK)
+		return rc;
 
 	if (darray->asize != NULL) {
 		rc = checker_check_expr(scope, darray->asize);
@@ -2531,8 +2748,10 @@ static int checker_check_darray(checker_scope_t *scope,
 	}
 
 	trbracket = (checker_tok_t *)darray->trbracket.data;
-	checker_check_nows_before(scope, trbracket,
+	rc = checker_check_nows_before(scope, trbracket,
 	    "Unexpected whitespace before ']'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2589,13 +2808,16 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 	ast_tok_t *aattr;
 	checker_tok_t *tattr;
 	int rc;
+	int rv;
 
 	entry = ast_dlist_first(dlist);
 	while (entry != NULL) {
 		tcomma = (checker_tok_t *)entry->tcomma.data;
 		if (tcomma != NULL) {
-			checker_check_nows_before(scope, tcomma,
+			rc = checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				return rc;
 		}
 
 		rc = checker_check_decl(scope, entry->decl);
@@ -2627,8 +2849,13 @@ static int checker_check_dlist(checker_scope_t *scope, ast_dlist_t *dlist)
 			if (checker_scfg(scope)->attr) {
 				aattr = ast_tree_first_tok(&entry->aslist->node);
 				tattr = (checker_tok_t *) aattr->data;
-				lexer_dprint_tok(&tattr->tok, stdout);
-				printf(": Attribute ignored in this position.\n");
+				rc = lexer_dprint_tok(&tattr->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Attribute ignored "
+				    "in this position.\n");
+				if (rv < 0)
+					return EIO;
 			}
 		}
 
@@ -2710,8 +2937,10 @@ static int checker_check_idlist(checker_scope_t *scope, ast_idlist_t *idlist,
 	while (entry != NULL) {
 		tcomma = (checker_tok_t *)entry->tcomma.data;
 		if (tcomma != NULL) {
-			checker_check_nows_before(scope, tcomma,
+			rc = checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				goto error;
 			rc = checker_check_brkspace_after(scope, tcomma,
 			    "Whitespace expected after ','.");
 			if (rc != EOK)
@@ -2867,10 +3096,14 @@ static int checker_check_alignspec(checker_scope_t *scope,
 
 	checker_check_any(scope, talignas);
 
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
-	checker_check_nows_after(scope, tlparen,
+	if (rc != EOK)
+		return rc;
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	if (alignspec->aparam->ntype == ant_typename) {
 		/* Alignment parameter is a type name */
@@ -2885,8 +3118,10 @@ static int checker_check_alignspec(checker_scope_t *scope,
 			return rc;
 	}
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2916,16 +3151,22 @@ static int checker_check_regassign(checker_scope_t *scope,
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
+	if (rc != EOK)
+		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	checker_check_any(scope, treg);
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -2951,10 +3192,14 @@ static int checker_check_aspec_attr(checker_scope_t *scope,
 
 	if (attr->have_params) {
 		tlparen = (checker_tok_t *)attr->tlparen.data;
-		checker_check_nows_before(scope, tlparen,
+		rc = checker_check_nows_before(scope, tlparen,
 		    "Unexpected whitespace before '('.");
-		checker_check_nows_after(scope, tlparen,
+		if (rc != EOK)
+			return rc;
+		rc = checker_check_nows_after(scope, tlparen,
 		    "Unexpected whitespace after '('.");
+		if (rc != EOK)
+			return rc;
 
 		param = ast_aspec_attr_first(attr);
 		while (param != NULL) {
@@ -2965,8 +3210,10 @@ static int checker_check_aspec_attr(checker_scope_t *scope,
 			tcomma = (checker_tok_t *)param->tcomma.data;
 
 			if (tcomma != NULL) {
-				checker_check_nows_before(scope, tcomma,
+				rc = checker_check_nows_before(scope, tcomma,
 				    "Unexpected whitespace before ','.");
+				if (rc != EOK)
+					return rc;
 				rc = checker_check_brkspace_after(scope, tcomma,
 				    "Expected whitespace after ','.");
 				if (rc != EOK)
@@ -2977,8 +3224,10 @@ static int checker_check_aspec_attr(checker_scope_t *scope,
 		}
 
 		trparen = (checker_tok_t *)attr->trparen.data;
-		checker_check_nows_before(scope, trparen,
+		rc = checker_check_nows_before(scope, trparen,
 		    "Unexpected whitespace before ')'.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -3002,16 +3251,22 @@ static int checker_check_aspec(checker_scope_t *scope, ast_aspec_t *aspec)
 	int rc;
 
 	tattr = (checker_tok_t *) aspec->tattr.data;
-	checker_check_nows_after(scope, tattr,
+	rc = checker_check_nows_after(scope, tattr,
 	    "Unexpected whitespace after '__attribute__'.");
+	if (rc != EOK)
+		return rc;
 
 	tlparen1 = (checker_tok_t *)aspec->tlparen1.data;
-	checker_check_nows_after(scope, tlparen1,
+	rc = checker_check_nows_after(scope, tlparen1,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	tlparen2 = (checker_tok_t *)aspec->tlparen2.data;
-	checker_check_nows_after(scope, tlparen2,
+	rc = checker_check_nows_after(scope, tlparen2,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	attr = ast_aspec_first(aspec);
 	while (attr != NULL) {
@@ -3022,8 +3277,10 @@ static int checker_check_aspec(checker_scope_t *scope, ast_aspec_t *aspec)
 		tcomma = (checker_tok_t *)attr->tcomma.data;
 
 		if (tcomma != NULL) {
-			checker_check_nows_before(scope, tcomma,
+			rc = checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				return rc;
 			rc = checker_check_brkspace_after(scope, tcomma,
 			    "Expected whitespace after ','.");
 			if (rc != EOK)
@@ -3034,12 +3291,16 @@ static int checker_check_aspec(checker_scope_t *scope, ast_aspec_t *aspec)
 	}
 
 	trparen1 = (checker_tok_t *)aspec->trparen1.data;
-	checker_check_nows_before(scope, trparen1,
+	rc = checker_check_nows_before(scope, trparen1,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	trparen2 = (checker_tok_t *)aspec->trparen2.data;
-	checker_check_nows_before(scope, trparen2,
+	rc = checker_check_nows_before(scope, trparen2,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -3088,10 +3349,14 @@ static int checker_check_mattr(checker_scope_t *scope,
 
 	if (mattr->have_params) {
 		tlparen = (checker_tok_t *)mattr->tlparen.data;
-		checker_check_nows_before(scope, tlparen,
+		rc = checker_check_nows_before(scope, tlparen,
 		    "Unexpected whitespace before '('.");
-		checker_check_nows_after(scope, tlparen,
+		if (rc != EOK)
+			return rc;
+		rc = checker_check_nows_after(scope, tlparen,
 		    "Unexpected whitespace after '('.");
+		if (rc != EOK)
+			return rc;
 
 		param = ast_mattr_first(mattr);
 		while (param != NULL) {
@@ -3102,8 +3367,10 @@ static int checker_check_mattr(checker_scope_t *scope,
 			tcomma = (checker_tok_t *)param->tcomma.data;
 
 			if (tcomma != NULL) {
-				checker_check_nows_before(scope, tcomma,
+				rc = checker_check_nows_before(scope, tcomma,
 				    "Unexpected whitespace before ','.");
+				if (rc != EOK)
+					return rc;
 				rc = checker_check_brkspace_after(scope, tcomma,
 				    "Expected whitespace after ','.");
 				if (rc != EOK)
@@ -3114,8 +3381,10 @@ static int checker_check_mattr(checker_scope_t *scope,
 		}
 
 		trparen = (checker_tok_t *)mattr->trparen.data;
-		checker_check_nows_before(scope, trparen,
+		rc = checker_check_nows_before(scope, trparen,
 		    "Unexpected whitespace before ')'.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -3222,19 +3491,25 @@ static int checker_check_tsatomic(checker_scope_t *scope,
 	checker_check_any(scope, tatomic);
 
 	tlparen = (checker_tok_t *)tsatomic->tlparen.data;
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
+	if (rc != EOK)
+		return rc;
 
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_typename(scope, tsatomic->atypename);
 	if (rc != EOK)
 		return rc;
 
 	trparen = (checker_tok_t *)tsatomic->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -3261,6 +3536,7 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 	checker_tok_t *tdecl;
 	bool nullelem;
 	int rc;
+	int rv;
 
 	escope = checker_scope_nested(scope);
 	if (escope == NULL)
@@ -3328,8 +3604,10 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 		tscolon = (checker_tok_t *)elem->tscolon.data;
 
 		if (!nullelem) {
-			checker_check_nows_before(escope, tscolon,
+			rc = checker_check_nows_before(escope, tscolon,
 			    "Unexpected whitespace before ';'.");
+			if (rc != EOK)
+				goto error;
 		} else {
 			rc = checker_check_lbegin(escope, tscolon,
 			    "Member declaration must start on a new line.");
@@ -3337,9 +3615,15 @@ static int checker_check_tsrecord(checker_scope_t *scope,
 				goto error;
 
 			if (checker_scfg(escope)->estmt) {
-				lexer_dprint_tok(&tscolon->tok, stdout);
-				printf(": Empty struct or union "
+				rc = lexer_dprint_tok(&tscolon->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Empty struct or union "
 				    "member declaration.\n");
+				if (rv < 0) {
+					rc = EIO;
+					goto error;
+				}
 			}
 		}
 
@@ -3439,8 +3723,10 @@ static int checker_check_tsenum(checker_scope_t *scope, ast_tsenum_t *tsenum)
 
 		tcomma = (checker_tok_t *)elem->tcomma.data;
 		if (tcomma != NULL) {
-			checker_check_nows_before(escope, tcomma,
+			rc = checker_check_nows_before(escope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				goto error;
 		}
 
 		elem = ast_tsenum_next(elem);
@@ -3756,6 +4042,8 @@ static int checker_check_estring_lit(checker_scope_t *scope,
 	checker_tok_t *tlit;
 	size_t invpos;
 	char invchar;
+	int rc;
+	int rv;
 
 	tlit = (checker_tok_t *) lit->tlit.data;
 	checker_check_any(scope, tlit);
@@ -3765,10 +4053,20 @@ static int checker_check_estring_lit(checker_scope_t *scope,
 		while (!lexer_tok_valid_chars(&tlit->tok, invpos, &invpos)) {
 			invchar = tlit->tok.text[invpos];
 			if (checker_scfg(scope)->invchar) {
-				lexer_dprint_tok_chr(&tlit->tok, invpos, stdout);
-				printf(": Invalid character '");
-				lexer_dprint_char(invchar, stdout);
-				printf("' inside string literal.\n");
+				rc = lexer_dprint_tok_chr(&tlit->tok, invpos,
+				    stdout);
+				if (rc != EOK)
+					return rc;
+
+				rv = printf(": Invalid character '");
+				if (rv < 0)
+					return EIO;
+				rc = lexer_dprint_char(invchar, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf("' inside string literal.\n");
+				if (rv < 0)
+					return EIO;
 			}
 			++invpos;
 		}
@@ -3805,7 +4103,6 @@ static int checker_check_estring(checker_scope_t *scope, ast_estring_t *estring)
 		rc = checker_check_brkspace_before(scope, tlit, msg);
 		if (rc != EOK)
 			return rc;
-
 		rc = checker_check_estring_lit(scope, lit);
 		if (rc != EOK)
 			return rc;
@@ -3828,6 +4125,8 @@ static int checker_check_echar(checker_scope_t *scope, ast_echar_t *echar)
 	checker_tok_t *tlit;
 	size_t invpos;
 	char invchar;
+	int rc;
+	int rv;
 
 	tlit = (checker_tok_t *) echar->tlit.data;
 	checker_check_any(scope, tlit);
@@ -3836,10 +4135,18 @@ static int checker_check_echar(checker_scope_t *scope, ast_echar_t *echar)
 	while (!lexer_tok_valid_chars(&tlit->tok, invpos, &invpos)) {
 		invchar = tlit->tok.text[invpos];
 		if (checker_scfg(scope)->invchar) {
-			lexer_dprint_tok_chr(&tlit->tok, invpos, stdout);
-			printf(": Invalid character '");
-			lexer_dprint_char(invchar, stdout);
-			printf("' inside character literal.\n");
+			rc = lexer_dprint_tok_chr(&tlit->tok, invpos, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Invalid character '");
+			if (rv < 0)
+				return EIO;
+			rc = lexer_dprint_char(invchar, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf("' inside character literal.\n");
+			if (rv < 0)
+				return EIO;
 		}
 		++invpos;
 	}
@@ -3877,16 +4184,21 @@ static int checker_check_eparen(checker_scope_t *scope, ast_eparen_t *eparen)
 	int rc;
 
 	tlparen = (checker_tok_t *) eparen->tlparen.data;
-	checker_check_nows_after(scope, tlparen,
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, eparen->bexpr);
 	if (rc != EOK)
 		return rc;
 
 	trparen = (checker_tok_t *) eparen->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
+
 	return EOK;
 }
 
@@ -4054,8 +4366,10 @@ static int checker_check_ecomma(checker_scope_t *scope, ast_ecomma_t *ecomma)
 
 	tcomma = (checker_tok_t *) ecomma->tcomma.data;
 
-	checker_check_nows_before(scope, tcomma,
+	rc = checker_check_nows_before(scope, tcomma,
 	    "Single space expected before ','.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_brkspace_after(scope, tcomma,
 	    "Whitespace expected after ','.");
@@ -4090,15 +4404,19 @@ static int checker_check_ecall(checker_scope_t *scope,
 		return rc;
 
 	tlparen = (checker_tok_t *) ecall->tlparen.data;
-	checker_check_nsbrk_after(scope, tlparen,
+	rc = checker_check_nsbrk_after(scope, tlparen,
 	    "Unexpected space after '('.");
+	if (rc != EOK)
+		return rc;
 
 	arg = ast_ecall_first(ecall);
 	while (arg != NULL) {
 		tcomma = (checker_tok_t *) arg->tcomma.data;
 		if (tcomma != NULL) {
-			checker_check_nows_before(scope, tcomma,
+			rc = checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				return rc;
 		}
 
 		if (tcomma != NULL) {
@@ -4125,8 +4443,10 @@ static int checker_check_ecall(checker_scope_t *scope,
 	}
 
 	trparen = (checker_tok_t *) ecall->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 	return EOK;
 }
 
@@ -4149,18 +4469,25 @@ static int checker_check_eindex(checker_scope_t *scope,
 		return rc;
 
 	tlbracket = (checker_tok_t *) eindex->tlbracket.data;
-	checker_check_nows_before(scope, tlbracket,
+	rc = checker_check_nows_before(scope, tlbracket,
 	    "Unexpected whitespace before '['.");
-	checker_check_nsbrk_after(scope, tlbracket,
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nsbrk_after(scope, tlbracket,
 	    "Unexpected space after '['.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, eindex->iexpr);
 	if (rc != EOK)
 		return rc;
 
 	trbracket = (checker_tok_t *) eindex->trbracket.data;
-	checker_check_nows_before(scope, trbracket,
+	rc = checker_check_nows_before(scope, trbracket,
 	    "Unexpected whitespace before ']'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -4179,8 +4506,10 @@ static int checker_check_ederef(checker_scope_t *scope, ast_ederef_t *ederef)
 
 	tasterisk = (checker_tok_t *) ederef->tasterisk.data;
 
-	checker_check_nows_after(scope, tasterisk,
+	rc = checker_check_nows_after(scope, tasterisk,
 	    "Unexpected whitespace after '*'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, ederef->bexpr);
 	if (rc != EOK)
@@ -4203,8 +4532,10 @@ static int checker_check_eaddr(checker_scope_t *scope, ast_eaddr_t *eaddr)
 
 	tamper = (checker_tok_t *) eaddr->tamper.data;
 
-	checker_check_nows_after(scope, tamper,
+	rc = checker_check_nows_after(scope, tamper,
 	    "Unexpected whitespace after '&'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, eaddr->bexpr);
 	if (rc != EOK)
@@ -4229,6 +4560,7 @@ static int checker_check_ealignof(checker_scope_t *scope,
 	ast_tok_t *aexpr;
 	checker_tok_t *texpr;
 	int rc;
+	int rv;
 
 	talignof = (checker_tok_t *) ealignof->talignof.data;
 	tlparen = (checker_tok_t *) ealignof->tlparen.data;
@@ -4236,21 +4568,31 @@ static int checker_check_ealignof(checker_scope_t *scope,
 
 	if (ealignof->bexpr == NULL) {
 		if (strcmp(talignof->tok.text, "alignof") == 0) {
-			checker_check_nows_after(scope, talignof,
+			rc = checker_check_nows_after(scope, talignof,
 			    "Unexpected whitespace after 'alignof'.");
+			if (rc != EOK)
+				return rc;
 		} else {
-			checker_check_nows_after(scope, talignof,
+			rc = checker_check_nows_after(scope, talignof,
 			    "Unexpected whitespace after '_Alignof'.");
+			if (rc != EOK)
+				return rc;
 		}
-		checker_check_nows_after(scope, tlparen,
+		rc = checker_check_nows_after(scope, tlparen,
 		    "Unexpected whitespace after '('.");
+		if (rc != EOK)
+			return rc;
 	} else {
 		if (ealignof->bexpr->ntype != ant_eparen) {
 			aexpr = ast_tree_first_tok(ealignof->bexpr);
 			texpr = (checker_tok_t *)aexpr->data;
-			lexer_dprint_tok(&texpr->tok, stdout);
-			printf(": Argument to '%s' should be parenthesized.\n",
-			    talignof->tok.text);
+			rc = lexer_dprint_tok(&texpr->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Argument to '%s' should be "
+			    "parenthesized.\n", talignof->tok.text);
+			if (rv < 0)
+				return EIO;
 
 			rc = checker_check_brkspace_before(scope, texpr,
 			    "Expected space before expression.");
@@ -4258,11 +4600,15 @@ static int checker_check_ealignof(checker_scope_t *scope,
 				return rc;
 		} else {
 			if (strcmp(talignof->tok.text, "alignof") == 0) {
-				checker_check_nows_after(scope, talignof,
+				rc = checker_check_nows_after(scope, talignof,
 				    "Unexpected whitespace after 'alignof'.");
+				if (rc != EOK)
+					return rc;
 			} else {
-				checker_check_nows_after(scope, talignof,
+				rc = checker_check_nows_after(scope, talignof,
 				    "Unexpected whitespace after '_Alignof'.");
+				if (rc != EOK)
+					return rc;
 			}
 		}
 		checker_check_any(scope, talignof);
@@ -4279,8 +4625,10 @@ static int checker_check_ealignof(checker_scope_t *scope,
 	}
 
 	if (ealignof->bexpr == NULL) {
-		checker_check_nows_before(scope, trparen,
+		rc = checker_check_nows_before(scope, trparen,
 		    "Unexpected whitespace before ')'.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -4301,31 +4649,42 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 	ast_tok_t *aexpr;
 	checker_tok_t *texpr;
 	int rc;
+	int rv;
 
 	tsizeof = (checker_tok_t *) esizeof->tsizeof.data;
 	tlparen = (checker_tok_t *) esizeof->tlparen.data;
 	trparen = (checker_tok_t *) esizeof->trparen.data;
 
 	if (esizeof->bexpr == NULL) {
-		checker_check_nows_after(scope, tsizeof,
+		rc = checker_check_nows_after(scope, tsizeof,
 		    "Unexpected whitespace after 'sizeof'.");
-		checker_check_nows_after(scope, tlparen,
+		if (rc != EOK)
+			return rc;
+		rc = checker_check_nows_after(scope, tlparen,
 		    "Unexpected whitespace after '('.");
+		if (rc != EOK)
+			return rc;
 	} else {
 		if (esizeof->bexpr->ntype != ant_eparen) {
 			aexpr = ast_tree_first_tok(esizeof->bexpr);
 			texpr = (checker_tok_t *)aexpr->data;
-			lexer_dprint_tok(&texpr->tok, stdout);
-			printf(": Argument to 'sizeof' should be "
+			rc = lexer_dprint_tok(&texpr->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Argument to 'sizeof' should be "
 			    "parenthesized.\n");
+			if (rv < 0)
+				return EIO;
 
 			rc = checker_check_brkspace_before(scope, texpr,
 			    "Expected space before expression.");
 			if (rc != EOK)
 				return rc;
 		} else {
-			checker_check_nows_after(scope, tsizeof,
+			rc = checker_check_nows_after(scope, tsizeof,
 			    "Unexpected whitespace after 'sizeof'.");
+			if (rc != EOK)
+				return rc;
 		}
 		checker_check_any(scope, tsizeof);
 	}
@@ -4341,8 +4700,10 @@ static int checker_check_esizeof(checker_scope_t *scope, ast_esizeof_t *esizeof)
 	}
 
 	if (esizeof->bexpr == NULL) {
-		checker_check_nows_before(scope, trparen,
+		rc = checker_check_nows_before(scope, trparen,
 		    "Unexpected whitespace before ')'.");
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -4366,8 +4727,10 @@ static int checker_check_ecast(checker_scope_t *scope, ast_ecast_t *ecast)
 	tlparen = (checker_tok_t *) ecast->tlparen.data;
 	trparen = (checker_tok_t *) ecast->trparen.data;
 
-	checker_check_nows_after(scope, tlparen,
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_dspecs(scope, ecast->dspecs);
 	if (rc != EOK)
@@ -4386,8 +4749,10 @@ static int checker_check_ecast(checker_scope_t *scope, ast_ecast_t *ecast)
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, ecast->bexpr);
 	if (rc != EOK)
@@ -4415,8 +4780,10 @@ static int checker_check_ecliteral(checker_scope_t *scope,
 	tlparen = (checker_tok_t *) ecliteral->tlparen.data;
 	trparen = (checker_tok_t *) ecliteral->trparen.data;
 
-	checker_check_nows_after(scope, tlparen,
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_dspecs(scope, ecliteral->dspecs);
 	if (rc != EOK)
@@ -4435,8 +4802,10 @@ static int checker_check_ecliteral(checker_scope_t *scope,
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_cinit(scope, ecliteral->cinit);
 	if (rc != EOK)
@@ -4464,10 +4833,15 @@ static int checker_check_emember(checker_scope_t *scope, ast_emember_t *emember)
 
 	tperiod = (checker_tok_t *) emember->tperiod.data;
 
-	checker_check_nows_before(scope, tperiod,
+	rc = checker_check_nows_before(scope, tperiod,
 	    "Unexpected whitespace before '.'.");
-	checker_check_nsbrk_after(scope, tperiod,
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nsbrk_after(scope, tperiod,
 	    "Unexpected space after '.'.");
+	if (rc != EOK)
+		return rc;
 
 	tmember = (checker_tok_t *) emember->tmember.data;
 	checker_check_any(scope, tmember);
@@ -4495,10 +4869,15 @@ static int checker_check_eindmember(checker_scope_t *scope,
 
 	tarrow = (checker_tok_t *) eindmember->tarrow.data;
 
-	checker_check_nows_before(scope, tarrow,
+	rc = checker_check_nows_before(scope, tarrow,
 	    "Unexpected whitespace before '->'.");
-	checker_check_nsbrk_after(scope, tarrow,
+	if (rc != EOK)
+		return rc;
+
+	rc = checker_check_nsbrk_after(scope, tarrow,
 	    "Unexpected space after '->'.");
+	if (rc != EOK)
+		return rc;
 
 	tmember = (checker_tok_t *) eindmember->tmember.data;
 	checker_check_any(scope, tmember);
@@ -4520,8 +4899,10 @@ static int checker_check_eusign(checker_scope_t *scope, ast_eusign_t *eusign)
 
 	tsign = (checker_tok_t *) eusign->tsign.data;
 
-	checker_check_nows_after(scope, tsign,
+	rc = checker_check_nows_after(scope, tsign,
 	    "Unexpected whitespace after unary sign operator.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, eusign->bexpr);
 	if (rc != EOK)
@@ -4544,8 +4925,10 @@ static int checker_check_elnot(checker_scope_t *scope, ast_elnot_t *elnot)
 
 	tlnot = (checker_tok_t *) elnot->tlnot.data;
 
-	checker_check_nows_after(scope, tlnot,
+	rc = checker_check_nows_after(scope, tlnot,
 	    "Unexpected whitespace after '!'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, elnot->bexpr);
 	if (rc != EOK)
@@ -4568,8 +4951,10 @@ static int checker_check_ebnot(checker_scope_t *scope, ast_ebnot_t *ebnot)
 
 	tbnot = (checker_tok_t *) ebnot->tbnot.data;
 
-	checker_check_nows_after(scope, tbnot,
+	rc = checker_check_nows_after(scope, tbnot,
 	    "Unexpected whitespace after '~'.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, ebnot->bexpr);
 	if (rc != EOK)
@@ -4592,8 +4977,10 @@ static int checker_check_epreadj(checker_scope_t *scope, ast_epreadj_t *epreadj)
 
 	tadj = (checker_tok_t *) epreadj->tadj.data;
 
-	checker_check_nows_after(scope, tadj,
+	rc = checker_check_nows_after(scope, tadj,
 	    "Unexpected whitespace after pre-increment/-decrement.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, epreadj->bexpr);
 	if (rc != EOK)
@@ -4621,8 +5008,10 @@ static int checker_check_epostadj(checker_scope_t *scope,
 
 	tadj = (checker_tok_t *) epostadj->tadj.data;
 
-	checker_check_nows_before(scope, tadj,
+	rc = checker_check_nows_before(scope, tadj,
 	    "Unexpected whitespace before post-increment/-decrement.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -4647,17 +5036,24 @@ static int checker_check_eva_arg(checker_scope_t *scope,
 	tcomma = (checker_tok_t *)eva_arg->tcomma.data;
 	trparen = (checker_tok_t *)eva_arg->trparen.data;
 
-	checker_check_nows_after(scope, tva_arg,
+	rc = checker_check_nows_after(scope, tva_arg,
 	    "Unexpected whitespace after '__va_arg'.");
-	checker_check_nows_after(scope, tlparen,
+	if (rc != EOK)
+		return rc;
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		return rc;
 
 	rc = checker_check_expr(scope, eva_arg->apexpr);
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, tcomma,
+	rc = checker_check_nows_before(scope, tcomma,
 	    "Unexpected whitespace before ','.");
+	if (rc != EOK)
+		return rc;
+
 	rc = checker_check_brkspace_after(scope, tcomma,
 	    "Expected whitespace after ','.");
 	if (rc != EOK)
@@ -4667,8 +5063,10 @@ static int checker_check_eva_arg(checker_scope_t *scope,
 	if (rc != EOK)
 		return rc;
 
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -4794,31 +5192,42 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 			trbracket = (checker_tok_t *) acc->trbracket.data;
 
 			if (!first) {
-				checker_check_nsbrk_before(scope, tlbracket,
-				    "Unexpected whitespace before '['.");
+				rc = checker_check_nsbrk_before(scope,
+				    tlbracket, "Unexpected whitespace "
+				    "before '['.");
+				if (rc != EOK)
+					goto error;
 			}
 
-			checker_check_nows_after(scope, tlbracket,
+			rc = checker_check_nows_after(scope, tlbracket,
 			    "Unexpected whitespace after '['.");
+			if (rc != EOK)
+				goto error;
 
 			rc = checker_check_expr(scope, acc->index);
 			if (rc != EOK)
 				goto error;
 
-			checker_check_nows_before(scope, trbracket,
+			rc = checker_check_nows_before(scope, trbracket,
 			    "Unexpected whitespace before ']'.");
+			if (rc != EOK)
+				goto error;
 			break;
 		case aca_member:
 			tperiod = (checker_tok_t *)acc->tperiod.data;
 			tmember = (checker_tok_t *)acc->tmember.data;
 
 			if (!first) {
-				checker_check_nsbrk_before(scope, tperiod,
+				rc = checker_check_nsbrk_before(scope, tperiod,
 				    "Unexpected whitespace before '.'.");
+				if (rc != EOK)
+					goto error;
 			}
 
-			checker_check_nows_after(scope, tperiod,
+			rc = checker_check_nows_after(scope, tperiod,
 			    "Unexpected whitespace after '.'.");
+			if (rc != EOK)
+				goto error;
 			checker_check_any(scope, tmember);
 			break;
 		}
@@ -4846,8 +5255,11 @@ static int checker_check_cinit_elem(checker_scope_t *scope,
 
 	if (elem->have_comma) {
 		tcomma = (checker_tok_t *)elem->tcomma.data;
-		checker_check_nows_before(scope, tcomma,
+		rc = checker_check_nows_before(scope, tcomma,
 		    "Unexpected whitespace before ','.");
+		if (rc != EOK)
+			goto error;
+
 		rc = checker_check_brkspace_after(scope, tcomma,
 		    "Expected whitespace after ','.");
 		if (rc != EOK)
@@ -4936,15 +5348,21 @@ static int checker_check_fundef_sclass(checker_scope_t *scope,
 	checker_tok_t *tsclass;
 	ast_tok_t *atok;
 	checker_tok_t *tok;
+	int rc;
+	int rv;
 
 	sclass = ast_dspecs_get_sclass(dspecs);
 	if (sclass != NULL) {
 		if (sclass->sctype == asc_extern &&
 		    checker_scfg(scope)->sclass) {
 			tsclass = (checker_tok_t *) sclass->tsclass.data;
-			lexer_dprint_tok(&tsclass->tok, stdout);
-			printf(": Improper use of storage class 'extern' with "
-			    "function definition.\n");
+			rc = lexer_dprint_tok(&tsclass->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Improper use of storage class "
+			    "'extern' with function definition.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -4953,8 +5371,13 @@ static int checker_check_fundef_sclass(checker_scope_t *scope,
 		    checker_scfg(scope)->hdr) {
 			atok = ast_tree_first_tok(&dspecs->node);
 			tok = (checker_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Non-static function defined in a header.\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Non-static function defined in a "
+			    "header.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -4979,6 +5402,8 @@ static int checker_check_gdecln_idlist_sclass(checker_scope_t *scope,
 	checker_tok_t *tok;
 	bool vardecl;
 	bool fundecl;
+	int rc;
+	int rv;
 
 	vardecl = fundecl = false;
 	entry = ast_idlist_first(idlist);
@@ -4988,17 +5413,26 @@ static int checker_check_gdecln_idlist_sclass(checker_scope_t *scope,
 			if (fundecl && checker_scfg(scope)->decl) {
 				atok = ast_decl_get_ident(entry->decl);
 				tok = (checker_tok_t *) atok->data;
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Multiple function declarators.\n");
+				rc = lexer_dprint_tok(&tok->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Multiple function "
+				    "declarators.\n");
+				if (rv < 0)
+					return EIO;
 				break;
 			}
 
 			if (vardecl && checker_scfg(scope)->decl) {
 				atok = ast_decl_get_ident(entry->decl);
 				tok = (checker_tok_t *) atok->data;
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Mixing function and variable "
+				rc = lexer_dprint_tok(&tok->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Mixing function and variable "
 				    "declarators.\n");
+				if (rv < 0)
+					return EIO;
 				break;
 			}
 
@@ -5008,9 +5442,13 @@ static int checker_check_gdecln_idlist_sclass(checker_scope_t *scope,
 			if (fundecl && checker_scfg(scope)->decl) {
 				atok = ast_decl_get_ident(entry->decl);
 				tok = (checker_tok_t *) atok->data;
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Mixing function and variable "
+				rc = lexer_dprint_tok(&tok->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Mixing function and variable "
 				    "declarators.\n");
+				if (rv < 0)
+					return EIO;
 				break;
 			}
 
@@ -5022,10 +5460,14 @@ static int checker_check_gdecln_idlist_sclass(checker_scope_t *scope,
 				    checker_scfg(scope)->sclass) {
 					atok = ast_decl_get_ident(entry->decl);
 					tok = (checker_tok_t *) atok->data;
-					lexer_dprint_tok(&tok->tok, stdout);
-
-					printf(": Non-static variable "
+					rc = lexer_dprint_tok(&tok->tok,
+					    stdout);
+					if (rc != EOK)
+						return rc;
+					rv = printf(": Non-static variable "
 					    "defined in a header.\n");
+					if (rv < 0)
+						return EIO;
 				}
 			}
 
@@ -5065,7 +5507,6 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 	    "Declaration must start on a new line.");
 	if (rc != EOK)
 		return rc;
-
 	rc = checker_check_dspecs(scope, gdecln->dspecs);
 	if (rc != EOK)
 		goto error;
@@ -5097,8 +5538,10 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 
 	if (gdecln->body == NULL) {
 		tscolon = (checker_tok_t *)gdecln->tscolon.data;
-		checker_check_nows_before(scope, tscolon,
+		rc = checker_check_nows_before(scope, tscolon,
 		    "Unexpected whitespace before ';'.");
+		if (rc != EOK)
+			goto error;
 		return EOK;
 	}
 
@@ -5129,6 +5572,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 		goto error;
 
 	checker_scope_destroy(bscope);
+	bscope = NULL;
 
 	if (gdecln->body != NULL) {
 		rc = checker_check_fundef_sclass(scope, gdecln->dspecs);
@@ -5170,10 +5614,15 @@ static int checker_check_mdecln(checker_scope_t *scope,
 		goto error;
 
 	tlparen = (checker_tok_t *)mdecln->tlparen.data;
-	checker_check_nows_before(scope, tlparen,
+	rc = checker_check_nows_before(scope, tlparen,
 	    "Unexpected whitespace before '('.");
-	checker_check_nows_after(scope, tlparen,
+	if (rc != EOK)
+		goto error;
+
+	rc = checker_check_nows_after(scope, tlparen,
 	    "Unexpected whitespace after '('.");
+	if (rc != EOK)
+		goto error;
 
 	arg = ast_mdecln_first(mdecln);
 	while (arg != NULL) {
@@ -5188,16 +5637,20 @@ static int checker_check_mdecln(checker_scope_t *scope,
 			if (rc != EOK)
 				goto error;
 
-			checker_check_nows_before(scope, tcomma,
+			rc = checker_check_nows_before(scope, tcomma,
 			    "Unexpected whitespace before ','.");
+			if (rc != EOK)
+				goto error;
 		}
 
 		arg = ast_mdecln_next(arg);
 	}
 
 	trparen = (checker_tok_t *)mdecln->trparen.data;
-	checker_check_nows_before(scope, trparen,
+	rc = checker_check_nows_before(scope, trparen,
 	    "Unexpected whitespace before ')'.");
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:
@@ -5233,8 +5686,10 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 
 	if (gmdecln->body == NULL) {
 		tscolon = (checker_tok_t *)gmdecln->tscolon.data;
-		checker_check_nows_before(scope, tscolon,
+		rc = checker_check_nows_before(scope, tscolon,
 		    "Unexpected whitespace before ';'.");
+		if (rc != EOK)
+			goto error;
 		return EOK;
 	}
 
@@ -5289,6 +5744,7 @@ static int checker_check_nulldecln(checker_scope_t *scope,
     ast_nulldecln_t *nulldecln)
 {
 	int rc;
+	int rv;
 	checker_tok_t *tscolon;
 
 	tscolon = (checker_tok_t *) nulldecln->tscolon.data;
@@ -5298,8 +5754,12 @@ static int checker_check_nulldecln(checker_scope_t *scope,
 		goto error;
 
 	if (checker_scfg(scope)->estmt) {
-		lexer_dprint_tok(&tscolon->tok, stdout);
-		printf(": Empty declaration.\n");
+		rc = lexer_dprint_tok(&tscolon->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Empty declaration.\n");
+		if (rv < 0)
+			goto error;
 	}
 
 	return EOK;
@@ -5318,6 +5778,7 @@ static int checker_check_externc(checker_scope_t *scope,
     ast_externc_t *externc)
 {
 	int rc;
+	int rv;
 	ast_node_t *decl;
 	checker_tok_t *textern;
 	checker_tok_t *tlang;
@@ -5331,8 +5792,12 @@ static int checker_check_externc(checker_scope_t *scope,
 
 	if (strcmp(tlang->tok.text, "\"C\"") != 0 &&
 	    checker_scfg(scope)->hdr) {
-		lexer_dprint_tok(&tlang->tok, stdout);
-		printf(": Linked language is not 'C'.\n");
+		rc = lexer_dprint_tok(&tlang->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Linked language is not 'C'.\n");
+		if (rv < 0)
+			return EIO;
 	}
 
 	rc = checker_check_lbegin(scope, textern,
@@ -5450,6 +5915,7 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 	unsigned i;
 	unsigned req_spaces;
 	int rc;
+	int rv;
 
 	need_fix = false;
 
@@ -5471,8 +5937,13 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 
 	if (tok->tok.ttype == ltt_dctopen) {
 		/* Trailing doc comment at the beginning of line */
-		lexer_dprint_tok(&tok->tok, stdout);
-		printf(": Unexpected trailing comment at the beginning of a line.\n");
+		rc = lexer_dprint_tok(&tok->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Unexpected trailing comment at the beginning "
+		    "of a line.\n");
+		if (rv < 0)
+			return EIO;
 	}
 
 	/*
@@ -5486,8 +5957,13 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		if (fix) {
 			need_fix = true;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Mixing tabs and spaces in indentation.\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Mixing tabs and spaces in "
+			    "indentation.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5515,10 +5991,14 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		if (fix) {
 			need_fix = true;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Non-continuation line should not "
-			    "have any spaces for indentation "
-			    "(found %u)\n", spaces);
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Non-continuation line should not "
+			    "have any spaces for indentation (found %u)\n",
+			    spaces);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5526,10 +6006,13 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		if (fix) {
 			need_fix = true;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Line is indented by %u "
-			    "spaces (should be %u)\n",
-			    spaces, req_spaces);
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Line is indented by %u spaces "
+			    "(should be %u)\n", spaces, req_spaces);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5537,9 +6020,14 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		if (fix) {
 			need_fix = true;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Wrong indentation: found %u tabs, "
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+
+			rv = printf(": Wrong indentation: found %u tabs, "
 			    "should be %u tabs\n", tabs, tok->indlvl);
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5547,8 +6035,12 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
 		if (fix) {
 			need_fix = true;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Mixing tabs and spaces.\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Mixing tabs and spaces.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5585,13 +6077,16 @@ static int checker_check_line_indent(unsigned tabs, unsigned spaces,
  *
  * @param mod Checker module
  * @param fix @c true to attempt to fix issues instead of reporting them
+ * @return EOK on success or error code
  */
-static void checker_module_alltoks(checker_module_t *mod, bool fix)
+static int checker_module_alltoks(checker_module_t *mod, bool fix)
 {
 	checker_tok_t *tok;
 	checker_tok_t *bs;
 	size_t invpos;
 	char invchar;
+	int rc;
+	int rv;
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
@@ -5604,8 +6099,13 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 				checker_line_remove_ws_before(bs);
 				checker_remove_token(bs);
 			} else {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Backslash outside of preprocessor directive.\n");
+				rc = lexer_dprint_tok(&tok->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Backslash outside of "
+				    "preprocessor directive.\n");
+				if (rv < 0)
+					return EIO;
 			}
 		}
 
@@ -5616,10 +6116,19 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 			while (!lexer_tok_valid_chars(&tok->tok, invpos,
 			    &invpos)) {
 				invchar = tok->tok.text[invpos];
-				lexer_dprint_tok_chr(&tok->tok, invpos, stdout);
-				printf(": Invalid character '");
-				lexer_dprint_char(invchar, stdout);
-				printf("' inside comment.\n");
+				rc = lexer_dprint_tok_chr(&tok->tok, invpos,
+				    stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Invalid character '");
+				if (rv < 0)
+					return EIO;
+				rc = lexer_dprint_char(invchar, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf("' inside comment.\n");
+				if (rv < 0)
+					return EIO;
 				++invpos;
 			}
 		}
@@ -5627,31 +6136,54 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 		if (tok->tok.ttype == ltt_invchar &&
 		    mod->checker->cfg->invchar) {
 			invchar = tok->tok.text[0];
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Invalid character '");
-			lexer_dprint_char(invchar, stdout);
-			printf("'.\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Invalid character '");
+			if (rv < 0)
+				return EIO;
+			rc = lexer_dprint_char(invchar, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf("'.\n");
+			if (rv < 0)
+				return EIO;
 		}
 
 		if (!tok->checked && !parser_ttype_ignore(tok->tok.ttype)) {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(" Token not checked\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(" Token not checked\n");
+			if (rv < 0)
+				return EIO;
 		}
 
 		if (tok->indlvl != tok->pindlvl && !parser_ttype_ignore(tok->tok.ttype)) {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Indentation mismatch: parser %u, checker %u.\n",
-			    tok->pindlvl, tok->indlvl);
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Indentation mismatch: parser %u, "
+			    "checker %u.\n", tok->pindlvl, tok->indlvl);
+			if (rv < 0)
+				return EIO;
 		}
 
 		if (tok->seccont != tok->pseccont && !parser_ttype_ignore(tok->tok.ttype)) {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Secondary indentation mismatch: parser %u, checker %u.\n",
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Secondary indentation mismatch: "
+			    "parser %u, checker %u.\n",
 			    tok->pseccont, tok->seccont);
+			if (rv < 0)
+				return EIO;
 		}
 
 		tok = checker_next_tok(tok);
 	}
+
+	return EOK;
 }
 
 /** Verify formatting of a block comment line.
@@ -5664,6 +6196,7 @@ static void checker_module_alltoks(checker_module_t *mod, bool fix)
 static int checker_block_comment_line(checker_tok_t *tok, bool fix)
 {
 	int rc;
+	int rv;
 
 	if (tok->tok.ttype != ltt_ctext || tok->tok.text[0] != '*') {
 		if (fix) {
@@ -5675,9 +6208,13 @@ static int checker_block_comment_line(checker_tok_t *tok, bool fix)
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": '*' expected at beginning "
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": '*' expected at beginning "
 			    "of block comment line.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	} else if (tok->tok.ttype == ltt_ctext && tok->tok.text[1] != '\0') {
 		if (fix) {
@@ -5693,8 +6230,12 @@ static int checker_block_comment_line(checker_tok_t *tok, bool fix)
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Space expected after '*'.\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Space expected after '*'.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5717,6 +6258,7 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 	unsigned lbreaks;
 	bool first;
 	int rc;
+	int rv;
 
 	tok = tbegin;
 	lbreaks = 0;
@@ -5727,8 +6269,12 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 	}
 
 	if (tok->tok.ttype == ltt_eof) {
-		lexer_dprint_tok(&tbegin->tok, stdout);
-		printf(": Unterminated comment.\n");
+		rc = lexer_dprint_tok(&tbegin->tok, stdout);
+		if (rc != EOK)
+			return rc;
+		rv = printf(": Unterminated comment.\n");
+		if (rv < 0)
+			return EIO;
 		*tnext = tok;
 		return EOK;
 	}
@@ -5747,11 +6293,20 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 				if (rc != EOK)
 					return rc;
 			} else {
-				lexer_dprint_tok(&tbegin->tok, stdout);
-				if (tbegin->tok.ttype == ltt_dctopen)
-					printf(": Space expected after '<'.\n");
-				else
-					printf(": Space expected after '*'.\n");
+				rc = lexer_dprint_tok(&tbegin->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				if (tbegin->tok.ttype == ltt_dctopen) {
+					rv = printf(": Space expected "
+					    "after '<'.\n");
+					if (rv < 0)
+						return EIO;
+				} else {
+					rv = printf(": Space expected "
+					    "after '*'.\n");
+					if (rv < 0)
+						return EIO;
+				}
 			}
 		}
 
@@ -5762,8 +6317,12 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 				if (rc != EOK)
 					return rc;
 			} else {
-				lexer_dprint_tok(&tclose->tok, stdout);
-				printf(": Space expected before '*'.\n");
+				rc = lexer_dprint_tok(&tclose->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Space expected before '*'.\n");
+				if (rv < 0)
+					return EIO;
 			}
 		}
 		return EOK;
@@ -5796,8 +6355,13 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&tbegin->tok, stdout);
-			printf(": Comment text should begin on a new line.\n");
+			rc = lexer_dprint_tok(&tbegin->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Comment text should begin on a new "
+			    "line.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5857,9 +6421,13 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&tclose->tok, stdout);
-			printf(": Block comment closing '*/' should be on "
+			rc = lexer_dprint_tok(&tclose->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Block comment closing '*/' should be on "
 			    "a new line.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -5871,6 +6439,7 @@ static int checker_module_comment(checker_tok_t *tbegin, bool fix,
  *
  * @param mod Checker module
  * @param fix @c true to attempt to fix issues
+ * @return EOK on success or an error code.
  */
 static int checker_module_comments(checker_module_t *mod, bool fix)
 {
@@ -5911,6 +6480,7 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 	bool nonws;
 	bool trailws;
 	int rc;
+	int rv;
 
 	tok = checker_module_first_tok(mod);
 	while (tok->tok.ttype != ltt_eof) {
@@ -5960,18 +6530,26 @@ static int checker_module_lines(checker_module_t *mod, bool fix)
 			if (fix) {
 				checker_line_remove_ws_before(tok);
 			} else {
-				lexer_dprint_tok(&tok->tok, stdout);
-				printf(": Whitespace at end of line\n");
+				rc = lexer_dprint_tok(&tok->tok, stdout);
+				if (rc != EOK)
+					return rc;
+				rv = printf(": Whitespace at end of line\n");
+				if (rv < 0)
+					return EIO;
 			}
 		}
 
 #if 0
 		/* Check for overlong lines */
 		if (tok->tok.bpos.col > 1 + line_length_limit) {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Line too long (%zu characters above %u "
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Line too long (%zu characters above %u "
 			    "character limit)\n", tok->tok.bpos.col -
 			    line_length_limit - 1, line_length_limit);
+			if (rv < 0)
+				return EIO;
 		}
 #endif
 
@@ -5996,6 +6574,8 @@ static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
     unsigned empty_lc, checker_tok_t *etok, bool fix)
 {
 	checker_tok_t *tok;
+	int rc;
+	int rv;
 
 	if (bof) {
 		if (fix) {
@@ -6006,9 +6586,13 @@ static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
 			}
 		} else {
 			tok = checker_module_first_tok(mod);
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Unexpected empty line at beginning of "
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Unexpected empty line at beginning of "
 			    "file.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	} else if (empty_lc > 1) {
 		if (fix) {
@@ -6026,8 +6610,13 @@ static int checker_check_empty_line_block(checker_module_t *mod, bool bof,
 			while (checker_line_is_blank(tok))
 				tok = checker_remove_line(tok);
 		} else {
-			lexer_dprint_tok(&etok->tok, stdout);
-			printf(": Unexpected multiple consecutive empty lines.\n");
+			rc = lexer_dprint_tok(&etok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Unexpected multiple consecutive "
+			    "empty lines.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -6050,6 +6639,7 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 	bool bof;
 	unsigned empty_lc;
 	int rc;
+	int rv;
 
 	/* Beginning of file? */
 	bof = true;
@@ -6104,8 +6694,12 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 			if (rc != EOK)
 				return rc;
 		} else {
-			lexer_dprint_tok(&tok->tok, stdout);
-			printf(": Expected newline at end of file.\n");
+			rc = lexer_dprint_tok(&tok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Expected newline at end of file.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -6113,8 +6707,13 @@ static int checker_module_vspacing(checker_module_t *mod, bool fix)
 		if (fix) {
 			checker_remove_ws_before(ptok);
 		} else {
-			lexer_dprint_tok(&ptok->tok, stdout);
-			printf(": Unexpected empty lines at end of file.\n");
+			rc = lexer_dprint_tok(&ptok->tok, stdout);
+			if (rc != EOK)
+				return rc;
+			rv = printf(": Unexpected empty lines at end "
+			    "of file.\n");
+			if (rv < 0)
+				return EIO;
 		}
 	}
 
@@ -6181,14 +6780,19 @@ int checker_run(checker_t *checker, bool fix)
 			return rc;
 	}
 
-	if (checker->cfg->fmt)
-		checker_module_comments(checker->mod, fix);
+	if (checker->cfg->fmt) {
+		rc = checker_module_comments(checker->mod, fix);
+		if (rc != EOK)
+			return rc;
+	}
 
 	rc = checker_module_check(checker->mod, fix);
 	if (rc != EOK)
 		return rc;
 
-	checker_module_alltoks(checker->mod, fix);
+	rc = checker_module_alltoks(checker->mod, fix);
+	if (rc != EOK)
+		return rc;
 
 	/*
 	 * Make sure comments after the last C declaration are marked

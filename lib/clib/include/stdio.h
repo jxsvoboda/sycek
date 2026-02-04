@@ -40,7 +40,7 @@ int fflush(FILE *);
 int fgetc(FILE *);
 FILE *fopen(const char *, const char *);
 int fprintf(FILE *, const char *, ...);
-void printf(char *, ...);
+int printf(char *, ...);
 int fputc(int, FILE *);
 int fputs(const char *, FILE *);
 size_t fread(void *, size_t, size_t, FILE *);

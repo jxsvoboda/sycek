@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -39,8 +39,8 @@
 
 static void print_syntax(void)
 {
-	printf("C-style checker\n");
-	printf("syntax:\n"
+	(void)printf("C-style checker\n");
+	(void)printf("syntax:\n"
 	    "\tccheck [options] <file> Check C-style in the specified file\n"
 	    "\tccheck --test Run internal unit tests\n"
 	    "options:\n"
@@ -55,6 +55,7 @@ static int check_file(const char *fname, checker_flags_t flags,
     checker_cfg_t *cfg)
 {
 	int rc;
+	int rv;
 	checker_t *checker = NULL;
 	checker_mtype_t mtype;
 	char *bkname;
@@ -64,7 +65,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 
 	ext = strrchr(fname, '.');
 	if (ext == NULL) {
-		fprintf(stderr, "File '%s' has no extension.\n", fname);
+		(void)fprintf(stderr, "File '%s' has no extension.\n", fname);
 		rc = EINVAL;
 		goto error;
 	}
@@ -74,14 +75,14 @@ static int check_file(const char *fname, checker_flags_t flags,
 	} else if (strcmp(ext, ".h") == 0 || strcmp(ext, ".H") == 0) {
 		mtype = cmod_header;
 	} else {
-		fprintf(stderr, "Unknown file extension '%s'.\n", ext);
+		(void)fprintf(stderr, "Unknown file extension '%s'.\n", ext);
 		rc = EINVAL;
 		goto error;
 	}
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
-		fprintf(stderr, "Cannot open '%s'.\n", fname);
+		(void)fprintf(stderr, "Cannot open '%s'.\n", fname);
 		rc = ENOENT;
 		goto error;
 	}
@@ -97,7 +98,11 @@ static int check_file(const char *fname, checker_flags_t flags,
 		if (rc != EOK)
 			goto error;
 
-		printf("\n");
+		rv = printf("\n");
+		if (rv < 0) {
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	if ((flags & cf_dump_toks) != 0) {
@@ -105,7 +110,11 @@ static int check_file(const char *fname, checker_flags_t flags,
 		if (rc != EOK)
 			goto error;
 
-		printf("\n");
+		rv = printf("\n");
+		if (rv < 0) {
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	rc = checker_run(checker, (flags & cf_fix) != 0);
@@ -122,15 +131,16 @@ static int check_file(const char *fname, checker_flags_t flags,
 		}
 
 		if (rename(fname, bkname) < 0) {
-			fprintf(stderr, "Error renaming '%s' to '%s'.\n", fname,
-			    bkname);
+			(void)fprintf(stderr, "Error renaming '%s' to '%s'.\n",
+			    fname, bkname);
 			rc = EIO;
 			goto error;
 		}
 
 		f = fopen(fname, "wt");
 		if (f == NULL) {
-			fprintf(stderr, "Cannot open '%s' for writing.\n", fname);
+			(void)fprintf(stderr, "Cannot open '%s' for writing.\n",
+			    fname);
 			rc = EIO;
 			goto error;
 		}
@@ -141,7 +151,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 
 		if (fclose(f) < 0) {
 			f = NULL;
-			fprintf(stderr, "Error writing '%s'.\n", fname);
+			(void)fprintf(stderr, "Error writing '%s'.\n", fname);
 			rc = EIO;
 			goto error;
 		}
@@ -188,7 +198,7 @@ static int check_disable(checker_cfg_t *cfg, const char *check_name)
 	} else if (strcmp(check_name, "sclass") == 0) {
 		cfg->sclass = false;
 	} else {
-		fprintf(stderr, "Invalid check name '%s'.\n", check_name);
+		(void)fprintf(stderr, "Invalid check name '%s'.\n", check_name);
 		return EINVAL;
 	}
 
@@ -215,16 +225,24 @@ int main(int argc, char *argv[])
 	if (argc == 2 && strcmp(argv[1], "--test") == 0) {
 		/* Run tests */
 		rc = test_lexer();
-		printf("test_lexer -> %d\n", rc);
+		(void)printf("test_lexer -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
 
 		rc = test_ast();
-		printf("test_ast -> %d\n", rc);
+		(void)printf("test_ast -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
 
 		rc = test_parser();
-		printf("test_parser -> %d\n", rc);
+		(void)printf("test_parser -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
 
 		rc = test_checker();
-		printf("test_checker -> %d\n", rc);
+		(void)printf("test_checker -> %d\n", rc);
+		if (rc != EOK)
+			return 1;
 	} else {
 		i = 1;
 		while (argc > i && argv[i][0] == '-') {

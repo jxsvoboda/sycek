@@ -172,13 +172,17 @@ ast_node_t *ast_module_prev(ast_node_t *node)
 static int ast_module_print(ast_module_t *module, FILE *f)
 {
 	ast_node_t *decl;
+	int rc;
 
 	if (fprintf(f, "module(") < 0)
 		return EIO;
 
 	decl = ast_module_first(module);
 	while (decl != NULL) {
-		ast_tree_print(decl, f);
+		rc = ast_tree_print(decl, f);
+		if (rc != EOK)
+			return rc;
+
 		decl = ast_module_next(decl);
 	}
 
@@ -857,13 +861,16 @@ ast_node_t *ast_externc_prev(ast_node_t *node)
 static int ast_externc_print(ast_externc_t *externc, FILE *f)
 {
 	ast_node_t *decl;
+	int rc;
 
 	if (fprintf(f, "extern \"C\"(") < 0)
 		return EIO;
 
 	decl = ast_externc_first(externc);
 	while (decl != NULL) {
-		ast_tree_print(decl, f);
+		rc = ast_tree_print(decl, f);
+		if (rc != EOK)
+			return rc;
 		decl = ast_externc_next(decl);
 	}
 
@@ -4198,7 +4205,7 @@ static int ast_dlist_print(ast_dlist_t *dlist, FILE *f)
 	while (entry != NULL) {
 		rc = ast_tree_print(entry->decl, f);
 		if (rc != EOK)
-			return EIO;
+			return rc;
 
 		if (entry->aslist != NULL) {
 			if (fprintf(f, ", ") < 0)
@@ -4438,7 +4445,7 @@ static int ast_idlist_print(ast_idlist_t *idlist, FILE *f)
 	while (entry != NULL) {
 		rc = ast_tree_print(entry->decl, f);
 		if (rc != EOK)
-			return EIO;
+			return rc;
 
 		if (entry->regassign != NULL) {
 			if (fprintf(f, ", ") < 0)
@@ -4464,7 +4471,7 @@ static int ast_idlist_print(ast_idlist_t *idlist, FILE *f)
 
 			rc = ast_tree_print(entry->init, f);
 			if (rc != EOK)
-				return EIO;
+				return rc;
 		}
 
 		entry = ast_idlist_next(entry);
@@ -7743,7 +7750,7 @@ static int ast_asm_print(ast_asm_t *aasm, FILE *f)
 
 		rc = ast_tree_print(out_op->expr, f);
 		if (rc != EOK)
-			return EIO;
+			return rc;
 
 		if (fprintf(f, ")") < 0)
 			return EIO;
@@ -7763,7 +7770,7 @@ static int ast_asm_print(ast_asm_t *aasm, FILE *f)
 
 		rc = ast_tree_print(in_op->expr, f);
 		if (rc != EOK)
-			return EIO;
+			return rc;
 
 		if (fprintf(f, ")") < 0)
 			return EIO;

@@ -96,7 +96,7 @@ static char *lexer_chars(lexer_t *lexer)
 		    lexer->buf_used, lexer_buf_size - lexer->buf_used,
 		    &nread, &rpos);
 		if (rc != EOK) {
-			printf("read error\n");
+			lexer->in_error = true;
 		}
 		if (nread < lexer_buf_size - lexer->buf_used)
 			lexer->in_eof = true;
@@ -127,6 +127,16 @@ static bool lexer_is_eof(lexer_t *lexer)
 	(void) lc;
 
 	return lexer->buf_pos == lexer->buf_used;
+}
+
+/** Determine if lexer hit an error.
+ *
+ * @param lexer Lexer
+ * @return @c true iff there are no more characters available
+ */
+static bool lexer_is_error(lexer_t *lexer)
+{
+	return lexer->in_error;
 }
 
 /** Get current lexer position in source code.
@@ -850,6 +860,21 @@ static int lexer_eof(lexer_t *lexer, lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex I/O error.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int lexer_error(lexer_t *lexer, lexer_tok_t *tok)
+{
+	lexer_get_pos(lexer, &tok->bpos);
+	lexer_get_pos(lexer, &tok->epos);
+	tok->ttype = ltt_error;
+	return EOK;
+}
+
 /** Lex next token in normal state.
  *
  * @param lexer Lexer
@@ -867,7 +892,9 @@ static int lexer_get_tok_normal(lexer_t *lexer, lexer_tok_t *tok)
 
 	/* End of file or null character */
 	if (p[0] == '\0') {
-		if (lexer_is_eof(lexer))
+		if (lexer_is_error(lexer))
+			return lexer_error(lexer, tok);
+		else if (lexer_is_eof(lexer))
 			return lexer_eof(lexer, tok);
 		else
 			return lexer_nonprint(lexer, tok);
