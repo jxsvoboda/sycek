@@ -121,7 +121,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 	if (rc != EOK)
 		goto error;
 
-	fclose(f);
+	(void)fclose(f);
 	f = NULL;
 
 	if ((flags & cf_fix) != 0) {
@@ -166,7 +166,7 @@ error:
 	if (checker != NULL)
 		checker_destroy(checker);
 	if (f != NULL)
-		fclose(f);
+		(void)fclose(f);
 	return rc;
 }
 
@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 			} else if (strcmp(argv[i], "-d") == 0) {
 				++i;
 				if (argc <= i) {
-					fprintf(stderr,
+					(void)fprintf(stderr,
 					    "Option '-d' needs an argument.\n");
 					return 1;
 				}
@@ -271,13 +271,13 @@ int main(int argc, char *argv[])
 					return 1;
 				++i;
 			} else {
-				fprintf(stderr, "Invalid option.\n");
+				(void)fprintf(stderr, "Invalid option.\n");
 				return 1;
 			}
 		}
 
 		if (argc <= i) {
-			fprintf(stderr, "Argument missing.\n");
+			(void)fprintf(stderr, "Argument missing.\n");
 			return 1;
 		}
 

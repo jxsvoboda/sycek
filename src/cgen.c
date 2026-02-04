@@ -1105,31 +1105,33 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 
 	if (!lunsigned && (uint64_t)val > 0x7fffffffu && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Constant should be long long.\n");
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Constant should be "
+		    "long long.\n");
 		++cgen->warnings;
 	} else if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Constant should be long long.\n");
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Constant should be "
+		    "long long.\n");
 		++cgen->warnings;
 	} else if (!lunsigned && (uint64_t)val > 0x7fff && elmtype != cgelm_long &&
 	    elmtype != cgelm_ulong && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Constant should be long.\n");
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Constant should be long.\n");
 		++cgen->warnings;
 	} else if ((uint64_t)val > 0xffff && elmtype != cgelm_long &&
 	    elmtype != cgelm_ulong && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Constant should be long.\n");
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Constant should be long.\n");
 		++cgen->warnings;
 	}
 
 	if (toolarge) {
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Constant is too large.\n");
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Constant is too large.\n");
 		++cgen->warnings;
 	}
 
@@ -1213,9 +1215,9 @@ static int cgen_escseq(cgen_t *cgen, comp_tok_t *tlit, const char **cp,
 			++i;
 		}
 		if (val > max) {
-			lexer_dprint_tok(&tlit->tok, stderr);
-			fprintf(stderr, ": Warning: Octal escape sequence "
-			    "out of range.\n");
+			(void)lexer_dprint_tok(&tlit->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Octal escape "
+			    "sequence out of range.\n");
 			++cgen->warnings;
 		}
 		c = (uint32_t)val;
@@ -1225,8 +1227,8 @@ static int cgen_escseq(cgen_t *cgen, comp_tok_t *tlit, const char **cp,
 
 		/* Hexadecimal escape sequence */
 		if (!is_hexdigit(*text)) {
-			lexer_dprint_tok(&tlit->tok, stderr);
-			fprintf(stderr, ": Invalid hexadecimal "
+			(void)lexer_dprint_tok(&tlit->tok, stderr);
+			(void)fprintf(stderr, ": Invalid hexadecimal "
 			    "sequence.\n");
 			cgen->error = true; // TODO
 			return EINVAL;
@@ -1238,16 +1240,16 @@ static int cgen_escseq(cgen_t *cgen, comp_tok_t *tlit, const char **cp,
 		}
 		c = (uint32_t)val;
 		if (val > max) {
-			lexer_dprint_tok(&tlit->tok, stderr);
-			fprintf(stderr, ": Warning: Hexadecimal escape sequence "
-			    "out of range.\n");
+			(void)lexer_dprint_tok(&tlit->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Hexadecimal escape "
+			    "sequence out of range.\n");
 			++cgen->warnings;
 		}
 		break;
 	default:
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Warning: Unknown escape sequence '\\%c'.\n",
-		    *text);
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Unknown escape sequence "
+		    "'\\%c'.\n", *text);
 		++cgen->warnings;
 		c = *text++;
 		break;
@@ -1304,8 +1306,8 @@ static int cgen_charlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	}
 
 	if (*text != '\'') {
-		lexer_dprint_tok(&tlit->tok, stderr);
-		fprintf(stderr, ": Multiple characters in character "
+		(void)lexer_dprint_tok(&tlit->tok, stderr);
+		(void)fprintf(stderr, ": Multiple characters in character "
 		    "constant.\n");
 		cgen->error = true; // TODO
 		return EINVAL;
@@ -1817,8 +1819,9 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	if (eres.bitwidth > 0) {
 		atok = ast_tree_first_tok(expr);
 		ctok = (comp_tok_t *)atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Sizeof operator applied to bitfield.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Sizeof operator applied to "
+		    "bitfield.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -1957,9 +1960,9 @@ static void cgen_check_scope_unused(cgen_proc_t *cgproc, scope_t *scope)
 	member = scope_first(scope);
 	while (member != NULL) {
 		if (!member->used) {
-			lexer_dprint_tok(member->tident, stderr);
-			fprintf(stderr, ": Warning: '%s' is defined, but not "
-			    "used.\n", member->tident->text);
+			(void)lexer_dprint_tok(member->tident, stderr);
+			(void)fprintf(stderr, ": Warning: '%s' is defined, "
+			    "but not used.\n", member->tident->text);
 			++cgproc->cgen->warnings;
 		}
 		member = scope_next(member);
@@ -1979,15 +1982,15 @@ static int cgen_check_labels(cgen_proc_t *cgproc, labels_t *labels)
 	label = labels_first(labels);
 	while (label != NULL) {
 		if (!label->used) {
-			lexer_dprint_tok(label->tident, stderr);
-			fprintf(stderr, ": Warning: Label '%s' is defined, "
-			    "but not used.\n", label->tident->text);
+			(void)lexer_dprint_tok(label->tident, stderr);
+			(void)fprintf(stderr, ": Warning: Label '%s' is "
+			    "defined, but not used.\n", label->tident->text);
 			++cgproc->cgen->warnings;
 		}
 
 		if (!label->defined) {
-			lexer_dprint_tok(label->tident, stderr);
-			fprintf(stderr, ": Undefined label '%s'.\n",
+			(void)lexer_dprint_tok(label->tident, stderr);
+			(void)fprintf(stderr, ": Undefined label '%s'.\n",
 			    label->tident->text);
 			cgproc->cgen->error = true; // TODO
 			return EINVAL;
@@ -2071,9 +2074,9 @@ static void cgen_tqual_check_order(cgen_t *cgen, ast_tqual_t *a, ast_tqual_t *b)
 	if (oa > ob) {
 		catok = (comp_tok_t *) a->tqual.data;
 		cbtok = (comp_tok_t *) b->tqual.data;
-		lexer_dprint_tok(&cbtok->tok, stderr);
-		fprintf(stderr, ": Warning: '%s' should come before '%s'.\n",
-		    cbtok->tok.text, catok->tok.text);
+		(void)lexer_dprint_tok(&cbtok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: '%s' should come before "
+		    "'%s'.\n", cbtok->tok.text, catok->tok.text);
 		++cgen->warnings;
 	}
 }
@@ -2144,9 +2147,9 @@ static void cgen_tspec_check_order(cgen_t *cgen, ast_node_t *a, ast_node_t *b)
 		catok = (comp_tok_t *) atok->data;
 		btok = ast_tree_first_tok(b);
 		cbtok = (comp_tok_t *) btok->data;
-		lexer_dprint_tok(&cbtok->tok, stderr);
-		fprintf(stderr, ": Warning: '%s' should come before '%s'.\n",
-		    cbtok->tok.text, catok->tok.text);
+		(void)lexer_dprint_tok(&cbtok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: '%s' should come before "
+		    "'%s'.\n", cbtok->tok.text, catok->tok.text);
 		++cgen->warnings;
 	}
 }
@@ -2181,9 +2184,9 @@ static void cgen_dspec_check_order(cgen_t *cgen, ast_node_t *a, ast_node_t *b)
 			catok = (comp_tok_t *) atok->data;
 			btok = ast_tree_first_tok(b);
 			cbtok = (comp_tok_t *) btok->data;
-			lexer_dprint_tok(&cbtok->tok, stderr);
-			fprintf(stderr, ": Warning: '%s' should come before '%s'.\n",
-			    cbtok->tok.text, catok->tok.text);
+			(void)lexer_dprint_tok(&cbtok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: '%s' should come "
+			    "before '%s'.\n", cbtok->tok.text, catok->tok.text);
 			++cgen->warnings;
 		}
 
@@ -2224,8 +2227,8 @@ static void cgen_error_multiple_tspecs(cgen_t *cgen, ast_node_t *prev,
 	tok1 = (comp_tok_t *) atok1->data;
 	tok2 = (comp_tok_t *) atok2->data;
 
-	lexer_dprint_tok(&tok2->tok, stderr);
-	fprintf(stderr, ": Multiple type specifiers ('%s', '%s').\n",
+	(void)lexer_dprint_tok(&tok2->tok, stderr);
+	(void)fprintf(stderr, ": Multiple type specifiers ('%s', '%s').\n",
 	    tok1->tok.text, tok2->tok.text);
 
 	cgen->error = true; // TODO
@@ -2242,8 +2245,8 @@ static void cgen_error_multiple_short(cgen_t *cgen, ast_tsbasic_t *tsshort)
 
 	tok = (comp_tok_t *) tsshort->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": More than one short specifier.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": More than one short specifier.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2259,8 +2262,8 @@ static void cgen_error_many_long(cgen_t *cgen, ast_tsbasic_t *tslong)
 
 	tok = (comp_tok_t *) tslong->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": More than two long specifiers.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": More than two long specifiers.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2276,8 +2279,8 @@ static void cgen_error_short_long(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both short and long specifier.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Both short and long specifier.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2293,8 +2296,9 @@ static void cgen_error_short_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both short and %s specifier.\n", tok->tok.text);
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Both short and %s specifier.\n",
+	    tok->tok.text);
 
 	cgen->error = true; // TODO
 }
@@ -2310,8 +2314,8 @@ static void cgen_error_long_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both long and %s specifier.\n", tok->tok.text);
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Both long and %s specifier.\n", tok->tok.text);
 
 	cgen->error = true; // TODO
 }
@@ -2327,8 +2331,9 @@ static void cgen_error_signed_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both signed and %s specifier.\n", tok->tok.text);
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Both signed and %s specifier.\n",
+	    tok->tok.text);
 
 	cgen->error = true; // TODO
 }
@@ -2344,8 +2349,9 @@ static void cgen_error_unsigned_xxx(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both unsigned and %s specifier.\n", tok->tok.text);
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Both unsigned and %s specifier.\n",
+	    tok->tok.text);
 
 	cgen->error = true; // TODO
 }
@@ -2361,8 +2367,8 @@ static void cgen_error_multiple_signed(cgen_t *cgen, ast_tsbasic_t *tssigned)
 
 	tok = (comp_tok_t *) tssigned->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": More than one signed specifier.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": More than one signed specifier.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2379,8 +2385,8 @@ static void cgen_error_multiple_unsigned(cgen_t *cgen,
 
 	tok = (comp_tok_t *) tsunsigned->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": More than one unsigned specifier.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": More than one unsigned specifier.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2396,8 +2402,8 @@ static void cgen_error_signed_unsigned(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Both signed and unsigned specifier.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Both signed and unsigned specifier.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2413,8 +2419,8 @@ static void cgen_error_use_void_value(cgen_t *cgen, ast_tok_t *atok)
 
 	tok = (comp_tok_t *)atok->data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Invalid use of void value.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Invalid use of void value.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2432,12 +2438,12 @@ static void cgen_error_cmp_invalid(cgen_t *cgen, ast_tok_t *atok,
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Comparison of invalid types ");
-	(void) cgtype_print(ltype, stderr);
-	fprintf(stderr, " and ");
-	(void) cgtype_print(rtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Comparison of invalid types ");
+	(void)cgtype_print(ltype, stderr);
+	(void)fprintf(stderr, " and ");
+	(void)cgtype_print(rtype, stderr);
+	(void)fprintf(stderr, ".\n");
 
 	cgen->error = true; // TODO
 }
@@ -2452,8 +2458,8 @@ static void cgen_error_cmp_ptr_nc(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Pointers being compared are not constant.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Pointers being compared are not constant.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2469,8 +2475,8 @@ static void cgen_error_need_scalar(cgen_t *cgen, ast_tok_t *atok)
 
 	tok = (comp_tok_t *)atok->data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Need scalar type.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Need scalar type.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2486,8 +2492,8 @@ static void cgen_error_assign_array(cgen_t *cgen, ast_tok_t *atok)
 
 	tok = (comp_tok_t *)atok->data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Assignment to an array.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Assignment to an array.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2499,8 +2505,8 @@ static void cgen_error_assign_array(cgen_t *cgen, ast_tok_t *atok)
  */
 static void cgen_error_cast_array(cgen_t *cgen, comp_tok_t *ctok)
 {
-	lexer_dprint_tok(&ctok->tok, stderr);
-	fprintf(stderr, ": Casting to an array type.\n");
+	(void)lexer_dprint_tok(&ctok->tok, stderr);
+	(void)fprintf(stderr, ": Casting to an array type.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2516,8 +2522,8 @@ static void cgen_error_fun_ret_array(cgen_t *cgen, ast_tok_t *atok)
 
 	tok = (comp_tok_t *)atok->data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Function returning an array.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Function returning an array.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2533,8 +2539,8 @@ static void cgen_error_expr_not_constant(cgen_t *cgen, ast_tok_t *atok)
 
 	tok = (comp_tok_t *)atok->data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Expression is not constant.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Expression is not constant.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2546,8 +2552,8 @@ static void cgen_error_expr_not_constant(cgen_t *cgen, ast_tok_t *atok)
  */
 static void cgen_error_inv_restrict(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Invalid use of 'restrict'.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Invalid use of 'restrict'.\n");
 
 	cgen->error = true; // TODO
 }
@@ -2559,8 +2565,8 @@ static void cgen_error_inv_restrict(cgen_t *cgen, comp_tok_t *tok)
  */
 static void cgen_error_lvalue_required(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr); // XXX Print range
-	fprintf(stderr, ": Lvalue required.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr); // XXX Print range
+	(void)fprintf(stderr, ": Lvalue required.\n");
 	cgen->error = true;
 }
 
@@ -2576,8 +2582,8 @@ static void cgen_warn_tspec_not_impl(cgen_t *cgen, ast_node_t *tspec)
 
 	atok = ast_tree_first_tok(tspec);
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Unimplemented type specifier.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Unimplemented type specifier.\n");
 	++cgen->warnings;
 }
 
@@ -2590,9 +2596,9 @@ static void cgen_warn_tspec_not_impl(cgen_t *cgen, ast_node_t *tspec)
 static void cgen_warn_type_already_has_qual(cgen_t *cgen, const char *tqname,
     comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Type '%s' already has '%s' qualifier.\n",
-	    tok->tok.text, tqname);
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Type '%s' already has '%s' "
+	    "qualifier.\n", tok->tok.text, tqname);
 	++cgen->warnings;
 }
 
@@ -2606,8 +2612,8 @@ static void cgen_warn_dupl_type_qual(cgen_t *cgen, ast_tqual_t *tqual)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) tqual->tqual.data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Duplicate '%s' type qualifier.\n",
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Duplicate '%s' type qualifier.\n",
 	    tok->tok.text);
 	++cgen->warnings;
 }
@@ -2623,8 +2629,8 @@ static void cgen_warn_unknown_attr(cgen_t *cgen, ast_aspec_attr_t *attr)
 
 	tok = (comp_tok_t *) attr->tname.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Unknown attribute '%s'.\n",
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Unknown attribute '%s'.\n",
 	    tok->tok.text);
 	++cgen->warnings;
 }
@@ -2640,8 +2646,9 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
 
 	tok = (comp_tok_t *) tspec->tbasic.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": superfluous 'int' used with short/long/signed/unsigned.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": superfluous 'int' used with "
+	    "short/long/signed/unsigned.\n");
 
 	++cgen->warnings;
 }
@@ -2656,8 +2663,9 @@ static void cgen_warn_useless_type(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Useless type in empty declaration.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Useless type in empty "
+	    "declaration.\n");
 	++cgen->warnings;
 }
 
@@ -2671,8 +2679,8 @@ static void cgen_warn_arith_enum(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Suspicious arithmetic operation "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Suspicious arithmetic operation "
 	    "involving enums.\n");
 	++cgen->warnings;
 }
@@ -2690,12 +2698,13 @@ static void cgen_warn_sub_enum_inc(cgen_t *cgen, ast_tok_t *atok,
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Subtracting incompatible enum types ");
-	(void) cgtype_print(lres->cgtype, stderr);
-	fprintf(stderr, " and ");
-	(void) cgtype_print(rres->cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Subtracting incompatible "
+	    "enum types ");
+	(void)cgtype_print(lres->cgtype, stderr);
+	(void)fprintf(stderr, " and ");
+	(void)cgtype_print(rres->cgtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
 
@@ -2711,11 +2720,11 @@ static void cgen_warn_init_enum_inc(cgen_t *cgen, ast_tok_t *atok,
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Initializing enum member from incompatible "
-	    "type ");
-	(void) cgtype_print(eres->cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Initializing enum member from "
+	    "incompatible type ");
+	(void)cgtype_print(eres->cgtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
 
@@ -2730,8 +2739,8 @@ static void cgen_warn_init_enum_range(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Enum initializer is out of range "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Enum initializer is out of range "
 	    "of int.\n");
 	++cgen->warnings;
 }
@@ -2746,8 +2755,8 @@ static void cgen_warn_logic_enum(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Suspicious logic operation "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Suspicious logic operation "
 	    "involving enums.\n");
 	++cgen->warnings;
 }
@@ -2762,8 +2771,9 @@ static void cgen_warn_cmp_enum_inc(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Comparison of different enum types.\n'");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Comparison of different enum "
+	    "types.\n'");
 	++cgen->warnings;
 }
 
@@ -2777,8 +2787,9 @@ static void cgen_warn_cmp_enum_mix(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Comparison of enum and non-enum type.\n'");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Comparison of enum and non-enum "
+	    "type.\n'");
 	++cgen->warnings;
 }
 
@@ -2792,8 +2803,9 @@ static void cgen_warn_bitop_enum_inc(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Bitwise operation on different enum types.\n'");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Bitwise operation on different "
+	    "enum types.\n'");
 	++cgen->warnings;
 }
 
@@ -2807,8 +2819,9 @@ static void cgen_warn_bitop_enum_mix(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Bitwise operation on enum and non-enum type.\n'");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Bitwise operation on enum and "
+	    "non-enum type.\n'");
 	++cgen->warnings;
 }
 
@@ -2822,8 +2835,8 @@ static void cgen_warn_bitfield_width_enum(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Bitfield width is an enum.\n'");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Bitfield width is an enum.\n'");
 	++cgen->warnings;
 }
 
@@ -2837,8 +2850,8 @@ static void cgen_warn_arith_truth(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Suspicious arithmetic operation "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Suspicious arithmetic operation "
 	    "involving truth values.\n");
 	++cgen->warnings;
 }
@@ -2853,8 +2866,8 @@ static void cgen_warn_cmp_truth_mix(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Comparison of truth value and "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Comparison of truth value and "
 	    "non-truth type.\n'");
 	++cgen->warnings;
 }
@@ -2869,8 +2882,9 @@ static void cgen_warn_bitop_signed(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Bitwise operation on signed integer(s).\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Bitwise operation on "
+	    "signed integer(s).\n");
 	++cgen->warnings;
 }
 
@@ -2884,8 +2898,9 @@ static void cgen_warn_bitop_negative(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Bitwise operation on negative number(s).\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Bitwise operation on "
+	    "negative number(s).\n");
 	++cgen->warnings;
 }
 
@@ -2899,8 +2914,8 @@ static void cgen_warn_cmp_sign_mix(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Unsigned comparison of mixed-sign "
 	    "integers.\n");
 	++cgen->warnings;
 }
@@ -2915,8 +2930,8 @@ static void cgen_warn_div_sign_mix(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Unsigned division of mixed-sign "
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Unsigned division of mixed-sign "
 	    "integers.\n");
 	++cgen->warnings;
 }
@@ -2931,9 +2946,9 @@ static void cgen_warn_cmp_neg_unsigned(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Negative number converted to unsigned "
-	    "before comparison.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Negative number converted to "
+	    "unsigned before comparison.\n");
 	++cgen->warnings;
 }
 
@@ -2947,8 +2962,8 @@ static void cgen_warn_integer_overflow(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Integer arithmetic overflow.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Integer arithmetic overflow.\n");
 	++cgen->warnings;
 }
 
@@ -2959,8 +2974,8 @@ static void cgen_warn_integer_overflow(cgen_t *cgen, ast_tok_t *atok)
  */
 static void cgen_warn_value_dnf_bitfield(cgen_t *cgen, comp_tok_t *ctok)
 {
-	lexer_dprint_tok(&ctok->tok, stderr);
-	fprintf(stderr, ": Warning: Value does not fit in bit field.\n");
+	(void)lexer_dprint_tok(&ctok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Value does not fit in bit field.\n");
 	++cgen->warnings;
 }
 
@@ -2974,8 +2989,9 @@ static void cgen_warn_shift_exceed_bits(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Shift amount exceeds operand width.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Shift amount exceeds operand "
+	    "width.\n");
 	++cgen->warnings;
 }
 
@@ -2989,8 +3005,8 @@ static void cgen_warn_div_by_zero(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Division by zero.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Division by zero.\n");
 	++cgen->warnings;
 }
 
@@ -3004,8 +3020,8 @@ static void cgen_warn_shift_negative(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Shift is negative.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Shift is negative.\n");
 	++cgen->warnings;
 }
 
@@ -3016,8 +3032,9 @@ static void cgen_warn_shift_negative(cgen_t *cgen, ast_tok_t *atok)
  */
 static void cgen_warn_sign_changed(cgen_t *cgen, comp_tok_t *ctok)
 {
-	lexer_dprint_tok(&ctok->tok, stderr);
-	fprintf(stderr, ": Warning: Number sign changed in conversion.\n");
+	(void)lexer_dprint_tok(&ctok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Number sign changed in "
+	    "conversion.\n");
 	++cgen->warnings;
 }
 
@@ -3031,12 +3048,12 @@ static void cgen_warn_sign_changed(cgen_t *cgen, comp_tok_t *ctok)
 static void cgen_warn_sign_convert(cgen_t *cgen, comp_tok_t *ctok,
     cgen_eres_t *lres, cgen_eres_t *rres)
 {
-	lexer_dprint_tok(&ctok->tok, stderr);
-	fprintf(stderr, ": Warning: Conversion from ");
-	(void) cgtype_print(lres->cgtype, stderr);
-	fprintf(stderr, " to ");
-	(void) cgtype_print(rres->cgtype, stderr);
-	fprintf(stderr, " changes signedness.\n");
+	(void)lexer_dprint_tok(&ctok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Conversion from ");
+	(void)cgtype_print(lres->cgtype, stderr);
+	(void)fprintf(stderr, " to ");
+	(void)cgtype_print(rres->cgtype, stderr);
+	(void)fprintf(stderr, " changes signedness.\n");
 	++cgen->warnings;
 }
 
@@ -3047,8 +3064,8 @@ static void cgen_warn_sign_convert(cgen_t *cgen, comp_tok_t *ctok,
  */
 static void cgen_warn_number_changed(cgen_t *cgen, comp_tok_t *ctok)
 {
-	lexer_dprint_tok(&ctok->tok, stderr);
-	fprintf(stderr, ": Warning: Number changed in conversion.\n");
+	(void)lexer_dprint_tok(&ctok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Number changed in conversion.\n");
 	++cgen->warnings;
 }
 
@@ -3064,10 +3081,10 @@ static void cgen_warn_case_value_range(cgen_t *cgen, ast_tok_t *atok,
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Case value is out of range of ");
-	(void) cgtype_print(cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Case value is out of range of ");
+	(void)cgtype_print(cgtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
 
@@ -3081,8 +3098,8 @@ static void cgen_warn_case_value_not_bool(cgen_t *cgen, ast_tok_t *atok)
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Case value is not boolean.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Case value is not boolean.\n");
 	++cgen->warnings;
 }
 
@@ -3098,10 +3115,10 @@ static void cgen_warn_case_value_not_in_enum(cgen_t *cgen, ast_tok_t *atok,
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Case value is not in ");
-	(void) cgtype_print(cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Case value is not in ");
+	(void)cgtype_print(cgtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
 
@@ -3118,12 +3135,13 @@ static void cgen_warn_cmp_incom_ptr(cgen_t *cgen, ast_tok_t *atok,
 	comp_tok_t *tok;
 
 	tok = (comp_tok_t *) atok->data;
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Comparison of incompatible pointer types ");
-	(void) cgtype_print(ltype, stderr);
-	fprintf(stderr, " and ");
-	(void) cgtype_print(rtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Comparison of incompatible "
+	    "pointer types ");
+	(void)cgtype_print(ltype, stderr);
+	(void)fprintf(stderr, " and ");
+	(void)cgtype_print(rtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	++cgen->warnings;
 }
 
@@ -3134,8 +3152,8 @@ static void cgen_warn_cmp_incom_ptr(cgen_t *cgen, ast_tok_t *atok,
  */
 static void cgen_warn_truth_as_int(cgen_t *cgen, comp_tok_t *ctok)
 {
-	lexer_dprint_tok(&ctok->tok, stderr);
-	fprintf(stderr, ": Warning: Truth value used as an integer.\n");
+	(void)lexer_dprint_tok(&ctok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Truth value used as an integer.\n");
 	++cgen->warnings;
 }
 
@@ -3146,8 +3164,8 @@ static void cgen_warn_truth_as_int(cgen_t *cgen, comp_tok_t *ctok)
  */
 static void cgen_warn_array_index_negative(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Array index is negative.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Array index is negative.\n");
 	++cgen->warnings;
 }
 
@@ -3158,8 +3176,8 @@ static void cgen_warn_array_index_negative(cgen_t *cgen, comp_tok_t *tok)
  */
 static void cgen_warn_array_index_oob(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Array index is out of bounds.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Array index is out of bounds.\n");
 	++cgen->warnings;
 }
 
@@ -3170,8 +3188,8 @@ static void cgen_warn_array_index_oob(cgen_t *cgen, comp_tok_t *tok)
  */
 static void cgen_warn_init_field_overwritten(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Initializer field overwritten.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Initializer field overwritten.\n");
 	++cgen->warnings;
 }
 
@@ -3182,8 +3200,8 @@ static void cgen_warn_init_field_overwritten(cgen_t *cgen, comp_tok_t *tok)
  */
 static void cgen_warn_pass_su_by_value(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Pasing struct/union by value.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Pasing struct/union by value.\n");
 	++cgen->warnings;
 }
 
@@ -3194,8 +3212,8 @@ static void cgen_warn_pass_su_by_value(cgen_t *cgen, comp_tok_t *tok)
  */
 static void cgen_warn_return_su_by_value(cgen_t *cgen, comp_tok_t *tok)
 {
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Returning struct/union by value.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Returning struct/union by value.\n");
 	++cgen->warnings;
 }
 
@@ -3255,8 +3273,8 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_qual_t qual,
 	/* Check if the type is defined */
 	member = scope_lookup(cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Undefined type name '%s'.\n",
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Undefined type name '%s'.\n",
 		    ident->tok.text);
 		cgen->error = true; // TODO
 		return EINVAL;
@@ -3264,8 +3282,8 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_qual_t qual,
 
 	/* Is it actually a type definition? */
 	if (member->mtype != sm_tdef) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Identifer '%s' is not a type.\n",
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Identifer '%s' is not a type.\n",
 		    ident->tok.text);
 		cgen->error = true; // TODO
 		return EINVAL;
@@ -3358,8 +3376,8 @@ static int cgen_tsrecord_update_su_type(cgen_rec_t *cgrec, cgtype_t *cgtype,
 	cgtype_int_rank_t new_rank;
 
 	if (!cgen_type_is_integral(cgrec->cgen, cgtype)) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Bitfield has incorrect type.\n");
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Bitfield has incorrect type.\n");
 		cgrec->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -3496,9 +3514,9 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 		if (bitwidth > 0) {
 			su_bits = 8 * cgen_type_sizeof(cgen, cgrec->su_cgtype);
 			if (bitwidth > su_bits) {
-				lexer_dprint_tok(&ident->tok, stderr);
-				fprintf(stderr, ": Bitfield '%s' is wider than "
-				    "its type.\n", ident->tok.text);
+				(void)lexer_dprint_tok(&ident->tok, stderr);
+				(void)fprintf(stderr, ": Bitfield '%s' is "
+				    "wider than its type.\n", ident->tok.text);
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
@@ -3507,10 +3525,11 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 				cgenum = (cgtype_enum_t *)dtype->ext;
 				enum_max = cgen_enum_max_val(cgenum->cgenum);
 				if (1 << bitwidth <= enum_max) {
-					lexer_dprint_tok(&ident->tok, stderr);
-					fprintf(stderr, ": Warning: Bitfield "
-					    "'%s' is narrower than the values "
-					    "of its type.\n", ident->tok.text);
+					(void)lexer_dprint_tok(&ident->tok, stderr);
+					(void)fprintf(stderr, ": Warning: "
+					    "Bitfield '%s' is narrower than "
+					    "the values of its type.\n",
+					    ident->tok.text);
 					++cgen->warnings;
 				}
 			}
@@ -3534,9 +3553,9 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 		rc = cgen_record_append(record, ident->tok.text,
 		    bitwidth, cgrec->bf_pos, dtype, irident);
 		if (rc == EEXIST) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Duplicate record member '%s'.\n",
-			    ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Duplicate record member "
+			    "'%s'.\n", ident->tok.text);
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -3554,8 +3573,9 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 
 		/* Check for function type */
 		if (dtype->ntype == cgn_func) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Record member is a function.\n");
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Record member is a "
+			    "function.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -3563,8 +3583,9 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 
 		/* Check type for completeness */
 		if (cgen_type_is_incomplete(cgen, dtype)) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Record member has incomplete type.\n");
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Record member has incomplete "
+			    "type.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -3650,8 +3671,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	if (tsrecord->aslist1 != NULL) {
 		tok = ast_tree_first_tok(&tsrecord->aslist1->node);
 		ctok = (comp_tok_t *)tok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented attribute specifier "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented attribute specifier "
 		    "in this context.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
@@ -3668,32 +3689,32 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	}
 
 	if (tsrecord->have_def && cgen->cur_scope->parent != NULL) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Warning: Definition of '%s %s' in a "
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Definition of '%s %s' in a "
 		    "non-global scope.\n", rtype, ident);
 		++cgen->warnings;
 
 		member = scope_lookup_tag(cgen->cur_scope->parent,
 		    ident);
 		if (member != NULL) {
-			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Warning: Definition of '%s %s' "
-			    "shadows a wider-scope struct, union or enum "
-			    "definition.\n", rtype, ident);
+			(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Definition of "
+			    "'%s %s' shadows a wider-scope struct, union "
+			    "or enum definition.\n", rtype, ident);
 			++cgen->warnings;
 		}
 	}
 
 	if (tsrecord->have_def && cgen->tsrec_cnt > 0) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Warning: Definition of '%s %s' inside "
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Definition of '%s %s' inside "
 		    "another struct/union definition.\n", rtype, ident);
 		++cgen->warnings;
 	}
 
 	if (tsrecord->have_def && cgen->arglist_cnt > 0) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Warning: Definition of '%s %s' inside "
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Definition of '%s %s' inside "
 		    "parameter list will not be visible outside of function "
 		    "declaration/definition.\n", rtype, ident);
 		++cgen->warnings;
@@ -3705,9 +3726,9 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	/* If already exists, but as a different kind of tag */
 	if (member != NULL && (member->mtype != sm_record ||
 	    member->m.record.srtype != srtype)) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Redefinition of '%s' as a different kind of tag.\n",
-		    member->tident->text);
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Redefinition of '%s' as a different "
+		    "kind of tag.\n", member->tident->text);
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -3725,8 +3746,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		flags |= cgrd_prevdef;
 
 		if (tsrecord->have_def) {
-			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Redefinition of '%s'.\n",
+			(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+			(void)fprintf(stderr, ": Redefinition of '%s'.\n",
 			    member->tident->text);
 			cgen->error = true; // TODO
 			rc = EINVAL;
@@ -3737,8 +3758,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	if (tsrecord->aslist2 != NULL) {
 		tok = ast_tree_first_tok(&tsrecord->aslist2->node);
 		ctok = (comp_tok_t *)tok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented attribute specifier "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented attribute specifier "
 		    "in this context.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
@@ -3829,9 +3850,9 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	/* Catch nested redefinitions */
 	if (tsrecord->have_def) {
 		if (tsrecord->have_def && record->defining) {
-			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Nested redefinition of '%s'.\n",
-			    record->cident);
+			(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+			(void)fprintf(stderr, ": Nested redefinition of "
+			    "'%s'.\n", record->cident);
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -3962,8 +3983,8 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 
 	rc = cgen_enum_append(cgenum, ident->tok.text, value, &eelem);
 	if (rc == EEXIST) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Duplicate enum member '%s'.\n",
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Duplicate enum member '%s'.\n",
 		    ident->tok.text);
 		cgen->error = true; // TODO
 		rc = EINVAL;
@@ -3977,8 +3998,8 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 		member = scope_lookup(cgen->cur_scope->parent,
 		    ident->tok.text);
 		if (member != NULL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Declaration of '%s' "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "shadows a wider-scope declaration.\n",
 			    ident->tok.text);
 			++cgen->warnings;
@@ -3990,8 +4011,8 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	    &member);
 	if (rc != EOK) {
 		if (rc == EEXIST) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Duplicate identifier '%s'.\n",
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Duplicate identifier '%s'.\n",
 			    ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -4045,34 +4066,34 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 	}
 
 	if (tsenum->have_def && cgen->cur_scope->parent != NULL) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Warning: Definition of 'enum %s' in a "
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Definition of 'enum %s' in a "
 		    "non-global scope.\n", ident);
 		++cgen->warnings;
 
 		member = scope_lookup_tag(cgen->cur_scope->parent,
 		    ident);
 		if (member != NULL) {
-			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Warning: Definition of 'enum %s' "
-			    "shadows a wider-scope struct, union or enum "
-			    "definition.\n", ident);
+			(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Definition of "
+			    "'enum %s' shadows a wider-scope struct, union "
+			    "or enum definition.\n", ident);
 			++cgen->warnings;
 		}
 	}
 
 	if (tsenum->have_def && cgen->tsrec_cnt > 0) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Warning: Definition of 'enum %s' inside "
-		    "struct or union definition.\n", ident);
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Definition of 'enum %s' "
+		    "inside struct or union definition.\n", ident);
 		++cgen->warnings;
 	}
 
 	if (tsenum->have_def && cgen->arglist_cnt > 0) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Warning: Definition of 'enum %s' inside "
-		    "parameter list will not be visible outside of function "
-		    "declaration/definition.\n", ident);
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Definition of 'enum %s' "
+		    "inside parameter list will not be visible outside of "
+		    "function declaration/definition.\n", ident);
 		++cgen->warnings;
 	}
 
@@ -4081,9 +4102,9 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 
 	/* If already exists, but as a different kind of tag */
 	if (member != NULL && member->mtype != sm_enum) {
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Redefinition of '%s' as a different kind of tag.\n",
-		    member->tident->text);
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Redefinition of '%s' as a different "
+		    "kind of tag.\n", member->tident->text);
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -4099,8 +4120,8 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 		flags |= cgrd_prevdef;
 
 		if (tsenum->have_def) {
-			lexer_dprint_tok(&ident_tok->tok, stderr);
-			fprintf(stderr, ": Redefinition of '%s'.\n",
+			(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+			(void)fprintf(stderr, ": Redefinition of '%s'.\n",
 			    member->tident->text);
 			cgen->error = true; // TODO
 			return EINVAL;
@@ -4143,8 +4164,8 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 	elem = ast_tsenum_first(tsenum);
 	if (tsenum->have_def && elem == NULL) {
 		/* No elements */
-		lexer_dprint_tok(&ident_tok->tok, stderr);
-		fprintf(stderr, ": Enum '%s' is empty.\n", ident);
+		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
+		(void)fprintf(stderr, ": Enum '%s' is empty.\n", ident);
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -4347,8 +4368,9 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
 	default:
 		atok = ast_tree_first_tok(dspec);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Unimplemented declaration specifier.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Unimplemented declaration "
+		    "specifier.\n");
 		++cgds->cgen->warnings;
 		break;
 	}
@@ -4515,8 +4537,9 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 			stype = NULL;
 			atok = ast_tree_first_tok(cgds->tspec);
 			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Unimplemented type specifier.\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Unimplemented type "
+			    "specifier.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -4693,8 +4716,8 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
 	if (aslist != NULL) {
 		tok = ast_tree_first_tok(&aslist->node);
 		ctok = (comp_tok_t *)tok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented attribute specifier "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented attribute specifier "
 		    "in this context.\n");
 		cgen->error = true; // TODO
 		return EINVAL;
@@ -4724,8 +4747,8 @@ static int cgen_decl_fun_attr_usr(cgen_t *cgen, ast_aspec_attr_t *attr,
 	if (attr->have_params) {
 		tok = (comp_tok_t *) attr->tlparen.data;
 
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Attribute 'usr' should not have any "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Attribute 'usr' should not have any "
 		    "arguments.\n");
 		cgen->error = true; // XXX
 		return EINVAL;
@@ -4734,8 +4757,8 @@ static int cgen_decl_fun_attr_usr(cgen_t *cgen, ast_aspec_attr_t *attr,
 	if (have_args) {
 		tok = (comp_tok_t *) attr->tname.data;
 
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": User service routine cannot "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": User service routine cannot "
 		    "have any arguments.\n");
 		cgen->error = true; // XXX
 		return EINVAL;
@@ -4759,9 +4782,9 @@ static int cgen_decl_fun_attr_may_ign_return(cgen_t *cgen,
 	if (attr->have_params) {
 		tok = (comp_tok_t *) attr->tlparen.data;
 
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Attribute 'may_ignore_return' should not "
-		    "have any arguments.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Attribute 'may_ignore_return' "
+		    "should not have any arguments.\n");
 		cgen->error = true; // XXX
 		return EINVAL;
 	}
@@ -4899,8 +4922,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		if (sctype != asc_none) {
 			atok = ast_tree_first_tok(&arg->dspecs->node);
 			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Unimplemented storage class specifier.\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Unimplemented storage class "
+			    "specifier.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			--cgen->arglist_cnt;
@@ -4931,8 +4955,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 			    stype, "dummy");
 			if (rc != EOK) {
 				if (rc == EEXIST) {
-					lexer_dprint_tok(&ident->tok, stderr);
-					fprintf(stderr, ": Duplicate argument identifier '%s'.\n",
+					(void)lexer_dprint_tok(&ident->tok, stderr);
+					(void)fprintf(stderr, ": Duplicate "
+					    "argument identifier '%s'.\n",
 					    ident->tok.text);
 					cgen->error = true; // XXX
 					rc = EINVAL;
@@ -4952,8 +4977,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 				if ((ast_dfun_next(arg) != NULL || arg != ast_dfun_first(dfun))) {
 					atok = ast_tree_first_tok(&arg->dspecs->node);
 					tok = (comp_tok_t *) atok->data;
-					lexer_dprint_tok(&tok->tok, stderr);
-					fprintf(stderr, ": 'void' must be the only parameter.\n");
+					(void)lexer_dprint_tok(&tok->tok, stderr);
+					(void)fprintf(stderr, ": 'void' must "
+					    "be the only parameter.\n");
 					cgen->error = true; // XXX
 					rc = EINVAL;
 					--cgen->arglist_cnt;
@@ -4971,8 +4997,9 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		if (arg->aslist != NULL) {
 			atok = ast_tree_first_tok(&arg->aslist->node);
 			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Attribute specifier "
+			    "(unimplemented).\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			--cgen->arglist_cnt;
@@ -5000,8 +5027,8 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	/* Either all arguments should have identifiers, or none */
 	if (arg_with_ident && arg_without_ident) {
 		tok = (comp_tok_t *) dfun->tlparen.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Mixing arguments with and without an "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Mixing arguments with and without an "
 		    "identifier.\n");
 		++cgen->warnings;
 	}
@@ -5161,8 +5188,8 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 
 	if (cgen_type_is_incomplete(cgen, btype)) {
 		ctok = (comp_tok_t *)darray->tlbracket.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Array element has incomplete type.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Array element has incomplete type.\n");
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -5257,7 +5284,7 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
 		    aslist, &dtype);
 		break;
 	default:
-		printf("[cgen_decl] Unimplemented declarator type.\n");
+		(void)printf("[cgen_decl] Unimplemented declarator type.\n");
 		return ENOTSUP;
 	}
 
@@ -5698,8 +5725,8 @@ static int cgen_eint(cgen_expr_t *cgexpr, ast_eint_t *eint,
 	lit = (comp_tok_t *) eint->tlit.data;
 	rc = cgen_intlit_val(cgexpr->cgen, lit, &val, &elmtype);
 	if (rc != EOK) {
-		lexer_dprint_tok(&lit->tok, stderr);
-		fprintf(stderr, ": Invalid integer literal.\n");
+		(void)lexer_dprint_tok(&lit->tok, stderr);
+		(void)fprintf(stderr, ": Invalid integer literal.\n");
 		cgexpr->cgen->error = true; // TODO
 		return rc;
 	}
@@ -6009,8 +6036,8 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	/* Check if the identifier is declared */
 	member = scope_lookup(cgexpr->cgen->cur_scope, ident->tok.text);
 	if (member == NULL) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Undeclared identifier '%s'.\n",
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Undeclared identifier '%s'.\n",
 		    ident->tok.text);
 		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
@@ -6047,9 +6074,9 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		    lblock, eres);
 		break;
 	case sm_tdef:
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Expected variable name. '%s' is a type.\n",
-		    ident->tok.text);
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Expected variable name. '%s' "
+		    "is a type.\n", ident->tok.text);
 		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -6323,7 +6350,7 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 
 	/* Check the type */
 	if (res1.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -6332,7 +6359,7 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	tbasic = (cgtype_basic_t *)res1.cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -6495,8 +6522,9 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 
 		/* Check type for completeness */
 		if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
-			lexer_dprint_tok(&optok->tok, stderr);
-			fprintf(stderr, ": Indexing pointer to incomplete type.\n");
+			(void)lexer_dprint_tok(&optok->tok, stderr);
+			(void)fprintf(stderr, ": Indexing pointer to "
+			    "incomplete type.\n");
 			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -6686,12 +6714,12 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Pointer/array + pointer/array */
 	if (l_ptra && r_ptra) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Cannot add ");
-		(void) cgtype_print(lres->cgtype, stderr);
-		fprintf(stderr, " and ");
-		(void) cgtype_print(rres->cgtype, stderr);
-		fprintf(stderr, ".\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Cannot add ");
+		(void)cgtype_print(lres->cgtype, stderr);
+		(void)fprintf(stderr, " and ");
+		(void)cgtype_print(rres->cgtype, stderr);
+		(void)fprintf(stderr, ".\n");
 
 		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
@@ -6704,8 +6732,8 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	/* Integer/enum + pointer/array */
 	if ((l_int || l_enum) && r_ptra) {
 		/* Produce a style warning and switch the operands */
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Pointer should be the left "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
 		++cgexpr->cgen->warnings;
 		return cgen_add_ptra_int(cgexpr, ctok, rres, lres, lblock, eres);
@@ -6715,9 +6743,9 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	if (l_int && r_enum) {
 		/* Produce a style warning if enum is strict */
 		if (cgtype_is_strict_enum(rres->cgtype)) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Enum should be the left "
-			    "operand while adjusting.\n");
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Enum should be "
+			    "the left operand while adjusting.\n");
 			++cgexpr->cgen->warnings;
 		}
 		/* Switch the operands */
@@ -6737,18 +6765,18 @@ static int cgen_add(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	/* Integer + pointer/array */
 	if (l_int && r_ptra) {
 		/* Produce a style warning and switch the operands */
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Pointer should be the left "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Pointer should be the left "
 		    "operand while indexing.\n");
 		++cgexpr->cgen->warnings;
 		return cgen_add_ptra_int(cgexpr, ctok, rres, lres, lblock, eres);
 	}
 
-	fprintf(stderr, "Unimplemented addition of ");
-	(void) cgtype_print(lres->cgtype, stderr);
-	fprintf(stderr, " and ");
-	(void) cgtype_print(rres->cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)fprintf(stderr, "Unimplemented addition of ");
+	(void)cgtype_print(lres->cgtype, stderr);
+	(void)fprintf(stderr, " and ");
+	(void)cgtype_print(rres->cgtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
 }
@@ -6798,7 +6826,7 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 
 	/* Check the type */
 	if (res1.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -6807,7 +6835,7 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	tbasic = (cgtype_basic_t *)res1.cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7010,8 +7038,9 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 
 	/* Check type for completeness */
 	if (cgen_type_is_incomplete(cgexpr->cgen, ptrt->tgtype)) {
-		lexer_dprint_tok(&optok->tok, stderr);
-		fprintf(stderr, ": Indexing pointer to incomplete type.\n");
+		(void)lexer_dprint_tok(&optok->tok, stderr);
+		(void)fprintf(stderr, ": Indexing pointer "
+		    "to incomplete type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7247,13 +7276,13 @@ static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	tptr2 = (cgtype_pointer_t *)rval.cgtype->ext;
 
 	if (!cgtype_ptr_compatible(tptr1, tptr2)) {
-		lexer_dprint_tok(&optok->tok, stderr);
-		fprintf(stderr, ": Subtracting pointers of incompatible "
+		(void)lexer_dprint_tok(&optok->tok, stderr);
+		(void)fprintf(stderr, ": Subtracting pointers of incompatible "
 		    "type (");
 		cgtype_print(lval.cgtype, stderr);
-		fprintf(stderr, " and ");
+		(void)fprintf(stderr, " and ");
 		cgtype_print(rval.cgtype, stderr);
-		fprintf(stderr, ").\n");
+		(void)fprintf(stderr, ").\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7262,8 +7291,9 @@ static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	/* Check type for completeness */
 	if (cgen_type_is_incomplete(cgexpr->cgen, tptr1->tgtype) ||
 	    cgen_type_is_incomplete(cgexpr->cgen, tptr2->tgtype)) {
-		lexer_dprint_tok(&optok->tok, stderr);
-		fprintf(stderr, ": Subtracting pointers of incomplete type.\n");
+		(void)lexer_dprint_tok(&optok->tok, stderr);
+		(void)fprintf(stderr, ": Subtracting pointers of incomplete "
+		    "type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7393,21 +7423,21 @@ static int cgen_sub(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Integer - pointer/array */
 	if (l_int && r_ptra) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Invalid subtraction of ");
-		(void) cgtype_print(lres->cgtype, stderr);
-		fprintf(stderr, " and ");
-		(void) cgtype_print(rres->cgtype, stderr);
-		fprintf(stderr, ".\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Invalid subtraction of ");
+		(void)cgtype_print(lres->cgtype, stderr);
+		(void)fprintf(stderr, " and ");
+		(void)cgtype_print(rres->cgtype, stderr);
+		(void)fprintf(stderr, ".\n");
 		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
 	}
 
-	fprintf(stderr, "Unimplemented subtraction of ");
-	(void) cgtype_print(lres->cgtype, stderr);
-	fprintf(stderr, " and ");
-	(void) cgtype_print(rres->cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)fprintf(stderr, "Unimplemented subtraction of ");
+	(void)cgtype_print(lres->cgtype, stderr);
+	(void)fprintf(stderr, " and ");
+	(void)cgtype_print(rres->cgtype, stderr);
+	(void)fprintf(stderr, ".\n");
 	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
 }
@@ -7438,7 +7468,7 @@ static int cgen_mul(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7447,7 +7477,7 @@ static int cgen_mul(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7534,7 +7564,7 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7543,7 +7573,7 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7630,7 +7660,7 @@ static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7639,7 +7669,7 @@ static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	tbasic = (cgtype_basic_t *)lres->cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7727,7 +7757,7 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7736,7 +7766,7 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	tbasic1 = (cgtype_basic_t *)lres->cgtype->ext;
 	bits1 = cgen_basic_type_bits(cgexpr->cgen, tbasic1);
 	if (bits1 == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7746,7 +7776,7 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	/* Check the type */
 	if (rres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7841,7 +7871,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7850,7 +7880,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	tbasic1 = (cgtype_basic_t *)lres->cgtype->ext;
 	bits1 = cgen_basic_type_bits(cgexpr->cgen, tbasic1);
 	if (bits1 == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7860,7 +7890,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	/* Check the type */
 	if (rres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7946,7 +7976,7 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -7955,7 +7985,7 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -8033,7 +8063,7 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -8042,7 +8072,7 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -8120,7 +8150,7 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	/* Check the type */
 	if (lres->cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -8129,7 +8159,7 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres->cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -8603,7 +8633,7 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -8874,7 +8904,7 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -9145,7 +9175,7 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -9416,7 +9446,7 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -9686,7 +9716,7 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -9948,7 +9978,7 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	bits = cgen_basic_type_bits(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -11293,8 +11323,8 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	int rc;
 
 	if ((ares->cgtype->qual & cgqual_const) != 0) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Setting readonly variable.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Setting readonly variable.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -11309,7 +11339,7 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 		bits = cgen_basic_type_bits(cgproc->cgen,
 		    (cgtype_basic_t *)vres->cgtype->ext);
 		if (bits == 0) {
-			fprintf(stderr, "Unimplemented variable type "
+			(void)fprintf(stderr, "Unimplemented variable type "
 			    "[store].\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
@@ -11322,7 +11352,8 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	} else if (vres->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
-		fprintf(stderr, "Unimplemented variable type [store 2].\n");
+		(void)fprintf(stderr, "Unimplemented variable type "
+		    "[store 2].\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -12553,12 +12584,13 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 		}
 	}
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Invalid argument types to conditional operator (");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Invalid argument types to conditional "
+	    "operator (");
 	cgtype_print(atype, stderr);
-	fprintf(stderr, ", ");
+	(void)fprintf(stderr, ", ");
 	cgtype_print(btype, stderr);
-	fprintf(stderr, ").\n");
+	(void)fprintf(stderr, ").\n");
 	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
 	(void)rrtype;
@@ -12647,9 +12679,9 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	isvoid = cgtype_is_void(rtype);
 	if (isvoid) {
 		ctok = (comp_tok_t *)etcond->tqmark.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Conditional with void operands "
-		    "can be rewritten as an if-else statement.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Conditional with void "
+		    "operands can be rewritten as an if-else statement.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -12811,10 +12843,11 @@ static void cgen_check_passed_array_dim(cgen_t *cgen, comp_tok_t *tok,
 	aarray = (cgtype_array_t *)atype->ext;
 
 	if (aarray->asize < farray->asize) {
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Array passed to function is too "
-		    "small (expected dimension %" PRId64 ", actual dimension %"
-		    PRId64 ").\n", farray->asize, aarray->asize);
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Array passed to function "
+		    "is too small (expected dimension %" PRId64
+		    ", actual dimension %" PRId64 ").\n", farray->asize,
+		    aarray->asize);
 		++cgen->warnings;
 	}
 }
@@ -13068,9 +13101,9 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 			cident = fres.cvsymbol->ident->tok.text;
 
 		tok = (comp_tok_t *)ecall->tlparen.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Called object '%s' is not a function.\n",
-		    cident);
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Called object '%s' is not "
+		    "a function.\n", cident);
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13127,9 +13160,9 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 			atok = ast_tree_first_tok(earg->arg);
 			tok = (comp_tok_t *) atok->data;
 
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Too many arguments to function "
-			    "'%s'.\n", cident);
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Too many arguments "
+			    "to function '%s'.\n", cident);
 			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -13223,8 +13256,8 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		/* Still some left */
 		tok = (comp_tok_t *) ecall->trparen.data;
 
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Too few arguments to function '%s'.\n",
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Too few arguments to function '%s'.\n",
 		    cident);
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -13378,16 +13411,17 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 	ctok = (comp_tok_t *) eindex->tlbracket.data;
 
 	if (!b_ptra && !i_ptra) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Subscripted object is neither pointer nor array.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Subscripted object is "
+		    "neither pointer nor array.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
 	}
 
 	if ((b_ptra && !i_inte) || (i_ptra && !b_inte)) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Subscript index is not an integer.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Subscript index is not an integer.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13451,10 +13485,11 @@ static int cgen_ederef(cgen_expr_t *cgexpr, ast_ederef_t *ederef,
 		/* Still some left */
 		tok = (comp_tok_t *) ederef->tasterisk.data;
 
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Dereference operator needs a pointer, got '");
-		(void) cgtype_print(bres.cgtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Dereference operator needs "
+		    "a pointer, got '");
+		(void)cgtype_print(bres.cgtype, stderr);
+		(void)fprintf(stderr, "'.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13462,9 +13497,9 @@ static int cgen_ederef(cgen_expr_t *cgexpr, ast_ederef_t *ederef,
 
 	if (cgen_type_is_fptr(cgexpr->cgen, bres.cgtype)) {
 		tok = (comp_tok_t *)ederef->tasterisk.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Explicitly dereferencing function "
-		    "pointer is not necessary.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Explicitly dereferencing "
+		    "function pointer is not necessary.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -13510,16 +13545,16 @@ static int cgen_eaddr(cgen_expr_t *cgexpr, ast_eaddr_t *eaddr,
 
 	if (bres.cgtype->ntype == cgn_func) {
 		ctok = (comp_tok_t *)eaddr->tamper.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Explicitly taking the address of "
-		    "a function is not necessary.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Explicitly taking "
+		    "the address of a function is not necessary.\n");
 		++cgexpr->cgen->warnings;
 	}
 
 	if (bres.bitwidth > 0) {
 		ctok = (comp_tok_t *)eaddr->tamper.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Cannot take address of bitfield.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Cannot take address of bitfield.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13555,8 +13590,9 @@ static int cgen_ealignof_cgtype(cgen_expr_t *cgexpr, cgtype_t *etype,
 	int rc;
 
 	if (etype->ntype == cgn_func) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Alignof operator applied to a function.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Alignof operator applied "
+		    "to a function.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13602,8 +13638,8 @@ static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
 	ctok = (comp_tok_t *) atok->data;
 
 	if ((flags & cgrd_def) != 0) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Struct/union/enum definition "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Struct/union/enum definition "
 		    "inside alignof().\n");
 		++cgexpr->cgen->warnings;
 	}
@@ -13611,8 +13647,9 @@ static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&ealignof->atypename->node);
 		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented storage class "
+		    "specifier.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -13747,8 +13784,9 @@ static int cgen_esizeof_cgtype(cgen_expr_t *cgexpr, cgtype_t *etype,
 	int rc;
 
 	if (etype->ntype == cgn_func) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Sizeof operator applied to a function.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Sizeof operator applied "
+		    "to a function.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -13794,16 +13832,18 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	ctok = (comp_tok_t *) atok->data;
 
 	if ((flags & cgrd_def) != 0) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Struct/union/enum definition inside sizeof().\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Struct/union/enum "
+		    "definition inside sizeof().\n");
 		++cgexpr->cgen->warnings;
 	}
 
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&esizeof->atypename->node);
 		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented storage class "
+		    "specifier.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14185,8 +14225,8 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 				    lblock, eres);
 				break;
 			default:
-				lexer_dprint_tok(&ident->tok, stderr);
-				fprintf(stderr, ": Type identifier "
+				(void)lexer_dprint_tok(&ident->tok, stderr);
+				(void)fprintf(stderr, ": Type identifier "
 				    "expected.\n");
 
 				cgexpr->cgen->error = true; // TODO
@@ -14210,16 +14250,18 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	if ((flags & cgrd_def) != 0) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
 		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Struct/union/enum definition inside a cast.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Struct/union/enum "
+		    "definition inside a cast.\n");
 		++cgexpr->cgen->warnings;
 	}
 
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
 		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented storage class "
+		    "specifier.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14290,8 +14332,8 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	btype = bres.cgtype;
 	if (btype->ntype != cgn_record) {
 		ctok = (comp_tok_t *)emember->tperiod.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": '.' requires a struct or union.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": '.' requires a struct or union.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14305,10 +14347,10 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	elem = cgen_record_elem_find(record, mtok->tok.text, NULL);
 	if (elem == NULL) {
 		ctok = (comp_tok_t *)emember->tperiod.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Record type ");
-		(void) cgtype_print(btype, stderr);
-		fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Record type ");
+		(void)cgtype_print(btype, stderr);
+		(void)fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14422,8 +14464,9 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	btype = bres.cgtype;
 	if (btype->ntype != cgn_pointer) {
 		ctok = (comp_tok_t *)eindmember->tarrow.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": '->' requires a pointer to a struct or union.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": '->' requires a pointer to a "
+		    "struct or union.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14433,8 +14476,9 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 
 	if (ptype->tgtype->ntype != cgn_record) {
 		ctok = (comp_tok_t *)eindmember->tarrow.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": '->' requires a pointer to a struct or union.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": '->' requires a pointer to a "
+		    "struct or union.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14448,10 +14492,10 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	elem = cgen_record_elem_find(record, mtok->tok.text, NULL);
 	if (elem == NULL) {
 		ctok = (comp_tok_t *)eindmember->tarrow.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Record type ");
-		(void) cgtype_print(ptype->tgtype, stderr);
-		fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Record type ");
+		(void)cgtype_print(ptype->tgtype, stderr);
+		(void)fprintf(stderr, " has no member named '%s'.\n", mtok->tok.text);
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -14575,8 +14619,8 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 	ctok = (comp_tok_t *) eusign->tsign.data;
 
 	if (bires.cgtype->ntype != cgn_basic) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented variable type.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -14585,8 +14629,8 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 	tbasic = (cgtype_basic_t *)bires.cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented variable type.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -14885,7 +14929,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 
 	/* Check the type */
 	if (bires.cgtype->ntype != cgn_basic) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -14894,7 +14938,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	tbasic = (cgtype_basic_t *)bires.cgtype->ext;
 	bits = cgen_basic_type_bits(cgexpr->cgen, tbasic);
 	if (bits == 0) {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -15164,10 +15208,10 @@ static int cgen_check_va_list(cgen_proc_t *cgproc, cgtype_t *cgtype,
 			return EOK;
 	}
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": expected expression of type __va_list, got ");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": expected expression of type __va_list, got ");
 	cgtype_print(cgtype, stderr);
-	fprintf(stderr, ".\n");
+	(void)fprintf(stderr, ".\n");
 	cgproc->cgen->error = true; // TODO
 	return EINVAL;
 }
@@ -15220,8 +15264,8 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	ctok = (comp_tok_t *) atok->data;
 
 	if ((flags & cgrd_def) != 0) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Struct/union/enum definition "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Struct/union/enum definition "
 		    "inside __va_arg().\n");
 		++cgexpr->cgen->warnings;
 	}
@@ -15229,8 +15273,8 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&eva_arg->atypename->node);
 		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented storage class specifier.\n");
 		cgexpr->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -15344,8 +15388,9 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 	case ant_econcat:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This expression type is not implemented.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": This expression type is not "
+		    "implemented.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
@@ -15392,8 +15437,9 @@ static int cgen_expr(cgen_expr_t *cgexpr, ast_node_t *expr,
 	case ant_ecliteral:
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This expression type is not implemented.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": This expression type is not "
+		    "implemented.\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
@@ -15749,7 +15795,7 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		bits = cgen_basic_type_bits(cgexpr->cgen,
 		    (cgtype_basic_t *)res->cgtype->ext);
 		if (bits == 0) {
-			fprintf(stderr, "Unimplemented variable type.\n");
+			(void)fprintf(stderr, "Unimplemented variable type.\n");
 			cgexpr->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -15759,7 +15805,7 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	} else if (res->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
 	} else {
-		fprintf(stderr, "Unimplemented variable type (%d).\n",
+		(void)fprintf(stderr, "Unimplemented variable type (%d).\n",
 		    (int)res->cgtype->ntype);
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -16121,11 +16167,11 @@ static int cgen_uac_rtype(cgen_expr_t *cgexpr, cgtype_t *type1,
 
 	if (!cgen_type_is_integral(cgexpr->cgen, itype1) ||
 	    !cgen_type_is_integral(cgexpr->cgen, itype2)) {
-		fprintf(stderr, "Performing UAC on non-integral type(s) ");
-		(void) cgtype_print(itype1, stderr);
-		fprintf(stderr, ", ");
-		(void) cgtype_print(itype2, stderr);
-		fprintf(stderr, " (not implemented).\n");
+		(void)fprintf(stderr, "Performing UAC on non-integral type(s) ");
+		(void)cgtype_print(itype1, stderr);
+		(void)fprintf(stderr, ", ");
+		(void)cgtype_print(itype2, stderr);
+		(void)fprintf(stderr, " (not implemented).\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -16254,11 +16300,11 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 
 	if (!cgen_type_is_integral(cgexpr->cgen, ir1.cgtype) ||
 	    !cgen_type_is_integral(cgexpr->cgen, ir2.cgtype)) {
-		fprintf(stderr, "Performing UAC on non-integral type(s) ");
-		(void) cgtype_print(ir1.cgtype, stderr);
-		fprintf(stderr, ", ");
-		(void) cgtype_print(ir2.cgtype, stderr);
-		fprintf(stderr, " (not implemented).\n");
+		(void)fprintf(stderr, "Performing UAC on non-integral type(s) ");
+		(void)cgtype_print(ir1.cgtype, stderr);
+		(void)fprintf(stderr, ", ");
+		(void)cgtype_print(ir2.cgtype, stderr);
+		(void)fprintf(stderr, " (not implemented).\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -16589,8 +16635,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		itype = iri_trunc;
 
 		if (expl != cgen_explicit && !ares->cvknown) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Conversion may loose "
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Conversion may loose "
 			    "significant digits.\n");
 			++cgexpr->cgen->warnings;
 		}
@@ -16693,22 +16739,22 @@ static int cgen_type_convert_pointer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	    expl != cgen_explicit &&
 	    !cgtype_is_void(ptrtype1->tgtype) &&
 	    !cgtype_is_void(ptrtype2->tgtype)) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Converting from ");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, " to incompatible pointer type ");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, ".\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Converting from ");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, " to incompatible pointer type ");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, ".\n");
 		++cgexpr->cgen->warnings;
 	} else if (cgtype_ptr_compatible(ptrtype1, ptrtype2) &&
 	    !cgtype_ptr_preserves_tqual(ptrtype1, ptrtype2) &&
 	    expl != cgen_explicit) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Converting from ");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, " to ");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, " discards type qualifiers.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Converting from ");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, " to ");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, " discards type qualifiers.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -16758,12 +16804,12 @@ static int cgen_type_convert_record(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	rtype2 = (cgtype_record_t *)dtype->ext;
 
 	if (rtype1->record != rtype2->record) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Converting from '");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, "' to incompatible struct/union type '");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Converting from '");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, "' to incompatible struct/union type '");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, "'.\n");
 		cgexpr->cgen->error = true; // TODO
 	}
 
@@ -16815,12 +16861,12 @@ static int cgen_type_convert_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	etype2 = (cgtype_enum_t *)dtype->ext;
 
 	if (etype1->cgenum != etype2->cgenum && expl != cgen_explicit) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from '");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, "' to different enum type '");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, "' to different enum type '");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, "'.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -16871,12 +16917,12 @@ static int cgen_type_convert_from_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	/* Conversion is implicit and enum is strict */
 	if (expl != cgen_explicit && converted) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from '");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, "' to '");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, "' to '");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, "'.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -16926,12 +16972,12 @@ static int cgen_type_convert_to_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		goto error;
 
 	if (expl != cgen_explicit) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from '");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, "' to '");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, "' to '");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, "'.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -16999,11 +17045,11 @@ static int cgen_type_convert_from_bool(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	if (expl == cgen_implicit && !cgen_type_is_logic(cgexpr->cgen, dtype)) {
 		/* Generate warning. */
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from '_Bool' "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Implicit conversion from '_Bool' "
 		    "to '");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, "'.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -17118,10 +17164,10 @@ static int cgen_type_convert_int_to_bool(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	if (expl == cgen_implicit) {
 		/* Generate warning. */
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from '");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, "' to '_Bool'.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Implicit conversion from '");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, "' to '_Bool'.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -17179,22 +17225,22 @@ static int cgen_type_convert_int_ptr(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	if (expl != cgen_explicit) {
 		if (ares->cvknown && ares->cvint == 0) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Zero used as a null "
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Zero used as a null "
 			    "pointer constant.\n");
 			++cgexpr->cgen->warnings;
 		} else {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Implicit conversion from "
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Implicit conversion from "
 			    "integer to pointer.\n");
 			++cgexpr->cgen->warnings;
 		}
 	}
 
 	if (bits != cgen_pointer_bits) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Converting to pointer from integer "
-		    "of different size.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Converting to pointer from "
+		    "integer of different size.\n");
 		++cgexpr->cgen->warnings;
 
 		rc = cgtype_basic_create(cgelm_uint, &tbasic);
@@ -17274,16 +17320,16 @@ static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	    (cgtype_basic_t *)dtype->ext);
 
 	if (expl != cgen_explicit) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Implicit conversion from "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Implicit conversion from "
 		    "pointer to integer.\n");
 		++cgexpr->cgen->warnings;
 	}
 
 	if (bits != cgen_pointer_bits) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Converting from pointer to integer "
-		    "of different size.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Converting from pointer "
+		    "to integer of different size.\n");
 		++cgexpr->cgen->warnings;
 
 		rc = cgtype_basic_create(cgelm_uint, &tbasic);
@@ -17437,10 +17483,10 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 
 	if (dtype->ntype != cgn_basic ||
 	    ((cgtype_basic_t *)(dtype->ext))->elmtype != cgelm_int) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Converting to type ");
-		(void) cgtype_print(dtype, stderr);
-		fprintf(stderr, " which is different from int "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Converting to type ");
+		(void)cgtype_print(dtype, stderr);
+		(void)fprintf(stderr, " which is different from int "
 		    "(not implemented).\n");
 		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
@@ -17449,10 +17495,10 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (ares->cgtype->ntype != cgn_basic ||
 	    (((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_int &&
 	    ((cgtype_basic_t *)(ares->cgtype->ext))->elmtype != cgelm_logic)) {
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Converting from type ");
-		(void) cgtype_print(ares->cgtype, stderr);
-		fprintf(stderr, " which is different from int "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Converting from type ");
+		(void)cgtype_print(ares->cgtype, stderr);
+		(void)fprintf(stderr, " which is different from int "
 		    "(not implemented).\n");
 		cgexpr->cgen->error = true; // TODO
 		return EINVAL;
@@ -17989,8 +18035,8 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		 * (float, double).
 		 */
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, " : Unimplemented variable type "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, " : Unimplemented variable type "
 		    "[truth_eres_cjmp].\n");
 
 		cgexpr->cgen->error = true; // TODO
@@ -18002,10 +18048,10 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	    (((cgtype_basic_t *)cres->cgtype->ext)->elmtype != cgelm_logic &&
 	    ((cgtype_basic_t *)cres->cgtype->ext)->elmtype != cgelm_bool)) {
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: '");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: '");
 		cgtype_print(cres->cgtype, stderr);
-		fprintf(stderr, "' used as a truth value.\n");
+		(void)fprintf(stderr, "' used as a truth value.\n");
 		++cgexpr->cgen->warnings;
 	}
 
@@ -18104,8 +18150,8 @@ static int cgen_break(cgen_proc_t *cgproc, ast_break_t *abreak,
 
 	if (cgproc->cur_loop_switch == NULL) {
 		tok = (comp_tok_t *) abreak->tbreak.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Break without enclosing switch "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Break without enclosing switch "
 		    "or loop statement.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -18152,8 +18198,8 @@ static int cgen_continue(cgen_proc_t *cgproc, ast_continue_t *acontinue,
 
 	if (cgproc->cur_loop == NULL) {
 		tok = (comp_tok_t *) acontinue->tcontinue.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Continue without enclosing loop "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Continue without enclosing loop "
 		    "statement.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -18311,8 +18357,8 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	if (areturn->arg != NULL && cgtype_is_void(cgproc->rtype)) {
 		atok = ast_tree_first_tok(areturn->arg);
 		ctok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Return with a value in "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Return with a value in "
 		    "function returning void.\n");
 		++cgproc->cgen->warnings;
 	}
@@ -18320,8 +18366,8 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 	/* Verify that function return type is void if do not have argument */
 	if (areturn->arg == NULL && !cgtype_is_void(cgproc->rtype)) {
 		ctok = (comp_tok_t *) areturn->treturn.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Warning: Return without a value in "
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Return without a value in "
 		    "function returning non-void.\n");
 		++cgproc->cgen->warnings;
 	}
@@ -18351,7 +18397,8 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 			bits = cgen_basic_type_bits(cgproc->cgen,
 			    (cgtype_basic_t *)cgproc->rtype->ext);
 			if (bits == 0) {
-				fprintf(stderr, "Unimplemented return type.\n");
+				(void)fprintf(stderr, "Unimplemented "
+				    "return type.\n");
 				cgproc->cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
@@ -18366,7 +18413,7 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 				goto error;
 			bits = 0;
 		} else {
-			fprintf(stderr, "Unimplemented return type.\n");
+			(void)fprintf(stderr, "Unimplemented return type.\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -19042,8 +19089,9 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 	    eres.cgtype->ntype != cgn_enum) {
 		atok = ast_tree_first_tok(aswitch->sexpr);
 		tok = (comp_tok_t *)atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Switch expression does not have integer type.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Switch expression does not "
+		    "have integer type.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -19148,9 +19196,9 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 			    &value);
 			if (rc != EOK) {
 				tok = (comp_tok_t *)aswitch->tswitch.data;
-				lexer_dprint_tok(&tok->tok, stderr);
-				fprintf(stderr, ": Warning: Enumeration value "
-				    "'%s' not handled in switch.\n",
+				(void)lexer_dprint_tok(&tok->tok, stderr);
+				(void)fprintf(stderr, ": Warning: Enumeration "
+				    "value '%s' not handled in switch.\n",
 				    elem->ident);
 				++cgproc->cgen->warnings;
 			}
@@ -19206,22 +19254,22 @@ static void cgen_clabel_check_integer(cgen_proc_t *cgproc, cgtype_t *stype,
 	case cgn_basic:
 		tbasic = (cgtype_basic_t *)ctype->ext;
 		if (tbasic->elmtype == cgelm_logic) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Case expression has truth "
-			    "value, switch expression type is ");
-			(void) cgtype_print(stype, stderr);
-			fprintf(stderr, ".\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Case expression "
+			    "has truth value, switch expression type is ");
+			(void)cgtype_print(stype, stderr);
+			(void)fprintf(stderr, ".\n");
 			++cgproc->cgen->warnings;
 		}
 		break;
 	case cgn_enum:
 		if (cgtype_is_strict_enum(ctype)) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Case expression is ");
-			(void) cgtype_print(ctype, stderr);
-			fprintf(stderr, ", switch expression type is ");
-			(void) cgtype_print(stype, stderr);
-			fprintf(stderr, ".\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Case expression is ");
+			(void)cgtype_print(ctype, stderr);
+			(void)fprintf(stderr, ", switch expression type is ");
+			(void)cgtype_print(stype, stderr);
+			(void)fprintf(stderr, ".\n");
 			++cgproc->cgen->warnings;
 		}
 		break;
@@ -19251,18 +19299,18 @@ static void cgen_clabel_check_logic(cgen_proc_t *cgproc, cgtype_t *ctype,
 		tbasic = (cgtype_basic_t *)ctype->ext;
 		if (tbasic->elmtype != cgelm_logic &&
 		    tbasic->elmtype != cgelm_bool) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Case expression is ");
-			(void) cgtype_print(ctype, stderr);
-			fprintf(stderr, ", switch expression has truth value.\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Case expression is ");
+			(void)cgtype_print(ctype, stderr);
+			(void)fprintf(stderr, ", switch expression has truth value.\n");
 			++cgproc->cgen->warnings;
 		}
 		break;
 	case cgn_enum:
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Case expression is ");
-		(void) cgtype_print(ctype, stderr);
-		fprintf(stderr, ", switch expression has truth value.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Case expression is ");
+		(void)cgtype_print(ctype, stderr);
+		(void)fprintf(stderr, ", switch expression has truth value.\n");
 		++cgproc->cgen->warnings;
 		break;
 	default:
@@ -19292,19 +19340,19 @@ static void cgen_clabel_check_enum(cgen_proc_t *cgproc, cgtype_t *stype,
 	case cgn_basic:
 		tbasic = (cgtype_basic_t *)ctype->ext;
 		if (tbasic->elmtype == cgelm_logic) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Case expression has truth "
-			    "value, switch expression type is ");
-			(void) cgtype_print(stype, stderr);
-			fprintf(stderr, ".\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Case expression "
+			    "has truth value, switch expression type is ");
+			(void)cgtype_print(stype, stderr);
+			(void)fprintf(stderr, ".\n");
 			++cgproc->cgen->warnings;
 		} else {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Case expression is ");
-			(void) cgtype_print(ctype, stderr);
-			fprintf(stderr, ", switch expression type is ");
-			(void) cgtype_print(stype, stderr);
-			fprintf(stderr, ".\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Case expression is ");
+			(void)cgtype_print(ctype, stderr);
+			(void)fprintf(stderr, ", switch expression type is ");
+			(void)cgtype_print(stype, stderr);
+			(void)fprintf(stderr, ".\n");
 			++cgproc->cgen->warnings;
 		}
 		break;
@@ -19312,12 +19360,12 @@ static void cgen_clabel_check_enum(cgen_proc_t *cgproc, cgtype_t *stype,
 		senum = (cgtype_enum_t *)stype->ext;
 		cenum = (cgtype_enum_t *)ctype->ext;
 		if (senum->cgenum != cenum->cgenum) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Case expression is ");
-			(void) cgtype_print(ctype, stderr);
-			fprintf(stderr, ", switch expression type is ");
-			(void) cgtype_print(stype, stderr);
-			fprintf(stderr, ".\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Case expression is ");
+			(void)cgtype_print(ctype, stderr);
+			(void)fprintf(stderr, ", switch expression type is ");
+			(void)cgtype_print(stype, stderr);
+			(void)fprintf(stderr, ".\n");
 			++cgproc->cgen->warnings;
 		}
 		break;
@@ -19365,8 +19413,8 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	/* If there is no enclosing switch statement */
 	if (cgproc->cur_switch == NULL) {
 		tok = (comp_tok_t *) aclabel->tcase.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Case label without enclosing switch "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Case label without enclosing switch "
 		    "statement.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -19509,8 +19557,8 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 		/* Found existing value */
 		atok = ast_tree_first_tok(aclabel->cexpr);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Duplicate case value.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Duplicate case value.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -19636,9 +19684,9 @@ static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
 	/* If there is no enclosing switch statement */
 	if (cgproc->cur_switch == NULL) {
 		tok = (comp_tok_t *) adlabel->tdefault.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Default label without enclosing switch "
-		    "statement.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Default label without enclosing "
+		    "switch statement.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -19646,8 +19694,9 @@ static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
 
 	if (cgproc->cur_switch->dlabel != NULL) {
 		tok = (comp_tok_t *) adlabel->tdefault.data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Multiple default labels in switch statement.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Multiple default labels in "
+		    "switch statement.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -19692,8 +19741,9 @@ static int cgen_glabel(cgen_proc_t *cgproc, ast_glabel_t *aglabel,
 
 	rc = labels_define_label(cgproc->labels, &tok->tok);
 	if (rc == EEXIST) {
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Duplicate label '%s'.\n", tok->tok.text);
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Duplicate label '%s'.\n",
+		    tok->tok.text);
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -19739,8 +19789,8 @@ static void cgen_expr_check_unused(cgen_expr_t *cgexpr, ast_node_t *expr,
 		cbtok = (comp_tok_t *) btok->data;
 		lexer_dprint_tok_range(&catok->tok, &catok->tok.bpos,
 		    &cbtok->tok.epos, stderr);
-		fprintf(stderr, ": Warning: Computed expression value is not "
-		    "used.\n");
+		(void)fprintf(stderr, ": Warning: Computed expression value "
+		    "is not used.\n");
 		++cgexpr->cgen->warnings;
 	}
 }
@@ -19803,8 +19853,8 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	int rc;
 
 	if (cgen_type_is_incomplete(cgproc->cgen, dtype)) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Variable has incomplete type.\n");
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Variable has incomplete type.\n");
 		cgproc->cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -19814,8 +19864,9 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	cgen_eres_init(&lres);
 
 	if (sctype != asc_none) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Unimplemented storage class "
+		    "specifier.\n");
 		++cgproc->cgen->warnings;
 		rc = EINVAL;
 		goto error;
@@ -19833,8 +19884,8 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 	    dtype, vident);
 	if (rc != EOK) {
 		if (rc == EEXIST) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Duplicate identifier '%s'.\n",
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Duplicate identifier '%s'.\n",
 			    ident->tok.text);
 			cgproc->cgen->error = true; // XXX
 			rc = EINVAL;
@@ -19935,8 +19986,9 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&stdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Unimplemented storage class "
+		    "specifier.\n");
 		cgproc->cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -19959,8 +20011,9 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		/* Register assignment */
 		if (identry->regassign != NULL) {
 			tok = (comp_tok_t *) identry->regassign->tasm.data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Variable register assignment (unimplemented).\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Variable register assignment "
+			    "(unimplemented).\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -19970,8 +20023,9 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		if (identry->aslist != NULL) {
 			atok = ast_tree_first_tok(&identry->aslist->node);
 			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Attribute specifier (unimplemented).\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Attribute specifier "
+			    "(unimplemented).\n");
 			cgproc->cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -19984,8 +20038,8 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 		member = scope_lookup(cgproc->cgen->cur_scope->parent,
 		    ident->tok.text);
 		if (member != NULL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Declaration of '%s' "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "shadows a wider-scope declaration.\n",
 			    ident->tok.text);
 			++cgproc->cgen->warnings;
@@ -20249,8 +20303,8 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 	if (cgproc->irproc->variadic != true) {
 		atok = &stva_start->tva_start;
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Use of __va_start in a function that "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Use of __va_start in a function that "
 		    "does not take variable arguments.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -20272,8 +20326,8 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 	if (stva_start->lexpr->ntype != ant_eident) {
 		atok = ast_tree_first_tok(stva_start->lexpr);
 		tok = (comp_tok_t *)atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Expected identifier of last fixed "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Expected identifier of last fixed "
 		    "parameter.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -20285,8 +20339,8 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 
 	if (cgproc->last_arg == NULL ||
 	    strcmp(cgproc->last_arg, tok->tok.text) != 0) {
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Expected identifier of last fixed "
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Expected identifier of last fixed "
 		    "parameter.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -20339,8 +20393,9 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 	case ant_asm:
 		atok = ast_tree_first_tok(stmt);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This statement type is not implemented.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": This statement type is not "
+		    "implemented.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
@@ -20394,8 +20449,9 @@ static int cgen_stmt(cgen_proc_t *cgproc, ast_node_t *stmt,
 	case ant_lmacro:
 		atok = ast_tree_first_tok(stmt);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This statement type is not implemented.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": This statement type is not "
+		    "implemented.\n");
 		cgproc->cgen->error = true; // TODO
 		rc = EINVAL;
 		break;
@@ -20484,8 +20540,8 @@ static int cgen_gn_block(cgen_proc_t *cgproc, ast_block_t *block,
 
 	tok = (comp_tok_t *) block->topen.data;
 
-	lexer_dprint_tok(&tok->tok, stderr);
-	fprintf(stderr, ": Warning: Gratuitous nested block.\n");
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Gratuitous nested block.\n");
 	++cgproc->cgen->warnings;
 
 	return cgen_block(cgproc, block, lblock);
@@ -20744,9 +20800,9 @@ static int cgen_fun_args(cgen_t *cgen, comp_tok_t *ident, cgtype_t *ftype,
 		 * size, as long as the element type is complete.
 		 */
 		if (!cgen_type_is_complete_or_array(cgen, stype)) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Argument %u has incomplete type.\n",
-			    argidx);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Argument %u has incomplete "
+			    "type.\n", argidx);
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -20980,7 +21036,7 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 			bits = cgen_basic_type_bits(cgen,
 			    (cgtype_basic_t *)cgtype->ext);
 			if (bits == 0) {
-				fprintf(stderr,
+				(void)fprintf(stderr,
 				    "cgen_cgtype: Unimplemented type.\n");
 				cgen->error = true; // TODO
 				rc = EINVAL;
@@ -21027,7 +21083,7 @@ static int cgen_cgtype(cgen_t *cgen, cgtype_t *cgtype, ir_texpr_t **rirtexpr)
 
 		iretexpr = NULL;
 	} else {
-		fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
+		(void)fprintf(stderr, "cgen_cgtype: Unimplemented type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -21123,14 +21179,16 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	} else if (sctype == asc_extern) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Function definition should not use 'extern'.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Function definition should "
+		    "not use 'extern'.\n");
 		++cgen->warnings;
 	} else if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Unimplemented storage class "
+		    "specifier.\n");
 		++cgen->warnings;
 	}
 
@@ -21152,8 +21210,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	} else {
 		if (symbol->stype != st_fun) {
 			/* Already declared as a different type of symbol */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": '%s' already declared as a "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": '%s' already declared as a "
 			    "different type of symbol.\n", ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -21162,8 +21220,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 
 		if ((symbol->flags & sf_defined) != 0) {
 			/* Already defined */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Redefinition of '%s'.\n", ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Redefinition of '%s'.\n",
+			    ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -21173,16 +21232,16 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		old_static = (symbol->flags & sf_static) != 0;
 		if (vstatic && !old_static) {
 			/* Non-static previously declared as static */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Static '%s' was previously "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Static '%s' was previously "
 			    "declared as non-static.\n", ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
 		} else if (!vstatic && old_static) {
 			/* Non-static previously declared as static */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: non-static '%s' was "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: non-static '%s' was "
 			    "previously declared as static.\n",
 			    ident->tok.text);
 			++cgen->warnings;
@@ -21210,13 +21269,13 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	} else {
 		rc = cgtype_compose(symbol->cgtype, dtype, &ctype);
 		if (rc == EINVAL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Conflicting type '");
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Conflicting type '");
 			cgtype_print(dtype, stderr);
-			fprintf(stderr, "' for '%s', previously "
+			(void)fprintf(stderr, "' for '%s', previously "
 			    "declared as '", ident->tok.text);
 			cgtype_print(symbol->cgtype, stderr);
-			fprintf(stderr, "'.\n");
+			(void)fprintf(stderr, "'.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -21287,8 +21346,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (dfun == NULL) {
 		atok = ast_tree_first_tok(idle->decl);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Function declarator required.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Function declarator required.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -21305,8 +21364,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 			atok = ast_tree_first_tok(&arg->dspecs->node);
 
 			tok = (comp_tok_t *) atok->data;
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Argument identifier missing.\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Argument identifier "
+			    "missing.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -21315,16 +21375,17 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		tok = (comp_tok_t *) dident->data;
 
 		if (arg->aslist != NULL) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Atribute specifier not implemented.\n");
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Atribute specifier "
+			    "not implemented.\n");
 			++cgen->warnings;
 		}
 
 		/* Check for shadowing a global-scope identifier */
 		member = scope_lookup(cgen->scope, tok->tok.text);
 		if (member != NULL) {
-			lexer_dprint_tok(&tok->tok, stderr);
-			fprintf(stderr, ": Warning: Declaration of '%s' "
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "shadows a wider-scope declaration.\n",
 			    tok->tok.text);
 			++cgen->warnings;
@@ -21382,10 +21443,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 
 	/* Check return type for completeness */
 	if (cgen_type_is_incomplete(cgen, dtfunc->rtype)) {
-		lexer_dprint_tok(&ident->tok, stderr);
-		fprintf(stderr, ": Function returns incomplete type '");
+		(void)lexer_dprint_tok(&ident->tok, stderr);
+		(void)fprintf(stderr, ": Function returns incomplete type '");
 		cgtype_print(dtfunc->rtype, stderr);
-		fprintf(stderr, "'.\n");
+		(void)fprintf(stderr, "'.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -21514,8 +21575,8 @@ static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
 
 		/* Non-global scope? */
 		if (cgen->cur_scope->parent != NULL) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Type definition in a "
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Type definition in a "
 			    "non-global scope.\n");
 			++cgen->warnings;
 
@@ -21523,9 +21584,10 @@ static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
 			member = scope_lookup(cgen->cur_scope->parent,
 			    ctok->tok.text);
 			if (member != NULL) {
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Warning: Declaration of '%s' "
-				    "shadows a wider-scope declaration.\n",
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr, ": Warning: Declaration "
+				    "of '%s' shadows a wider-scope "
+				    "declaration.\n",
 				    ctok->tok.text);
 				++cgen->warnings;
 			}
@@ -21535,9 +21597,9 @@ static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
 		rc = scope_insert_tdef(cgen->cur_scope, &ctok->tok, dtype);
 		if (rc != EOK) {
 			if (rc == EEXIST) {
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Duplicate identifier '%s'.\n",
-				    ctok->tok.text);
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr, ": Duplicate identifier "
+				    "'%s'.\n", ctok->tok.text);
 				cgen->error = true; // XXX
 				rc = EINVAL;
 				goto error;
@@ -21555,8 +21617,8 @@ static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
 	if (idle != NULL) {
 		/* This means we have a dnoident followed by comma */
 		ctok = (comp_tok_t *)idle->tcomma.data;
-		lexer_dprint_tok(&ctok->tok, stderr);
-		fprintf(stderr, ": Declarator expected before ','.\n");
+		(void)lexer_dprint_tok(&ctok->tok, stderr);
+		(void)fprintf(stderr, ": Declarator expected before ','.\n");
 		cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -21610,8 +21672,9 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 	} else if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Unimplemented storage class "
+		    "specifier.\n");
 		++cgen->warnings;
 	}
 
@@ -21660,8 +21723,8 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 	} else {
 		if (symbol->stype != st_fun) {
 			/* Already declared as a different type of symbol */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": '%s' already declared as a "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": '%s' already declared as a "
 			    "different type of symbol.\n", ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -21671,13 +21734,13 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		/* Create composite type */
 		rc = cgtype_compose(symbol->cgtype, ftype, &ctype);
 		if (rc == EINVAL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Conflicting type '");
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Conflicting type '");
 			cgtype_print(ftype, stderr);
-			fprintf(stderr, "' for '%s', previously "
+			(void)fprintf(stderr, "' for '%s', previously "
 			    "declared as '", ident->tok.text);
 			cgtype_print(symbol->cgtype, stderr);
-			fprintf(stderr, "'.\n");
+			(void)fprintf(stderr, "'.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -21689,14 +21752,14 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		symbol->cgtype = ctype;
 
 		if ((symbol->flags & sf_defined) != 0) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Declaration of '%s' follows definition.\n",
-			    ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
+			    "follows definition.\n", ident->tok.text);
 			++cgen->warnings;
 		} else {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
-			    ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Multiple "
+			    "declarations of '%s'.\n", ident->tok.text);
 			++cgen->warnings;
 		}
 
@@ -21704,16 +21767,16 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		old_static = (symbol->flags & sf_static) != 0;
 		if (vstatic && !old_static) {
 			/* Non-static previously declared as static */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Static '%s' was previously "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Static '%s' was previously "
 			    "declared as non-static.\n", ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
 		} else if (!vstatic && old_static) {
 			/* Non-static previously declared as static */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: non-static '%s' was "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: non-static '%s' was "
 			    "previously declared as static.\n",
 			    ident->tok.text);
 			++cgen->warnings;
@@ -21723,14 +21786,15 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		old_extern = (symbol->flags & sf_extern) != 0;
 		if (vextern && !old_extern) {
 			/* Non-extern previously declared as extern */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Extern '%s' was previously "
-			    "declared as non-extern.\n", ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Extern '%s' was "
+			    "previously declared as non-extern.\n",
+			    ident->tok.text);
 			++cgen->warnings;
 		} else if (!vextern && old_extern) {
 			/* Non-extern previously declared as extern */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: non-extern '%s' was "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: non-extern '%s' was "
 			    "previously declared as extern.\n",
 			    ident->tok.text);
 			++cgen->warnings;
@@ -21957,9 +22021,9 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 					rc = EDOM;
 					goto error;
 				}
-				lexer_dprint_tok(&tassign->tok, stderr);
-				fprintf(stderr, ": Array index in non-array "
-				    "initializer.\n");
+				(void)lexer_dprint_tok(&tassign->tok, stderr);
+				(void)fprintf(stderr, ": Array index in "
+				    "non-array initializer.\n");
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
@@ -21975,9 +22039,9 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			cgen_eres_init(&eres);
 			if (dsg < 0 || (tarray->have_size &&
 			    dsg >= (int64_t)tarray->asize)) {
-				lexer_dprint_tok(&tassign->tok, stderr);
-				fprintf(stderr, ": Array index exceeds array "
-				    "bounds.\n");
+				(void)lexer_dprint_tok(&tassign->tok, stderr);
+				(void)fprintf(stderr, ": Array index exceeds "
+				    "array bounds.\n");
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
@@ -21998,9 +22062,9 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 					rc = EDOM;
 					goto error;
 				}
-				lexer_dprint_tok(&tassign->tok, stderr);
-				fprintf(stderr, ": Member access in non-record "
-				    "initializer.\n");
+				(void)lexer_dprint_tok(&tassign->tok, stderr);
+				(void)fprintf(stderr, ": Member access in "
+				    "non-record initializer.\n");
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
@@ -22015,11 +22079,11 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 					rc = EDOM;
 					goto error;
 				}
-				lexer_dprint_tok(&tassign->tok, stderr);
-				fprintf(stderr, ": Record type ");
+				(void)lexer_dprint_tok(&tassign->tok, stderr);
+				(void)fprintf(stderr, ": Record type ");
 				(void)cgtype_print(cgtype, stderr);
-				fprintf(stderr, " has no member named '%s'.\n",
-				    ctok->tok.text);
+				(void)fprintf(stderr, " has no member named "
+				    "'%s'.\n", ctok->tok.text);
 				cgen->error = true; // TODO
 				rc = EINVAL;
 				goto error;
@@ -22607,8 +22671,8 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			cinit = (ast_cinit_t *)init->ext;
 
 			ctok = (comp_tok_t *)cinit->tlbrace.data;
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Warning: Excess braces around "
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Excess braces around "
 			    "scalar initializer.\n");
 			++cgen->warnings;
 
@@ -22623,8 +22687,9 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			if (elem != NULL) {
 				atok = ast_tree_first_tok(elem->init);
 				ctok = (comp_tok_t *)atok->data;
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Excess initializer.\n'");
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr,
+				    ": Excess initializer.\n'");
 				cgen->error = true; // XXX
 				return EINVAL;
 			}
@@ -22660,7 +22725,7 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 
 		bits = cgen_basic_type_bits(cgen, tbasic);
 		if (bits == 0) {
-			fprintf(stderr, "Unimplemented variable type.\n");
+			(void)fprintf(stderr, "Unimplemented variable type.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
@@ -22724,7 +22789,7 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 
 		dentry = NULL;
 	} else {
-		fprintf(stderr, "Unimplemented variable type.\n");
+		(void)fprintf(stderr, "Unimplemented variable type.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -22901,8 +22966,9 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype,
 			if (melem != NULL) {
 				atok = ast_tree_first_tok(melem->init);
 				ctok = (comp_tok_t *)atok->data;
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Excess initializer.\n'");
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr,
+				    ": Excess initializer.\n'");
 				cgen->error = true; // XXX
 				return EINVAL;
 			}
@@ -22911,9 +22977,9 @@ static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype,
 			if (*elem != NULL) {
 				atok = ast_tree_first_tok((*elem)->init);
 				ctok = (comp_tok_t *)atok->data;
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Warning: Initialization is not "
-				    "fully bracketed.\n");
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr, ": Warning: "
+				    "Initialization is not fully bracketed.\n");
 				++cgen->warnings;
 			}
 
@@ -22984,9 +23050,9 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 	(void)itok;
 
 	if (stype->ntype != cgn_array) {
-		fprintf(stderr, ": Cannot initialize variable of type ");
-		(void) cgtype_print(stype, stderr);
-		fprintf(stderr, " from (wide) string.\n");
+		(void)fprintf(stderr, ": Cannot initialize variable of type ");
+		(void)cgtype_print(stype, stderr);
+		(void)fprintf(stderr, " from (wide) string.\n");
 		cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -22994,9 +23060,9 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 
 	tarray = (cgtype_array_t *)stype->ext;
 	if (!cgen_type_is_integer(cgen, tarray->etype)) {
-		fprintf(stderr, ": Cannot initialize array of ");
-		(void) cgtype_print(tarray->etype, stderr);
-		fprintf(stderr, " from (wide) string.\n");
+		(void)fprintf(stderr, ": Cannot initialize array of ");
+		(void)cgtype_print(tarray->etype, stderr);
+		(void)fprintf(stderr, " from (wide) string.\n");
 		cgen->error = true; // XXX
 		rc = EINVAL;
 		goto error;
@@ -23018,19 +23084,19 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 		rrank = wide ? cgir_int : cgir_char;
 
 		if (cgtype_int_rank(tarray->etype) != rrank) {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Cannot initialize array of ");
-			(void) cgtype_print(tarray->etype, stderr);
-			fprintf(stderr, " from %s.\n", wide ? "wide string" :
-			    "string");
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Cannot initialize array of ");
+			(void)cgtype_print(tarray->etype, stderr);
+			(void)fprintf(stderr, " from %s.\n", wide ?
+			    "wide string" : "string");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
 		}
 
 		if (*text != '"') {
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": String constant expected.\n");
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": String constant expected.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -23040,8 +23106,9 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 
 		while (*text != '"') {
 			if (*text == '\0') {
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Unexpected end of string literal.\n'");
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr, ": Unexpected end of "
+				    "string literal.\n'");
 				cgen->error = true; // XXX
 				rc = EINVAL;
 				goto error;
@@ -23058,8 +23125,8 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 			}
 
 			if (tarray->have_size && idx >= tarray->asize) {
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Excess initializer "
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr, ": Excess initializer "
 				    "characters in string.\n");
 				cgen->error = true; // XXX
 				rc = EINVAL;
@@ -23160,8 +23227,9 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 			if (celem != NULL) {
 				atok = ast_tree_first_tok(celem->init);
 				ctok = (comp_tok_t *)atok->data;
-				lexer_dprint_tok(&ctok->tok, stderr);
-				fprintf(stderr, ": Excess initializer.\n'");
+				(void)lexer_dprint_tok(&ctok->tok, stderr);
+				(void)fprintf(stderr,
+				    ": Excess initializer.\n'");
 				cgen->error = true; // XXX
 				return EINVAL;
 			}
@@ -23173,8 +23241,8 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 		} else {
 			atok = ast_tree_first_tok(init);
 			ctok = (comp_tok_t *)atok->data;
-			lexer_dprint_tok(&ctok->tok, stderr);
-			fprintf(stderr, ": Invalid initializer.\n'");
+			(void)lexer_dprint_tok(&ctok->tok, stderr);
+			(void)fprintf(stderr, ": Invalid initializer.\n'");
 			cgen->error = true; // XXX
 			return EINVAL;
 		}
@@ -23236,8 +23304,9 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 	} else if (sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": Warning: Unimplemented storage class specifier.\n");
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Unimplemented storage class "
+		    "specifier.\n");
 		++cgen->warnings;
 	}
 
@@ -23270,8 +23339,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 	} else {
 		if (symbol->stype != st_var) {
 			/* Already declared as a different type of symbol */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": '%s' already declared as a "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": '%s' already declared as a "
 			    "different type of symbol.\n", ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -23280,13 +23349,13 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 
 		rc = cgtype_compose(symbol->cgtype, stype, &ctype);
 		if (rc == EINVAL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Conflicting type '");
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Conflicting type '");
 			cgtype_print(stype, stderr);
-			fprintf(stderr, "' for '%s', previously "
+			(void)fprintf(stderr, "' for '%s', previously "
 			    "declared as '", ident->tok.text);
 			cgtype_print(symbol->cgtype, stderr);
-			fprintf(stderr, "'.\n");
+			(void)fprintf(stderr, "'.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
@@ -23296,22 +23365,23 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 
 		if ((symbol->flags & sf_defined) != 0 && entry->init != NULL) {
 			/* Already defined */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Redefinition of '%s'.\n", ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Redefinition of '%s'.\n",
+			    ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
 		}
 
 		if ((symbol->flags & sf_defined) != 0) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Declaration of '%s' follows definition.\n",
-			    ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
+			    "follows definition.\n", ident->tok.text);
 			++cgen->warnings;
 		} else if (entry->init == NULL) {
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Multiple declarations of '%s'.\n",
-			    ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Multiple "
+			    "declarations of '%s'.\n", ident->tok.text);
 			++cgen->warnings;
 		} else {
 			/* Symbol should be member of module scope */
@@ -23319,10 +23389,10 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			assert(member != NULL);
 
 			if (!member->used) {
-				lexer_dprint_tok(&ident->tok, stderr);
-				fprintf(stderr, ": Warning: Variable '%s' not "
-				    "used since forward declaration.\n",
-				    ident->tok.text);
+				(void)lexer_dprint_tok(&ident->tok, stderr);
+				(void)fprintf(stderr, ": Warning: "
+				    "Variable '%s' not used since forward "
+				    "declaration.\n", ident->tok.text);
 				++cgen->warnings;
 			}
 		}
@@ -23331,16 +23401,16 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		old_static = (symbol->flags & sf_static) != 0;
 		if (vstatic && !old_static) {
 			/* Non-static previously declared as static */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Static '%s' was previously "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Static '%s' was previously "
 			    "declared as non-static.\n", ident->tok.text);
 			cgen->error = true; // XXX
 			rc = EINVAL;
 			goto error;
 		} else if (!vstatic && old_static) {
 			/* Non-static previously declared as static */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: non-static '%s' was "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: non-static '%s' was "
 			    "previously declared as static.\n",
 			    ident->tok.text);
 			++cgen->warnings;
@@ -23350,14 +23420,15 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		old_extern = (symbol->flags & sf_extern) != 0;
 		if (vextern && !old_extern) {
 			/* Non-extern previously declared as extern */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: Extern '%s' was previously "
-			    "declared as non-extern.\n", ident->tok.text);
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: Extern '%s' was "
+			    "previously declared as non-extern.\n",
+			    ident->tok.text);
 			++cgen->warnings;
 		} else if (!vextern && old_extern && entry->init == NULL) {
 			/* Non-extern previously declared as extern */
-			lexer_dprint_tok(&ident->tok, stderr);
-			fprintf(stderr, ": Warning: non-extern '%s' was "
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: non-extern '%s' was "
 			    "previously declared as extern.\n",
 			    ident->tok.text);
 			symbol->flags &= ~sf_extern;
@@ -23485,8 +23556,8 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 				if (entry->have_init) {
 					tok = (comp_tok_t *)
 					    entry->tassign.data;
-					lexer_dprint_tok(&tok->tok, stderr);
-					fprintf(stderr, ": Unexpected "
+					(void)lexer_dprint_tok(&tok->tok, stderr);
+					(void)fprintf(stderr, ": Unexpected "
 					    "initializer.\n");
 					cgen->error = true; // XXX
 					rc = EINVAL;
@@ -23501,18 +23572,18 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 					if ((flags & cgrd_prevdef) != 0) {
 						atok = ast_tree_first_tok(&gdecln->dspecs->node);
 						tok = (comp_tok_t *) atok->data;
-						lexer_dprint_tok(&tok->tok, stderr);
-						fprintf(stderr, ": Warning: Declaration of '");
+						(void)lexer_dprint_tok(&tok->tok, stderr);
+						(void)fprintf(stderr, ": Warning: Declaration of '");
 						cgtype_print(stype, stderr);
-						fprintf(stderr, "' follows definition.\n");
+						(void)fprintf(stderr, "' follows definition.\n");
 						++cgen->warnings;
 					} else if ((flags & cgrd_prevdecl) != 0) {
 						atok = ast_tree_first_tok(&gdecln->dspecs->node);
 						tok = (comp_tok_t *) atok->data;
-						lexer_dprint_tok(&tok->tok, stderr);
-						fprintf(stderr, ": Warning: Multiple declarations of '");
+						(void)lexer_dprint_tok(&tok->tok, stderr);
+						(void)fprintf(stderr, ": Warning: Multiple declarations of '");
 						cgtype_print(stype, stderr);
-						fprintf(stderr, "'.\n");
+						(void)fprintf(stderr, "'.\n");
 						++cgen->warnings;
 					}
 				}
@@ -23566,9 +23637,9 @@ static int cgen_global_decln(cgen_t *cgen, ast_node_t *decln)
 	case ant_externc:
 		atok = ast_tree_first_tok(decln);
 		tok = (comp_tok_t *) atok->data;
-		lexer_dprint_tok(&tok->tok, stderr);
-		fprintf(stderr, ": This declaration type is not implemented.\n");
-		cgen->error = true; // TODO
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": This declaration type is not "
+		    "implemented.\n");
 		rc = EINVAL;
 		break;
 	default:
@@ -23650,8 +23721,8 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 	unsigned i;
 
 	if (cgen_type_is_incomplete(cgen, cgtype)) {
-		lexer_dprint_tok(&symbol->ident->tok, stderr);
-		fprintf(stderr, ": Variable has incomplete type.\n");
+		(void)lexer_dprint_tok(&symbol->ident->tok, stderr);
+		(void)fprintf(stderr, ": Variable has incomplete type.\n");
 		cgen->error = true; // TODO
 		return EINVAL;
 	}
@@ -23700,8 +23771,8 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 			    (cgtype_basic_t *)cgtype->ext);
 
 			if (bits == 0) {
-				lexer_dprint_tok(&symbol->ident->tok, stderr);
-				fprintf(stderr,
+				(void)lexer_dprint_tok(&symbol->ident->tok, stderr);
+				(void)fprintf(stderr,
 				    ": Unimplemented variable type.XXX\n");
 				cgen->error = true; // TODO
 				rc = EINVAL;
@@ -23736,8 +23807,9 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 			if (rc != EOK)
 				goto error;
 		} else {
-			lexer_dprint_tok(&symbol->ident->tok, stderr);
-			fprintf(stderr, ": Unimplemented variable type.\n");
+			(void)lexer_dprint_tok(&symbol->ident->tok, stderr);
+			(void)fprintf(stderr,
+			    ": Unimplemented variable type.\n");
 			cgen->error = true; // TODO
 			rc = EINVAL;
 			goto error;
