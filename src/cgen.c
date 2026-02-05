@@ -5976,6 +5976,7 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_imm_t *imm = NULL;
+	char *destvn;
 	int rc;
 
 	(void)eident;
@@ -5998,9 +5999,15 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	imm = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = NULL;
 	eres->cvknown = true;
@@ -6130,6 +6137,7 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_imm_t *imm = NULL;
 	cgtype_basic_t *btype = NULL;
+	char *destvn;
 	int rc;
 
 	rc = ir_instr_create(&instr);
@@ -6154,9 +6162,15 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	imm = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 	eres->cvknown = true;
@@ -6188,6 +6202,7 @@ static int cgen_const_bool(cgen_proc_t *cgproc, bool bval, ir_lblock_t *lblock,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_imm_t *imm = NULL;
 	cgtype_basic_t *btype = NULL;
+	char *destvn;
 	int rc;
 
 	rc = ir_instr_create(&instr);
@@ -6212,9 +6227,15 @@ static int cgen_const_bool(cgen_proc_t *cgproc, bool bval, ir_lblock_t *lblock,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	imm = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 	eres->cvknown = true;
@@ -6263,6 +6284,7 @@ static int cgen_gsym_ptr(cgen_proc_t *cgproc, symbol_t *symbol,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
+	char *destvn;
 	int rc;
 
 	rc = ir_instr_create(&instr);
@@ -6283,9 +6305,15 @@ static int cgen_gsym_ptr(cgen_proc_t *cgproc, symbol_t *symbol,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	var = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = NULL;
 	eres->cvknown = true;
@@ -6331,6 +6359,7 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	bool is_signed;
 	unsigned bits;
 	bool overflow;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -6393,9 +6422,16 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -6487,6 +6523,7 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_array_t *arrt;
 	cgtype_t *etype;
 	bool idx_signed;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lval);
@@ -6631,11 +6668,17 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	instr->op2 = &rarg->oper;
 	instr->opt = elemte;
 
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 	elemte = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -6807,6 +6850,7 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	bool is_signed;
 	unsigned bits;
 	bool overflow;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&res1);
@@ -6869,9 +6913,16 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7005,6 +7056,7 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_t *cgtype = NULL;
 	ir_texpr_t *elemte = NULL;
 	cgtype_pointer_t *ptrt;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lval);
@@ -7073,10 +7125,13 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	instr->op1 = &carg->oper;
 	instr->op2 = NULL;
 
-	carg = NULL;
 	tmp = NULL;
+	carg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* ptridx %<dest>, %<tmp> */
@@ -7104,11 +7159,17 @@ static int cgen_sub_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	instr->op2 = &rarg->oper;
 	instr->opt = elemte;
 
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 	elemte = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7252,6 +7313,7 @@ static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_pointer_t *tptr2;
 	cgtype_t *ptdtype = NULL;
 	ir_texpr_t *elemte = NULL;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lval);
@@ -7327,11 +7389,17 @@ static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	instr->op2 = &rarg->oper;
 	instr->opt = elemte;
 
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 	elemte = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = ptdtype;
 	if (lval.cvknown && rval.cvknown && lval.cvsymbol == rval.cvsymbol) {
@@ -7464,6 +7532,7 @@ static int cgen_mul(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool is_signed;
 	unsigned bits;
 	bool overflow;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -7511,9 +7580,16 @@ static int cgen_mul(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7560,6 +7636,7 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool is_signed;
 	unsigned bits;
 	bool divbyzero;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -7607,9 +7684,16 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		return rc;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7656,6 +7740,7 @@ static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool is_signed;
 	unsigned bits;
 	bool divbyzero;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -7703,9 +7788,16 @@ static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		return rc;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7753,6 +7845,7 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool is_signed1;
 	bool is_signed2;
 	unsigned bits1;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -7811,9 +7904,16 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		return rc;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7865,6 +7965,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	unsigned bits1;
 	bool is_signed1;
 	bool is_signed2;
+	char *destvn;
 	int rc;
 
 	optok = &ebinop->top;
@@ -7925,9 +8026,16 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -7972,6 +8080,7 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
 	unsigned bits;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -8017,9 +8126,16 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -8059,6 +8175,7 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
 	unsigned bits;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -8104,9 +8221,16 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -8146,6 +8270,7 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	ir_oper_var_t *rarg = NULL;
 	cgtype_t *cgtype = NULL;
 	unsigned bits;
+	char *destvn;
 	int rc;
 
 	/* Check the type */
@@ -8191,9 +8316,16 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -8619,6 +8751,7 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 	cgen_uac_flags_t flags;
 	unsigned bits;
 	bool is_signed;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -8679,12 +8812,19 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -8735,6 +8875,7 @@ static int cgen_lt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *lres,
 	cgtype_basic_t *btype = NULL;
 	cgtype_pointer_t *tptr1;
 	cgtype_pointer_t *tptr2;
+	char *destvn;
 	int rc;
 
 	/* Warn for incompatible pointer types */
@@ -8776,9 +8917,16 @@ static int cgen_lt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *lres,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -8890,6 +9038,7 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgen_uac_flags_t flags;
 	unsigned bits;
 	bool is_signed;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -8950,12 +9099,19 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9006,6 +9162,7 @@ static int cgen_lteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgtype_pointer_t *tptr1;
 	cgtype_pointer_t *tptr2;
+	char *destvn;
 	int rc;
 
 	/* Warn for incompatible pointer types */
@@ -9047,9 +9204,16 @@ static int cgen_lteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9161,6 +9325,7 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgen_uac_flags_t flags;
 	unsigned bits;
 	bool is_signed;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -9221,12 +9386,19 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9277,6 +9449,7 @@ static int cgen_gt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgtype_pointer_t *tptr1;
 	cgtype_pointer_t *tptr2;
+	char *destvn;
 	int rc;
 
 	/* Warn for incompatible pointer types */
@@ -9318,9 +9491,16 @@ static int cgen_gt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9432,6 +9612,7 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgen_uac_flags_t flags;
 	unsigned bits;
 	bool is_signed;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -9492,12 +9673,19 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9548,6 +9736,7 @@ static int cgen_gteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgtype_pointer_t *tptr1;
 	cgtype_pointer_t *tptr2;
+	char *destvn;
 	int rc;
 
 	/* Warn for incompatible pointer types */
@@ -9589,9 +9778,16 @@ static int cgen_gteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9702,6 +9898,7 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgen_uac_flags_t flags;
 	unsigned bits;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -9759,12 +9956,19 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9810,6 +10014,7 @@ static int cgen_eq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgtype_pointer_t *tptr1;
 	cgtype_pointer_t *tptr2;
+	char *destvn;
 	int rc;
 
 	/* Warn for incompatible pointer types */
@@ -9851,9 +10056,16 @@ static int cgen_eq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -9964,6 +10176,7 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgen_uac_flags_t flags;
 	unsigned bits;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&lres);
@@ -10021,12 +10234,19 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -10072,6 +10292,7 @@ static int cgen_neq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	cgtype_basic_t *btype = NULL;
 	cgtype_pointer_t *tptr1;
 	cgtype_pointer_t *tptr2;
+	char *destvn;
 	int rc;
 
 	/* Warn for incompatible pointer types */
@@ -10113,9 +10334,16 @@ static int cgen_neq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -10492,7 +10720,8 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	unsigned lblno;
 	char *flabel = NULL;
 	char *elabel = NULL;
-	const char *dvarname;
+	const char *destvn;
+	const char *dest2vn;
 	cgtype_basic_t *btype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
@@ -10561,14 +10790,17 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	eres->varname = dest->varname;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = &btype->cgtype;
-
-	dvarname = dest->varname;
+	destvn = dest->varname;
 	dest = NULL;
 	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 
 	/* jmp %end_and */
 
@@ -10588,11 +10820,16 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* %false_and label */
-	ir_lblock_append(lblock, flabel, NULL);
+	rc = ir_lblock_append(lblock, flabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Return 0 */
 
@@ -10607,7 +10844,7 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	 * by writing/reading the result through a local variable
 	 * (which is not constrained by SSA).
 	 */
-	rc = ir_oper_var_create(dvarname, &dest2);
+	rc = ir_oper_var_create(destvn, &dest2);
 	if (rc != EOK)
 		goto error;
 
@@ -10621,13 +10858,17 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	eres->varname = dest2->varname;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = &btype->cgtype;
-
+	dest2vn = dest2->varname;
 	dest2 = NULL;
 	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = dest2vn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 
 	if (lres.cvknown) {
 		if (!cgen_eres_is_true(cgexpr->cgen, &lres)) {
@@ -10645,7 +10886,9 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	/* %end_and label */
-	ir_lblock_append(lblock, elabel, NULL);
+	rc = ir_lblock_append(lblock, elabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(flabel);
 	free(elabel);
@@ -10692,7 +10935,8 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	unsigned lblno;
 	char *tlabel = NULL;
 	char *elabel = NULL;
-	const char *dvarname;
+	const char *destvn;
+	const char *dest2vn;
 	cgtype_basic_t *btype = NULL;
 	cgen_eres_t lres;
 	cgen_eres_t rres;
@@ -10761,13 +11005,16 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	eres->varname = dest->varname;
-	eres->valtype = cgen_rvalue;
-
-	dvarname = dest->varname;
+	destvn = dest->varname;
 	dest = NULL;
 	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
+	eres->valtype = cgen_rvalue;
 
 	/* jmp %end_or */
 
@@ -10787,11 +11034,16 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* %true_or label */
-	ir_lblock_append(lblock, tlabel, NULL);
+	rc = ir_lblock_append(lblock, tlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Return 1 */
 
@@ -10806,7 +11058,7 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	 * by writing/reading the result through a local variable
 	 * (which is not constrained by SSA).
 	 */
-	rc = ir_oper_var_create(dvarname, &dest2);
+	rc = ir_oper_var_create(destvn, &dest2);
 	if (rc != EOK)
 		goto error;
 
@@ -10820,13 +11072,17 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	eres->varname = dest2->varname;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = &btype->cgtype;
-
+	dest2vn = dest2->varname;
 	dest2 = NULL;
 	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = dest2vn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = &btype->cgtype;
 
 	if (lres.cvknown) {
 		if (cgen_eres_is_true(cgexpr->cgen, &lres)) {
@@ -10844,7 +11100,9 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	/* %end_and label */
-	ir_lblock_append(lblock, elabel, NULL);
+	rc = ir_lblock_append(lblock, elabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(tlabel);
 	free(elabel);
@@ -10888,6 +11146,7 @@ static int cgen_lvaraddr(cgen_proc_t *cgproc, const char *vident,
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
+	char *destvn;
 	int rc;
 
 	rc = ir_instr_create(&instr);
@@ -10908,14 +11167,17 @@ static int cgen_lvaraddr(cgen_proc_t *cgproc, const char *vident,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
-	eres->varname = dest->varname;
-	eres->valtype = cgen_lvalue;
-	eres->cgtype = NULL;
-
+	destvn = dest->varname;
 	dest = NULL;
 	var = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
+	eres->valtype = cgen_lvalue;
+	eres->cgtype = NULL;
 
 	return EOK;
 error:
@@ -10970,7 +11232,13 @@ static int cgen_store_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op2 = &rarg->oper;
 	instr->opt = recte;
 
-	ir_lblock_append(lblock, NULL, instr);
+	larg = NULL;
+	rarg = NULL;
+	recte = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:
@@ -11060,12 +11328,15 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	suvalvn = suval->varname;
-	instr = NULL;
 	suval = NULL;
 	var = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Introduce mask value. */
 
@@ -11087,11 +11358,15 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-	imm = NULL;
 	maskvn = mask->varname;
 	mask = NULL;
+	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Mask out bitfield. */
 
@@ -11117,12 +11392,16 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-	larg = NULL;
-	rarg = NULL;
 	sumaskedvn = sumasked->varname;
 	sumasked = NULL;
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Introduce filter value. */
 
@@ -11144,11 +11423,15 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-	imm = NULL;
 	filtvn = filt->varname;
 	filt = NULL;
+	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Clear any extra bits from value. */
 
@@ -11174,12 +11457,16 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 	larg = NULL;
 	rarg = NULL;
 	valfiltvn = valfilt->varname;
 	valfilt = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Number of bits to shift by to the left. */
 
@@ -11201,11 +11488,13 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	lshiftvn = lshift->varname;
-	imm = NULL;
 	lshift = NULL;
+	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	/* Shift value to correct position. */
 
@@ -11231,13 +11520,16 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	shlvalvn = shlval->varname;
-	instr = NULL;
 	shlval = NULL;
 	larg = NULL;
 	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Add value to storage unit. */
 	(void)sumaskedvn;
@@ -11265,12 +11557,16 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
 	larg = NULL;
 	rarg = NULL;
 	combvalvn = combval->varname;
 	combval = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Write storage unit back. */
 
@@ -11292,7 +11588,12 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:
@@ -11377,7 +11678,12 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:
@@ -12709,11 +13015,16 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* %false_cond label */
-	ir_lblock_append(lblock, flabel, NULL);
+	rc = ir_lblock_append(lblock, flabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Append code for computing etcond->farg */
 	ir_lblock_move_entries(flblock, lblock);
@@ -12754,7 +13065,12 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 		instr->op1 = &larg->oper;
 		instr->op2 = NULL;
 
-		ir_lblock_append(lblock, NULL, instr);
+		dest = NULL;
+		larg = NULL;
+
+		rc = ir_lblock_append(lblock, NULL, instr);
+		if (rc != EOK)
+			goto error;
 
 		eres->varname = tcres.varname;
 		eres->valtype = cgen_rvalue;
@@ -12770,7 +13086,9 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 	}
 
 	/* %end_cond label */
-	ir_lblock_append(lblock, elabel, NULL);
+	rc = ir_lblock_append(lblock, elabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(flabel);
 	free(elabel);
@@ -13308,7 +13626,9 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		cstype = NULL;
 	}
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	free(pident);
 
@@ -14320,6 +14640,7 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	ir_oper_var_t *rarg = NULL;
 	unsigned mbroff;
 	ir_texpr_t *recte = NULL;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -14383,15 +14704,22 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 	instr->opt = recte;
+
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 	recte = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	rc = cgtype_clone(elem->cgtype, &mtype);
 	if (rc != EOK)
 		return rc;
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_lvalue;
 	eres->bitwidth = elem->width;
 	eres->bitpos = elem->bitpos;
@@ -14451,6 +14779,7 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	unsigned mbroff;
 	char *irident = NULL;
 	ir_texpr_t *recte = NULL;
+	char *destvn;
 	int rc;
 	int rv;
 
@@ -14534,15 +14863,22 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 	instr->opt = recte;
+
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 	recte = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	rc = cgtype_clone(elem->cgtype, &mtype);
 	if (rc != EOK)
 		return rc;
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_lvalue;
 	eres->bitwidth = elem->width;
 	eres->cgtype = mtype;
@@ -14600,6 +14936,7 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 	bool is_signed;
 	unsigned bits;
 	bool overflow;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -14667,10 +15004,17 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		instr->op1 = &barg->oper;
 		instr->op2 = NULL;
 
-		ir_lblock_append(lblock, NULL, instr);
+		destvn = dest->varname;
+		dest = NULL;
+		barg = NULL;
+
+		rc = ir_lblock_append(lblock, NULL, instr);
+		if (rc != EOK)
+			goto error;
+
 		instr = NULL;
 
-		eres->varname = dest->varname;
+		eres->varname = destvn;
 		eres->valtype = cgen_rvalue;
 		/* Salvage the type from bires */
 		eres->cgtype = bires.cgtype;
@@ -14735,7 +15079,7 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	unsigned lblno;
 	char *flabel = NULL;
 	char *elabel = NULL;
-	const char *dvarname;
+	const char *destvn;
 	cgtype_basic_t *btype = NULL;
 	cgen_eres_t bres;
 	int rc;
@@ -14789,12 +15133,15 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
-	dvarname = dest->varname;
+	destvn = dest->varname;
 	dest = NULL;
 	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* jmp %end_lnot */
 
@@ -14812,13 +15159,18 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	instr->op1 = &larg->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
 	larg = NULL;
 
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
+
 	/* %false_lnot: */
-	ir_lblock_append(lblock, flabel, NULL);
+	rc = ir_lblock_append(lblock, flabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* imm.16 %<dest>, 0 */
 
@@ -14833,7 +15185,7 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	 * by writing/reading the result through a local variable
 	 * (which is not constrained by SSA).
 	 */
-	rc = ir_oper_var_create(dvarname, &dest);
+	rc = ir_oper_var_create(destvn, &dest);
 	if (rc != EOK)
 		goto error;
 
@@ -14847,16 +15199,21 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-	instr = NULL;
-
 	dest = NULL;
 	imm = NULL;
 
-	/* %end_lnot: */
-	ir_lblock_append(lblock, elabel, NULL);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
-	eres->varname = dvarname;
+	instr = NULL;
+
+	/* %end_lnot: */
+	rc = ir_lblock_append(lblock, elabel, NULL);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
 
@@ -14913,6 +15270,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	unsigned bits;
 	cgtype_t *cgtype;
 	cgtype_basic_t *tbasic;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&bres);
@@ -14977,7 +15335,13 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	instr->op1 = &barg->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	barg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	/* Salvage type from bres */
 	cgtype = bres.cgtype;
@@ -14985,7 +15349,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&bires);
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 
@@ -15239,6 +15603,7 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	ast_sclass_type_t sctype;
 	cgen_rd_flags_t flags;
 	size_t sz;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&apres);
@@ -15310,19 +15675,22 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	instr->op1 = &var->oper;
 	instr->op2 = &imm->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	var = NULL;
+	imm = NULL;
 
-	eres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	eres->varname = destvn;
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = NULL;
 	eres->cvknown = false;
 	eres->cvsymbol = NULL;
 	eres->cvint = 0;
 	eres->cgtype = etype;
-
-	dest = NULL;
-	var = NULL;
-	imm = NULL;
 
 	cgtype_destroy(stype);
 	cgen_eres_fini(&apres);
@@ -15603,12 +15971,15 @@ static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	suvalvn = suval->varname;
-	instr = NULL;
 	suval = NULL;
 	var = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Number of bits to shift by to the left. */
 
@@ -15630,11 +16001,13 @@ static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	lshiftvn = lshift->varname;
 	imm = NULL;
 	lshift = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	/* Shift left to remove bits above. */
 
@@ -15660,13 +16033,16 @@ static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	shlvalvn = shlval->varname;
-	instr = NULL;
 	shlval = NULL;
 	larg = NULL;
 	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	/* Number of bits to shift by to the right. */
 
@@ -15688,11 +16064,13 @@ static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	rshiftvn = rshift->varname;
 	imm = NULL;
 	rshift = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	/* Shift right to remove bits below + sign extend if signed. */
 
@@ -15719,13 +16097,16 @@ static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	shrvalvn = shrval->varname;
-	instr = NULL;
 	shrval = NULL;
 	larg = NULL;
 	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	instr = NULL;
 
 	rc = cgtype_clone(res->cgtype, &cgtype);
 	if (rc != EOK)
@@ -15778,6 +16159,7 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	ir_oper_var_t *var = NULL;
 	cgtype_t *cgtype;
 	unsigned bits;
+	char *destvn;
 	int rc;
 
 	/* Reading variables is not allowed in constant expressions */
@@ -15832,13 +16214,19 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	var = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	rc = cgtype_clone(res->cgtype, &cgtype);
 	if (rc != EOK)
 		goto error;
 
-	eres->varname = dest->varname;
+	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = res->valused;
@@ -16570,6 +16958,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	bool dest_signed;
 	bool src_neg;
 	bool dest_neg;
+	char *destvn;
 	int rc;
 
 	assert(ares->cgtype->ntype == cgn_basic);
@@ -16672,9 +17061,16 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	instr->op1 = &sarg->oper;
 	instr->op2 = &imm->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	sarg = NULL;
+	imm = NULL;
 
-	cres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = destvn;
 	cres->valtype = cgen_rvalue;
 	cres->cgtype = cgtype;
 	cres->valused = true;
@@ -17109,10 +17505,14 @@ static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
 	instr->op1 = &sarg->oper;
 	instr->op2 = &imm->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
 	dest = NULL;
 	sarg = NULL;
 	imm = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* Construct corresponding integer type */
@@ -17852,6 +18252,7 @@ static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *larg = NULL;
 	ir_oper_var_t *rarg = NULL;
+	char *destvn;
 	int rc;
 
 	cgen_eres_init(&ires);
@@ -17888,9 +18289,16 @@ static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
+	destvn = dest->varname;
+	dest = NULL;
+	larg = NULL;
+	rarg = NULL;
 
-	cres->varname = dest->varname;
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
+	cres->varname = destvn;
 	cres->valtype = cgen_rvalue;
 	cres->cgtype = &dbtype->cgtype;
 
@@ -18078,7 +18486,10 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	carg = NULL;
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	cgtype_destroy(ttype);
@@ -18172,7 +18583,12 @@ static int cgen_break(cgen_proc_t *cgproc, ast_break_t *abreak,
 	instr->op1 = &label->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	label = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -18220,7 +18636,12 @@ static int cgen_continue(cgen_proc_t *cgproc, ast_continue_t *acontinue,
 	instr->op1 = &label->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	label = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -18272,7 +18693,12 @@ static int cgen_goto(cgen_proc_t *cgproc, ast_goto_t *agoto,
 	instr->op1 = &label->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	label = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -18318,7 +18744,12 @@ static int cgen_return_record(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	instr->op2 = &rarg->oper;
 	instr->opt = recte;
 
-	ir_lblock_append(lblock, NULL, instr);
+	larg = NULL;
+	rarg = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:
@@ -18433,6 +18864,8 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 			instr->dest = NULL;
 			instr->op1 = &arg->oper;
 			instr->op2 = NULL;
+
+			arg = NULL;
 		} else {
 			instr->itype = iri_ret;
 			instr->width = 0;
@@ -18441,7 +18874,9 @@ static int cgen_return(cgen_proc_t *cgproc, ast_return_t *areturn,
 			instr->op2 = NULL;
 		}
 
-		ir_lblock_append(lblock, NULL, instr);
+		rc = ir_lblock_append(lblock, NULL, instr);
+		if (rc != EOK)
+			goto error;
 
 		cgen_eres_fini(&ares);
 		cgen_eres_fini(&cres);
@@ -18527,10 +18962,16 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
-	ir_lblock_append(lblock, fiflabel, NULL);
+	rc = ir_lblock_append(lblock, fiflabel, NULL);
+	if (rc != EOK)
+		goto error;
+
 	free(fiflabel);
 	fiflabel = NULL;
 
@@ -18586,11 +19027,17 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 
 		larg = NULL;
 
-		ir_lblock_append(lblock, NULL, instr);
+		rc = ir_lblock_append(lblock, NULL, instr);
+		if (rc != EOK)
+			goto error;
+
 		instr = NULL;
 
 		/* False else-if label */
-		ir_lblock_append(lblock, fiflabel, NULL);
+		rc = ir_lblock_append(lblock, fiflabel, NULL);
+		if (rc != EOK)
+			goto error;
+
 		free(fiflabel);
 		fiflabel = NULL;
 
@@ -18614,7 +19061,9 @@ static int cgen_if(cgen_proc_t *cgproc, ast_if_t *aif,
 			goto error;
 	}
 
-	ir_lblock_append(lblock, eiflabel, NULL);
+	rc = ir_lblock_append(lblock, eiflabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(eiflabel);
 	cgen_eres_fini(&cres);
@@ -18685,7 +19134,9 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 	/* Set this as the innermost loop */
 	cgproc->cur_loop = loop;
 
-	ir_lblock_append(lblock, wlabel, NULL);
+	rc = ir_lblock_append(lblock, wlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Jump to %end_while if condition is false */
 
@@ -18717,10 +19168,15 @@ static int cgen_while(cgen_proc_t *cgproc, ast_while_t *awhile,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
-	ir_lblock_append(lblock, ewlabel, NULL);
+	rc = ir_lblock_append(lblock, ewlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	cgen_loop_switch_destroy(lswitch);
 	cgen_loop_destroy(loop);
@@ -18806,7 +19262,9 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 	/* Set this as the innermost loop */
 	cgproc->cur_loop = loop;
 
-	ir_lblock_append(lblock, dlabel, NULL);
+	rc = ir_lblock_append(lblock, dlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Body */
 
@@ -18816,7 +19274,9 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 
 	/* label next_do */
 
-	ir_lblock_append(lblock, ndlabel, NULL);
+	rc = ir_lblock_append(lblock, ndlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	rc = parser_process_do_while(cgproc->cgen->parser, ado);
 	if (rc != EOK)
@@ -18828,7 +19288,9 @@ static int cgen_do(cgen_proc_t *cgproc, ast_do_t *ado, ir_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	ir_lblock_append(lblock, edlabel, NULL);
+	rc = ir_lblock_append(lblock, edlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	cgen_loop_switch_destroy(lswitch);
 	cgen_loop_destroy(loop);
@@ -18932,7 +19394,9 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 		cgen_expr_check_unused(&cgproc->cgexpr, afor->linit, &ires);
 	}
 
-	ir_lblock_append(lblock, flabel, NULL);
+	rc = ir_lblock_append(lblock, flabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Condition */
 
@@ -18953,7 +19417,9 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	/* Loop iteration */
 
-	ir_lblock_append(lblock, nflabel, NULL);
+	rc = ir_lblock_append(lblock, nflabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	if (afor->lnext != NULL) {
 		/* Evaluate and ignore next iteration expression */
@@ -18983,10 +19449,15 @@ static int cgen_for(cgen_proc_t *cgproc, ast_for_t *afor, ir_lblock_t *lblock)
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
-	ir_lblock_append(lblock, eflabel, NULL);
+	rc = ir_lblock_append(lblock, eflabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	cgen_loop_switch_destroy(lswitch);
 	cgen_loop_destroy(loop);
@@ -19115,7 +19586,10 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* Set this as the innermost switch */
@@ -19151,13 +19625,21 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* Final case label */
 
-	ir_lblock_append(lblock, cgswitch->nclabel, NULL);
-	ir_lblock_append(lblock, cgswitch->nblabel, NULL);
+	rc = ir_lblock_append(lblock, cgswitch->nclabel, NULL);
+	if (rc != EOK)
+		goto error;
+
+	rc = ir_lblock_append(lblock, cgswitch->nblabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	if (cgswitch->dlabel != NULL) {
 		/* jmp %default */
@@ -19178,13 +19660,18 @@ static int cgen_switch(cgen_proc_t *cgproc, ast_switch_t *aswitch,
 
 		larg = NULL;
 
-		ir_lblock_append(lblock, NULL, instr);
+		rc = ir_lblock_append(lblock, NULL, instr);
+		if (rc != EOK)
+			goto error;
+
 		instr = NULL;
 	}
 
 	/* label end_switch */
 
-	ir_lblock_append(lblock, eslabel, NULL);
+	rc = ir_lblock_append(lblock, eslabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	/* Switch expression is an enum and there is no default label */
 	if (eres.cgtype->ntype == cgn_enum && cgswitch->dlabel == NULL) {
@@ -19401,7 +19888,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	bool csigned;
 	unsigned lblno;
 	cgtype_elmtype_t elmtype;
-	char *dvarname;
+	char *destvn;
 	bool converted;
 	cgen_switch_value_t *value;
 	int rc;
@@ -19439,12 +19926,17 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* Insert previously generated label for this case statement */
 
-	ir_lblock_append(lblock, cgproc->cur_switch->nclabel, NULL);
+	rc = ir_lblock_append(lblock, cgproc->cur_switch->nclabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(cgproc->cur_switch->nclabel);
 	cgproc->cur_switch->nclabel = NULL;
@@ -19599,12 +20091,15 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	instr->op1 = &larg->oper;
 	instr->op2 = &rarg->oper;
 
-	dvarname = dest->varname;
+	destvn = dest->varname;
 	dest = NULL;
 	larg = NULL;
 	rarg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* jz %<dest>, %caseN+1 */
@@ -19613,7 +20108,7 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_var_create(dvarname, &carg);
+	rc = ir_oper_var_create(destvn, &carg);
 	if (rc != EOK)
 		goto error;
 
@@ -19630,12 +20125,17 @@ static int cgen_clabel(cgen_proc_t *cgproc, ast_clabel_t *aclabel,
 	carg = NULL;
 	larg = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	instr = NULL;
 
 	/* %case_bodyN */
 
-	ir_lblock_append(lblock, cgproc->cur_switch->nblabel, NULL);
+	rc = ir_lblock_append(lblock, cgproc->cur_switch->nblabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(cgproc->cur_switch->nblabel);
 	cgproc->cur_switch->nblabel = NULL;
@@ -19711,7 +20211,9 @@ static int cgen_dlabel(cgen_proc_t *cgproc, ast_dlabel_t *adlabel,
 	if (rc != EOK)
 		goto error;
 
-	ir_lblock_append(lblock, cgproc->cur_switch->dlabel, NULL);
+	rc = ir_lblock_append(lblock, cgproc->cur_switch->dlabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:
@@ -19751,7 +20253,9 @@ static int cgen_glabel(cgen_proc_t *cgproc, ast_glabel_t *aglabel,
 	if (rc != EOK)
 		goto error;
 
-	ir_lblock_append(lblock, glabel, NULL);
+	rc = ir_lblock_append(lblock, glabel, NULL);
+	if (rc != EOK)
+		goto error;
 
 	free(glabel);
 	return EOK;
@@ -20137,7 +20641,10 @@ static int cgen_stnull(cgen_proc_t *cgproc, ast_stnull_t *stnull,
 	instr->op1 = NULL;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -20203,10 +20710,12 @@ static int cgen_va_copy(cgen_proc_t *cgproc, ast_va_copy_t *stva_copy,
 	instr->op1 = &var1->oper;
 	instr->op2 = &var2->oper;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	var1 = NULL;
 	var2 = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&dres);
 	cgen_eres_fini(&sres);
@@ -20264,9 +20773,11 @@ static int cgen_va_end(cgen_proc_t *cgproc, ast_va_end_t *va_end,
 	instr->op1 = &var->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	var = NULL;
+
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	cgen_eres_fini(&apres);
 
@@ -20360,12 +20871,13 @@ static int cgen_va_start(cgen_proc_t *cgproc, ast_va_start_t *stva_start,
 	instr->op1 = &var1->oper;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
-
 	var1 = NULL;
 
-	cgen_eres_fini(&apres);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
+	cgen_eres_fini(&apres);
 	return EOK;
 error:
 	cgen_eres_fini(&apres);
@@ -20570,7 +21082,9 @@ static int cgen_ret(cgen_proc_t *cgproc, ir_lblock_t *lblock)
 	instr->op1 = NULL;
 	instr->op2 = NULL;
 
-	ir_lblock_append(lblock, NULL, instr);
+	rc = ir_lblock_append(lblock, NULL, instr);
+	if (rc != EOK)
+		goto error;
 
 	return EOK;
 error:

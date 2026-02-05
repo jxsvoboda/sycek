@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -48,6 +48,7 @@ static const char *str_keywords =
 static int test_lex_string(const char *str)
 {
 	int rc;
+	int rv;
 	lexer_t *lexer;
 	str_input_t sinput;
 	bool done;
@@ -63,16 +64,23 @@ static int test_lex_string(const char *str)
 	while (!done) {
 		rc = lexer_get_tok(lexer, &tok);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
-		lexer_dprint_tok(&tok, stdout);
+		rc = lexer_dprint_tok(&tok, stdout);
+		if (rc != EOK) {
+			lexer_free_tok(&tok);
+			goto error;
+		}
+
 		if (tok.ttype == ltt_eof)
 			done = true;
 		lexer_free_tok(&tok);
 	}
 
 	lexer_destroy(lexer);
-	printf("\n");
+	rv = printf("\n");
+	if (rv < 0)
+		return EIO;
 
 	str_input_init(&sinput, str);
 
@@ -84,19 +92,27 @@ static int test_lex_string(const char *str)
 	while (!done) {
 		rc = lexer_get_tok(lexer, &tok);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
-		if (tok.ttype == ltt_eof)
+		if (tok.ttype == ltt_eof) {
 			done = true;
-		else
-			lexer_print_tok(&tok, stdout);
+		} else {
+			rc = lexer_print_tok(&tok, stdout);
+			if (rc != EOK)
+				goto error;
+		}
 		lexer_free_tok(&tok);
 	}
 
 	lexer_destroy(lexer);
-	printf("\n");
+	rv = printf("\n");
+	if (rv < 0)
+		return rc;
 
 	return EOK;
+error:
+	lexer_destroy(lexer);
+	return rc;
 }
 
 /** Run lexer tests.

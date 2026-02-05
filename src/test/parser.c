@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -65,6 +65,7 @@ int test_parser(void)
 {
 	parser_t *parser;
 	int rc;
+	int rv;
 	ast_module_t *module;
 
 	rc = parser_create(&parser_test_input, NULL, (void *)0, 0, false,
@@ -80,7 +81,9 @@ int test_parser(void)
 	if (rc != EOK)
 		return rc;
 
-	putchar('\n');
+	rv = putchar('\n');
+	if (rv < 0)
+		return EIO;
 
 	ast_tree_destroy(&module->node);
 	parser_destroy(parser);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -40,6 +40,7 @@ static int test_ast_module(void)
 	ast_dspecs_t *dspecs;
 	ast_idlist_t *idlist;
 	int rc;
+	int rv;
 
 	rc = ast_module_create(&module);
 	if (rc != EOK)
@@ -59,8 +60,13 @@ static int test_ast_module(void)
 
 	ast_module_append(module, &gdecln->node);
 
-	ast_tree_print(&module->node, stdout);
-	putchar('\n');
+	rc = ast_tree_print(&module->node, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = putchar('\n');
+	if (rv < 0)
+		return EIO;
 
 	ast_tree_destroy(&module->node);
 	return EOK;
@@ -76,6 +82,7 @@ static int test_ast_gdecln(void)
 	ast_dspecs_t *dspecs;
 	ast_idlist_t *idlist;
 	int rc;
+	int rv;
 
 	rc = ast_dspecs_create(&dspecs);
 	if (rc != EOK)
@@ -89,8 +96,13 @@ static int test_ast_gdecln(void)
 	if (rc != EOK)
 		return rc;
 
-	ast_tree_print(&gdecln->node, stdout);
-	putchar('\n');
+	rc = ast_tree_print(&gdecln->node, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = putchar('\n');
+	if (rv < 0)
+		return EIO;
 
 	ast_tree_destroy(&gdecln->node);
 	return EOK;
@@ -106,6 +118,7 @@ static int test_ast_block(void)
 	ast_return_t *areturn;
 	ast_eident_t *eident;
 	int rc;
+	int rv;
 
 	rc = ast_block_create(ast_braces, &block);
 	if (rc != EOK)
@@ -122,8 +135,13 @@ static int test_ast_block(void)
 	ast_block_append(block, &areturn->node);
 	areturn->arg = &eident->node;
 
-	ast_tree_print(&block->node, stdout);
-	putchar('\n');
+	rc = ast_tree_print(&block->node, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = putchar('\n');
+	if (rv < 0)
+		return EIO;
 
 	ast_tree_destroy(&block->node);
 	return EOK;
@@ -137,13 +155,19 @@ static int test_ast_tspec(void)
 {
 	ast_tsbasic_t *atspec;
 	int rc;
+	int rv;
 
 	rc = ast_tsbasic_create(abts_void, &atspec);
 	if (rc != EOK)
 		return rc;
 
-	ast_tree_print(&atspec->node, stdout);
-	putchar('\n');
+	rc = ast_tree_print(&atspec->node, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = putchar('\n');
+	if (rv < 0)
+		return EIO;
 
 	return EOK;
 }
@@ -157,6 +181,7 @@ static int test_ast_return(void)
 	ast_return_t *areturn;
 	ast_eident_t *eident;
 	int rc;
+	int rv;
 
 	rc = ast_return_create(&areturn);
 	if (rc != EOK)
@@ -168,8 +193,13 @@ static int test_ast_return(void)
 
 	areturn->arg = &eident->node;
 
-	ast_tree_print(&areturn->node, stdout);
-	putchar('\n');
+	rc = ast_tree_print(&areturn->node, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rv = putchar('\n');
+	if (rv < 0)
+		return EIO;
 
 	return EOK;
 }
