@@ -90,7 +90,7 @@ static int binary_load(const char *fname, uint16_t org)
 	return 0;
 }
 
-static int mapfile_load(const char *fname, bool quiet)
+static int mapfile_load(const char *fname)
 {
 	int rc;
 
@@ -799,7 +799,7 @@ static int script_do_mapfile(script_t *script)
 
 	script_skip(script);
 
-	rc = mapfile_load(fname, quiet);
+	rc = mapfile_load(fname);
 	if (rc < 0)
 		return 1;
 
