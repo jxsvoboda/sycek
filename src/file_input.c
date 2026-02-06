@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -44,7 +44,7 @@ static int file_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	size_t nr;
 
 	nr = fread(buf, 1, bsize, finput->f);
-	if (ferror(finput->f))
+	if (ferror(finput->f) != 0)
 		return EIO;
 
 	*nread = nr;

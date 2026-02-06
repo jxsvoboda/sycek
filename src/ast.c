@@ -1083,7 +1083,7 @@ static ast_tok_t *ast_block_first_tok(ast_block_t *block)
 {
 	ast_node_t *stmt;
 
-	if (block->braces) {
+	if (block->braces == ast_braces) {
 		return &block->topen;
 	} else {
 		stmt = ast_block_first(block);
@@ -1102,7 +1102,7 @@ static ast_tok_t *ast_block_last_tok(ast_block_t *block)
 {
 	ast_node_t *stmt;
 
-	if (block->braces) {
+	if (block->braces == ast_braces) {
 		return &block->tclose;
 	} else {
 		stmt = ast_block_last(block);
@@ -4697,7 +4697,7 @@ ast_tok_t *ast_decl_get_ident(ast_node_t *node)
 		return ast_decl_get_ident(((ast_darray_t *)node->ext)->bdecl);
 	default:
 		assert(false);
-		return false;
+		return NULL;
 	}
 }
 

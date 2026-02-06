@@ -65,7 +65,7 @@ bool quiet = false;
 
 symbols_t *symbols = NULL;
 
-static int binary_load(const char *fname, uint16_t org, bool quiet)
+static int binary_load(const char *fname, uint16_t org)
 {
 	FILE *f;
 	size_t nr;
@@ -762,9 +762,9 @@ static int script_do_ldbin(script_t *script)
 	script_read_next_tok(script, &tok);
 	rc = scr_lexer_number_val(&tok, &nval);
 	if (rc != 0) {
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		return rc;
 	}
 
@@ -772,7 +772,7 @@ static int script_do_ldbin(script_t *script)
 
 	script_skip(script);
 
-	rc = binary_load(fname, addr, quiet);
+	rc = binary_load(fname, addr);
 	if (rc < 0)
 		return 1;
 

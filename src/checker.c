@@ -1617,7 +1617,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 		tlparen = (checker_tok_t *)elseif->tlparen.data;
 		trparen = (checker_tok_t *)elseif->trparen.data;
 
-		if (prev_block->braces) {
+		if (prev_block->braces == ast_braces) {
 			rc = checker_check_nbspace_before(scope, telse,
 			    "There must be single space between '}' and "
 			    "'else'.");
@@ -1665,7 +1665,7 @@ static int checker_check_if(checker_scope_t *scope, ast_if_t *aif)
 	if (aif->fbranch != NULL) {
 		telse = (checker_tok_t *)aif->telse.data;
 
-		if (prev_block->braces) {
+		if (prev_block->braces == ast_braces) {
 			rc = checker_check_nbspace_before(scope, telse,
 			    "There must be single space between '}' and "
 			    "'else'.");
@@ -1775,7 +1775,7 @@ static int checker_check_do(checker_scope_t *scope, ast_do_t *ado)
 			return EIO;
 	}
 
-	if (ado->body->braces) {
+	if (ado->body->braces == ast_braces) {
 		rc = checker_check_nbspace_before(scope, twhile,
 		    "There must be single space between '}' and "
 		    "'while'.");
@@ -2430,7 +2430,7 @@ static int checker_check_stblock(checker_scope_t *scope, ast_block_t *block)
 	int rc;
 	int rv;
 
-	assert(block->braces);
+	assert(block->braces == ast_braces);
 	tlbrace = (checker_tok_t *)block->topen.data;
 
 	if (checker_scfg(scope)->nblock) {
@@ -3951,7 +3951,7 @@ static int checker_check_block(checker_scope_t *scope, ast_block_t *block,
 	ast_node_t *stmt;
 	int rc;
 
-	if (block->braces) {
+	if (block->braces == ast_braces) {
 		tlbrace = (checker_tok_t *)block->topen.data;
 		rc = checker_check_nbspace_before(scope, tlbrace,
 		    "Expected single space before block opening brace.");
@@ -3966,7 +3966,7 @@ static int checker_check_block(checker_scope_t *scope, ast_block_t *block,
 	}
 
 	stmt = ast_block_first(block);
-	if (block->braces) {
+	if (block->braces == ast_braces) {
 		while (stmt != NULL) {
 			/* Null statement not allowed in braced block */
 			rc = checker_check_stmt(bscope, stmt, cns_disallow);
@@ -3981,7 +3981,7 @@ static int checker_check_block(checker_scope_t *scope, ast_block_t *block,
 			goto error;
 	}
 
-	if (block->braces) {
+	if (block->braces == ast_braces) {
 		trbrace = (checker_tok_t *)block->tclose.data;
 		rc = checker_check_lbegin(scope, trbrace,
 		    "Block closing brace must start on a new line.");
@@ -5545,7 +5545,7 @@ static int checker_check_gdecln(checker_scope_t *scope, ast_node_t *decln)
 		return EOK;
 	}
 
-	assert(gdecln->body->braces);
+	assert(gdecln->body->braces == ast_braces);
 	tlbrace = (checker_tok_t *)gdecln->body->topen.data;
 	rc = checker_check_lbegin(scope, tlbrace,
 	    "Function opening brace must start on a new line.");
@@ -5693,7 +5693,7 @@ static int checker_check_gmdecln(checker_scope_t *scope,
 		return EOK;
 	}
 
-	assert(gmdecln->body->braces);
+	assert(gmdecln->body->braces == ast_braces);
 	tlbrace = (checker_tok_t *)gmdecln->body->topen.data;
 	rc = checker_check_lbegin(scope, tlbrace,
 	    "Function opening brace must start on a new line.");

@@ -13632,7 +13632,7 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 
 	free(pident);
 
-	eres->varname = dest ? dest->varname : NULL;
+	eres->varname = dest != NULL ? dest->varname : NULL;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = rtype;
 	eres->valused = cgtype_is_void(ftype->rtype) ||
@@ -18306,7 +18306,7 @@ static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 
 	if (ares->cvknown) {
 		cres->cvknown = true;
-		cres->cvint = (ares->cvint) != 0;
+		cres->cvint = (ares->cvint != 0) ? 1 : 0;
 	}
 
 	cgen_eres_fini(&ires);
@@ -24465,7 +24465,7 @@ void cgen_destroy(cgen_t *cgen)
  * @param rloop Place to store pointer to new loop tracking record
  * @return EOK on success, ENOMEM if out of memory
  */
-int cgen_loop_create(cgen_loop_t *parent, cgen_loop_t **rloop)
+static int cgen_loop_create(cgen_loop_t *parent, cgen_loop_t **rloop)
 {
 	cgen_loop_t *loop;
 
@@ -24482,7 +24482,7 @@ int cgen_loop_create(cgen_loop_t *parent, cgen_loop_t **rloop)
  *
  * @param loop Code generator loop tracking record or @c NULL
  */
-void cgen_loop_destroy(cgen_loop_t *loop)
+static void cgen_loop_destroy(cgen_loop_t *loop)
 {
 	if (loop == NULL)
 		return;
@@ -24496,7 +24496,7 @@ void cgen_loop_destroy(cgen_loop_t *loop)
  * @param rswitch Place to store pointer to new switch tracking record
  * @return EOK on success, ENOMEM if out of memory
  */
-int cgen_switch_create(cgen_switch_t *parent, cgen_switch_t **rswitch)
+static int cgen_switch_create(cgen_switch_t *parent, cgen_switch_t **rswitch)
 {
 	cgen_switch_t *cgswitch;
 
@@ -24604,7 +24604,7 @@ static void cgen_switch_value_destroy(cgen_switch_value_t *value)
  *
  * @param cgswitch Code generator switch tracking record or @c NULL
  */
-void cgen_switch_destroy(cgen_switch_t *cgswitch)
+static void cgen_switch_destroy(cgen_switch_t *cgswitch)
 {
 	cgen_switch_value_t *value;
 
