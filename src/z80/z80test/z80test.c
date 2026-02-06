@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -72,21 +72,21 @@ static int binary_load(const char *fname, uint16_t org, bool quiet)
 
 	f = fopen(fname, "rb");
 	if (f == NULL) {
-		fprintf(stderr, "Error opening '%s'.\n", fname);
+		(void)fprintf(stderr, "Error opening '%s'.\n", fname);
 		return -1;
 	}
 
 	nr = fread(mem + org, 1, mem_size - org, f);
 	if (nr == 0) {
-		fprintf(stderr, "Error reading '%s'.\n", fname);
-		fclose(f);
+		(void)fprintf(stderr, "Error reading '%s'.\n", fname);
+		(void)fclose(f);
 		return -1;
 	}
 
 	if (!quiet)
-		printf("Read %zu bytes of code at 0x%x.\n", nr, org);
+		(void)printf("Read %zu bytes of code at 0x%x.\n", nr, org);
 
-	fclose(f);
+	(void)fclose(f);
 	return 0;
 }
 
@@ -96,12 +96,12 @@ static int mapfile_load(const char *fname, bool quiet)
 
 	rc = symbols_mapfile_load(symbols, fname);
 	if (rc != 0) {
-		fprintf(stderr, "Error loading '%s'.\n", fname);
+		(void)fprintf(stderr, "Error loading '%s'.\n", fname);
 		return EIO;
 	}
 
 	if (!quiet)
-		printf("Loaded map file '%s'.\n", fname);
+		(void)printf("Loaded map file '%s'.\n", fname);
 
 	return 0;
 }
@@ -133,13 +133,13 @@ static int do_call(uint16_t addr)
 	}
 
 	if (z80_clock >= max_cycles) {
-		printf("Error: CPU cycle limit exceeded.\n");
+		(void)printf("Error: CPU cycle limit exceeded.\n");
 		return EDOM;
 	}
 
 	if (cpus.SP != old_sp) {
-		printf("Error: SP value changed during call (0x%x != 0x%x)\n",
-		    cpus.SP, old_sp);
+		(void)printf("Error: SP value changed during call "
+		    "(0x%x != 0x%x)\n", cpus.SP, old_sp);
 		return EINVAL;
 	}
 
@@ -148,10 +148,10 @@ static int do_call(uint16_t addr)
 
 static void syntax_error(void)
 {
-	fprintf(stderr, "Syntax error.\n");
-	fprintf(stderr, "Usage: z80test [<options>]\n");
-	fprintf(stderr, "\t-s <script>  Script to execute\n");
-	fprintf(stderr, "\t-q           Quiet mode\n");
+	(void)fprintf(stderr, "Syntax error.\n");
+	(void)fprintf(stderr, "Usage: z80test [<options>]\n");
+	(void)fprintf(stderr, "\t-s <script>  Script to execute\n");
+	(void)fprintf(stderr, "\t-q           Quiet mode\n");
 	exit(1);
 }
 
@@ -259,9 +259,9 @@ static int script_match(script_t *script, scr_lexer_toktype_t mtype)
 
 	stt = script_next_ttype(script);
 	if (stt != mtype) {
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " unexpected, expected %s.\n",
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " unexpected, expected %s.\n",
 		    scr_lexer_str_ttype(mtype));
 		return EINVAL;
 	}
@@ -285,9 +285,9 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	case stt_ident:
 		symbol = symbols_lookup(symbols, tok.text);
 		if (symbol == NULL) {
-			fprintf(stderr, "Error: ");
-			script_dprint_next_tok(script, stderr);
-			fprintf(stderr, " is not a known symbol.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)script_dprint_next_tok(script, stderr);
+			(void)fprintf(stderr, " is not a known symbol.\n");
 			return ENOENT;
 		}
 
@@ -332,9 +332,9 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	script_read_next_tok(script, &tok);
 	rc = scr_lexer_number_val(&tok, &oval);
 	if (rc != 0) {
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		return rc;
 	}
 
@@ -468,9 +468,10 @@ static int script_parse_rm(script_t *script, regmem_t *regmem)
 
 	rc = script_try_parse_rm(script, regmem);
 	if (rc == EINVAL) {
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " is not a valid register/memory operand.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " is not a valid register/memory "
+		    "operand.\n");
 		return EINVAL;
 	}
 
@@ -492,14 +493,14 @@ static int regmem_read(regmem_t *regmem, bool print, uint64_t *val)
 	case rm_byte_ptr:
 		*val = mem[regmem->addr];
 		if (print) {
-			printf("byte ptr (0x%x) == 0x%x\n", regmem->addr,
+			(void)printf("byte ptr (0x%x) == 0x%x\n", regmem->addr,
 			    (unsigned)*val);
 		}
 		break;
 	case rm_word_ptr:
 		*val = mem[regmem->addr] + (((uint16_t)mem[regmem->addr + 1]) << 8);
 		if (print) {
-			printf("word ptr (0x%x) == 0x%x\n", regmem->addr,
+			(void)printf("word ptr (0x%x) == 0x%x\n", regmem->addr,
 			    (unsigned)*val);
 		}
 		break;
@@ -508,7 +509,7 @@ static int regmem_read(regmem_t *regmem, bool print, uint64_t *val)
 		    (((uint32_t)mem[regmem->addr + 2]) << 16) +
 		    (((uint32_t)mem[regmem->addr + 3]) << 24);
 		if (print) {
-			printf("dword ptr (0x%x) == 0x%x\n", regmem->addr,
+			(void)printf("dword ptr (0x%x) == 0x%x\n", regmem->addr,
 			    (unsigned)*val);
 		}
 		break;
@@ -521,74 +522,74 @@ static int regmem_read(regmem_t *regmem, bool print, uint64_t *val)
 		    (((uint64_t)mem[regmem->addr + 6]) << 48) +
 		    (((uint64_t)mem[regmem->addr + 7]) << 56);
 		if (print) {
-			printf("qword ptr (0x%x) == 0x%lx\n", regmem->addr,
-			    (unsigned long)*val);
+			(void)printf("qword ptr (0x%x) == 0x%lx\n",
+			    regmem->addr, (unsigned long)*val);
 		}
 		break;
 	case rm_AF:
 		*val = z80_getAF();
 		if (print) {
-			printf("AF == 0x%x\n", (unsigned)*val);
+			(void)printf("AF == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_BC:
 		*val = z80_getBC();
 		if (print) {
-			printf("BC == 0x%x\n", (unsigned)*val);
+			(void)printf("BC == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_DE:
 		*val = z80_getDE();
 		if (print) {
-			printf("DE == 0x%x\n", (unsigned)*val);
+			(void)printf("DE == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_HL:
 		*val = z80_getHL();
 		if (print) {
-			printf("HL == 0x%x\n", (unsigned)*val);
+			(void)printf("HL == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_A:
 		*val = cpus.r[rA];
 		if (print) {
-			printf("A == 0x%x\n", (unsigned)*val);
+			(void)printf("A == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_B:
 		*val = cpus.r[rB];
 		if (print) {
-			printf("B == 0x%x\n", (unsigned)*val);
+			(void)printf("B == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_C:
 		*val = cpus.r[rC];
 		if (print) {
-			printf("C == 0x%x\n", (unsigned)*val);
+			(void)printf("C == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_D:
 		*val = cpus.r[rD];
 		if (print) {
-			printf("D == 0x%x\n", (unsigned)*val);
+			(void)printf("D == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_E:
 		*val = cpus.r[rE];
 		if (print) {
-			printf("E == 0x%x\n", (unsigned)*val);
+			(void)printf("E == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_H:
 		*val = cpus.r[rH];
 		if (print) {
-			printf("H == 0x%x\n", (unsigned)*val);
+			(void)printf("H == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	case rm_L:
 		*val = cpus.r[rL];
 		if (print) {
-			printf("L == 0x%x\n", (unsigned)*val);
+			(void)printf("L == 0x%x\n", (unsigned)*val);
 		}
 		break;
 	default:
@@ -692,7 +693,7 @@ static int script_do_call(script_t *script)
 	addr = (uint16_t)eval;
 
 	if (!quiet)
-		printf("Call 0x%x\n", addr);
+		(void)printf("Call 0x%x\n", addr);
 	return do_call(addr);
 }
 
@@ -746,9 +747,9 @@ static int script_do_ldbin(script_t *script)
 	script_read_next_tok(script, &tok);
 	rc = scr_lexer_string_text(&tok, &fname);
 	if (rc != 0) {
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " is not a valid string literal.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " is not a valid string literal.\n");
 		return rc;
 	}
 
@@ -790,9 +791,9 @@ static int script_do_mapfile(script_t *script)
 	script_read_next_tok(script, &tok);
 	rc = scr_lexer_string_text(&tok, &fname);
 	if (rc != 0) {
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		return rc;
 	}
 
@@ -812,7 +813,7 @@ static int script_do_pop(script_t *script)
 
 	cpus.SP += 2;
 	if (cpus.SP > stack_base) {
-		printf("Error: Stack underflow.\n");
+		(void)printf("Error: Stack underflow.\n");
 		return ERANGE;
 	}
 
@@ -881,7 +882,7 @@ static int script_do_verify(script_t *script)
 		return EINVAL;
 
 	if (rmval != eval) {
-		printf("Verification failed! (0x%lx != 0x%lx)\n",
+		(void)printf("Verification failed! (0x%lx != 0x%lx)\n",
 		    rmval, eval);
 		return EINVAL;
 	}
@@ -921,9 +922,9 @@ static int script_process_cmd(script_t *script)
 		rc = script_do_verify(script);
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		script_dprint_next_tok(script, stderr);
-		fprintf(stderr, " unexpected, expected command.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)script_dprint_next_tok(script, stderr);
+		(void)fprintf(stderr, " unexpected, expected command.\n");
 		return EINVAL;
 	}
 
@@ -945,7 +946,7 @@ static int script_process(const char *fname)
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
-		fprintf(stderr, "Cannot open '%s'.\n", fname);
+		(void)fprintf(stderr, "Cannot open '%s'.\n", fname);
 		rc = ENOENT;
 		goto error;
 	}
@@ -1002,23 +1003,23 @@ int main(int argc, char *argv[])
 
 	mem = calloc(mem_size, 1);
 	if (mem == NULL) {
-		fprintf(stderr, "Out of memory.\n");
+		(void)fprintf(stderr, "Out of memory.\n");
 		return 1;
 	}
 
 	rc = symbols_create(&symbols);
 	if (rc != 0) {
-		fprintf(stderr, "Out of memory.\n");
+		(void)fprintf(stderr, "Out of memory.\n");
 		return 1;
 	}
 
 	if (scr_fname == NULL) {
-		fprintf(stderr, "Script file name not specified.\n");
+		(void)fprintf(stderr, "Script file name not specified.\n");
 		return 1;
 	}
 
 	if (!quiet)
-		printf("Initialize CPU.\n");
+		(void)printf("Initialize CPU.\n");
 
 	cpu_setup();
 	cpus.PC = 0;
@@ -1041,13 +1042,13 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (!quiet) {
-		printf("T states: %lu\n", z80_clock);
-		printf("Instruction cycles: %u\n", instr_cnt);
-		printf("Instruction bytes read: %u\n", ifetch_cnt);
-		printf("Data bytes read: %u\n", dread_cnt);
-		printf("Data bytes written: %u\n", dwrite_cnt);
-		printf("Port reads: %u\n", pin_cnt);
-		printf("Port writes: %u\n", pout_cnt);
+		(void)printf("T states: %lu\n", z80_clock);
+		(void)printf("Instruction cycles: %u\n", instr_cnt);
+		(void)printf("Instruction bytes read: %u\n", ifetch_cnt);
+		(void)printf("Data bytes read: %u\n", dread_cnt);
+		(void)printf("Data bytes written: %u\n", dwrite_cnt);
+		(void)printf("Port reads: %u\n", pin_cnt);
+		(void)printf("Port writes: %u\n", pout_cnt);
 	}
 
 	symbols_destroy(symbols);

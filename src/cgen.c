@@ -7341,9 +7341,9 @@ static int cgen_sub_ptra(cgen_expr_t *cgexpr, comp_tok_t *optok,
 		(void)lexer_dprint_tok(&optok->tok, stderr);
 		(void)fprintf(stderr, ": Subtracting pointers of incompatible "
 		    "type (");
-		cgtype_print(lval.cgtype, stderr);
+		(void)cgtype_print(lval.cgtype, stderr);
 		(void)fprintf(stderr, " and ");
-		cgtype_print(rval.cgtype, stderr);
+		(void)cgtype_print(rval.cgtype, stderr);
 		(void)fprintf(stderr, ").\n");
 		cgexpr->cgen->error = true; // TODO
 		rc = EINVAL;
@@ -12893,9 +12893,9 @@ static int cgen_etcond_rtype(cgen_expr_t *cgexpr, comp_tok_t *tok,
 	(void)lexer_dprint_tok(&tok->tok, stderr);
 	(void)fprintf(stderr, ": Invalid argument types to conditional "
 	    "operator (");
-	cgtype_print(atype, stderr);
+	(void)cgtype_print(atype, stderr);
 	(void)fprintf(stderr, ", ");
-	cgtype_print(btype, stderr);
+	(void)cgtype_print(btype, stderr);
 	(void)fprintf(stderr, ").\n");
 	cgexpr->cgen->error = true; // TODO
 	return EINVAL;
@@ -15574,7 +15574,7 @@ static int cgen_check_va_list(cgen_proc_t *cgproc, cgtype_t *cgtype,
 
 	(void)lexer_dprint_tok(&tok->tok, stderr);
 	(void)fprintf(stderr, ": expected expression of type __va_list, got ");
-	cgtype_print(cgtype, stderr);
+	(void)cgtype_print(cgtype, stderr);
 	(void)fprintf(stderr, ".\n");
 	cgproc->cgen->error = true; // TODO
 	return EINVAL;
@@ -16485,7 +16485,9 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	 * as an integer type.
 	 */
 	if (rank > cgir_int || (rank == cgir_int && !is_signed)) {
-		cgen_eres_clone(ares, eres);
+		rc = cgen_eres_clone(ares, eres);
+		if (rc != EOK)
+			return rc;
 		return EOK;
 	}
 
@@ -18458,7 +18460,7 @@ static int cgen_truth_eres_cjmp(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		tok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&tok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: '");
-		cgtype_print(cres->cgtype, stderr);
+		(void)cgtype_print(cres->cgtype, stderr);
 		(void)fprintf(stderr, "' used as a truth value.\n");
 		++cgexpr->cgen->warnings;
 	}
@@ -20291,7 +20293,7 @@ static void cgen_expr_check_unused(cgen_expr_t *cgexpr, ast_node_t *expr,
 		btok = ast_tree_last_tok(expr);
 		catok = (comp_tok_t *) atok->data;
 		cbtok = (comp_tok_t *) btok->data;
-		lexer_dprint_tok_range(&catok->tok, &catok->tok.bpos,
+		(void)lexer_dprint_tok_range(&catok->tok, &catok->tok.bpos,
 		    &cbtok->tok.epos, stderr);
 		(void)fprintf(stderr, ": Warning: Computed expression value "
 		    "is not used.\n");
@@ -21785,10 +21787,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		if (rc == EINVAL) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Conflicting type '");
-			cgtype_print(dtype, stderr);
+			(void)cgtype_print(dtype, stderr);
 			(void)fprintf(stderr, "' for '%s', previously "
 			    "declared as '", ident->tok.text);
-			cgtype_print(symbol->cgtype, stderr);
+			(void)cgtype_print(symbol->cgtype, stderr);
 			(void)fprintf(stderr, "'.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -21959,7 +21961,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (cgen_type_is_incomplete(cgen, dtfunc->rtype)) {
 		(void)lexer_dprint_tok(&ident->tok, stderr);
 		(void)fprintf(stderr, ": Function returns incomplete type '");
-		cgtype_print(dtfunc->rtype, stderr);
+		(void)cgtype_print(dtfunc->rtype, stderr);
 		(void)fprintf(stderr, "'.\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
@@ -22250,10 +22252,10 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		if (rc == EINVAL) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Conflicting type '");
-			cgtype_print(ftype, stderr);
+			(void)cgtype_print(ftype, stderr);
 			(void)fprintf(stderr, "' for '%s', previously "
 			    "declared as '", ident->tok.text);
-			cgtype_print(symbol->cgtype, stderr);
+			(void)cgtype_print(symbol->cgtype, stderr);
 			(void)fprintf(stderr, "'.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -22918,8 +22920,10 @@ static int cgen_init_digest_array(cgen_t *cgen, cgen_init_t *parent,
 
 		if (init != NULL && init->dsg == i) {
 			/* Initialized field */
-			cgen_init_digest(cgen, init, tarray->etype, lvl + 1,
-			    dest);
+			rc = cgen_init_digest(cgen, init, tarray->etype,
+			    lvl + 1, dest);
+			if (rc != EOK)
+				return rc;
 		} else {
 			/* Uninitialized field */
 			rc = cgen_uninit_digest(cgen, tarray->etype, dest);
@@ -22961,12 +22965,16 @@ static int cgen_init_digest_struct(cgen_t *cgen, cgen_init_t *parent,
 			 * Bitfields can be partially initialized so always
 			 * process them.
 			 */
-			cgen_init_digest_bitfield(cgen, &init, &i, stor, lvl,
-			    dest);
+			rc = cgen_init_digest_bitfield(cgen, &init, &i, stor,
+			    lvl, dest);
+			if (rc != EOK)
+				return rc;
 		} else if (init != NULL && init->dsg == i) {
 			/* Initialized field */
-			cgen_init_digest(cgen, init, stor->cgtype, lvl + 1,
-			    dest);
+			rc = cgen_init_digest(cgen, init, stor->cgtype,
+			    lvl + 1, dest);
+			if (rc != EOK)
+				return rc;
 		} else {
 			/* Uninitialized field */
 			rc = cgen_uninit_digest(cgen, stor->cgtype, dest);
@@ -23010,8 +23018,10 @@ static int cgen_init_digest_union(cgen_t *cgen, cgen_init_t *parent,
 
 		if (init != NULL && init->dsg == i) {
 			/* Initialized field */
-			cgen_init_digest(cgen, init, elem->cgtype, lvl + 1,
+			rc = cgen_init_digest(cgen, init, elem->cgtype, lvl + 1,
 			    dest);
+			if (rc != EOK)
+				return rc;
 			break;
 		}
 
@@ -23767,7 +23777,10 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 			goto error;
 	}
 
-	cgen_init_digest(cgen, parent, stype, 0, dblock);
+	rc = cgen_init_digest(cgen, parent, stype, 0, dblock);
+	if (rc != EOK)
+		goto error;
+
 	cgen_init_destroy(parent);
 	return EOK;
 error:
@@ -23865,10 +23878,10 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		if (rc == EINVAL) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Conflicting type '");
-			cgtype_print(stype, stderr);
+			(void)cgtype_print(stype, stderr);
 			(void)fprintf(stderr, "' for '%s', previously "
 			    "declared as '", ident->tok.text);
-			cgtype_print(symbol->cgtype, stderr);
+			(void)cgtype_print(symbol->cgtype, stderr);
 			(void)fprintf(stderr, "'.\n");
 			cgen->error = true; // XXX
 			rc = EINVAL;
@@ -24088,7 +24101,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 						tok = (comp_tok_t *) atok->data;
 						(void)lexer_dprint_tok(&tok->tok, stderr);
 						(void)fprintf(stderr, ": Warning: Declaration of '");
-						cgtype_print(stype, stderr);
+						(void)cgtype_print(stype, stderr);
 						(void)fprintf(stderr, "' follows definition.\n");
 						++cgen->warnings;
 					} else if ((flags & cgrd_prevdecl) != 0) {
@@ -24096,7 +24109,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 						tok = (comp_tok_t *) atok->data;
 						(void)lexer_dprint_tok(&tok->tok, stderr);
 						(void)fprintf(stderr, ": Warning: Multiple declarations of '");
-						cgtype_print(stype, stderr);
+						(void)cgtype_print(stype, stderr);
 						(void)fprintf(stderr, "'.\n");
 						++cgen->warnings;
 					}

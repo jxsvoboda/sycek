@@ -225,7 +225,7 @@ int cgen_enum_append(cgen_enum_t *cgenum, const char *ident, int value,
 /** Look up enum element by identifier.
  *
  * @param cgenum Enum definition
- * @param ident Element indentifier
+ * @param ident Element identifier
  * @return Enum element or @c NULL if not found
  */
 cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *cgenum,

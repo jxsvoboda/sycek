@@ -360,7 +360,7 @@ error:
 /** Look up record element by identifier.
  *
  * @param record Record definition
- * @param ident Element indentifier
+ * @param ident Element identifier
  * @param ridx Place to store element index or @c NULL if not interested
  * @return Record element or @c NULL if not found
  */

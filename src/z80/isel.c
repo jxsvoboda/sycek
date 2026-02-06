@@ -54,7 +54,7 @@ static int z80_isel_mangle_global_ident(const char *irident, char **rident)
 	int rv;
 	char *ident;
 
-	/* The indentifier must have global scope */
+	/* The identifier must have global scope */
 	assert(irident[0] == '@');
 
 	rv = asprintf(&ident, "_%s", &irident[1]);
@@ -4317,14 +4317,14 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 		rc = ir_module_find(isproc->isel->irmodule, op1->varname, &pdecln);
 		if (rc != EOK) {
-			fprintf(stderr, "Call to undefined procedure '%s'.\n",
-			    op1->varname);
+			(void)fprintf(stderr, "Call to undefined procedure "
+			    "'%s'.\n", op1->varname);
 			goto error;
 		}
 
 		if (pdecln->dtype != ird_proc) {
-			fprintf(stderr, "Calling object '%s' which is not a procedure.\n",
-			    op1->varname);
+			(void)fprintf(stderr, "Calling object '%s' which "
+			    "is not a procedure.\n", op1->varname);
 			rc = EINVAL;
 			goto error;
 		}
@@ -4336,15 +4336,15 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		rc = ir_module_find(isproc->isel->irmodule,
 		    irinstr->opt->t.tident.ident, &pdecln);
 		if (rc != EOK) {
-			fprintf(stderr, "Undefined call signature '%s'.\n",
-			    irinstr->opt->t.tident.ident);
+			(void)fprintf(stderr, "Undefined call signature "
+			    "'%s'.\n", irinstr->opt->t.tident.ident);
 			goto error;
 		}
 
 		if (pdecln->dtype != ird_proc ||
 		    ((ir_proc_t *)pdecln->ext)->linkage != irl_callsign) {
-			fprintf(stderr, "Object '%s' is not a call signature.\n",
-			    op1->varname);
+			(void)fprintf(stderr, "Object '%s' is not a call "
+			    "signature.\n", op1->varname);
 			rc = EINVAL;
 			goto error;
 		}
@@ -4386,7 +4386,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 		if (parg == NULL && !proc->variadic) {
 			/* Too many arguments */
-			fprintf(stderr, "Too many arguments to procedure "
+			(void)fprintf(stderr, "Too many arguments to procedure "
 			    "'%s'.\n", op1->varname);
 			rc = EINVAL;
 			goto error;
@@ -4402,15 +4402,15 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 			} else if (parg->atype->tetype == irt_ptr) {
 				bits = parg->atype->t.tptr.width;
 			} else {
-				fprintf(stderr, "Unsupported argument type (%d)\n",
-				    parg->atype->tetype);
+				(void)fprintf(stderr, "Unsupported argument "
+				    "type (%d)\n", parg->atype->tetype);
 				goto error;
 			}
 
 			/* Now verify that size matches actual param. size */
 			if (bits != vmentry->bytes * 8) {
-				fprintf(stderr, "Actual parameter size (%u) "
-				    "does not match formal paramater size "
+				(void)fprintf(stderr, "Actual parameter size "
+				    "(%u) does not match formal paramater size "
 				    "(%u).\n", vmentry->bytes, bits / 8);
 				goto error;
 			}
@@ -4441,7 +4441,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 	if (parg != NULL) {
 		/* Too few arguments */
-		fprintf(stderr, "Too few arguments to procedure "
+		(void)fprintf(stderr, "Too few arguments to procedure "
 		    "'%s'.\n", op1->varname);
 		rc = EINVAL;
 		goto error;
@@ -9185,10 +9185,10 @@ static int z80_isel_recmbr(z80_isel_proc_t *isproc, const char *label,
 	rc = z80_isel_recmbr_off(isproc->isel, irinstr->opt, opvar->varname,
 	    &off);
 	if (rc != EOK) {
-		fprintf(stderr, "Error determning offset of member '%s' in "
-		    "record '", opvar->varname);
+		(void)fprintf(stderr, "Error determning offset of member '%s' "
+		    "in record '", opvar->varname);
 		(void) ir_texpr_print(irinstr->opt, stderr);
-		fprintf(stderr, "'.\n");
+		(void)fprintf(stderr, "'.\n");
 		return rc;
 	}
 
@@ -12133,8 +12133,8 @@ static int z80_isel_proc_args(z80_isel_proc_t *isproc, ir_proc_t *irproc,
 		} else if (arg->atype->tetype == irt_ptr) {
 			bits = arg->atype->t.tptr.width;
 		} else {
-			fprintf(stderr, "Unsupported argument type (%d)\n",
-			    arg->atype->tetype);
+			(void)fprintf(stderr, "Unsupported argument type "
+			    "(%d)\n", arg->atype->tetype);
 			goto error;
 		}
 

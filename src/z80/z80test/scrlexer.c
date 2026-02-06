@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -219,7 +219,9 @@ static char *scr_lexer_chars(scr_lexer_t *lexer)
 		    lexer->buf_used, scr_lexer_buf_size - lexer->buf_used,
 		    &nread, &rpos);
 		if (rc != 0) {
-			printf("read error\n");
+			lexer->in_error = true;
+			nread = 0;
+			rpos = lexer->pos;
 		}
 		if (nread < scr_lexer_buf_size - lexer->buf_used)
 			lexer->in_eof = true;
@@ -250,6 +252,16 @@ static bool scr_lexer_is_eof(scr_lexer_t *lexer)
 	(void) lc;
 
 	return lexer->buf_pos == lexer->buf_used;
+}
+
+/** Determine if lexer enocuntered an I/O error.
+ *
+ * @param lexer Lexer
+ * @return @c true iff there are no more characters available
+ */
+static bool scr_lexer_is_error(scr_lexer_t *lexer)
+{
+	return lexer->in_error;
 }
 
 /** Get current lexer position in source code.
@@ -621,6 +633,21 @@ static int scr_lexer_eof(scr_lexer_t *lexer, scr_lexer_tok_t *tok)
 	return 0;
 }
 
+/** Lex Error.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return Zero on sucess or non-zero error code
+ */
+static int scr_lexer_error(scr_lexer_t *lexer, scr_lexer_tok_t *tok)
+{
+	scr_lexer_get_pos(lexer, &tok->bpos);
+	scr_lexer_get_pos(lexer, &tok->epos);
+	tok->ttype = stt_error;
+	return 0;
+}
+
 /** Lex next token in.
  *
  * @param lexer Lexer
@@ -638,7 +665,9 @@ int scr_lexer_get_tok(scr_lexer_t *lexer, scr_lexer_tok_t *tok)
 
 	/* End of file or null character */
 	if (p[0] == '\0') {
-		if (scr_lexer_is_eof(lexer))
+		if (scr_lexer_is_error(lexer))
+			return scr_lexer_error(lexer, tok);
+		else if (scr_lexer_is_eof(lexer))
 			return scr_lexer_eof(lexer, tok);
 		else
 			return scr_lexer_nonprint(lexer, tok);

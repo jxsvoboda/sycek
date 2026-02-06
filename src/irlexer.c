@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -219,7 +219,9 @@ static char *ir_lexer_chars(ir_lexer_t *lexer)
 		    lexer->buf_used, ir_lexer_buf_size - lexer->buf_used,
 		    &nread, &rpos);
 		if (rc != EOK) {
-			printf("read error\n");
+			lexer->in_error = true;
+			nread = 0;
+			rpos = lexer->pos;
 		}
 		if (nread < ir_lexer_buf_size - lexer->buf_used)
 			lexer->in_eof = true;
@@ -250,6 +252,16 @@ static bool ir_lexer_is_eof(ir_lexer_t *lexer)
 	(void) lc;
 
 	return lexer->buf_pos == lexer->buf_used;
+}
+
+/** Determine if lexer encountered an I/O error.
+ *
+ * @param lexer Lexer
+ * @return @c true iff there was an I/O error
+ */
+static bool ir_lexer_is_error(ir_lexer_t *lexer)
+{
+	return lexer->in_error;
 }
 
 /** Get current lexer position in source code.
@@ -552,6 +564,21 @@ static int ir_lexer_eof(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 	return EOK;
 }
 
+/** Lex Error.
+ *
+ * @param lexer Lexer
+ * @param tok Output token
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_lexer_error(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
+{
+	ir_lexer_get_pos(lexer, &tok->bpos);
+	ir_lexer_get_pos(lexer, &tok->epos);
+	tok->ttype = itt_error;
+	return EOK;
+}
+
 /** Lex next token in.
  *
  * @param lexer Lexer
@@ -569,7 +596,9 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 
 	/* End of file or null character */
 	if (p[0] == '\0') {
-		if (ir_lexer_is_eof(lexer))
+		if (ir_lexer_is_error(lexer))
+			return ir_lexer_error(lexer, tok);
+		else if (ir_lexer_is_eof(lexer))
 			return ir_lexer_eof(lexer, tok);
 		else
 			return ir_lexer_nonprint(lexer, tok);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -121,6 +121,8 @@ typedef struct scr_lexer {
 	src_pos_t pos;
 	/** EOF hit in input */
 	bool in_eof;
+	/** I/O error hit in input */
+	bool in_error;
 	/** Input ops */
 	lexer_input_ops_t *input_ops;
 	/** Input argument */

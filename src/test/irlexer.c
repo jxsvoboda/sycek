@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -48,6 +48,7 @@ static const char *str_extern = "proc @foo() extern;\n";
 static int test_ir_lex_string(const char *str)
 {
 	int rc;
+	int rv;
 	ir_lexer_t *lexer;
 	str_input_t sinput;
 	bool done;
@@ -62,17 +63,26 @@ static int test_ir_lex_string(const char *str)
 	done = false;
 	while (!done) {
 		rc = ir_lexer_get_tok(lexer, &tok);
-		if (rc != EOK)
+		if (rc != EOK) {
+			ir_lexer_destroy(lexer);
 			return rc;
+		}
 
-		ir_lexer_dprint_tok(&tok, stdout);
+		rv = ir_lexer_dprint_tok(&tok, stdout);
+		if (rv < 0) {
+			ir_lexer_free_tok(&tok);
+			ir_lexer_destroy(lexer);
+			return EIO;
+		}
 		if (tok.ttype == itt_eof)
 			done = true;
 		ir_lexer_free_tok(&tok);
 	}
 
 	ir_lexer_destroy(lexer);
-	printf("\n");
+	rv = printf("\n");
+	if (rv < 0)
+		return EIO;
 
 	str_input_init(&sinput, str);
 
@@ -83,18 +93,28 @@ static int test_ir_lex_string(const char *str)
 	done = false;
 	while (!done) {
 		rc = ir_lexer_get_tok(lexer, &tok);
-		if (rc != EOK)
+		if (rc != EOK) {
+			ir_lexer_destroy(lexer);
 			return rc;
+		}
 
-		if (tok.ttype == itt_eof)
+		if (tok.ttype == itt_eof) {
 			done = true;
-		else
-			ir_lexer_print_tok(&tok, stdout);
+		} else {
+			rc = ir_lexer_print_tok(&tok, stdout);
+			if (rc != EOK) {
+				ir_lexer_free_tok(&tok);
+				ir_lexer_destroy(lexer);
+				return rc;
+			}
+		}
 		ir_lexer_free_tok(&tok);
 	}
 
 	ir_lexer_destroy(lexer);
-	printf("\n");
+	rv = printf("\n");
+	if (rv < 0)
+		return EIO;
 
 	return EOK;
 }

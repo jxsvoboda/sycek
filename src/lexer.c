@@ -97,6 +97,8 @@ static char *lexer_chars(lexer_t *lexer)
 		    &nread, &rpos);
 		if (rc != EOK) {
 			lexer->in_error = true;
+			nread = 0;
+			rpos = lexer->pos;
 		}
 		if (nread < lexer_buf_size - lexer->buf_used)
 			lexer->in_eof = true;

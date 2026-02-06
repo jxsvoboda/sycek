@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -45,8 +45,8 @@
 
 static void print_syntax(void)
 {
-	printf("C compiler / static checker\n");
-	printf("syntax:\n"
+	(void)printf("C compiler / static checker\n");
+	(void)printf("syntax:\n"
 	    "\tsyc [options] <file> Compile / check the specified file\n"
 	    "\tsyc --test Run internal unit tests\n"
 	    "compiler options:\n"
@@ -113,6 +113,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
     cgen_flags_t cgflags)
 {
 	int rc;
+	int rv;
 	comp_t *comp = NULL;
 	comp_mtype_t mtype;
 	file_input_t finput;
@@ -123,7 +124,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 
 	ext = strrchr(fname, '.');
 	if (ext == NULL) {
-		fprintf(stderr, "File '%s' has no extension.\n", fname);
+		(void)fprintf(stderr, "File '%s' has no extension.\n", fname);
 		rc = EINVAL;
 		goto error;
 	}
@@ -135,7 +136,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	} else if (strcmp(ext, ".ir") == 0 || strcmp(ext, ".IR") == 0) {
 		mtype = cmt_ir;
 	} else {
-		fprintf(stderr, "Unknown file extension '%s'.\n", ext);
+		(void)fprintf(stderr, "Unknown file extension '%s'.\n", ext);
 		rc = EINVAL;
 		goto error;
 	}
@@ -146,14 +147,14 @@ static int compile_file(const char *fname, comp_flags_t flags,
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
-		fprintf(stderr, "Cannot open '%s'.\n", fname);
+		(void)fprintf(stderr, "Cannot open '%s'.\n", fname);
 		rc = ENOENT;
 		goto error;
 	}
 
 	outf = fopen(outfname, "wt");
 	if (outf == NULL) {
-		fprintf(stderr, "Cannot open '%s'.\n", outfname);
+		(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
 		rc = EIO;
 		goto error;
 	}
@@ -171,7 +172,11 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		if (rc != EOK)
 			goto error;
 
-		printf("\n");
+		rv = printf("\n");
+		if (rv < 0) {
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	if ((flags & compf_dump_toks) != 0) {
@@ -179,7 +184,11 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		if (rc != EOK)
 			goto error;
 
-		printf("\n");
+		rv = printf("\n");
+		if (rv < 0) {
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	if ((flags & compf_dump_ir) != 0) {
@@ -199,13 +208,13 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		goto error;
 
 	if (fflush(outf) < 0) {
-		fprintf(stderr, "Error writing to '%s'.\n", outfname);
+		(void)fprintf(stderr, "Error writing to '%s'.\n", outfname);
 		rc = EIO;
 		goto error;
 	}
 
-	fclose(f);
-	fclose(outf);
+	(void)fclose(f);
+	(void)fclose(outf);
 	free(outfname);
 	comp_destroy(comp);
 
@@ -214,9 +223,9 @@ error:
 	if (comp != NULL)
 		comp_destroy(comp);
 	if (f != NULL)
-		fclose(f);
+		(void)fclose(f);
 	if (outf != NULL)
-		fclose(outf);
+		(void)fclose(outf);
 	if (outfname != NULL) {
 		(void) remove(outfname);
 		free(outfname);
@@ -227,6 +236,7 @@ error:
 int main(int argc, char *argv[])
 {
 	int rc;
+	int rv;
 	int i;
 	comp_flags_t flags = 0;
 	cgen_flags_t cgflags = 0;
@@ -239,51 +249,53 @@ int main(int argc, char *argv[])
 	if (argc == 2 && strcmp(argv[1], "--test") == 0) {
 		/* Run tests */
 		rc = test_cgen();
-		printf("test_cgen -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_cgen -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_comp();
-		printf("test_comp -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_comp -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_cgtype();
-		printf("test_cgtype -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_cgtype -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_ir();
-		printf("test_ir -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_ir -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_ir_lexer();
-		printf("test_ir -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_ir -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_scope();
-		printf("test_scope -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_scope -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_z80ic();
-		printf("test_z80ic -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_z80ic -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_z80_isel();
-		printf("test_z80_isel -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_z80_isel -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
 		rc = test_z80_ralloc();
-		printf("test_z80_ralloc -> %d\n", rc);
-		if (rc != EOK)
+		rv = printf("test_z80_ralloc -> %d\n", rc);
+		if (rc != EOK || rv < 0)
 			return 1;
 
-		printf("Tests passed.\n");
+		rv = printf("Tests passed.\n");
+		if (rv < 0)
+			return 1;
 		return 0;
 	}
 
@@ -308,13 +320,13 @@ int main(int argc, char *argv[])
 			++i;
 			break;
 		} else {
-			fprintf(stderr, "Invalid option.\n");
+			(void)fprintf(stderr, "Invalid option.\n");
 			return 1;
 		}
 	}
 
 	if (argc <= i) {
-		fprintf(stderr, "Argument missing.\n");
+		(void)fprintf(stderr, "Argument missing.\n");
 		return 1;
 	}
 

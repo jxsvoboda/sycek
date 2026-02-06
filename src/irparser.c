@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -161,9 +161,9 @@ static int ir_parser_match(ir_parser_t *parser, ir_lexer_toktype_t mtype)
 
 	itt = ir_parser_next_ttype(parser);
 	if (itt != mtype) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected %s.\n",
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected %s.\n",
 		    ir_lexer_str_ttype(mtype));
 		return EINVAL;
 	}
@@ -291,9 +291,9 @@ static int ir_parser_process_oper_imm(ir_parser_t *parser, ir_oper_imm_t **rimm)
 
 	rc = ir_lexer_number_val(&itok, &value);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		return rc;
 	}
 
@@ -349,9 +349,9 @@ static int ir_parser_process_oper(ir_parser_t *parser, ir_oper_t **roper)
 		*roper = &imm->oper;
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected operand.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected operand.\n");
 		return EINVAL;
 	}
 
@@ -514,9 +514,10 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 		instr->itype = iri_zrext;
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected instruction keyword.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected instruction "
+		    "keyword.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -531,18 +532,18 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 
 		ir_parser_read_next_tok(parser, &itok);
 		if (itok.ttype != itt_number) {
-			fprintf(stderr, "Error: ");
-			ir_parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected number.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)ir_parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr, " unexpected, expected number.\n");
 			rc = EINVAL;
 			goto error;
 		}
 
 		rc = ir_lexer_number_val(&itok, &width);
 		if (rc != EOK) {
-			fprintf(stderr, "Error: ");
-			ir_parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " is not a valid number.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)ir_parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr, " is not a valid number.\n");
 			rc = EINVAL;
 			goto error;
 		}
@@ -626,7 +627,10 @@ static int ir_parser_process_lblock(ir_parser_t *parser, ir_lblock_t *lblock)
 			ir_parser_read_next_tok(parser, &itok);
 			assert(itok.ttype == itt_ident);
 
-			ir_lblock_append(lblock, itok.text, NULL);
+			rc = ir_lblock_append(lblock, itok.text, NULL);
+			if (rc != EOK)
+				goto error;
+
 			ir_parser_skip(parser);
 
 			rc = ir_parser_match(parser, itt_colon);
@@ -638,7 +642,9 @@ static int ir_parser_process_lblock(ir_parser_t *parser, ir_lblock_t *lblock)
 			if (rc != EOK)
 				goto error;
 
-			ir_lblock_append(lblock, NULL, instr);
+			rc = ir_lblock_append(lblock, NULL, instr);
+			if (rc != EOK)
+				goto error;
 		}
 
 		itt = ir_parser_next_ttype(parser);
@@ -679,18 +685,18 @@ static int ir_parser_process_int_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_number) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
 		rc = EINVAL;
 		goto error;
 	}
 
 	rc = ir_lexer_number_val(&itok, &width);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -739,18 +745,18 @@ static int ir_parser_process_ptr_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_number) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
 		rc = EINVAL;
 		goto error;
 	}
 
 	rc = ir_lexer_number_val(&itok, &width);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -818,9 +824,9 @@ static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 	case itt_ident:
 		return ir_parser_process_ident_texpr(parser, rtexpr);
 	default:
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected type expression.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected type expression.\n");
 		return EINVAL;
 	}
 }
@@ -885,9 +891,9 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_ident) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected indentifier.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected identifier.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -927,9 +933,9 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 
 		ir_parser_read_next_tok(parser, &itok);
 		if (itok.ttype != itt_ident) {
-			fprintf(stderr, "Error: ");
-			ir_parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected indentifier.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)ir_parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr, " unexpected, expected identifier.\n");
 			rc = EINVAL;
 			goto error;
 		}
@@ -997,9 +1003,10 @@ static int ir_parser_process_proc(ir_parser_t *parser, ir_proc_t **rproc)
 		while (true) {
 			itt = ir_parser_next_ttype(parser);
 			if (itt != itt_ident) {
-				fprintf(stderr, "Error: ");
-				ir_parser_dprint_next_tok(parser, stderr);
-				fprintf(stderr, " unexpected, expected indentifier.\n");
+				(void)fprintf(stderr, "Error: ");
+				(void)ir_parser_dprint_next_tok(parser, stderr);
+				(void)fprintf(stderr, " unexpected, expected "
+				    "identifier.\n");
 				rc = EINVAL;
 				goto error;
 			}
@@ -1146,9 +1153,9 @@ static int ir_parser_process_record(ir_parser_t *parser, ir_record_t **rrecord)
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_ident) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected indentifier.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected identifier.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1169,9 +1176,10 @@ static int ir_parser_process_record(ir_parser_t *parser, ir_record_t **rrecord)
 	while (itt != itt_end) {
 		ir_parser_read_next_tok(parser, &itok);
 		if (itok.ttype != itt_ident) {
-			fprintf(stderr, "Error: ");
-			ir_parser_dprint_next_tok(parser, stderr);
-			fprintf(stderr, " unexpected, expected indentifier.\n");
+			(void)fprintf(stderr, "Error: ");
+			(void)ir_parser_dprint_next_tok(parser, stderr);
+			(void)fprintf(stderr, " unexpected, expected "
+			    "identifier.\n");
 			rc = EINVAL;
 			goto error;
 		}
@@ -1261,18 +1269,18 @@ static int ir_parser_process_dentry_int(ir_parser_t *parser,
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_number) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
 		rc = EINVAL;
 		goto error;
 	}
 
 	rc = ir_lexer_number_val(&itok, &width);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1283,18 +1291,18 @@ static int ir_parser_process_dentry_int(ir_parser_t *parser,
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_number) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
 		rc = EINVAL;
 		goto error;
 	}
 
 	rc = ir_lexer_number_val(&itok, &value);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1352,18 +1360,18 @@ static int ir_parser_process_dentry_ptr(ir_parser_t *parser,
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_number) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
 		rc = EINVAL;
 		goto error;
 	}
 
 	rc = ir_lexer_number_val(&itok, &width);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1374,9 +1382,9 @@ static int ir_parser_process_dentry_ptr(ir_parser_t *parser,
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_ident) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected identifier.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected identifier.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1400,18 +1408,18 @@ static int ir_parser_process_dentry_ptr(ir_parser_t *parser,
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_number) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
 		rc = EINVAL;
 		goto error;
 	}
 
 	rc = ir_lexer_number_val(&itok, &value);
 	if (rc != EOK) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " is not a valid number.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1462,9 +1470,9 @@ static int ir_parser_process_dentry(ir_parser_t *parser, ir_dentry_t **rdentry)
 		rc = ir_parser_process_dentry_ptr(parser, rdentry);
 		break;
 	default:
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpeced, expected 'int' or 'ptr'.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpeced, expected 'int' or 'ptr'.\n");
 		rc = EINVAL;
 		break;
 	}
@@ -1496,7 +1504,10 @@ static int ir_parser_process_dblock(ir_parser_t *parser, ir_dblock_t **rdblock)
 		if (rc != EOK)
 			goto error;
 
-		ir_dblock_append(dblock, dentry);
+		rc = ir_dblock_append(dblock, dentry);
+		if (rc != EOK)
+			goto error;
+
 		itt = ir_parser_next_ttype(parser);
 	}
 
@@ -1534,9 +1545,9 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 
 	ir_parser_read_next_tok(parser, &itok);
 	if (itok.ttype != itt_ident) {
-		fprintf(stderr, "Error: ");
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, " unexpected, expected indentifier.\n");
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected identifier.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1628,8 +1639,8 @@ static int ir_parser_process_decln(ir_parser_t *parser, ir_decln_t **rdecln)
 		decln = &var->decln;
 		break;
 	default:
-		ir_parser_dprint_next_tok(parser, stderr);
-		fprintf(stderr, ": Declaration expected.\n");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, ": Declaration expected.\n");
 		rc = EINVAL;
 		goto error;
 	}

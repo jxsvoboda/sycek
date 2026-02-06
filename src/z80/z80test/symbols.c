@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -199,7 +199,7 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 		while ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
 		    (c >= '0' && c <= '9') || c == '_') {
 			if (i >= max_id_len) {
-				printf("Identifier too long.\n");
+				(void)printf("Identifier too long.\n");
 				goto error;
 			}
 
@@ -257,14 +257,14 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 
 		rc = symbols_insert(symbols, ident, addr);
 		if (rc != 0) {
-			fclose(f);
+			(void)fclose(f);
 			return rc;
 		}
 	}
 
-	fclose(f);
+	(void)fclose(f);
 	return 0;
 error:
-	fclose(f);
+	(void)fclose(f);
 	return EIO;
 }
