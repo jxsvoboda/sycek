@@ -23900,12 +23900,14 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			goto error;
 		}
 
+		old_extern = (symbol->flags & sf_extern) != 0;
+
 		if ((symbol->flags & sf_defined) != 0) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "follows definition.\n", ident->tok.text);
 			++cgen->warnings;
-		} else if (entry->init == NULL) {
+		} else if (entry->init == NULL && !old_extern) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Warning: Multiple "
 			    "declarations of '%s'.\n", ident->tok.text);
@@ -23915,7 +23917,13 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			member = scope_lookup(cgen->cur_scope, ident->tok.text);
 			assert(member != NULL);
 
-			if (!member->used) {
+			/*
+			 * XXX HDR We do not want to generate a warning
+			 * if the forward declaration was in a header file.
+			 * Currently we cannot determine that so we assume
+			 * that an extern declaration is in a header file.
+			 */
+			if (!member->used && !old_extern) {
 				(void)lexer_dprint_tok(&ident->tok, stderr);
 				(void)fprintf(stderr, ": Warning: "
 				    "Variable '%s' not used since forward "
@@ -23943,22 +23951,21 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			++cgen->warnings;
 		}
 
-		/* Check if extern did not change */
-		old_extern = (symbol->flags & sf_extern) != 0;
+		/*
+		 * Check if variable declared as extern is later declared
+		 * as non extern. The inverse is normal, as variable
+		 * declared extern in a header file is then declared/defined
+		 * non extern in the C file.
+		 *
+		 * XXX HDR We should, however, generate warning for a
+		 * non-extern variable in a header file.
+		 */
 		if (vextern && !old_extern) {
 			/* Non-extern previously declared as extern */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Warning: Extern '%s' was "
 			    "previously declared as non-extern.\n",
 			    ident->tok.text);
-			++cgen->warnings;
-		} else if (!vextern && old_extern && entry->init == NULL) {
-			/* Non-extern previously declared as extern */
-			(void)lexer_dprint_tok(&ident->tok, stderr);
-			(void)fprintf(stderr, ": Warning: non-extern '%s' was "
-			    "previously declared as extern.\n",
-			    ident->tok.text);
-			symbol->flags &= ~sf_extern;
 			++cgen->warnings;
 		}
 	}
