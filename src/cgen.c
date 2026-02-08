@@ -16321,7 +16321,7 @@ static int cgen_eres_promoted_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *bres,
 	if ((cgexpr->cgen->flags & cgf_int_promotion) == 0)
 		return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
 
-	if (!cgen_type_is_integral(cgexpr->cgen, bres->cgtype))
+	if (!cgen_type_is_integer(cgexpr->cgen, bres->cgtype))
 		return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
 
 	rank = cgtype_int_rank(bres->cgtype);
