@@ -1,0 +1,7 @@
+mapfile "intprom.map";
+ldbin "intprom.bin", 0x8000;
+
+ld byte ptr (@_a), 128;
+ld byte ptr (@_b), 128;
+call @_add;
+verify word ptr (@_c), 0xff00;
