@@ -6614,7 +6614,7 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 			    idx_signed, cres.cvint)) {
 				cgen_warn_array_index_negative(cgexpr->cgen,
 				    optok);
-			} else if ((uint64_t)cres.cvint >=
+			} else if (arrt->have_size && (uint64_t)cres.cvint >=
 			    (uint64_t)arrt->asize) {
 				cgen_warn_array_index_oob(cgexpr->cgen, optok);
 			}
