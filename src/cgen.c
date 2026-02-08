@@ -86,7 +86,7 @@ static int cgen_uac(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *, ir_lblock_t *,
 static int cgen_expr2_uac(cgen_expr_t *, ast_node_t *, ast_node_t *,
     ir_lblock_t *, cgen_eres_t *, cgen_eres_t *, cgen_uac_flags_t *);
 static int cgen_expr2lr_uac(cgen_expr_t *, ast_node_t *, ast_node_t *,
-    ir_lblock_t *lblock, cgen_eres_t *, cgen_eres_t *, cgen_eres_t *,
+    ir_lblock_t *, cgen_eres_t *, cgen_eres_t *, cgen_eres_t *,
     cgen_uac_flags_t *);
 static int cgen_expr(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
