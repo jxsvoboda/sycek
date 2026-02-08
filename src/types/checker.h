@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -125,6 +125,8 @@ typedef struct {
 
 /** Checker flags */
 typedef enum {
+	/** No flags */
+	cf_none = 0,
 	/** Attempt to fix issues instead of reporting them */
 	cf_fix = 0x1,
 	/** Dump internal AST */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -171,16 +171,16 @@ bool is_bad_ctrl(char c)
  */
 unsigned cc_hexdigit_val(char c)
 {
-	/* Note: this will work in non-ASCII environments */
+	/* Note: this will not work in non-ASCII environments */
 
 	if (is_num(c)) {
-		return c - '0';
+		return (uint8_t)c - '0';
 	} else if (c >= 'a' && c <= 'f') {
-		return 10 + (c - 'a');
+		return 10 + (uint8_t)(c - 'a');
 	} else {
 		assert(c >= 'A');
 		assert(c <= 'F');
-		return 10 + (c - 'A');
+		return 10 + (uint8_t)(c - 'A');
 	}
 }
 
@@ -193,8 +193,8 @@ unsigned cc_decdigit_val(char c)
 {
 	assert(is_num(c));
 
-	/* Note: this will work in non-ASCII environments */
-	return c - '0';
+	/* Note: this will not work in non-ASCII environments */
+	return (uint8_t)c - '0';
 }
 
 /** Get the value of an octal digit.
@@ -206,6 +206,6 @@ unsigned cc_octdigit_val(char c)
 {
 	assert(is_octdigit(c));
 
-	/* Note: this will work in non-ASCII environments */
-	return c - '0';
+	/* Note: this will not work in non-ASCII environments */
+	return (uint8_t)c - '0';
 }

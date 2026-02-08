@@ -270,8 +270,9 @@ static ast_binop_t parser_abo_assignop(lexer_toktype_t ttype)
 	case ltt_bxor_assign:
 		return abo_bxor_assign;
 	default:
+		/* Should not happen. */
 		assert(false);
-		return 0;
+		return abo_assign;
 	}
 }
 
@@ -1008,7 +1009,7 @@ static int parser_process_ltr_binop(parser_t *parser, lexer_toktype_t optt,
 	void *dop;
 	int rc;
 
-	rc = (*process_arg)(parser, &ea);
+	rc = process_arg(parser, &ea);
 	if (rc != EOK)
 		goto error;
 
@@ -1016,7 +1017,7 @@ static int parser_process_ltr_binop(parser_t *parser, lexer_toktype_t optt,
 	while (ltt == optt) {
 		parser_skip(parser, &dop);
 
-		rc = (*process_arg)(parser, &eb);
+		rc = process_arg(parser, &eb);
 		if (rc != EOK)
 			goto error;
 
@@ -4464,8 +4465,9 @@ static int parser_process_tsbasic(parser_t *parser, ast_node_t **rtype)
 		btstype = abts_va_list;
 		break;
 	default:
+		/* Should not happen. */
 		assert(false);
-		btstype = -1;
+		btstype = abts_void;
 		break;
 	}
 

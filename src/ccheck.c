@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 {
 	int rc;
 	int i;
-	checker_flags_t flags = 0;
+	checker_flags_t flags = cf_none;
 	checker_cfg_t cfg;
 
 	checker_cfg_init(&cfg);
