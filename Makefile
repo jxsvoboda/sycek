@@ -361,27 +361,27 @@ test/ccheck/all.diff: $(test_good_out_diffs) $(test_bad_err_diffs) \
 	cat $^ > $@
 
 test/syc/bad/%-t.txt: test/syc/bad/%.c $(syc)
-	-$(syc) $< 2>$@
+	-$(syc) $(sycflags) $< 2>$@
 
 test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/good/%-vg.txt: test/syc/good/%.c $(syc)
-	valgrind $(syc) $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/ugly/%-t.txt: test/syc/ugly/%.c $(syc)
-	$(syc) $< 2>$@
+	$(syc) $(sycflags) $< 2>$@
 
 test/syc/ugly/%.txt.diff: test/syc/ugly/%.txt test/syc/ugly/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
-	valgrind $(syc) $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/good/%.asm: test/syc/good/%.c $(syc)
-	$(syc) $<
+	$(syc) $(sycflags) $<
 
 test/syc/good/%.bin: test/syc/good/%.asm
 	z80asm +zx -m --origin=0x8000 $<
