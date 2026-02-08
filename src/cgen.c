@@ -5026,7 +5026,8 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	/* Either all arguments should have identifiers, or none */
 	if (arg_with_ident && arg_without_ident) {
-		tok = (comp_tok_t *) dfun->tlparen.data;
+		atok = ast_decl_get_ident(dfun->bdecl);
+		tok = (comp_tok_t *)atok->data;
 		(void)lexer_dprint_tok(&tok->tok, stderr);
 		(void)fprintf(stderr, ": Mixing arguments with and without an "
 		    "identifier.\n");
