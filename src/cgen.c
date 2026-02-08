@@ -16313,8 +16313,35 @@ error:
 static int cgen_eres_promoted_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *bres,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	// TODO
-	return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
+	cgtype_int_rank_t rank;
+	bool is_signed;
+	cgtype_t *dtype = NULL;
+	int rc;
+
+	if ((cgexpr->cgen->flags & cgf_int_promotion) == 0)
+		return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
+
+	if (!cgen_type_is_integral(cgexpr->cgen, bres->cgtype))
+		return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
+
+	rank = cgtype_int_rank(bres->cgtype);
+	if (rank >= cgir_int)
+		return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
+
+	/* Promote to signed/unsigned int. */
+	is_signed = cgen_type_is_signed(cgexpr->cgen, bres->cgtype);
+	rc = cgtype_int_construct(is_signed, cgir_int, &dtype);
+	if (rc != EOK)
+		return rc;
+
+	rc = cgen_type_convert(cgexpr, NULL, bres, dtype, cgen_explicit,
+	    lblock, eres);
+	if (rc != EOK)
+		goto error;
+error:
+	if (dtype != NULL)
+		cgtype_destroy(dtype);
+	return rc;
 }
 
 /** Generate code for expression, producing a promoted rvalue.
@@ -16677,10 +16704,6 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	cgen_eres_init(&pr1);
 	cgen_eres_init(&pr2);
 
-	rc = cgen_uac_rtype(cgexpr, res1->cgtype, res2->cgtype, &rtype);
-	if (rc != EOK)
-		goto error;
-
 	rc = cgen_enum2int(cgexpr->cgen, res1, &ir1, &conv1);
 	if (rc != EOK)
 		goto error;
@@ -16716,15 +16739,31 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	if (!ltruth && rtruth)
 		*flags |= cguac_truthmix;
 
+	/* Promote both operands. */
+
+	rc = cgen_eres_promoted_rvalue(cgexpr, &ir1, lblock, &pr1);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_eres_promoted_rvalue(cgexpr, &ir2, lblock, &pr2);
+	if (rc != EOK)
+		goto error;
+
+	/* Result type */
+
+	rc = cgen_uac_rtype(cgexpr, pr1.cgtype, pr2.cgtype, &rtype);
+	if (rc != EOK)
+		goto error;
+
 	/* Get signedness, constantness and negative flag for both operands */
 
-	sign1 = cgen_type_is_signed(cgexpr->cgen, ir1.cgtype);
-	const1 = ir1.cvknown;
-	neg1 = const1 && cgen_cvint_is_negative(cgexpr->cgen, sign1, ir1.cvint);
+	sign1 = cgen_type_is_signed(cgexpr->cgen, pr1.cgtype);
+	const1 = pr1.cvknown;
+	neg1 = const1 && cgen_cvint_is_negative(cgexpr->cgen, sign1, pr1.cvint);
 
-	sign2 = cgen_type_is_signed(cgexpr->cgen, ir2.cgtype);
-	const2 = ir2.cvknown;
-	neg2 = const2 && cgen_cvint_is_negative(cgexpr->cgen, sign2, ir2.cvint);
+	sign2 = cgen_type_is_signed(cgexpr->cgen, pr2.cgtype);
+	const2 = pr2.cvknown;
+	neg2 = const2 && cgen_cvint_is_negative(cgexpr->cgen, sign2, pr2.cvint);
 
 	/* Result type signedness */
 	rsign = cgen_type_is_signed(cgexpr->cgen, rtype);
@@ -16747,16 +16786,6 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 	/* Second operand non-constant, signed and converted to unsigned */
 	if (!const2 && sign2 && rsign == false)
 		*flags |= cguac_mix2u;
-
-	/* Promote both operands (XXX not needed?) */
-
-	rc = cgen_eres_promoted_rvalue(cgexpr, &ir1, lblock, &pr1);
-	if (rc != EOK)
-		goto error;
-
-	rc = cgen_eres_promoted_rvalue(cgexpr, &ir2, lblock, &pr2);
-	if (rc != EOK)
-		goto error;
 
 	/* Convert the promoted arguments to the result type */
 

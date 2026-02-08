@@ -35,7 +35,9 @@
 /** Code generator flags */
 typedef enum {
 	/** Lvalue function arguments */
-	cgf_lvalue_args = 0x1
+	cgf_lvalue_args = 0x1,
+	/** Integer promotion */
+	cgf_int_promotion = 0x2
 } cgen_flags_t;
 
 /** Code generator */

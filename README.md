@@ -253,11 +253,11 @@ Specifically, these language features are supported:
  * Designated struct/array initialization (C99)
  * `_Alignof()` (C11), `alignof()` (C23)
  * Passing and returning struct/union by value
+ * Integer promotion
 
 These are NOT supported yet:
 
  * Floating point
- * Integer promotion
  * Variable-length arrays
 
 Supported features not related to language coverage:
@@ -327,9 +327,13 @@ program in various compilation stages to the standard output:
 
 The following code generation options are available:
  * `--lvalue-args` Make function arguments lvalues (addressable/modifiable)
+ * `--int-promotion` Enable integer promotion
 
 NOTE: By default arguments are rvalues. This is just a temporary measure
 to produce more efficient code (as we do not have copy elimination).
+
+NOTE: By default, integer promotion is disabled. This is just a temporary
+measure to produce more efficient code (as we do not have integer demotion).
 
 User service routines
 ---------------------

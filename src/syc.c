@@ -55,7 +55,8 @@ static void print_syntax(void)
 	    "\t--dump-ir Dump intermediate representation\n"
 	    "\t--dump-vric Dump instruction code with virtual registers\n"
 	    "code generation options:\n"
-	    "\t--lvalue-args Make function arguments writable/addressable\n");
+	    "\t--lvalue-args Make function arguments writable/addressable\n"
+	    "\t--int-promotion Enable integer promotion\n");
 }
 
 /** Replace filename extension with a different one.
@@ -316,6 +317,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--lvalue-args") == 0) {
 			++i;
 			cgflags |= cgf_lvalue_args;
+		} else if (strcmp(argv[i], "--int-promotion") == 0) {
+			++i;
+			cgflags |= cgf_int_promotion;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;

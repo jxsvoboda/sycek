@@ -136,7 +136,7 @@ binary_syc = syc
 binary_syc_hos = syc-hos
 binary_syc_z80 = syc-z80.bin
 syc = ./$(binary_syc)
-sycflags = --lvalue-args
+sycflags = --lvalue-args --int-promotion
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
