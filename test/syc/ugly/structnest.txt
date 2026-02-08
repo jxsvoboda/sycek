@@ -1,1 +1,1 @@
-<test/syc/ugly/structnest.c:6:16-18:id:bar>: Warning: Definition of 'struct bar' inside another struct/union definition.
+<test/syc/ugly/structnest.c:7:16-18:id:bar>: Warning: Definition of 'struct bar' inside another struct/union definition.

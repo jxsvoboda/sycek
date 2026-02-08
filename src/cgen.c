@@ -3705,7 +3705,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		}
 	}
 
-	if (tsrecord->have_def && cgen->tsrec_cnt > 0) {
+	if (tsrecord->have_def && tsrecord->have_ident && cgen->tsrec_cnt > 0) {
 		(void)lexer_dprint_tok(&ident_tok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Definition of '%s %s' inside "
 		    "another struct/union definition.\n", rtype, ident);
