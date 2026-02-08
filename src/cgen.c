@@ -6524,6 +6524,7 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 	cgtype_array_t *arrt;
 	cgtype_t *etype;
 	bool idx_signed;
+	bool int_idx_type;
 	char *destvn;
 	int rc;
 
@@ -6584,12 +6585,14 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 		arrt = (cgtype_array_t *)lres->cgtype->ext;
 
 		/*
-		 * If the type of array dimension (int, enum) is known,
+		 * If the type of array dimension is an enum,
 		 * we can convert the subscript to it, thus checking
 		 * if its type matches the dimension type. Otherwise,
 		 * we will assume that the array dimension is an integer.
 		 */
-		if (arrt->itype == NULL) {
+		int_idx_type = (arrt->itype == NULL) ||
+		    !cgtype_is_strict_enum(arrt->itype);
+		if (int_idx_type) {
 			rc = cgtype_int_construct(idx_signed, cgir_int,
 			    &idxtype);
 			if (rc != EOK)
@@ -6598,7 +6601,7 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 
 		/* Convert index to be same size as pointer */
 		rc = cgen_type_convert(cgexpr, optok, rres,
-		    arrt->itype != NULL ? arrt->itype : idxtype,
+		    int_idx_type ? idxtype : arrt->itype,
 		    cgen_implicit, lblock, &cres);
 		if (rc != EOK)
 			goto error;
@@ -21520,6 +21523,10 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 		if (rc != EOK)
 			goto error;
 
+		cgen_eres_fini(&ares);
+		cgen_eres_fini(&vres);
+		cgen_eres_init(&ares);
+		cgen_eres_init(&vres);
 	skip:
 		free(arg_ident);
 		arg_ident = NULL;
