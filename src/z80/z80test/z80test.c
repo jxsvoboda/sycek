@@ -47,9 +47,9 @@
 #include "z80test.h"
 
 enum {
-	mem_size = 0x10000,
-	max_cycles = 1000000,
-	stack_base = 0xfff0,
+	mem_size = 0x10000l,
+	max_cycles = 1000000l,
+	stack_base = 0xfff0u,
 	ret_addr = 0x1234
 };
 
@@ -1024,12 +1024,12 @@ int main(int argc, char *argv[])
 	cpu_setup();
 	cpus.PC = 0;
 	cpus.SP = stack_base;
-	mem[0xfff0] = 0xff;
-	mem[0xfff1] = 0xff;
-	mem[0xfff2] = 0xff;
-	mem[0xfff3] = 0xff;
-	mem[0xfff4] = 0xff;
-	mem[0xfff5] = 0xff;
+	mem[0xfff0u] = 0xff;
+	mem[0xfff1u] = 0xff;
+	mem[0xfff2u] = 0xff;
+	mem[0xfff3u] = 0xff;
+	mem[0xfff4u] = 0xff;
+	mem[0xfff5u] = 0xff;
 	cpus.r[rB] = 0xff;
 	cpus.r[rC] = 0xff;
 	cpus.r[rD] = 0xff;

@@ -11305,7 +11305,7 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	int rc;
 
 	bits = cgen_type_sizeof(cgproc->cgen, vres->cgtype) * 8;
-	bffilt = (1 << ares->bitwidth) - 1;
+	bffilt = ((uint64_t)1 << ares->bitwidth) - 1;
 	bfmask = ~(bffilt << ares->bitpos);
 
 	if (vres->cvknown) {
@@ -11313,8 +11313,10 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 		mskcv = (uint64_t)vres->cvint & bffilt;
 		if (cgen_type_is_signed(cgproc->cgen, vres->cgtype)) {
 			/* Sign extend. */
-			if ((mskcv & (1 << (ares->bitwidth - 1))) != 0)
+			if ((mskcv & ((uint64_t)1 <<
+			    (ares->bitwidth - 1))) != 0) {
 				mskcv |= ~bffilt;
+			}
 		}
 		/* Value changed? */
 		if (mskcv != (uint64_t)vres->cvint)
@@ -23318,8 +23320,10 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			mskval = (uint64_t)initval & bffilt;
 			if (cgen_type_is_signed(cgen, stype)) {
 				/* Sign extend. */
-				if ((mskval & (1 << (width - 1))) != 0)
+				if ((mskval & ((uint64_t)1 <<
+				    (width - 1))) != 0) {
 					mskval |= ~bffilt;
+				}
 			}
 			/* Value changed? */
 			if (mskval != (uint64_t)initval) {

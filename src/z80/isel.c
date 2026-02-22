@@ -1031,7 +1031,7 @@ static int z80_isel_vrr_const(z80_isel_proc_t *isproc, unsigned destvr,
 				goto error;
 
 			rc = z80ic_oper_imm16_create_val(
-			    (value >> 16 * word) & 0xffff, &imm);
+			    (value >> 16 * word) & 0xffffu, &imm);
 			if (rc != EOK)
 				goto error;
 
@@ -3048,7 +3048,7 @@ static int z80_isel_memcopy(z80_isel_proc_t *isproc, unsigned vr1,
 	int rc;
 
 	assert(nbytes > 0);
-	assert(nbytes < 0x10000);
+	assert(nbytes < 0x10000ul);
 
 	nhvr = z80_isel_get_new_vregno(isproc);
 	nlvr = z80_isel_get_new_vregno(isproc);
@@ -3077,7 +3077,7 @@ static int z80_isel_memcopy(z80_isel_proc_t *isproc, unsigned vr1,
 	 */
 
 	while (nbytes > 0) {
-		if (nbytes < 0x8000)
+		if (nbytes < 0x8000u)
 			tocopy = nbytes;
 		else
 			tocopy = 0x7fff;

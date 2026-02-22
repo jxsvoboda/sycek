@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -264,9 +264,9 @@ static int z80_argloc_reg_alloc(z80_argloc_t *argloc, z80ic_r16_t *rr16,
 		used_mask = (part == z80_argloc_l) ?
 		    argloc->r16l_used : argloc->r16h_used;
 
-		if (used_mask[r16] == false) {
+		if (used_mask[(unsigned)r16] == false) {
 			/* Register is available */
-			used_mask[r16] = true;
+			used_mask[(unsigned)r16] = true;
 			*rr16 = r16;
 			*rpart = part;
 			return EOK;
