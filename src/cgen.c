@@ -144,7 +144,7 @@ enum {
 	cgen_char_bits = 8,
 	cgen_char_max = 255,
 	cgen_lchar_bits = 16,
-	cgen_lchar_max = 65535
+	cgen_lchar_max = 65535u
 };
 
 static int cgen_process_global_decln(void *, parser_t *, ast_node_t **);
@@ -471,7 +471,7 @@ static bool cgen_ident_is_type(void *arg, const char *ident)
  * @param cgen Code generator
  * @param tbasic Basic type
  */
-static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
+static unsigned cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 {
 	(void) cgen;
 
@@ -505,7 +505,7 @@ static int cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 static int64_t cgen_int_min(cgen_t *cgen)
 {
 	(void)cgen;
-	return -32768;
+	return -32768l;
 }
 
 /** Return maximum value of int type
@@ -1103,13 +1103,13 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		elmtype = lunsigned ? cgelm_uint : cgelm_int;
 	}
 
-	if (!lunsigned && (uint64_t)val > 0x7fffffffu && elmtype != cgelm_longlong &&
+	if (!lunsigned && (uint64_t)val > 0x7ffffffful && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
 		(void)lexer_dprint_tok(&tlit->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Constant should be "
 		    "long long.\n");
 		++cgen->warnings;
-	} else if ((uint64_t)val > 0xffffffffu && elmtype != cgelm_longlong &&
+	} else if ((uint64_t)val > 0xfffffffful && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
 		(void)lexer_dprint_tok(&tlit->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Constant should be "
@@ -1121,7 +1121,7 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 		(void)lexer_dprint_tok(&tlit->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Constant should be long.\n");
 		++cgen->warnings;
-	} else if ((uint64_t)val > 0xffff && elmtype != cgelm_long &&
+	} else if ((uint64_t)val > 0xffffu && elmtype != cgelm_long &&
 	    elmtype != cgelm_ulong && elmtype != cgelm_longlong &&
 	    elmtype != cgelm_ulonglong) {
 		(void)lexer_dprint_tok(&tlit->tok, stderr);
@@ -1138,7 +1138,7 @@ static int cgen_intlit_val(cgen_t *cgen, comp_tok_t *tlit, int64_t *rval,
 	if (*text != '\0')
 		return EINVAL;
 
-	*rval = val;
+	*rval = (int64_t)val;
 	*rtype = elmtype;
 	return EOK;
 }
@@ -3292,11 +3292,11 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_qual_t qual,
 	/* Check for duplicate type qualifiers. */
 	dupqual = qual & member->cgtype->qual;
 
-	if ((dupqual & cgqual_const) != 0)
+	if ((dupqual & cgqual_const) != cgqual_none)
 		cgen_warn_type_already_has_qual(cgen, "const", ident);
-	if ((dupqual & cgqual_restrict) != 0)
+	if ((dupqual & cgqual_restrict) != cgqual_none)
 		cgen_warn_type_already_has_qual(cgen, "restrict", ident);
-	if ((dupqual & cgqual_volatile) != 0)
+	if ((dupqual & cgqual_volatile) != cgqual_none)
 		cgen_warn_type_already_has_qual(cgen, "volatile", ident);
 
 	/* Resulting type is the same as type of the member + qualifiers. */
@@ -3305,7 +3305,7 @@ static int cgen_tident(cgen_t *cgen, ast_tok_t *itok, cgtype_qual_t qual,
 		return rc;
 
 	(*rstype)->qual |= qual;
-	if (((*rstype)->qual & cgqual_restrict) != 0 &&
+	if (((*rstype)->qual & cgqual_restrict) != cgqual_none &&
 	    (*rstype)->ntype != cgn_pointer) {
 		cgen_error_inv_restrict(cgen, ident);
 		return EINVAL;
@@ -3434,7 +3434,7 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 	ir_texpr_t *irtype = NULL;
 	cgen_eres_t bwres, bwires;
 	unsigned su_bits;
-	unsigned bitwidth;
+	uint64_t bitwidth;
 	char *irident = NULL;
 	cgtype_enum_t *cgenum;
 	int enum_max;
@@ -3524,7 +3524,7 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 			if (dtype->ntype == cgn_enum) {
 				cgenum = (cgtype_enum_t *)dtype->ext;
 				enum_max = cgen_enum_max_val(cgenum->cgenum);
-				if (1 << bitwidth <= enum_max) {
+				if (1 << (uint8_t)bitwidth <= enum_max) {
 					(void)lexer_dprint_tok(&ident->tok, stderr);
 					(void)fprintf(stderr, ": Warning: "
 					    "Bitfield '%s' is narrower than "
@@ -3533,7 +3533,7 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 					++cgen->warnings;
 				}
 			}
-			if (cgrec->bf_pos + bitwidth > su_bits) {
+			if (cgrec->bf_pos + (unsigned)bitwidth > su_bits) {
 				rc = cgen_tsrecord_emit_stor(cgrec, record);
 				if (rc != EOK)
 					goto error;
@@ -3551,7 +3551,7 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 		}
 
 		rc = cgen_record_append(record, ident->tok.text,
-		    bitwidth, cgrec->bf_pos, dtype, irident);
+		    (unsigned)bitwidth, cgrec->bf_pos, dtype, irident);
 		if (rc == EEXIST) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Duplicate record member "
@@ -4253,7 +4253,7 @@ static int cgen_tqual(cgen_t *cgen, ast_tqual_t *tqual,
 		break;
 	}
 
-	if ((*dqual & qual) != 0)
+	if ((*dqual & qual) != cgqual_none)
 		cgen_warn_dupl_type_qual(cgen, tqual);
 
 	*dqual |= qual;
@@ -4579,7 +4579,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 	*rstype = stype;
 	(*rstype)->qual = cgds->qual;
 
-	if (((*rstype)->qual & cgqual_restrict) != 0 &&
+	if (((*rstype)->qual & cgqual_restrict) != cgqual_none &&
 	    (*rstype)->ntype != cgn_pointer) {
 		/*
 		 * Use type specifier for diagnostics. If we don't have
@@ -5177,7 +5177,7 @@ static int cgen_decl_array(cgen_t *cgen, cgtype_t *btype, ast_darray_t *darray,
 		}
 
 		have_size = true;
-		asize = szres.cvint;
+		asize = (uint64_t)szres.cvint;
 		size_type = szres.cgtype;
 		szres.cgtype = NULL;
 	} else {
@@ -5311,7 +5311,7 @@ static int cgen_decl(cgen_t *cgen, cgtype_t *stype, ast_node_t *decl,
  * @param res Place to store masked and sign-exteneded value
  */
 static void cgen_cvint_mask(cgen_t *cgen, bool is_signed, unsigned bits,
-    int64_t a, int64_t *res)
+    uint64_t a, int64_t *res)
 {
 	uint64_t r;
 	uint64_t mask;
@@ -5577,7 +5577,7 @@ static void cgen_cvint_shr(cgen_t *cgen, bool is_signed, unsigned bits,
 	uint64_t r;
 
 	if (is_signed) {
-		r = a1 >> a2;
+		r = (uint64_t)(a1 >> a2);
 	} else {
 		r = (uint64_t)a1 >> a2;
 	}
@@ -5613,7 +5613,7 @@ static bool cgen_cvint_is_negative(cgen_t *cgen, bool is_signed, int64_t a)
 static bool cgen_cvint_in_tbasic_range(cgen_t *cgen, bool asigned,
     int64_t a, cgtype_basic_t *tbasic)
 {
-	int bits;
+	unsigned bits;
 	bool is_signed;
 	int64_t lo;
 	int64_t hi;
@@ -6375,7 +6375,7 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	(void)flags;
 
 	/* Warn if truth value involved in addition */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, optok);
 
 	/* Check the type */
@@ -6869,7 +6869,7 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	(void)flags;
 
 	/* Warn if truth value involved in subtraction */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, optok);
 
 	/* Check the type */
@@ -8145,7 +8145,8 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	if (lres->cvknown && rres->cvknown) {
 		eres->cvknown = true;
-		eres->cvint = lres->cvint & rres->cvint;
+		eres->cvint = (int64_t)((uint64_t)lres->cvint &
+		    (uint64_t)rres->cvint);
 	}
 
 	return EOK;
@@ -8240,7 +8241,8 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	if (lres->cvknown && rres->cvknown) {
 		eres->cvknown = true;
-		eres->cvint = lres->cvint ^ rres->cvint;
+		eres->cvint = (int64_t)((uint64_t)lres->cvint ^
+		    (uint64_t)rres->cvint);
 	}
 
 	return EOK;
@@ -8335,7 +8337,8 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	if (lres->cvknown && rres->cvknown) {
 		eres->cvknown = true;
-		eres->cvint = lres->cvint | rres->cvint;
+		eres->cvint = (int64_t)((uint64_t)lres->cvint |
+		    (uint64_t)rres->cvint);
 	}
 
 	return EOK;
@@ -8466,11 +8469,11 @@ static int cgen_bo_times(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	 * Unsigned multiplication of mixed-sign numbers is OK.
 	 * Multiplication involving enums is not.
 	 */
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Multiply the two operands */
@@ -8513,13 +8516,13 @@ static int cgen_bo_divide(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Warn if truth value involved in division */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Divide the two operands */
@@ -8562,13 +8565,13 @@ static int cgen_bo_modulo(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Warn if truth value involved in division */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Compute modulus of two operands */
@@ -8779,15 +8782,15 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_neg2u) != 0)
+	if ((flags & cguac_neg2u) != cguac_none)
 		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_truthmix) != 0)
+	if ((flags & cguac_truthmix) != cguac_none)
 		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -9066,15 +9069,15 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_neg2u) != 0)
+	if ((flags & cguac_neg2u) != cguac_none)
 		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_truthmix) != 0)
+	if ((flags & cguac_truthmix) != cguac_none)
 		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -9353,15 +9356,15 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_neg2u) != 0)
+	if ((flags & cguac_neg2u) != cguac_none)
 		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_truthmix) != 0)
+	if ((flags & cguac_truthmix) != cguac_none)
 		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -9640,15 +9643,15 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	is_signed = cgen_basic_type_signed(cgexpr->cgen,
 	    (cgtype_basic_t *)lres.cgtype->ext);
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_neg2u) != 0)
+	if ((flags & cguac_neg2u) != cguac_none)
 		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_truthmix) != 0)
+	if ((flags & cguac_truthmix) != cguac_none)
 		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -9923,15 +9926,15 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		goto error;
 	}
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_neg2u) != 0)
+	if ((flags & cguac_neg2u) != cguac_none)
 		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_truthmix) != 0)
+	if ((flags & cguac_truthmix) != cguac_none)
 		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -10201,15 +10204,15 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		goto error;
 	}
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_cmp_sign_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_neg2u) != 0)
+	if ((flags & cguac_neg2u) != cguac_none)
 		cgen_warn_cmp_neg_unsigned(cgexpr->cgen, atok);
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_cmp_enum_inc(cgexpr->cgen, atok);
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_cmp_enum_mix(cgexpr->cgen, atok);
-	if ((flags & cguac_truthmix) != 0)
+	if ((flags & cguac_truthmix) != cguac_none)
 		cgen_warn_cmp_truth_mix(cgexpr->cgen, atok);
 
 	rc = cgtype_basic_create(cgelm_logic, &btype);
@@ -10476,19 +10479,20 @@ static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Integer (not enum) operands, any of them signed */
-	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+	if ((flags & cguac_signed) != cguac_none &&
+	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != 0)
+	if ((flags & cguac_negative) != cguac_none)
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise AND */
@@ -10497,8 +10501,9 @@ static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Operating on enums? */
-	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
-	    (flags & cguac_enummix) == 0) {
+	if ((flags & cguac_enum) != cguac_none &&
+	    (flags & cguac_enuminc) == cguac_none &&
+	    (flags & cguac_enummix) == cguac_none) {
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &bres, res1.cgtype, eres);
 		if (rc != EOK)
@@ -10566,19 +10571,20 @@ static int cgen_bo_bxor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Integer (not enum) operands, any of them signed */
-	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+	if ((flags & cguac_signed) != cguac_none &&
+	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != 0)
+	if ((flags & cguac_negative) != cguac_none)
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise XOR */
@@ -10587,8 +10593,9 @@ static int cgen_bo_bxor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Operating on enums? */
-	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
-	    (flags & cguac_enummix) == 0) {
+	if ((flags & cguac_enum) != cguac_none &&
+	    (flags & cguac_enuminc) == cguac_none &&
+	    (flags & cguac_enummix) == cguac_none) {
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &bres, res1.cgtype, eres);
 		if (rc != EOK)
@@ -10656,19 +10663,20 @@ static int cgen_bo_bor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Integer (not enum) operands, any of them signed */
-	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+	if ((flags & cguac_signed) != cguac_none &&
+	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != 0)
+	if ((flags & cguac_negative) != cguac_none)
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise OR */
@@ -10677,8 +10685,9 @@ static int cgen_bo_bor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Operating on enums? */
-	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
-	    (flags & cguac_enummix) == 0) {
+	if ((flags & cguac_enum) != cguac_none &&
+	    (flags & cguac_enuminc) == cguac_none &&
+	    (flags & cguac_enummix) == cguac_none) {
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &bres, res1.cgtype, eres);
 		if (rc != EOK)
@@ -11301,7 +11310,7 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 
 	if (vres->cvknown) {
 		/* Try passing value through bitfield to see if it changes. */
-		mskcv = vres->cvint & bffilt;
+		mskcv = (uint64_t)vres->cvint & bffilt;
 		if (cgen_type_is_signed(cgproc->cgen, vres->cgtype)) {
 			/* Sign extend. */
 			if ((mskcv & (1 << (ares->bitwidth - 1))) != 0)
@@ -11417,7 +11426,7 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_imm_create(bffilt, &imm);
+	rc = ir_oper_imm_create((int64_t)bffilt, &imm);
 	if (rc != EOK)
 		goto error;
 
@@ -11627,7 +11636,7 @@ static int cgen_store(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	unsigned bits;
 	int rc;
 
-	if ((ares->cgtype->qual & cgqual_const) != 0) {
+	if ((ares->cgtype->qual & cgqual_const) != cgqual_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Setting readonly variable.\n");
 		cgproc->cgen->error = true; // TODO
@@ -11993,11 +12002,11 @@ static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	 * Unsigned multiplication of mixed-sign numbers is OK.
 	 * Multiplication involving enums is not.
 	 */
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Multiply the two operands */
@@ -12068,13 +12077,13 @@ static int cgen_divide_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Warn if truth value involved in division */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Divide the two operands */
@@ -12145,13 +12154,13 @@ static int cgen_modulo_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cguac_mix2u) != 0)
+	if ((flags & cguac_mix2u) != cguac_none)
 		cgen_warn_div_sign_mix(cgexpr->cgen, &ebinop->top);
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ebinop->top);
 
 	/* Warn if truth value involved in division */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Compute modulus of the two operands */
@@ -12446,19 +12455,20 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Integer (not enum) operands, any of them signed */
-	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+	if ((flags & cguac_signed) != cguac_none &&
+	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != 0)
+	if ((flags & cguac_negative) != cguac_none)
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise AND the two operands */
@@ -12474,8 +12484,9 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Operating on enums? */
-	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
-	    (flags & cguac_enummix) == 0) {
+	if ((flags & cguac_enum) != cguac_none &&
+	    (flags & cguac_enuminc) == cguac_none &&
+	    (flags & cguac_enummix) == cguac_none) {
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &ores, res1.cgtype, eres);
 		if (rc != EOK)
@@ -12550,19 +12561,20 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Integer (not enum) operands, any of them signed */
-	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+	if ((flags & cguac_signed) != cguac_none &&
+	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != 0)
+	if ((flags & cguac_negative) != cguac_none)
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise XOR the two operands */
@@ -12578,8 +12590,9 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Operating on enums? */
-	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
-	    (flags & cguac_enummix) == 0) {
+	if ((flags & cguac_enum) != cguac_none &&
+	    (flags & cguac_enuminc) == cguac_none &&
+	    (flags & cguac_enummix) == cguac_none) {
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &ores, res1.cgtype, eres);
 		if (rc != EOK)
@@ -12654,19 +12667,20 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Integer (not enum) operands, any of them signed */
-	if ((flags & cguac_signed) != 0 && (flags & cguac_enum) == 0)
+	if ((flags & cguac_signed) != cguac_none &&
+	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != 0)
+	if ((flags & cguac_negative) != cguac_none)
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
 	/* Two incompatible enums */
-	if ((flags & cguac_enuminc) != 0)
+	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
 	/* One enum, one not */
-	if ((flags & cguac_enummix) != 0)
+	if ((flags & cguac_enummix) != cguac_none)
 		cgen_warn_bitop_enum_mix(cgexpr->cgen, &ebinop->top);
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ebinop->top);
 
 	/* Bitwise OR the two operands */
@@ -12682,8 +12696,9 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		goto error;
 
 	/* Operating on enums? */
-	if ((flags & cguac_enum) != 0 && (flags & cguac_enuminc) == 0 &&
-	    (flags & cguac_enummix) == 0) {
+	if ((flags & cguac_enum) != cguac_none &&
+	    (flags & cguac_enuminc) == cguac_none &&
+	    (flags & cguac_enummix) == cguac_none) {
 		/* Convert result back to original enum type, if possible */
 		rc = cgen_int2enum(cgexpr, &ores, res1.cgtype, eres);
 		if (rc != EOK)
@@ -13961,7 +13976,7 @@ static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
 	atok = ast_tree_first_tok(&ealignof->atypename->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if ((flags & cgrd_def) != 0) {
+	if ((flags & cgrd_def) != cgrd_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Struct/union/enum definition "
 		    "inside alignof().\n");
@@ -14155,7 +14170,7 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	atok = ast_tree_first_tok(&esizeof->atypename->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if ((flags & cgrd_def) != 0) {
+	if ((flags & cgrd_def) != cgrd_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Struct/union/enum "
 		    "definition inside sizeof().\n");
@@ -14328,11 +14343,11 @@ static int cgen_overpar_bo_times(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	 * Unsigned multiplication of mixed-sign numbers is OK.
 	 * Multiplication involving enums is not.
 	 */
-	if ((flags & cguac_enum) != 0)
+	if ((flags & cguac_enum) != cguac_none)
 		cgen_warn_arith_enum(cgexpr->cgen, &ederef->tasterisk);
 
 	/* Warn if truth value involved in multiplication */
-	if ((flags & cguac_truth) != 0)
+	if ((flags & cguac_truth) != cguac_none)
 		cgen_warn_arith_truth(cgexpr->cgen, &ederef->tasterisk);
 
 	/* Multiply the two operands */
@@ -14571,7 +14586,7 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cgrd_def) != 0) {
+	if ((flags & cgrd_def) != cgrd_none) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
 		ctok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
@@ -15360,7 +15375,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	if (bires.cvknown) {
 		eres->cvknown = true;
 		cgen_cvint_mask(cgexpr->cgen, is_signed, bits,
-		    ~bires.cvint, &eres->cvint);
+		    ~(uint64_t)bires.cvint, &eres->cvint);
 	}
 
 	return EOK;
@@ -15632,7 +15647,7 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	atok = ast_tree_first_tok(&eva_arg->atypename->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if ((flags & cgrd_def) != 0) {
+	if ((flags & cgrd_def) != cgrd_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Struct/union/enum definition "
 		    "inside __va_arg().\n");
@@ -17029,7 +17044,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		if (ares->cvknown) {
 			cres->cvknown = true;
 			cgen_cvint_mask(cgexpr->cgen, dest_signed, destw,
-			    ares->cvint, &cres->cvint);
+			    (uint64_t)ares->cvint, &cres->cvint);
 
 			/* Test for sign change */
 			src_neg = cgen_cvint_is_negative(cgexpr->cgen,
@@ -17115,7 +17130,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	if (ares->cvknown) {
 		cres->cvknown = true;
 		cgen_cvint_mask(cgexpr->cgen, dest_signed, destw,
-		    ares->cvint, &cres->cvint);
+		    (uint64_t)ares->cvint, &cres->cvint);
 		if (expl != cgen_explicit && cres->cvint != ares->cvint)
 			cgen_warn_number_changed(cgexpr->cgen, ctok);
 	}
@@ -21083,7 +21098,7 @@ static int cgen_gn_block(cgen_proc_t *cgproc, ast_block_t *block,
 	comp_tok_t *tok;
 
 	/* Gratuitous nested block always has braces */
-	assert(block->braces);
+	assert(block->braces == ast_braces);
 
 	tok = (comp_tok_t *) block->topen.data;
 
@@ -24134,13 +24149,13 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 					rc = EINVAL;
 					goto error;
 				}
-				if ((flags & cgrd_ident) == 0) {
+				if ((flags & cgrd_ident) == cgrd_none) {
 					atok = ast_tree_first_tok(&gdecln->dspecs->node);
 					cgen_warn_useless_type(cgen, atok);
 				}
-				if ((flags & cgrd_def) == 0) {
+				if ((flags & cgrd_def) == cgrd_none) {
 					/* This is a pure struct/union declaration */
-					if ((flags & cgrd_prevdef) != 0) {
+					if ((flags & cgrd_prevdef) != cgrd_none) {
 						atok = ast_tree_first_tok(&gdecln->dspecs->node);
 						tok = (comp_tok_t *) atok->data;
 						(void)lexer_dprint_tok(&tok->tok, stderr);
@@ -24148,7 +24163,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 						(void)cgtype_print(stype, stderr);
 						(void)fprintf(stderr, "' follows definition.\n");
 						++cgen->warnings;
-					} else if ((flags & cgrd_prevdecl) != 0) {
+					} else if ((flags & cgrd_prevdecl) != cgrd_none) {
 						atok = ast_tree_first_tok(&gdecln->dspecs->node);
 						tok = (comp_tok_t *) atok->data;
 						(void)lexer_dprint_tok(&tok->tok, stderr);

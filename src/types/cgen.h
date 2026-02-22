@@ -43,7 +43,7 @@ typedef enum {
 /** Code generator */
 typedef struct {
 	/** Arithmetic width */
-	int arith_width;
+	unsigned arith_width;
 	/** Code generator hit an error */
 	bool error;
 	/** Number of warnings produced by code generator */

@@ -93,7 +93,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cf_dump_ast) != 0) {
+	if ((flags & cf_dump_ast) != cf_none) {
 		rc = checker_dump_ast(checker, stdout);
 		if (rc != EOK)
 			goto error;
@@ -105,7 +105,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 		}
 	}
 
-	if ((flags & cf_dump_toks) != 0) {
+	if ((flags & cf_dump_toks) != cf_none) {
 		rc = checker_dump_toks(checker, stdout);
 		if (rc != EOK)
 			goto error;
@@ -117,14 +117,14 @@ static int check_file(const char *fname, checker_flags_t flags,
 		}
 	}
 
-	rc = checker_run(checker, (flags & cf_fix) != 0);
+	rc = checker_run(checker, (flags & cf_fix) != cf_none);
 	if (rc != EOK)
 		goto error;
 
 	(void)fclose(f);
 	f = NULL;
 
-	if ((flags & cf_fix) != 0) {
+	if ((flags & cf_fix) != cf_none) {
 		if (asprintf(&bkname, "%s.orig", fname) < 0) {
 			rc = ENOMEM;
 			goto error;
