@@ -1156,19 +1156,19 @@ int cgtype_print(cgtype_t *cgtype, FILE *f)
 {
 	int rv;
 
-	if ((cgtype->qual & cgqual_const) != 0) {
+	if ((cgtype->qual & cgqual_const) != cgqual_none) {
 		rv = fputs("const ", f);
 		if (rv < 0)
 			return EIO;
 	}
 
-	if ((cgtype->qual & cgqual_restrict) != 0) {
+	if ((cgtype->qual & cgqual_restrict) != cgqual_none) {
 		rv = fputs("restrict ", f);
 		if (rv < 0)
 			return EIO;
 	}
 
-	if ((cgtype->qual & cgqual_volatile) != 0) {
+	if ((cgtype->qual & cgqual_volatile) != cgqual_none) {
 		rv = fputs("volatile ", f);
 		if (rv < 0)
 			return EIO;
@@ -1346,7 +1346,7 @@ bool cgtype_ptr_compatible(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 bool cgtype_ptr_preserves_tqual(cgtype_pointer_t *sptr, cgtype_pointer_t *dptr)
 {
 	assert(cgtype_ptr_compatible(sptr, dptr));
-	return (sptr->tgtype->qual & ~dptr->tgtype->qual) == 0;
+	return (sptr->tgtype->qual & ~dptr->tgtype->qual) == cgqual_none;
 }
 
 /** Combine qualifiers from two compatible pointer types.

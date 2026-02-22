@@ -168,7 +168,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 
 	comp->cgflags = cgflags;
 
-	if ((flags & compf_dump_ast) != 0) {
+	if ((flags & compf_dump_ast) != compf_none) {
 		rc = comp_dump_ast(comp, stdout);
 		if (rc != EOK)
 			goto error;
@@ -180,7 +180,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		}
 	}
 
-	if ((flags & compf_dump_toks) != 0) {
+	if ((flags & compf_dump_toks) != compf_none) {
 		rc = comp_dump_toks(comp, stdout);
 		if (rc != EOK)
 			goto error;
@@ -192,13 +192,13 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		}
 	}
 
-	if ((flags & compf_dump_ir) != 0) {
+	if ((flags & compf_dump_ir) != compf_none) {
 		rc = comp_dump_ir(comp, stdout);
 		if (rc != EOK)
 			goto error;
 	}
 
-	if ((flags & compf_dump_vric) != 0) {
+	if ((flags & compf_dump_vric) != compf_none) {
 		rc = comp_dump_vric(comp, stdout);
 		if (rc != EOK)
 			goto error;

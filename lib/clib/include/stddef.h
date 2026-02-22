@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,7 +24,7 @@
 #define _STDDEF_H
 
 #define NULL (void *)0
-#define offsetof(type, member) &(((type *)0)->member)
+#define offsetof(type, member) (unsigned)&(((type *)0)->member)
 typedef unsigned size_t;
 
 #endif

@@ -34,6 +34,8 @@
 
 /** Code generator flags */
 typedef enum {
+	/** No flags */
+	cgf_none = 0x0,
 	/** Lvalue function arguments */
 	cgf_lvalue_args = 0x1,
 	/** Integer promotion */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,8 @@ typedef enum {
 
 /** Symbol flags */
 typedef enum {
+	/** No flags */
+	sf_none = 0x0,
 	/** Symbol is defined (note: a symbol, if it exists, is always declared) */
 	sf_defined = 0x1,
 	/** Symbol is used */

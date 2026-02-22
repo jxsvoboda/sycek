@@ -16336,7 +16336,7 @@ static int cgen_eres_promoted_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *bres,
 	cgtype_t *dtype = NULL;
 	int rc;
 
-	if ((cgexpr->cgen->flags & cgf_int_promotion) == 0)
+	if ((cgexpr->cgen->flags & cgf_int_promotion) == cgf_none)
 		return cgen_eres_rvalue(cgexpr, bres, lblock, eres);
 
 	if (!cgen_type_is_integer(cgexpr->cgen, bres->cgtype))
@@ -21472,7 +21472,8 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 				goto error;
 		} else {
 			/* Skip non-record args if not --lvalue-args */
-			if ((cgproc->cgen->flags & cgf_lvalue_args) == 0) {
+			if ((cgproc->cgen->flags & cgf_lvalue_args) ==
+			    cgf_none) {
 				goto skip;
 			}
 
@@ -21786,7 +21787,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 			goto error;
 		}
 
-		if ((symbol->flags & sf_defined) != 0) {
+		if ((symbol->flags & sf_defined) != sf_none) {
 			/* Already defined */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Redefinition of '%s'.\n",
@@ -21797,7 +21798,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		}
 
 		/* Check if static did not change */
-		old_static = (symbol->flags & sf_static) != 0;
+		old_static = (symbol->flags & sf_static) != sf_none;
 		if (vstatic && !old_static) {
 			/* Non-static previously declared as static */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -21878,7 +21879,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
-	if ((symbol->flags & sf_static) != 0)
+	if ((symbol->flags & sf_static) != sf_none)
 		linkage = irl_default;
 	else
 		linkage = irl_global;
@@ -21980,7 +21981,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		if (rc != EOK)
 			goto error;
 
-		if ((cgproc->cgen->flags & cgf_lvalue_args) == 0 &&
+		if ((cgproc->cgen->flags & cgf_lvalue_args) == cgf_none &&
 		    stype->ntype != cgn_record) {
 			/* Insert identifier into argument scope */
 			rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
@@ -22319,7 +22320,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		cgtype_destroy(symbol->cgtype);
 		symbol->cgtype = ctype;
 
-		if ((symbol->flags & sf_defined) != 0) {
+		if ((symbol->flags & sf_defined) != sf_none) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "follows definition.\n", ident->tok.text);
@@ -22332,7 +22333,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		}
 
 		/* Check if static did not change */
-		old_static = (symbol->flags & sf_static) != 0;
+		old_static = (symbol->flags & sf_static) != sf_none;
 		if (vstatic && !old_static) {
 			/* Non-static previously declared as static */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -22351,7 +22352,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		}
 
 		/* Check if extern did not change */
-		old_extern = (symbol->flags & sf_extern) != 0;
+		old_extern = (symbol->flags & sf_extern) != sf_none;
 		if (vextern && !old_extern) {
 			/* Non-extern previously declared as extern */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -23314,7 +23315,7 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			 * Try passing value through bitfield to see if
 			 * it changes.
 			 */
-			mskval = initval & bffilt;
+			mskval = (uint64_t)initval & bffilt;
 			if (cgen_type_is_signed(cgen, stype)) {
 				/* Sign extend. */
 				if ((mskval & (1 << (width - 1))) != 0)
@@ -23942,7 +23943,8 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		if (rc != EOK)
 			goto error;
 
-		if ((symbol->flags & sf_defined) != 0 && entry->init != NULL) {
+		if ((symbol->flags & sf_defined) != sf_none &&
+		    entry->init != NULL) {
 			/* Already defined */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Redefinition of '%s'.\n",
@@ -23952,9 +23954,9 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			goto error;
 		}
 
-		old_extern = (symbol->flags & sf_extern) != 0;
+		old_extern = (symbol->flags & sf_extern) != sf_none;
 
-		if ((symbol->flags & sf_defined) != 0) {
+		if ((symbol->flags & sf_defined) != sf_none) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Warning: Declaration of '%s' "
 			    "follows definition.\n", ident->tok.text);
@@ -23985,7 +23987,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 		}
 
 		/* Check if static did not change */
-		old_static = (symbol->flags & sf_static) != 0;
+		old_static = (symbol->flags & sf_static) != sf_none;
 		if (vstatic && !old_static) {
 			/* Non-static previously declared as static */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -24313,9 +24315,9 @@ static int cgen_module_symdecl_var(cgen_t *cgen, symbol_t *symbol)
 		return EINVAL;
 	}
 
-	if ((symbol->flags & sf_extern) != 0)
+	if ((symbol->flags & sf_extern) != sf_none)
 		linkage = irl_extern;
-	else if ((symbol->flags & sf_static) != 0)
+	else if ((symbol->flags & sf_static) != sf_none)
 		linkage = irl_default;
 	else
 		linkage = irl_global;
@@ -24425,7 +24427,7 @@ static int cgen_module_symdecls(cgen_t *cgen, symbols_t *symbols)
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
-		if ((symbol->flags & sf_defined) == 0) {
+		if ((symbol->flags & sf_defined) == sf_none) {
 			switch (symbol->stype) {
 			case st_fun:
 				rc = cgen_module_symdecl_fun(cgen, symbol);
