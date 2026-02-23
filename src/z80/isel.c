@@ -4294,6 +4294,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	unsigned stack_bytes;
 	unsigned lblno;
 	unsigned cfvr;
+	unsigned argidx;
 	char *rlabel = NULL;
 	int rc;
 
@@ -4380,6 +4381,7 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 	/* For arguments first to last */
 	arg = ir_oper_list_first(op2);
 	parg = ir_proc_first_arg(proc);
+	argidx = 1;
 	while (arg != NULL) {
 		assert(arg->optype == iro_var);
 		argvar = (ir_oper_var_t *) arg->ext;
@@ -4409,9 +4411,14 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 
 			/* Now verify that size matches actual param. size */
 			if (bits != vmentry->bytes * 8) {
-				(void)fprintf(stderr, "Actual parameter size "
-				    "(%u) does not match formal paramater size "
-				    "(%u).\n", vmentry->bytes, bits / 8);
+				(void)fprintf(stderr, "Calling object '%s' "
+				    "which is not a procedure.\n",
+				    op1->varname);
+				(void)fprintf(stderr, "Function '%s' argument "
+				    "%u: Actual parameter size (%u) does not "
+				    "match formal paramater size (%u).\n",
+				    op1->varname, argidx, vmentry->bytes,
+				    bits / 8);
 				goto error;
 			}
 		} else {
@@ -4437,6 +4444,8 @@ static int z80_isel_call(z80_isel_proc_t *isproc, const char *label,
 		arg = ir_oper_list_next(arg);
 		if (parg != NULL)
 			parg = ir_proc_next_arg(parg);
+
+		++argidx;
 	}
 
 	if (parg != NULL) {
