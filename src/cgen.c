@@ -17533,6 +17533,7 @@ static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *sarg = NULL;
 	ir_oper_imm_t *imm = NULL;
+	char *destvn;
 	int rc;
 
 	rc = ir_instr_create(&instr);
@@ -17557,6 +17558,7 @@ static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
 	instr->op1 = &sarg->oper;
 	instr->op2 = &imm->oper;
 
+	destvn = dest->varname;
 	dest = NULL;
 	sarg = NULL;
 	imm = NULL;
@@ -17572,7 +17574,7 @@ static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
 	if (rc != EOK)
 		goto error;
 
-	cres->varname = ares->varname;
+	cres->varname = destvn;
 	cres->valtype = ares->valtype;
 	cres->cvknown = ares->cvknown;
 	cres->cvint = ares->cvint;
