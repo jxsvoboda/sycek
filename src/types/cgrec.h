@@ -90,6 +90,8 @@ typedef struct cgen_record {
 	struct ir_record *irrecord;
 	/** @c true iff record is in process of being defined */
 	bool defining;
+	/** @c true iff declaration (not use) was encountered */
+	bool declared;
 	/** Record elements (of cgen_rec_elem_t) */
 	list_t elems;
 	/** Record storage units (of cgen_rec_stor_t) */

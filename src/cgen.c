@@ -3767,10 +3767,12 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	}
 
 	if (dmember != NULL) {
-		/* Already declared */
+		/* Already known. */
 		record = dmember->m.record.record;
 		irrecord = record->irrecord;
-		flags |= cgrd_prevdecl;
+		/* Is it declared? */
+		if (record->declared)
+			flags |= cgrd_prevdecl;
 	}
 
 	/*
@@ -24130,6 +24132,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 	ast_idlist_entry_t *entry;
 	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
+	cgtype_record_t *trecord;
 	ast_sclass_type_t sctype;
 	cgen_rd_flags_t flags;
 	ast_tok_t *atok;
@@ -24201,6 +24204,10 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 						(void)cgtype_print(stype, stderr);
 						(void)fprintf(stderr, "'.\n");
 						++cgen->warnings;
+					}
+					if (dtype->ntype == cgn_record) {
+						trecord = (cgtype_record_t *)dtype->ext;
+						trecord->record->declared = true;
 					}
 				}
 			} else {
