@@ -37,3 +37,11 @@ void fun(void) {
 	struct foo i;
 	(void)i;
 }
+
+/* Struct s is referenced, but not actually declared. */
+typedef struct {
+	struct s *p;
+} x_t;
+
+/* Now declare struct s (should not emit multiple declaration warning). */
+struct s;
