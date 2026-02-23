@@ -3934,14 +3934,15 @@ error:
  *
  * In outher words, one field of a struct or union definition.
  *
- * @param cgen Code generator
+ * @param cgds Code generator for declaration specifiers
  * @param elem Enum type specifier element
  * @param cgenum Enum definition
  * @return EOK on success or an error code
  */
-static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
+static int cgen_tsenum_elem(cgen_dspec_t *cgds, ast_tsenum_elem_t *elem,
     cgen_enum_t *cgenum)
 {
+	cgen_t *cgen = cgds->cgen;
 	cgtype_t *stype = NULL;
 	cgen_enum_elem_t *eelem;
 	comp_tok_t *ident;
@@ -3950,6 +3951,8 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	cgen_eres_t eres;
 	cgen_eres_t cres;
 	cgtype_enum_t *tenum;
+	cgtype_enum_t *eetype;
+	cgtype_t *etype = NULL;
 	int rc;
 
 	ident = (comp_tok_t *) elem->tident.data;
@@ -3965,10 +3968,11 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 		assert(eres.cvknown);
 		if (eres.cgtype->ntype == cgn_enum) {
 			tenum = (cgtype_enum_t *)eres.cgtype->ext;
-			if (tenum->cgenum != cgenum &&
-			    cgtype_is_strict_enum(eres.cgtype))
+			if (tenum->cgenum != cgenum && (cgenum->named ||
+			    cgds->sctype == asc_typedef)) {
 				cgen_warn_init_enum_inc(cgen, &elem->tequals,
 				    &eres);
+			}
 		}
 
 		if (eres.cvint < cgen_int_min(cgen) ||
@@ -4006,9 +4010,24 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 		}
 	}
 
+	if (cgenum->named || cgds->sctype == asc_typedef ||
+	    eres.cgtype == NULL) {
+		/* Strict enum. Element has type from enum. */
+		rc = cgtype_enum_create(eelem->cgenum, &eetype);
+		if (rc != EOK)
+			goto error;
+
+		etype = &eetype->cgtype;
+	} else {
+		/* Non-strict enum. Element has type from initializer. */
+		rc = cgtype_clone(eres.cgtype, &etype);
+		if (rc != EOK)
+			goto error;
+	}
+
 	/* Insert identifier into current scope */
 	rc = scope_insert_eelem(cgen->cur_scope, &ident->tok, eelem,
-	    &member);
+	    etype, &member);
 	if (rc != EOK) {
 		if (rc == EEXIST) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -4027,6 +4046,8 @@ static int cgen_tsenum_elem(cgen_t *cgen, ast_tsenum_elem_t *elem,
 	cgenum->next_value = value + 1;
 	return EOK;
 error:
+	if (etype != NULL)
+		cgtype_destroy(etype);
 	cgen_eres_fini(&eres);
 	cgen_eres_fini(&cres);
 	cgtype_destroy(stype);
@@ -4035,15 +4056,16 @@ error:
 
 /** Generate code for enum type specifier.
  *
- * @param cgen Code generator
+ * @param cgds Code generator for declaration specifiers
  * @param tsenum Enum type specifier
  * @param rflags Place to store flags
  * @param rstype Place to store pointer to the specified type
  * @return EOK on success or an error code
  */
-static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
+static int cgen_tsenum(cgen_dspec_t *cgds, ast_tsenum_t *tsenum,
     cgen_rd_flags_t *rflags, cgtype_t **rstype)
 {
+	cgen_t *cgen = cgds->cgen;
 	comp_tok_t *ident_tok;
 	const char *ident;
 	scope_member_t *member;
@@ -4171,7 +4193,7 @@ static int cgen_tsenum(cgen_t *cgen, ast_tsenum_t *tsenum,
 	}
 
 	while (elem != NULL) {
-		rc = cgen_tsenum_elem(cgen, elem, cgenum);
+		rc = cgen_tsenum_elem(cgds, elem, cgenum);
 		if (rc != EOK)
 			return EINVAL;
 
@@ -4528,7 +4550,7 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 				goto error;
 			break;
 		case ant_tsenum:
-			rc = cgen_tsenum(cgen,
+			rc = cgen_tsenum(cgds,
 			    (ast_tsenum_t *)cgds->tspec->ext, &flags, &stype);
 			if (rc != EOK)
 				goto error;

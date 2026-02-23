@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -364,17 +364,16 @@ int scope_insert_enum(scope_t *scope, lexer_tok_t *tident,
  * @param scope Scope
  * @param tident Tag identifier token
  * @param eelem Enum element
+ * @param etype Element type (ownership transferred)
  * @param rmember Place to store pointer to new member or @c NULL if not
  *                interested.
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
 int scope_insert_eelem(scope_t *scope, lexer_tok_t *tident,
-    cgen_enum_elem_t *eelem, scope_member_t **rmember)
+    cgen_enum_elem_t *eelem, cgtype_t *etype, scope_member_t **rmember)
 {
 	scope_member_t *member;
-	cgtype_enum_t *etype = NULL;
-	int rc;
 
 	member = scope_lookup_local(scope, tident->text);
 	if (member != NULL) {
@@ -386,14 +385,8 @@ int scope_insert_eelem(scope_t *scope, lexer_tok_t *tident,
 	if (member == NULL)
 		return ENOMEM;
 
-	rc = cgtype_enum_create(eelem->cgenum, &etype);
-	if (rc != EOK) {
-		free(member);
-		return ENOMEM;
-	}
-
 	member->tident = tident;
-	member->cgtype = &etype->cgtype;
+	member->cgtype = etype;
 	member->mtype = sm_eelem;
 	member->m.eelem.eelem = eelem;
 	member->scope = scope;
