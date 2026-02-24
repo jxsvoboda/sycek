@@ -3955,9 +3955,11 @@ static int cgen_tsenum_elem(cgen_dspec_t *cgds, ast_tsenum_elem_t *elem,
 	cgtype_enum_t *tenum;
 	cgtype_enum_t *eetype;
 	cgtype_t *etype = NULL;
+	bool is_strict;
 	int rc;
 
 	ident = (comp_tok_t *) elem->tident.data;
+	is_strict = (cgenum->named || cgds->sctype == asc_typedef);
 
 	cgen_eres_init(&eres);
 	cgen_eres_init(&cres);
@@ -3977,8 +3979,8 @@ static int cgen_tsenum_elem(cgen_dspec_t *cgds, ast_tsenum_elem_t *elem,
 			}
 		}
 
-		if (eres.cvint < cgen_int_min(cgen) ||
-		    eres.cvint > cgen_int_max(cgen)) {
+		if ((eres.cvint < cgen_int_min(cgen) ||
+		    eres.cvint > cgen_int_max(cgen)) && is_strict) {
 			cgen_warn_init_enum_range(cgen, &elem->tequals);
 		}
 
@@ -4012,8 +4014,7 @@ static int cgen_tsenum_elem(cgen_dspec_t *cgds, ast_tsenum_elem_t *elem,
 		}
 	}
 
-	if (cgenum->named || cgds->sctype == asc_typedef ||
-	    eres.cgtype == NULL) {
+	if (is_strict || eres.cgtype == NULL) {
 		/* Strict enum. Element has type from enum. */
 		rc = cgtype_enum_create(eelem->cgenum, &eetype);
 		if (rc != EOK)
