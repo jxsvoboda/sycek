@@ -67,9 +67,9 @@ typedef struct cgen_rec_elem {
 	/** Storage unit */
 	cgen_rec_stor_t *stor;
 	/** Bit width (bit field) or zero (not a bitfield) */
-	unsigned width;
+	uint8_t width;
 	/** Bit position within storage unit (bit field) */
-	unsigned bitpos;
+	uint8_t bitpos;
 	/** Member type */
 	struct cgtype *cgtype;
 } cgen_rec_elem_t;

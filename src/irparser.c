@@ -26,9 +26,11 @@
 
 #include <assert.h>
 #include <ir.h>
+#include <inttypes.h>
 #include <irparser.h>
 #include <irlexer.h>
 #include <merrno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -554,7 +556,16 @@ static int ir_parser_process_instr(ir_parser_t *parser, ir_instr_t **rinstr)
 		width = 0;
 	}
 
-	instr->width = width;
+	if (width > ir_max_width) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " invalid instruction width %" PRIu32
+		    ".\n", width);
+		rc = EINVAL;
+		goto error;
+	}
+
+	instr->width = (uint8_t)width;
 
 	/* Destination */
 
@@ -701,9 +712,18 @@ static int ir_parser_process_int_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 		goto error;
 	}
 
+	if (width > ir_max_width) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " invalid integer type width %" PRIu32
+		    ".\n", width);
+		rc = EINVAL;
+		goto error;
+	}
+
 	ir_parser_skip(parser);
 
-	rc = ir_texpr_int_create(width, &texpr);
+	rc = ir_texpr_int_create((unsigned)width, &texpr);
 	if (rc != EOK)
 		goto error;
 
@@ -761,9 +781,18 @@ static int ir_parser_process_ptr_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 		goto error;
 	}
 
+	if (width > ir_max_width) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " invalid pointer type width %" PRIu32
+		    ".\n", width);
+		rc = EINVAL;
+		goto error;
+	}
+
 	ir_parser_skip(parser);
 
-	rc = ir_texpr_ptr_create(width, &texpr);
+	rc = ir_texpr_ptr_create((unsigned)width, &texpr);
 	if (rc != EOK)
 		goto error;
 
@@ -1285,6 +1314,15 @@ static int ir_parser_process_dentry_int(ir_parser_t *parser,
 		goto error;
 	}
 
+	if (width > ir_max_width) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " invalid data entry width %" PRIu32
+		    ".\n", width);
+		rc = EINVAL;
+		goto error;
+	}
+
 	ir_parser_skip(parser);
 
 	/* Value */
@@ -1315,7 +1353,7 @@ static int ir_parser_process_dentry_int(ir_parser_t *parser,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_dentry_create_int(width, value, &dentry);
+	rc = ir_dentry_create_int((unsigned)width, value, &dentry);
 	if (rc != EOK)
 		goto error;
 
@@ -1376,6 +1414,15 @@ static int ir_parser_process_dentry_ptr(ir_parser_t *parser,
 		goto error;
 	}
 
+	if (width > ir_max_width) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " invalid data entry width %" PRIu32
+		    ".\n", width);
+		rc = EINVAL;
+		goto error;
+	}
+
 	ir_parser_skip(parser);
 
 	/* Symbol */
@@ -1432,7 +1479,7 @@ static int ir_parser_process_dentry_ptr(ir_parser_t *parser,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_dentry_create_ptr(width, sname, value, &dentry);
+	rc = ir_dentry_create_ptr((unsigned)width, sname, value, &dentry);
 	if (rc != EOK)
 		goto error;
 

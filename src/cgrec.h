@@ -40,8 +40,8 @@ extern cgen_record_t *cgen_records_find(cgen_records_t *, const char *);
 extern cgen_record_t *cgen_records_first(cgen_records_t *);
 extern cgen_record_t *cgen_records_next(cgen_record_t *);
 extern void cgen_record_destroy(cgen_record_t *);
-extern int cgen_record_append(cgen_record_t *, const char *, unsigned,
-    unsigned, cgtype_t *, const char *);
+extern int cgen_record_append(cgen_record_t *, const char *, uint8_t, uint8_t,
+    cgtype_t *, const char *);
 extern int cgen_record_append_stor(cgen_record_t *, cgtype_t *, const char *,
     cgen_rec_stor_t **);
 extern cgen_rec_elem_t *cgen_record_first_elem(cgen_record_t *);

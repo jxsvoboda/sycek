@@ -32,6 +32,9 @@
 #include <types/ast.h>
 #include <types/cgtype.h>
 
+/** Type used internally by code generator to represent sizes of C types. */
+typedef unsigned cgsize_t;
+
 /** Code generator flags */
 typedef enum {
 	/** No flags */
@@ -133,7 +136,7 @@ typedef struct cgen_rec {
 	/** Currently constructing a bit field */
 	bool is_bitfield;
 	/** Current bit field position */
-	unsigned bf_pos;
+	uint8_t bf_pos;
 	/** Storage unit type */
 	cgtype_t *su_cgtype;
 	/** Bitfield storage unit counter */

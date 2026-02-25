@@ -30,6 +30,11 @@
 #include <adt/list.h>
 #include <stdint.h>
 
+enum {
+	/** Maximum acceptable value for width */
+	ir_max_width = 64
+};
+
 /** IR instruction type */
 typedef enum {
 	/** Addition */

@@ -27,6 +27,7 @@
  */
 
 #include <assert.h>
+#include <inttypes.h>
 #include <irlexer.h>
 #include <merrno.h>
 #include <src_pos.h>

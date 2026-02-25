@@ -40,7 +40,7 @@ typedef struct cgen_enum_elem {
 	/** Member identifier */
 	char *ident;
 	/** Member value */
-	int value;
+	int64_t value;
 } cgen_enum_elem_t;
 
 /** Enum definition */

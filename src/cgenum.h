@@ -27,6 +27,7 @@
 #ifndef CGENUM_H
 #define CGENUM_H
 
+#include <stdint.h>
 #include <types/cgenum.h>
 
 extern int cgen_enums_create(cgen_enums_t **);
@@ -37,14 +38,14 @@ extern cgen_enum_t *cgen_enums_find(cgen_enums_t *, const char *);
 extern cgen_enum_t *cgen_enums_first(cgen_enums_t *);
 extern cgen_enum_t *cgen_enums_next(cgen_enum_t *);
 extern void cgen_enum_destroy(cgen_enum_t *);
-extern int cgen_enum_append(cgen_enum_t *, const char *, int,
+extern int cgen_enum_append(cgen_enum_t *, const char *, int64_t,
     cgen_enum_elem_t **);
 extern cgen_enum_elem_t *cgen_enum_first(cgen_enum_t *);
 extern cgen_enum_elem_t *cgen_enum_next(cgen_enum_elem_t *);
 extern cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *,
     const char *);
 extern cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *,
-    int);
-extern int cgen_enum_max_val(cgen_enum_t *);
+    int64_t);
+extern int64_t cgen_enum_max_val(cgen_enum_t *);
 
 #endif

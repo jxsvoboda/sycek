@@ -47,7 +47,7 @@
 #include <string.h>
 #include <symbols.h>
 
-static unsigned cgen_type_sizeof(cgen_t *, cgtype_t *);
+static cgsize_t cgen_type_sizeof(cgen_t *, cgtype_t *);
 static bool cgen_type_is_integral(cgen_t *, cgtype_t *);
 static bool cgen_type_is_bool(cgen_t *, cgtype_t *);
 static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
@@ -471,7 +471,7 @@ static bool cgen_ident_is_type(void *arg, const char *ident)
  * @param cgen Code generator
  * @param tbasic Basic type
  */
-static unsigned cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
+static uint8_t cgen_basic_type_bits(cgen_t *cgen, cgtype_basic_t *tbasic)
 {
 	(void) cgen;
 
@@ -828,10 +828,10 @@ static bool cgen_enum_types_are_compatible(cgen_t *cgen, cgtype_t *atype,
  * @param record Record
  * @return Record size in bytes
  */
-static unsigned cgen_record_size(cgen_t *cgen, cgen_record_t *record)
+static cgsize_t cgen_record_size(cgen_t *cgen, cgen_record_t *record)
 {
-	unsigned sz;
-	unsigned susz;
+	cgsize_t sz;
+	cgsize_t susz;
 	cgen_rec_stor_t *su;
 
 	sz = 0;
@@ -865,7 +865,7 @@ static unsigned cgen_record_size(cgen_t *cgen, cgen_record_t *record)
  * @param cgen Code generator
  * @param cgtype Type
  */
-static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
+static cgsize_t cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 {
 	cgtype_basic_t *tbasic;
 	cgtype_record_t *trecord;
@@ -888,7 +888,8 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 	case cgn_array:
 		tarray = (cgtype_array_t *)cgtype->ext;
 		assert(tarray->have_size);
-		return cgen_type_sizeof(cgen, tarray->etype) * tarray->asize;
+		return cgen_type_sizeof(cgen, tarray->etype) *
+		    (cgsize_t)tarray->asize;
 	}
 
 	assert(false);
@@ -900,7 +901,7 @@ static unsigned cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
  * @param cgen Code generator
  * @param cgtype Type
  */
-static unsigned cgen_type_alignof(cgen_t *cgen, cgtype_t *cgtype)
+static cgsize_t cgen_type_alignof(cgen_t *cgen, cgtype_t *cgtype)
 {
 	(void)cgen;
 
@@ -927,9 +928,9 @@ static unsigned cgen_type_alignof(cgen_t *cgen, cgtype_t *cgtype)
  * @param elem Record element
  * @return Element offset within its record
  */
-static unsigned cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
+static cgsize_t cgen_rec_elem_offset(cgen_t *cgen, cgen_rec_elem_t *elem)
 {
-	unsigned off;
+	cgsize_t off;
 	cgen_rec_stor_t *su;
 
 	/* In a union all elements start at zero offset */
@@ -3437,7 +3438,7 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 	uint64_t bitwidth;
 	char *irident = NULL;
 	cgtype_enum_t *cgenum;
-	int enum_max;
+	int64_t enum_max;
 	bool converted;
 	int rc;
 	int rv;
@@ -3494,7 +3495,17 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 				tok = ast_tree_first_tok(dlentry->bitwidth);
 				cgen_warn_bitfield_width_enum(cgen, tok);
 			}
-			bitwidth = bwres.cvint;
+
+			if (bwres.cvint < 0) {
+				(void)lexer_dprint_tok(&ident->tok, stderr);
+				(void)fprintf(stderr, ": Bitfield '%s' width "
+				    "is negative.\n", ident->tok.text);
+				cgen->error = true; // TODO
+				rc = EINVAL;
+				goto error;
+			}
+
+			bitwidth = (uint64_t)bwres.cvint;
 		} else {
 			bitwidth = 0;
 		}
@@ -3551,7 +3562,7 @@ static int cgen_tsrecord_elem(cgen_rec_t *cgrec, ast_tsrecord_elem_t *elem,
 		}
 
 		rc = cgen_record_append(record, ident->tok.text,
-		    (unsigned)bitwidth, cgrec->bf_pos, dtype, irident);
+		    (uint8_t)bitwidth, cgrec->bf_pos, dtype, irident);
 		if (rc == EEXIST) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Duplicate record member "
@@ -11388,7 +11399,7 @@ static int cgen_store_bitfield(cgen_proc_t *cgproc, cgen_eres_t *ares,
 	if (rc != EOK)
 		goto error;
 
-	rc = ir_oper_imm_create(bfmask, &imm);
+	rc = ir_oper_imm_create((int64_t)bfmask, &imm);
 	if (rc != EOK)
 		goto error;
 
@@ -14146,7 +14157,7 @@ static int cgen_ealignof(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
 static int cgen_esizeof_cgtype(cgen_expr_t *cgexpr, cgtype_t *etype,
     comp_tok_t *ctok, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	unsigned sz;
+	cgsize_t sz;
 	int rc;
 
 	if (etype->ntype == cgn_func) {
@@ -15648,7 +15659,7 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	comp_tok_t *ctok;
 	ast_sclass_type_t sctype;
 	cgen_rd_flags_t flags;
-	size_t sz;
+	cgsize_t sz;
 	char *destvn;
 	int rc;
 
@@ -22649,7 +22660,7 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			 * designator used for non-designated fields.
 			 */
 			if (first) {
-				parent->next = dsg;
+				parent->next = (uint64_t)dsg;
 			}
 			cgtype = tarray->etype;
 			break;
@@ -22714,7 +22725,8 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 		}
 
 		/* Find or create initializer. */
-		rc = cgen_init_insert(pinit, cgtype, dsg, relem, &init);
+		rc = cgen_init_insert(pinit, cgtype, (uint64_t)dsg, relem,
+		    &init);
 		if (rc != EOK)
 			goto error;
 
@@ -22988,8 +23000,9 @@ static int cgen_init_digest_array(cgen_t *cgen, cgen_init_t *parent,
 	if (!tarray->have_size) {
 		/* Determine array size */
 		init = cgen_init_last(parent);
-		if (init != NULL)
+		if (init != NULL) {
 			tarray->asize = init->dsg + 1;
+		}
 
 		tarray->have_size = true;
 	}
@@ -23085,8 +23098,8 @@ static int cgen_init_digest_union(cgen_t *cgen, cgen_init_t *parent,
 {
 	cgen_init_t *init;
 	cgen_rec_elem_t *elem;
-	size_t usize;
-	size_t esize;
+	cgsize_t usize;
+	cgsize_t esize;
 	uint64_t i;
 	int rc;
 
@@ -23218,7 +23231,7 @@ static int cgen_init_digest_bitfield(cgen_t *cgen, cgen_init_t **init,
 
 		if (*init != NULL) {
 			dbentry = ir_dblock_first((*init)->dblock);
-			value = dbentry->dentry->value;
+			value = (uint64_t)dbentry->dentry->value;
 			bffilt = (1 << elem->width) - 1;
 
 			*init = cgen_init_next(*init);
@@ -23229,8 +23242,8 @@ static int cgen_init_digest_bitfield(cgen_t *cgen, cgen_init_t **init,
 		elem = cgen_rec_stor_next_elem(elem);
 	}
 
-	subits = cgen_type_sizeof(cgen, stor->cgtype) * 8;
-	rc = ir_dentry_create_int(subits, suval, &dentry);
+	subits = (uint8_t)cgen_type_sizeof(cgen, stor->cgtype) * 8;
+	rc = ir_dentry_create_int(subits, (int64_t)suval, &dentry);
 	if (rc != EOK)
 		return rc;
 

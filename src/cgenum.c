@@ -27,6 +27,7 @@
 #include <cgenum.h>
 #include <cgtype.h>
 #include <merrno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -194,7 +195,7 @@ cgen_enum_t *cgen_enums_next(cgen_enum_t *cur)
  * @return EOK on success, EEXIST if member with the same name already
  *         exists, ENOMEM if out of memory.
  */
-int cgen_enum_append(cgen_enum_t *cgenum, const char *ident, int value,
+int cgen_enum_append(cgen_enum_t *cgenum, const char *ident, int64_t value,
     cgen_enum_elem_t **relem)
 {
 	cgen_enum_elem_t *elem;
@@ -250,7 +251,7 @@ cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *cgenum,
  * @param val Value
  * @return Enum element or @c NULL if not found
  */
-cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *cgenum, int val)
+cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *cgenum, int64_t val)
 {
 	cgen_enum_elem_t *elem;
 
@@ -269,10 +270,10 @@ cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *cgenum, int val)
  *
  * @param cgenum Enum definition
  */
-int cgen_enum_max_val(cgen_enum_t *cgenum)
+int64_t cgen_enum_max_val(cgen_enum_t *cgenum)
 {
 	cgen_enum_elem_t *elem;
-	int max;
+	int64_t max;
 
 	max = 0;
 	elem = cgen_enum_first(cgenum);

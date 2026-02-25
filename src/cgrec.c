@@ -220,7 +220,7 @@ cgen_record_t *cgen_records_next(cgen_record_t *cur)
  *         exists, ENOMEM if out of memory.
  */
 int cgen_record_append(cgen_record_t *record, const char *ident,
-    unsigned width, unsigned bitpos, cgtype_t *cgtype, const char *irident)
+    uint8_t width, uint8_t bitpos, cgtype_t *cgtype, const char *irident)
 {
 	cgen_rec_elem_t *old_elem;
 	cgen_rec_elem_t *elem = NULL;

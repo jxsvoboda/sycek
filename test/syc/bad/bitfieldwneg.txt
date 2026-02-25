@@ -1,0 +1,1 @@
+<test/syc/bad/bitfieldwneg.c:6:14-16:id:bf1>: Bitfield 'bf1' width is negative.
