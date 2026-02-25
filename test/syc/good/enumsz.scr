@@ -1,0 +1,18 @@
+mapfile "enumsz.map";
+ldbin "enumsz.bin", 0x8000;
+
+verify word ptr (@_si), 2;
+verify word ptr (@_sl), 4;
+verify word ptr (@_sll), 8;
+
+ld word ptr (@_i), 0;
+call @_fi;
+verify word ptr (@_i), 0x7fff;
+
+ld dword ptr (@_l), 0;
+call @_fl;
+verify dword ptr (@_l), 0x7fffffff;
+
+ld qword ptr (@_ll), 0;
+call @_fll;
+verify qword ptr (@_ll), 0x7fffffffffffffff;

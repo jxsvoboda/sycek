@@ -6002,13 +6002,15 @@ static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
  * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param eelem Enum element
+ * @param cgtype Element type
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  *
  * @return EOK on success or an error code
  */
 static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
-    cgen_enum_elem_t *eelem, ir_lblock_t *lblock, cgen_eres_t *eres)
+    cgen_enum_elem_t *eelem, cgtype_t *cgtype, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
 	ir_instr_t *instr = NULL;
 	ir_oper_var_t *dest = NULL;
@@ -6031,7 +6033,7 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		goto error;
 
 	instr->itype = iri_imm;
-	instr->width = cgen_enum_bits;
+	instr->width = (unsigned)cgen_type_sizeof(cgexpr->cgen, cgtype) * 8;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -6115,7 +6117,7 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		return EINVAL;
 	case sm_eelem:
 		rc = cgen_eident_eelem(cgexpr, eident, member->m.eelem.eelem,
-		    lblock, eres);
+		    member->cgtype, lblock, eres);
 		break;
 	case sm_tdef:
 		(void)lexer_dprint_tok(&ident->tok, stderr);
