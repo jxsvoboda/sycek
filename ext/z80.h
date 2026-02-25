@@ -2,7 +2,7 @@
  * GZX - George's ZX Spectrum Emulator
  * Z80 CPU emulation
  *
- * Copyright (c) 1999-2017 Jiri Svoboda
+ * Copyright (c) 1999-2025 Jiri Svoboda
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,6 +80,8 @@ typedef struct _z80s {
 	uint8_t R;
 	/** Stack pointer */
 	uint16_t SP;
+	/** W register */
+	uint8_t W;
 
 	/** Interrupt flip-flops */
 	int IFF1, IFF2;
@@ -93,6 +95,10 @@ typedef struct _z80s {
 	int nmi_pending;
 	/** 0 / 0xDD / 0xFD */
 	int modifier;
+	/** Current instruction affected flags */
+	int flags_aff;
+	/** Previous intruction affected flags */
+	int pflags_aff;
 	/** Halted by the HALT instruction? */
 	int halted;
 } z80s;
