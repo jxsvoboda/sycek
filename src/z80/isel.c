@@ -253,7 +253,7 @@ static int z80_isel_texpr_array_sizeof(z80_isel_t *isel, ir_texpr_t *texpr,
 		return rc;
 
 	/* Array size */
-	*rsize = texpr->t.tarray.asize * esize;
+	*rsize = (size_t)texpr->t.tarray.asize * esize;
 	return EOK;
 }
 
@@ -995,7 +995,6 @@ static int z80_isel_vrr_const(z80_isel_proc_t *isproc, unsigned destvr,
 	assert(bytes == 1 || bytes % 2 == 0);
 
 	if (bytes == 1) {
-
 		rc = z80ic_ld_vr_n_create(&ldimm8);
 		if (rc != EOK)
 			goto error;
@@ -1004,7 +1003,7 @@ static int z80_isel_vrr_const(z80_isel_proc_t *isproc, unsigned destvr,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_imm8_create(value, &imm8);
+		rc = z80ic_oper_imm8_create((uint8_t)value, &imm8);
 		if (rc != EOK)
 			goto error;
 
@@ -11711,8 +11710,8 @@ static int z80_isel_ptr(z80_isel_t *isel, ir_dentry_t *irdentry,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_dentry_create_defw_sym(ident, irdentry->value,
-		    &dentry);
+		rc = z80ic_dentry_create_defw_sym(ident,
+		    (uint16_t)irdentry->value, &dentry);
 		if (rc != EOK)
 			goto error;
 
@@ -11936,7 +11935,7 @@ static int z80_isel_proc_arg(z80_isel_proc_t *isproc, const char *ident,
 		if (rc != EOK)
 			goto error;
 
-		ldix->disp = *fpoff;
+		ldix->disp = (uint8_t)*fpoff;
 		ldix->dest = vrr;
 		vrr = NULL;
 

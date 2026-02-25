@@ -83,7 +83,7 @@ static int ext_replace(const char *fname, const char *newext,
 
 	/* Compute number of characters to copy (this excludes the '.') */
 	if (period != NULL)
-		nchars = period - fname;
+		nchars = (size_t)(period - fname);
 	else
 		nchars = strlen(fname);
 
@@ -239,8 +239,8 @@ int main(int argc, char *argv[])
 	int rc;
 	int rv;
 	int i;
-	comp_flags_t flags = 0;
-	cgen_flags_t cgflags = 0;
+	comp_flags_t flags = compf_none;
+	cgen_flags_t cgflags = cgf_none;
 
 	if (argc < 2) {
 		print_syntax();

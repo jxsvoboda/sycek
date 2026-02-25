@@ -155,7 +155,7 @@ static int z80_idxacc_setup(z80_idxacc_t *idxacc, z80_ralloc_proc_t *raproc,
 
 	/* Are we within the reach of frame pointer? */
 	if (offbp >= -128 && offbp + size - 1 <= 127) {
-		idxacc->disp = (int16_t)offbp;
+		idxacc->disp = (int8_t)offbp;
 		return EOK;
 	}
 
@@ -1609,7 +1609,7 @@ static int z80_ralloc_ld_r_ivrrd(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vrld->disp;
+	dispw = (uint16_t)(int16_t)vrld->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -2045,7 +2045,7 @@ static int z80_ralloc_ld_vr_ivrrd(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vrld->disp;
+	dispw = (uint16_t)(int16_t)vrld->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -2372,7 +2372,7 @@ static int z80_ralloc_ld_ivrrd_r(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vrld->disp;
+	dispw = (uint16_t)(int16_t)vrld->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -2594,7 +2594,7 @@ static int z80_ralloc_ld_ivrrd_vr(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vrld->disp;
+	dispw = (uint16_t)(int16_t)vrld->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -2846,7 +2846,7 @@ static int z80_ralloc_ld_ivrrd_n(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vrld->disp;
+	dispw = (uint16_t)(int16_t)vrld->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -3698,7 +3698,7 @@ static int z80_ralloc_add_a_ivrrd(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vradd->disp;
+	dispw = (uint16_t)(int16_t)vradd->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -3984,7 +3984,7 @@ static int z80_ralloc_adc_a_ivrrd(z80_ralloc_proc_t *raproc, const char *label,
 		goto error;
 
 	/* Sign-extend to 16 bits */
-	dispw = (int16_t)vradc->disp;
+	dispw = (uint16_t)(int16_t)vradc->disp;
 
 	/* ld A, L */
 	rc = z80ic_ld_r_r_create(&ldrr);
@@ -5366,7 +5366,7 @@ static int z80_ralloc_defb(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 	(void) ralloc;
 	assert(vrdentry->dtype == z80icd_defb);
 
-	rc = z80ic_dentry_create_defb(vrdentry->value, &dentry);
+	rc = z80ic_dentry_create_defb((uint8_t)vrdentry->value, &dentry);
 	if (rc != EOK)
 		goto error;
 
@@ -5402,7 +5402,8 @@ static int z80_ralloc_defw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 		if (rc != EOK)
 			goto error;
 	} else {
-		rc = z80ic_dentry_create_defw(vrdentry->value, &dentry);
+		rc = z80ic_dentry_create_defw((uint16_t)vrdentry->value,
+		    &dentry);
 		if (rc != EOK)
 			goto error;
 	}
@@ -5433,7 +5434,7 @@ static int z80_ralloc_defdw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 	(void) ralloc;
 	assert(vrdentry->dtype == z80icd_defdw);
 
-	rc = z80ic_dentry_create_defdw(vrdentry->value, &dentry);
+	rc = z80ic_dentry_create_defdw((uint32_t)vrdentry->value, &dentry);
 	if (rc != EOK)
 		goto error;
 

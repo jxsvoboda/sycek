@@ -587,7 +587,8 @@ static int z80ic_dentry_defdw_print(z80ic_dentry_t *dentry, FILE *f)
 	if (rv < 0)
 		return EIO;
 
-	rv = fprintf(f, "\tdefw $%" PRIx16 "\n", (unsigned)(dentry->value & 0xffff));
+	rv = fprintf(f, "\tdefw $%" PRIx16 "\n", (unsigned)(dentry->value &
+	    0xffffu));
 	if (rv < 0)
 		return EIO;
 
@@ -617,22 +618,22 @@ static int z80ic_dentry_defqw_print(z80ic_dentry_t *dentry, FILE *f)
 		return EIO;
 
 	rv = fprintf(f, "\tdefw $%" PRIx16 "\n",
-	    (unsigned)(dentry->value & 0xffff));
+	    (unsigned)(dentry->value & 0xffffu));
 	if (rv < 0)
 		return EIO;
 
 	rv = fprintf(f, "\tdefw $%" PRIx16 "\n",
-	    (unsigned)((dentry->value >> 16) & 0xffff));
+	    (unsigned)((dentry->value >> 16) & 0xffffu));
 	if (rv < 0)
 		return EIO;
 
 	rv = fprintf(f, "\tdefw $%" PRIx16 "\n",
-	    (unsigned)((dentry->value >> 32) & 0xffff));
+	    (unsigned)((dentry->value >> 32) & 0xffffu));
 	if (rv < 0)
 		return EIO;
 
 	rv = fprintf(f, "\tdefw $%" PRIx16,
-	    (unsigned)((dentry->value >> 48) & 0xffff));
+	    (unsigned)((dentry->value >> 48) & 0xffffu));
 	if (rv < 0)
 		return EIO;
 
@@ -7535,7 +7536,7 @@ z80ic_reg_t z80ic_r16_lo(z80ic_r16_t r16)
 	switch (r16) {
 	case z80ic_r16_af:
 		assert(false);
-		return 0;
+		return (z80ic_reg_t)0;
 	case z80ic_r16_bc:
 		return z80ic_reg_c;
 	case z80ic_r16_de:
@@ -7546,11 +7547,11 @@ z80ic_reg_t z80ic_r16_lo(z80ic_r16_t r16)
 	case z80ic_r16_iy:
 	case z80ic_r16_sp:
 		assert(false);
-		return 0;
+		return (z80ic_reg_t)0;
 	}
 
 	assert(false);
-	return 0;
+	return (z80ic_reg_t)0;
 }
 
 /** Get upper half of 16-bit register.
@@ -7576,9 +7577,9 @@ z80ic_reg_t z80ic_r16_hi(z80ic_r16_t r16)
 	case z80ic_r16_iy:
 	case z80ic_r16_sp:
 		assert(false);
-		return 0;
+		return (z80ic_reg_t)0;
 	}
 
 	assert(false);
-	return 0;
+	return (z80ic_reg_t)0;
 }

@@ -322,7 +322,7 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	if (have_base) {
 		script_read_next_tok(script, &tok);
 		if (tok.ttype != stt_plus) {
-			*eval = sval;
+			*eval = (uint64_t)sval;
 			return 0;
 		}
 
@@ -339,7 +339,7 @@ static int script_eval_expr(script_t *script, uint64_t *eval)
 	}
 
 	script_skip(script);
-	*eval = sval + oval;
+	*eval = (uint64_t)(sval + oval);
 	return 0;
 }
 
@@ -611,42 +611,42 @@ static int regmem_write(regmem_t *regmem, uint64_t val)
 {
 	switch (regmem->rmtype) {
 	case rm_byte_ptr:
-		mem[regmem->addr] = val;
+		mem[regmem->addr] = (uint8_t)val;
 		break;
 	case rm_word_ptr:
 		mem[regmem->addr] = val & 0xff;
-		mem[regmem->addr + 1] = val >> 8;
+		mem[regmem->addr + 1] = (uint8_t)(val >> 8);
 		break;
 	case rm_dword_ptr:
 		mem[regmem->addr] = val & 0xff;
-		mem[regmem->addr + 1] = val >> 8;
-		mem[regmem->addr + 2] = val >> 16;
-		mem[regmem->addr + 3] = val >> 24;
+		mem[regmem->addr + 1] = (uint8_t)(val >> 8);
+		mem[regmem->addr + 2] = (uint8_t)(val >> 16);
+		mem[regmem->addr + 3] = (uint8_t)(val >> 24);
 		break;
 	case rm_qword_ptr:
 		mem[regmem->addr] = val & 0xff;
-		mem[regmem->addr + 1] = val >> 8;
-		mem[regmem->addr + 2] = val >> 16;
-		mem[regmem->addr + 3] = val >> 24;
-		mem[regmem->addr + 4] = val >> 32;
-		mem[regmem->addr + 5] = val >> 40;
-		mem[regmem->addr + 6] = val >> 48;
-		mem[regmem->addr + 7] = val >> 56;
+		mem[regmem->addr + 1] = (uint8_t)(val >> 8);
+		mem[regmem->addr + 2] = (uint8_t)(val >> 16);
+		mem[regmem->addr + 3] = (uint8_t)(val >> 24);
+		mem[regmem->addr + 4] = (uint8_t)(val >> 32);
+		mem[regmem->addr + 5] = (uint8_t)(val >> 40);
+		mem[regmem->addr + 6] = (uint8_t)(val >> 48);
+		mem[regmem->addr + 7] = (uint8_t)(val >> 56);
 		break;
 	case rm_AF:
-		cpus.r[rA] = val >> 8;
+		cpus.r[rA] = (uint8_t)(val >> 8);
 		cpus.F = val & 0xff;
 		break;
 	case rm_BC:
-		cpus.r[rB] = val >> 8;
+		cpus.r[rB] = (uint8_t)(val >> 8);
 		cpus.r[rC] = val & 0xff;
 		break;
 	case rm_DE:
-		cpus.r[rD] = val >> 8;
+		cpus.r[rD] = (uint8_t)(val >> 8);
 		cpus.r[rE] = val & 0xff;
 		break;
 	case rm_HL:
-		cpus.r[rH] = val >> 8;
+		cpus.r[rH] = (uint8_t)(val >> 8);
 		cpus.r[rL] = val & 0xff;
 		break;
 	case rm_A:

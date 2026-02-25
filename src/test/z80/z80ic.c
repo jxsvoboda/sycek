@@ -164,7 +164,7 @@ static int test_z80ic_dblock(void)
 
 	assert(dentry1 != NULL);
 
-	rc = z80ic_dentry_create_defw(0xffff, &dentry2);
+	rc = z80ic_dentry_create_defw(0xffffu, &dentry2);
 	if (rc != EOK)
 		return rc;
 
