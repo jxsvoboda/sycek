@@ -896,6 +896,99 @@ static cgsize_t cgen_type_sizeof(cgen_t *cgen, cgtype_t *cgtype)
 	return 0;
 }
 
+/** Return the number of significant bits for a type.
+ *
+ * For an integral type, return the number of bits of the type. For
+ * other types, return 0.
+ *
+ * @param cgen Code generator
+ * @param cgtype Type
+ */
+static uint8_t cgen_type_sigbits(cgen_t *cgen, cgtype_t *cgtype)
+{
+	if (!cgen_type_is_integral(cgen, cgtype))
+		return 0;
+
+	return (uint8_t)cgen_type_sizeof(cgen, cgtype) * 8;
+}
+
+/** Determine if number fits in the given number of bits.
+ *
+ * @param val Value
+ * @param bits Number of bits
+ * @param is_signed @c true iff the value is signed
+ *
+ * @return @c true iff The value fits in the given number of bits.
+ */
+static bool cgen_const_fits(int64_t val, uint8_t bits, bool is_signed)
+{
+	uint64_t uval;
+	bool is_negative;
+
+	is_negative = is_signed && (val < 0);
+
+	if (is_negative)
+		return ((val << (64 - bits)) >> (64 - bits)) == val;
+
+	uval = (uint64_t)val;
+	return (((uint64_t)val << (64 - bits)) >> (64 - bits)) == uval;
+}
+
+/** Determine number of significant bits in an integer constant.
+ *
+ * @param val Value
+ * @param is_signed @c true iff the value is signed
+ * @return Number of significant bits (8, 16, 32, 64)
+ */
+static uint8_t cgen_const_sigbits(int64_t val, bool is_signed)
+{
+	if (cgen_const_fits(val, 8, is_signed))
+		return 8;
+	if (cgen_const_fits(val, 16, is_signed))
+		return 16;
+	if (cgen_const_fits(val, 32, is_signed))
+		return 32;
+	return 64;
+}
+
+/** Round up number of significant bits to a value of 8, 16, 32 or 64.
+ *
+ * @param bits Number of bits
+ * @return The value of @a bits rounded up to 8, 16, 32 or 64.
+ */
+static uint8_t cgen_sigbits_round_up(uint8_t bits)
+{
+	if (bits <= 8)
+		return 8;
+	if (bits <= 16)
+		return 16;
+	if (bits <= 32)
+		return 32;
+	return 64;
+}
+
+/** Return the maximum of two bit counts.
+ *
+ * @param a First number
+ * @param b Second number
+ * @return The maximum of a and b.
+ */
+static uint8_t cgen_bits_max(uint8_t a, uint8_t b)
+{
+	return a >= b ? a : b;
+}
+
+/** Return the minimum of two bit counts.
+ *
+ * @param a First number
+ * @param b Second number
+ * @return The minimum of a and b.
+ */
+static uint8_t cgen_bits_min(uint8_t a, uint8_t b)
+{
+	return a <= b ? a : b;
+}
+
 /** Return the alignment of a type in bytes.
  *
  * @param cgen Code generator
@@ -1602,6 +1695,8 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 	dres->cvint = res->cvint;
 	dres->cvsymbol = res->cvsymbol;
 	dres->cvknown = res->cvknown;
+	dres->sigbits = res->sigbits;
+	dres->unprombits = res->unprombits;
 	dres->tfirst = res->tfirst;
 	dres->tlast = res->tlast;
 	return EOK;
@@ -5938,12 +6033,18 @@ error:
 static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
     symbol_t *symbol, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	int rc;
+
 	if (cgexpr->icexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
 		return EINVAL;
 	}
 
-	return cgen_gsym_ptr(cgexpr->cgproc, symbol, lblock, eres);
+	rc = cgen_gsym_ptr(cgexpr->cgproc, symbol, lblock, eres);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
 }
 
 /** Generate code for identifier expression referencing function argument.
@@ -5973,6 +6074,8 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	eres->varname = vident;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = NULL;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	eres->unprombits = eres->sigbits;
 	return EOK;
 }
 
@@ -6016,6 +6119,7 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_imm_t *imm = NULL;
 	char *destvn;
+	uint8_t bits;
 	int rc;
 
 	(void)eident;
@@ -6032,8 +6136,10 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	if (rc != EOK)
 		goto error;
 
+	bits = (uint8_t)cgen_type_sizeof(cgexpr->cgen, cgtype) * 8;
+
 	instr->itype = iri_imm;
-	instr->width = (unsigned)cgen_type_sizeof(cgexpr->cgen, cgtype) * 8;
+	instr->width = bits;
 	instr->dest = &dest->oper;
 	instr->op1 = &imm->oper;
 	instr->op2 = NULL;
@@ -6051,6 +6157,8 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	eres->cgtype = NULL;
 	eres->cvknown = true;
 	eres->cvint = eelem->value;
+	eres->sigbits = bits;
+	eres->unprombits = bits;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -6134,6 +6242,8 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	member->used = true;
 
 	eres->cgtype = cgtype;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, eres->cgtype);
+	eres->unprombits = eres->sigbits;
 	return rc;
 }
 
@@ -6214,6 +6324,9 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 	eres->cgtype = &btype->cgtype;
 	eres->cvknown = true;
 	eres->cvint = val;
+	eres->sigbits = cgen_const_sigbits(val,
+	    cgen_type_is_signed(cgproc->cgen, &btype->cgtype));
+	eres->unprombits = (uint8_t)instr->width;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -6279,6 +6392,8 @@ static int cgen_const_bool(cgen_proc_t *cgproc, bool bval, ir_lblock_t *lblock,
 	eres->cgtype = &btype->cgtype;
 	eres->cvknown = true;
 	eres->cvint = bval ? 1 : 0;
+	eres->sigbits = cgen_bool_bits;
+	eres->unprombits = cgen_bool_bits;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -6473,6 +6588,8 @@ static int cgen_add_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->sigbits = cgen_bits_max(res1.sigbits, res2.sigbits);
+	eres->unprombits = cgen_bits_max(res1.unprombits, res2.unprombits);
 
 	if (res1.cvknown && res2.cvknown) {
 		eres->cvknown = true;
@@ -6975,6 +7092,9 @@ static int cgen_sub_int(cgen_expr_t *cgexpr, ast_tok_t *optok,
 		if (overflow)
 			cgen_warn_integer_overflow(cgexpr->cgen, optok);
 	}
+
+	eres->sigbits = cgen_bits_max(res1.sigbits, res2.sigbits);
+	eres->unprombits = cgen_bits_max(res1.unprombits, res2.unprombits);
 
 	cgen_eres_fini(&res1);
 	cgen_eres_fini(&res2);
@@ -7643,6 +7763,9 @@ static int cgen_mul(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 			cgen_warn_integer_overflow(cgexpr->cgen, optok);
 	}
 
+	eres->sigbits = cgen_bits_max(lres->sigbits, rres->sigbits);
+	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -7678,6 +7801,8 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	bool is_signed;
 	unsigned bits;
 	bool divbyzero;
+	uint64_t divisor;
+	uint8_t sigbits;
 	char *destvn;
 	int rc;
 
@@ -7746,6 +7871,26 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		if (divbyzero)
 			cgen_warn_div_by_zero(cgexpr->cgen, optok);
 	}
+
+	if (rres->cvknown) {
+		/* Maybe the quotient can be proven to be smaller. */
+		if (is_signed && rres->cvint < 0)
+			divisor = (uint64_t)-rres->cvint;
+		else
+			divisor = (uint64_t)rres->cvint;
+
+		sigbits = lres->sigbits;
+		while (divisor >= 2) {
+			divisor >>= 1;
+			--sigbits;
+		}
+		eres->sigbits = cgen_sigbits_round_up(sigbits);
+	} else {
+		/* Quotient is not wider than dividend. */
+		eres->sigbits = lres->sigbits;
+	}
+
+	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
 
 	return EOK;
 error:
@@ -7850,6 +7995,9 @@ static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 		if (divbyzero)
 			cgen_warn_div_by_zero(cgexpr->cgen, optok);
 	}
+
+	eres->sigbits = cgen_bits_min(lres->sigbits, rres->sigbits);
+	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
 
 	return EOK;
 error:
@@ -7969,6 +8117,9 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 			cgen_warn_shift_negative(cgexpr->cgen, optok);
 	}
 
+	eres->sigbits = lres->sigbits;
+	eres->unprombits = rres->sigbits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -8007,6 +8158,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	unsigned bits1;
 	bool is_signed1;
 	bool is_signed2;
+	uint8_t shbits;
 	char *destvn;
 	int rc;
 
@@ -8089,6 +8241,18 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 			cgen_warn_shift_exceed_bits(cgexpr->cgen, optok);
 		if (cgen_cvint_is_negative(cgexpr->cgen, is_signed2, rres->cvint))
 			cgen_warn_shift_negative(cgexpr->cgen, optok);
+	}
+
+	if (rres->cvknown) {
+		/* Maybe the quotient can be proven to be smaller. */
+		shbits = rres->cvint;
+		if (shbits <= lres->sigbits) {
+			eres->sigbits = cgen_sigbits_round_up(lres->sigbits -
+			    shbits);
+		}
+	} else {
+		/* Quotient is not wider than dividend. */
+		eres->sigbits = lres->sigbits;
 	}
 
 	return EOK;
@@ -8187,6 +8351,9 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 		    (uint64_t)rres->cvint);
 	}
 
+	eres->sigbits = cgen_bits_min(lres->sigbits, rres->sigbits);
+	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -8283,6 +8450,9 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 		    (uint64_t)rres->cvint);
 	}
 
+	eres->sigbits = cgen_bits_max(lres->sigbits, rres->sigbits);
+	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -8378,6 +8548,9 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 		eres->cvint = (int64_t)((uint64_t)lres->cvint |
 		    (uint64_t)rres->cvint);
 	}
+
+	eres->sigbits = cgen_bits_max(lres->sigbits, rres->sigbits);
+	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
 
 	return EOK;
 error:
@@ -8883,6 +9056,9 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 		}
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -8981,6 +9157,9 @@ static int cgen_lt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *lres,
 		eres->cvint = (uint64_t)lres->cvint <
 		    (uint64_t)rres->cvint ? 1 : 0;
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -9170,6 +9349,9 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		}
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -9268,6 +9450,9 @@ static int cgen_lteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = (uint64_t)lres->cvint <=
 		    (uint64_t)rres->cvint ? 1 : 0;
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -9457,6 +9642,9 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		}
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -9555,6 +9743,9 @@ static int cgen_gt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = (uint64_t)lres->cvint >
 		    (uint64_t)rres->cvint ? 1 : 0;
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -9744,6 +9935,9 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		}
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -9842,6 +10036,9 @@ static int cgen_gteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = (uint64_t)lres->cvint >=
 		    (uint64_t)rres->cvint ? 1 : 0;
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -10022,6 +10219,9 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = lres.cvint == rres.cvint ? 1 : 0;
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -10120,6 +10320,9 @@ static int cgen_eq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = (uint64_t)lres->cvint >=
 		    (uint64_t)rres->cvint ? 1 : 0;
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -10300,6 +10503,9 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = lres.cvint != rres.cvint ? 1 : 0;
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -10398,6 +10604,9 @@ static int cgen_neq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 		eres->cvint = (uint64_t)lres->cvint !=
 		    (uint64_t)rres->cvint ? 1 : 0;
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -10936,6 +11145,9 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 		}
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	/* %end_and label */
 	rc = ir_lblock_append(lblock, elabel, NULL);
 	if (rc != EOK)
@@ -11149,6 +11361,9 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 			}
 		}
 	}
+
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	/* %end_and label */
 	rc = ir_lblock_append(lblock, elabel, NULL);
@@ -11838,6 +12053,9 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	cgtype = lres.cgtype;
 	lres.cgtype = NULL;
 
+	eres->sigbits = rres.sigbits;
+	eres->unprombits = rres.unprombits;
+
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
 	cgen_eres_fini(&cres);
@@ -11912,15 +12130,17 @@ static int cgen_plus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
-	cgen_eres_fini(&laddr);
-	cgen_eres_fini(&lval);
-	cgen_eres_fini(&rres);
-	cgen_eres_fini(&ores);
-
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
+	cgen_eres_fini(&laddr);
+	cgen_eres_fini(&lval);
+	cgen_eres_fini(&rres);
+	cgen_eres_fini(&ores);
 	return EOK;
 error:
 	cgen_eres_fini(&laddr);
@@ -11988,15 +12208,17 @@ static int cgen_minus_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
-	cgen_eres_fini(&laddr);
-	cgen_eres_fini(&lval);
-	cgen_eres_fini(&rres);
-	cgen_eres_fini(&ores);
-
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
+	cgen_eres_fini(&laddr);
+	cgen_eres_fini(&lval);
+	cgen_eres_fini(&rres);
+	cgen_eres_fini(&ores);
 	return EOK;
 error:
 	cgen_eres_fini(&laddr);
@@ -12067,15 +12289,17 @@ static int cgen_times_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
-	cgen_eres_fini(&lres);
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&bres);
-	cgen_eres_fini(&ores);
-
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -12144,15 +12368,17 @@ static int cgen_divide_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
-	cgen_eres_fini(&lres);
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&bres);
-	cgen_eres_fini(&ores);
-
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -12221,15 +12447,17 @@ static int cgen_modulo_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
-	cgen_eres_fini(&lres);
-	cgen_eres_fini(&ares);
-	cgen_eres_fini(&bres);
-	cgen_eres_fini(&ores);
-
 	eres->varname = resvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
+	cgen_eres_fini(&lres);
+	cgen_eres_fini(&ares);
+	cgen_eres_fini(&bres);
+	cgen_eres_fini(&ores);
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -12323,17 +12551,19 @@ static int cgen_shl_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&aires);
 	cgen_eres_fini(&bires);
 	cgen_eres_fini(&ores);
-
-	eres->varname = resvn;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = cgtype;
-	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -12428,17 +12658,19 @@ static int cgen_shr_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	resvn = ores.varname;
 
+	eres->varname = resvn;
+	eres->valtype = cgen_rvalue;
+	eres->cgtype = cgtype;
+	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
+
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&aires);
 	cgen_eres_fini(&bires);
 	cgen_eres_fini(&ores);
-
-	eres->varname = resvn;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = cgtype;
-	eres->valused = true;
 	return EOK;
 error:
 	cgen_eres_fini(&lres);
@@ -12538,6 +12770,8 @@ static int cgen_band_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&res1);
@@ -12644,6 +12878,8 @@ static int cgen_bxor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&res1);
@@ -12750,6 +12986,8 @@ static int cgen_bor_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	}
 
 	eres->valused = true;
+	eres->sigbits = ores.sigbits;
+	eres->unprombits = ores.unprombits;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&res1);
@@ -13134,6 +13372,8 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 		eres->varname = tcres.varname;
 		eres->valtype = cgen_rvalue;
 		eres->cgtype = rtype;
+		eres->sigbits = cgen_bits_max(tres.sigbits, fres.sigbits);
+		eres->unprombits = cgen_bits_max(tres.unprombits, fres.unprombits);
 
 		dest = NULL;
 		larg = NULL;
@@ -13705,6 +13945,9 @@ static int cgen_ecall(cgen_expr_t *cgexpr, ast_ecall_t *ecall,
 		eres->varname = rvaraddr->varname;
 	}
 
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, ftype->rtype);
+	eres->unprombits = eres->sigbits;
+
 	cgen_eres_fini(&ares);
 	cgen_eres_fini(&cres);
 	cgen_eres_fini(&rres);
@@ -13823,6 +14066,8 @@ static int cgen_eindex(cgen_expr_t *cgexpr, ast_eindex_t *eindex,
 	eres->varname = sres.varname;
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = cgtype;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	eres->unprombits = eres->sigbits;
 
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&ires);
@@ -13894,6 +14139,8 @@ static int cgen_ederef(cgen_expr_t *cgexpr, ast_ederef_t *ederef,
 	eres->varname = bres.varname;
 	eres->valtype = cgen_lvalue;
 	eres->cgtype = cgtype;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	eres->unprombits = eres->sigbits;
 	return EOK;
 error:
 	cgen_eres_fini(&bres);
@@ -14784,6 +15031,8 @@ static int cgen_emember(cgen_expr_t *cgexpr, ast_emember_t *emember,
 	eres->bitpos = elem->bitpos;
 	eres->cgtype = mtype;
 	eres->valused = true;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, mtype);
+	eres->unprombits = eres->sigbits;
 
 	/* If record address is known */
 	if (bres.cvknown) {
@@ -14942,6 +15191,8 @@ static int cgen_eindmember(cgen_expr_t *cgexpr, ast_eindmember_t *eindmember,
 	eres->bitwidth = elem->width;
 	eres->cgtype = mtype;
 	eres->valused = true;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, mtype);
+	eres->unprombits = eres->sigbits;
 
 	/* If record address is known */
 	if (bres.cvknown) {
@@ -15102,6 +15353,9 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 		if (rc != EOK)
 			return rc;
 	}
+
+	eres->sigbits = bres.sigbits;
+	eres->unprombits = bres.unprombits;
 
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&bires);
@@ -15284,6 +15538,9 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 			eres->cvint = 1;
 	}
 
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
+
 	cgen_eres_fini(&bres);
 
 	free(flabel);
@@ -15411,6 +15668,8 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->sigbits = cgen_logic_bits;
+	eres->unprombits = cgen_logic_bits;
 
 	if (bires.cvknown) {
 		eres->cvknown = true;
@@ -15507,6 +15766,8 @@ static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ares.sigbits;
+	eres->unprombits = ares.unprombits;
 	return EOK;
 error:
 	cgen_eres_fini(&baddr);
@@ -15593,6 +15854,8 @@ static int cgen_epostadj(cgen_expr_t *cgexpr, ast_epostadj_t *epostadj,
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
 	eres->valused = true;
+	eres->sigbits = ares.sigbits;
+	eres->unprombits = ares.unprombits;
 	return EOK;
 error:
 	cgen_eres_fini(&baddr);
@@ -15750,6 +16013,8 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	eres->cvsymbol = NULL;
 	eres->cvint = 0;
 	eres->cgtype = etype;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, etype);
+	eres->unprombits = eres->sigbits;
 
 	cgtype_destroy(stype);
 	cgen_eres_fini(&apres);
@@ -16176,6 +16441,8 @@ static int cgen_load_bitfield(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->cgtype = cgtype;
 	eres->valused = res->valused;
 	eres->cvknown = false;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	eres->unprombits = eres->sigbits;
 	eres->tfirst = res->tfirst;
 	eres->tlast = res->tlast;
 
@@ -16290,6 +16557,8 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->cgtype = cgtype;
 	eres->valused = res->valused;
 	eres->cvknown = false;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	eres->unprombits = eres->sigbits;
 	eres->tfirst = res->tfirst;
 	eres->tlast = res->tlast;
 
@@ -16336,6 +16605,8 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->cvknown = res->cvknown;
 		eres->cvint = res->cvint;
 		eres->cvsymbol = res->cvsymbol;
+		eres->sigbits = res->sigbits;
+		eres->unprombits = res->unprombits;
 		eres->tfirst = res->tfirst;
 		eres->tlast = res->tlast;
 		return EOK;
@@ -16396,6 +16667,9 @@ static int cgen_eres_promoted_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *bres,
 	    lblock, eres);
 	if (rc != EOK)
 		goto error;
+
+	/* Take unprombits from unpromoted value. */
+	eres->unprombits = bres->unprombits;
 error:
 	if (dtype != NULL)
 		cgtype_destroy(dtype);
@@ -16502,6 +16776,8 @@ static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
 	rres->cvknown = res->cvknown;
 	rres->cvint = res->cvint;
 	rres->cvsymbol = res->cvsymbol;
+	rres->sigbits = res->sigbits;
+	rres->unprombits = res->unprombits;
 	rres->tfirst = res->tfirst;
 	rres->tlast = res->tlast;
 	rres->cgtype = rtype;
@@ -16510,7 +16786,7 @@ static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
 }
 
 /** Convert _Bool to unsigned char.
- * *
+ *
  * @param cgen Code generator
  * @param res Expression result that is a _Bool
  * @param to_sigend @c true to convert to signed char
@@ -16533,6 +16809,8 @@ static int cgen_bool2char(cgen_t *cgen, cgen_eres_t *res, bool to_signed,
 	rres->cvknown = res->cvknown;
 	rres->cvint = res->cvint;
 	rres->cvsymbol = res->cvsymbol;
+	rres->sigbits = res->sigbits;
+	rres->unprombits = res->unprombits;
 	rres->tfirst = res->tfirst;
 	rres->tlast = res->tlast;
 	rres->cgtype = rtype;
@@ -16582,6 +16860,8 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	eres->cvknown = ares->cvknown;
 	eres->cvint = ares->cvint;
 	eres->cvsymbol = ares->cvsymbol;
+	eres->sigbits = ares->sigbits;
+	eres->unprombits = ares->unprombits;
 	eres->tfirst = ares->tfirst;
 	eres->tlast = ares->tlast;
 
@@ -16875,6 +17155,7 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 		if (et1->cgenum != et2->cgenum)
 			*flags |= cguac_enuminc;
 	}
+
 	return EOK;
 error:
 	cgen_eres_fini(&ir1);
@@ -17074,6 +17355,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		cres->valtype = ares->valtype;
 		cres->cgtype = cgtype;
 		cres->valused = true;
+		cres->sigbits = ares->sigbits;
+		cres->unprombits = ares->unprombits;
 		cres->tfirst = ares->tfirst;
 		cres->tlast = ares->tlast;
 
@@ -17113,7 +17396,8 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		/* Integer truncation */
 		itype = iri_trunc;
 
-		if (expl != cgen_explicit && !ares->cvknown) {
+		if (expl != cgen_explicit && !ares->cvknown &&
+		    destw < rres.unprombits && destw < rres.sigbits) {
 			(void)lexer_dprint_tok(&ctok->tok, stderr);
 			(void)fprintf(stderr, ": Warning: Conversion may loose "
 			    "significant digits.\n");
@@ -17174,6 +17458,10 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		if (expl != cgen_explicit && cres->cvint != ares->cvint)
 			cgen_warn_number_changed(cgexpr->cgen, ctok);
 	}
+
+	cres->sigbits = cgen_bits_min(cgen_type_sigbits(cgexpr->cgen, cgtype),
+	    ares->sigbits);
+	cres->unprombits = cgen_type_sigbits(cgexpr->cgen, cgtype);
 
 	cgen_eres_fini(&rres);
 	return EOK;
@@ -17367,6 +17655,8 @@ static int cgen_type_convert_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->cvknown = ares->cvknown;
 	cres->cvint = ares->cvint;
 	cres->cvsymbol = ares->cvsymbol;
+	cres->sigbits = ares->sigbits;
+	cres->unprombits = ares->unprombits;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 error:
@@ -17472,6 +17762,8 @@ static int cgen_type_convert_to_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->cvknown = ares->cvknown;
 	cres->cvint = ares->cvint;
 	cres->cvsymbol = ares->cvsymbol;
+	cres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	cres->unprombits = cres->sigbits;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 
@@ -17617,6 +17909,8 @@ static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
 	cres->cvknown = ares->cvknown;
 	cres->cvint = ares->cvint;
 	cres->cvsymbol = ares->cvsymbol;
+	cres->sigbits = cgen_bool_bits;
+	cres->unprombits = cgen_bool_bits;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 	cres->cgtype = &btype->cgtype;
@@ -17836,6 +18130,8 @@ static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		icres.cvknown = ares->cvknown;
 		icres.cvint = ares->cvint;
 		icres.cvsymbol = ares->cvsymbol;
+		icres.sigbits = cgen_pointer_bits;
+		icres.unprombits = cgen_pointer_bits;
 		icres.tfirst = ares->tfirst;
 		icres.tlast = ares->tlast;
 
@@ -17857,6 +18153,8 @@ static int cgen_type_convert_ptr_int(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		cres->cvknown = ares->cvknown;
 		cres->cvint = ares->cvint;
 		cres->cvsymbol = ares->cvsymbol;
+		cres->sigbits = cgen_pointer_bits;
+		cres->unprombits = cgen_pointer_bits;
 		cres->tfirst = ares->tfirst;
 		cres->tlast = ares->tlast;
 	}
@@ -18323,7 +18621,7 @@ error:
 	return rc;
 }
 
-/** Convert integer expression result to zero.
+/** Compare integer expression result to zero.
  *
  * This produces a truth value (0 / 1, cgen_logic_bits wide).
  *
@@ -18398,6 +18696,9 @@ static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 		cres->cvknown = true;
 		cres->cvint = (ares->cvint != 0) ? 1 : 0;
 	}
+
+	cres->sigbits = cgen_logic_bits;
+	cres->unprombits = cgen_logic_bits;
 
 	cgen_eres_fini(&ires);
 	return EOK;

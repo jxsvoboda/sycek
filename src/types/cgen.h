@@ -218,6 +218,10 @@ typedef struct {
 	int64_t cvint;
 	/** Symbol pointed to by constant expression */
 	struct symbol *cvsymbol;
+	/** Number of significant bits. (only for diagnostics) */
+	uint8_t sigbits;
+	/** Number of unpromoted bits. (only for diagnostics) */
+	uint8_t unprombits;
 	/** First token of original expression for printing diagnostics */
 	ast_tok_t *tfirst;
 	/** Last token of original expression for printing diagnostics */
