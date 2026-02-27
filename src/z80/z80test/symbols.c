@@ -203,7 +203,7 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 				goto error;
 			}
 
-			ident[i++] = c;
+			ident[i++] = (char)c;
 			c = fgetc(f);
 			if (c < 0)
 				goto error;

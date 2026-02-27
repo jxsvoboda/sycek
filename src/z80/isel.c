@@ -6262,7 +6262,8 @@ static int z80_isel_sgnext(z80_isel_proc_t *isproc, const char *label,
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	op2i = (ir_oper_imm_t *)irinstr->op2->ext;
-	srcw = op2i->value;
+	assert(op2i->value <= 0xffffu);
+	srcw = (unsigned)op2i->value;
 
 	assert(srcw % 8 == 0);
 	assert(irinstr->width > srcw);
@@ -6733,7 +6734,8 @@ static int z80_isel_trunc(z80_isel_proc_t *isproc, const char *label,
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	op2i = (ir_oper_imm_t *)irinstr->op2->ext;
-	srcw = op2i->value;
+	assert(op2i->value <= 0xffffu);
+	srcw = (unsigned)op2i->value;
 
 	assert(srcw % 8 == 0);
 	assert(irinstr->width < srcw);
@@ -6845,7 +6847,7 @@ static int z80_isel_imm(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		return rc;
 
-	return z80_isel_vrr_const(isproc, vregno, irimm->value,
+	return z80_isel_vrr_const(isproc, vregno, (uint64_t)irimm->value,
 	    irinstr->width / 8, lblock);
 }
 
@@ -8456,7 +8458,7 @@ static int z80_isel_mul(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_oper_imm8_create(irinstr->width, &imm8);
+	rc = z80ic_oper_imm8_create((uint8_t)irinstr->width, &imm8);
 	if (rc != EOK)
 		goto error;
 
@@ -10399,7 +10401,12 @@ static int z80_isel_vaarg(z80_isel_proc_t *isproc, const char *label,
 	apvr = z80_isel_get_vregno(isproc, irinstr->op1);
 
 	op2i = (ir_oper_imm_t *)irinstr->op2->ext;
-	sztype = op2i->value;
+	if (op2i->value > 0xffffu) {
+		(void)fprintf(stderr, "Variadic argument too large.\n");
+		goto error;
+	}
+
+	sztype = (unsigned)op2i->value;
 
 	(void)destvr;
 	/*
@@ -10443,7 +10450,8 @@ static int z80_isel_vaarg(z80_isel_proc_t *isproc, const char *label,
 	 * Note: since ap.remain >= 6, if sztype > 6, this will always
 	 * be false
 	 */
-	rc = z80ic_oper_imm8_create(sztype > 0xff ? 0xff : sztype, &imm8);
+	rc = z80ic_oper_imm8_create(sztype > 0xff ? 0xff : (uint8_t)sztype,
+	    &imm8);
 	if (rc != EOK)
 		goto error;
 
@@ -10626,7 +10634,7 @@ static int z80_isel_vaarg(z80_isel_proc_t *isproc, const char *label,
 	/*
 	 * ## ap.remain -= sizeof(type);
 	 */
-	rc = z80_isel_ap_remain_dec(isproc, apvr, sztype, lblock);
+	rc = z80_isel_ap_remain_dec(isproc, apvr, (uint8_t)sztype, lblock);
 	if (rc != EOK)
 		goto error;
 
@@ -10969,7 +10977,7 @@ static int z80_isel_vastart(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_imm16_create_val(cur_off, &imm);
+		rc = z80ic_oper_imm16_create_val((uint16_t)cur_off, &imm);
 		if (rc != EOK)
 			goto error;
 
@@ -10992,7 +11000,7 @@ static int z80_isel_vastart(z80_isel_proc_t *isproc, const char *label,
 		if (rc != EOK)
 			goto error;
 
-		rc = z80ic_oper_imm16_create_val(cur_off, &imm);
+		rc = z80ic_oper_imm16_create_val((uint16_t)cur_off, &imm);
 		if (rc != EOK)
 			goto error;
 
@@ -11194,7 +11202,7 @@ static int z80_isel_vastart(z80_isel_proc_t *isproc, const char *label,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_oper_imm16_create_val(stka_sfe, &imm);
+	rc = z80ic_oper_imm16_create_val((uint16_t)stka_sfe, &imm);
 	if (rc != EOK)
 		goto error;
 
@@ -11470,7 +11478,7 @@ static int z80_isel_zrext(z80_isel_proc_t *isproc, const char *label,
 	destvr = z80_isel_get_vregno(isproc, irinstr->dest);
 	vr1 = z80_isel_get_vregno(isproc, irinstr->op1);
 	op2i = (ir_oper_imm_t *)irinstr->op2->ext;
-	srcw = op2i->value;
+	srcw = (unsigned)op2i->value;
 
 	assert(srcw % 8 == 0);
 	assert(irinstr->width > srcw);
@@ -11653,22 +11661,26 @@ static int z80_isel_int(z80_isel_t *isel, ir_dentry_t *irdentry,
 
 	switch (irdentry->width) {
 	case 8:
-		rc = z80ic_dentry_create_defb(irdentry->value, &dentry);
+		rc = z80ic_dentry_create_defb((uint8_t)irdentry->value,
+		    &dentry);
 		if (rc != EOK)
 			goto error;
 		break;
 	case 16:
-		rc = z80ic_dentry_create_defw(irdentry->value, &dentry);
+		rc = z80ic_dentry_create_defw((uint16_t)irdentry->value,
+		    &dentry);
 		if (rc != EOK)
 			goto error;
 		break;
 	case 32:
-		rc = z80ic_dentry_create_defdw(irdentry->value, &dentry);
+		rc = z80ic_dentry_create_defdw((uint32_t)irdentry->value,
+		    &dentry);
 		if (rc != EOK)
 			goto error;
 		break;
 	case 64:
-		rc = z80ic_dentry_create_defqw(irdentry->value, &dentry);
+		rc = z80ic_dentry_create_defqw((uint64_t)irdentry->value,
+		    &dentry);
 		if (rc != EOK)
 			goto error;
 		break;
@@ -11935,7 +11947,7 @@ static int z80_isel_proc_arg(z80_isel_proc_t *isproc, const char *ident,
 		if (rc != EOK)
 			goto error;
 
-		ldix->disp = (uint8_t)*fpoff;
+		ldix->disp = (int8_t)*fpoff;
 		ldix->dest = vrr;
 		vrr = NULL;
 
@@ -11965,7 +11977,7 @@ static int z80_isel_proc_arg(z80_isel_proc_t *isproc, const char *ident,
 		if (rc != EOK)
 			goto error;
 
-		ldix8->disp = *fpoff;
+		ldix8->disp = (int8_t)*fpoff;
 		ldix8->dest = vr;
 		vr = NULL;
 

@@ -19,6 +19,10 @@ long l;
 int i;
 char c;
 
+enum {
+	e1 = 1
+};
+
 void foo(void)
 {
 	/* Dividing by number >= 4G removes 32 sigificant bits. */
@@ -92,4 +96,7 @@ void foo(void)
 
 	/* Unpromoted size fits. */
 	c = (1 < 0) ? c : c;
+
+	/* Enum value and constant are both small enough to fit into char. */
+	c = (1 < 0) ? e1 : 0;
 }

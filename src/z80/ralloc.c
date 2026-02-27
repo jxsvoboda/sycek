@@ -5398,7 +5398,7 @@ static int z80_ralloc_defw(z80_ralloc_t *ralloc, z80ic_dentry_t *vrdentry,
 
 	if (vrdentry->ident != NULL) {
 		rc = z80ic_dentry_create_defw_sym(vrdentry->ident,
-		    vrdentry->value, &dentry);
+		    (uint16_t)vrdentry->value, &dentry);
 		if (rc != EOK)
 			goto error;
 	} else {

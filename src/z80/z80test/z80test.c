@@ -76,7 +76,7 @@ static int binary_load(const char *fname, uint16_t org)
 		return -1;
 	}
 
-	nr = fread(mem + org, 1, mem_size - org, f);
+	nr = fread(mem + org, 1, (size_t)(mem_size - org), f);
 	if (nr == 0) {
 		(void)fprintf(stderr, "Error reading '%s'.\n", fname);
 		(void)fclose(f);

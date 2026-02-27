@@ -6026,12 +6026,13 @@ error:
  * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param symbol Global symbol
+ * @param cgtype Symbol type
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  * @return EOK on success or an error code
  */
 static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
-    symbol_t *symbol, ir_lblock_t *lblock, cgen_eres_t *eres)
+    symbol_t *symbol, cgtype_t *cgtype, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	int rc;
 
@@ -6044,6 +6045,9 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	if (rc != EOK)
 		return rc;
 
+	eres->cgtype = cgtype;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, eres->cgtype);
+	eres->unprombits = eres->sigbits;
 	return EOK;
 }
 
@@ -6064,7 +6068,6 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
     cgen_eres_t *eres)
 {
 	(void)lblock;
-	(void)cgtype;
 
 	if (cgexpr->cexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
@@ -6073,7 +6076,7 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
 
 	eres->varname = vident;
 	eres->valtype = cgen_rvalue;
-	eres->cgtype = NULL;
+	eres->cgtype = cgtype;
 	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
 	eres->unprombits = eres->sigbits;
 	return EOK;
@@ -6084,20 +6087,31 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
  * @param cgexpr Code generator for expression
  * @param eident AST identifier expression
  * @param vident Identifier of IR variable holding the local variable
+ * @param cgtype Variable type
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  *
  * @return EOK on success or an error code
  */
 static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
-    const char *vident, ir_lblock_t *lblock, cgen_eres_t *eres)
+    const char *vident, cgtype_t *cgtype, ir_lblock_t *lblock,
+    cgen_eres_t *eres)
 {
+	int rc;
+
 	if (cgexpr->cexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
 		return EINVAL;
 	}
 
-	return cgen_lvaraddr(cgexpr->cgproc, vident, lblock, eres);
+	rc = cgen_lvaraddr(cgexpr->cgproc, vident, lblock, eres);
+	if (rc != EOK)
+		return rc;
+
+	eres->cgtype = cgtype;
+	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	eres->unprombits = eres->sigbits;
+	return EOK;
 }
 
 /** Generate code for identifier expression referencing enum element.
@@ -6154,10 +6168,11 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 
 	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
-	eres->cgtype = NULL;
+	eres->cgtype = cgtype;
 	eres->cvknown = true;
 	eres->cvint = eelem->value;
-	eres->sigbits = bits;
+	// XXX Need to determine if element is signed
+	eres->sigbits = cgen_const_sigbits(eelem->value, true);
 	eres->unprombits = bits;
 	return EOK;
 error:
@@ -6205,7 +6220,7 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	switch (member->mtype) {
 	case sm_gsym:
 		rc = cgen_eident_gsym(cgexpr, eident, member->m.gsym.symbol,
-		    lblock, eres);
+		    cgtype, lblock, eres);
 		break;
 	case sm_arg:
 		rc = cgen_eident_arg(cgexpr, eident, member->m.arg.vident,
@@ -6213,7 +6228,7 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		break;
 	case sm_lvar:
 		rc = cgen_eident_lvar(cgexpr, eident, member->m.lvar.vident,
-		    lblock, eres);
+		    cgtype, lblock, eres);
 		break;
 	case sm_record:
 	case sm_enum:
@@ -6225,7 +6240,7 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		return EINVAL;
 	case sm_eelem:
 		rc = cgen_eident_eelem(cgexpr, eident, member->m.eelem.eelem,
-		    member->cgtype, lblock, eres);
+		    cgtype, lblock, eres);
 		break;
 	case sm_tdef:
 		(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -6235,15 +6250,13 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		return EINVAL;
 	}
 
-	if (rc != EOK)
+	if (rc != EOK) {
+		cgtype_destroy(cgtype);
 		return rc;
+	}
 
 	/* Mark identifier as used */
 	member->used = true;
-
-	eres->cgtype = cgtype;
-	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, eres->cgtype);
-	eres->unprombits = eres->sigbits;
 	return rc;
 }
 
@@ -8245,7 +8258,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	if (rres->cvknown) {
 		/* Maybe the quotient can be proven to be smaller. */
-		shbits = rres->cvint;
+		shbits = (uint8_t)rres->cvint;
 		if (shbits <= lres->sigbits) {
 			eres->sigbits = cgen_sigbits_round_up(lres->sigbits -
 			    shbits);
