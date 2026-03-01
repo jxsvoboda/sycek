@@ -1,0 +1,3 @@
+<test/syc/ugly/arrayidxtype.c:25:13:'='>: Warning: Array designator is of type 'int', but array index should be 'enum e'.
+<test/syc/ugly/arrayidxtype.c:34:13:'='>: Warning: Array designator is of type 'int', but array index should be 'enum e'.
+<test/syc/ugly/arrayidxtype.c:36:15:'='>: Warning: Array designator is of type 'enum f', but array index should be 'enum e'.

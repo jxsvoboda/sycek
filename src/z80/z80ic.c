@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -49,10 +49,10 @@ static const char *z80ic_reg_name[] = {
 
 /** Z80 16-bit dd register names */
 static const char *z80ic_dd_name[] = {
-	[z80ic_pp_bc] = "BC",
-	[z80ic_pp_de] = "DE",
-	[z80ic_pp_ix] = "HL",
-	[z80ic_pp_sp] = "SP"
+	[z80ic_dd_bc] = "BC",
+	[z80ic_dd_de] = "DE",
+	[z80ic_dd_hl] = "HL",
+	[z80ic_dd_sp] = "SP"
 };
 
 /** Z80 16-bit pp register names */

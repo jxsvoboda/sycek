@@ -22949,6 +22949,35 @@ static int cgen_init_insert(cgen_init_t *parent, cgtype_t *etype, uint64_t dsg,
 	return EOK;
 }
 
+static void cgen_check_index_type(cgen_t *cgen, comp_tok_t *tok,
+    cgtype_t *actual, cgtype_t *expected)
+{
+	cgen_enum_t *actual_enum;
+	cgen_enum_t *expected_enum;
+
+	(void)cgen;
+
+	actual_enum = cgtype_is_strict_enum(actual) ?
+	    ((cgtype_enum_t *)(actual->ext))->cgenum : NULL;
+	expected_enum = cgtype_is_strict_enum(expected) ?
+	    ((cgtype_enum_t *)(expected->ext))->cgenum : NULL;
+
+	/*
+	 * Only one is a strict enum, or they are both strict enums,
+	 * but not the same.
+	 */
+	if (actual_enum != expected_enum) {
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Array designator is of "
+		    "type '");
+		(void)cgtype_print(actual, stderr);
+		(void)fprintf(stderr, "', but array index should be '");
+		(void)cgtype_print(expected, stderr);
+		(void)fprintf(stderr, "'.\n");
+		++cgen->warnings;
+	}
+}
+
 /** Look up (designated) initializer.
  *
  * @param cgen Code generator
@@ -23006,6 +23035,18 @@ static int cgen_init_lookup(cgen_t *cgen, cgen_init_t *parent, cgtype_t *cgtype,
 			rc = cgen_intexpr_val(cgen, acc->index, &eres);
 			if (rc != EOK)
 				goto error;
+
+			/* Generate warning if index type is incorrect. */
+			if (tarray->itype != NULL) {
+				cgen_check_index_type(cgen, tassign,
+				    eres.cgtype, tarray->itype);
+			} else {
+				/* Fix array index type. */
+				rc = cgtype_clone(eres.cgtype, &tarray->itype);
+				if (rc != EOK)
+					goto error;
+			}
+
 			assert(eres.cvknown);
 			dsg = eres.cvint;
 			/* eres may be reused, so need to clean it up. */
