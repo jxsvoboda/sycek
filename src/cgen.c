@@ -1696,6 +1696,7 @@ static int cgen_eres_clone(cgen_eres_t *res, cgen_eres_t *dres)
 	dres->cvsymbol = res->cvsymbol;
 	dres->cvknown = res->cvknown;
 	dres->sigbits = res->sigbits;
+	dres->nonneg = res->nonneg;
 	dres->unprombits = res->unprombits;
 	dres->tfirst = res->tfirst;
 	dres->tlast = res->tlast;
@@ -6173,6 +6174,7 @@ static int cgen_eident_eelem(cgen_expr_t *cgexpr, ast_eident_t *eident,
 	eres->cvint = eelem->value;
 	// XXX Need to determine if element is signed
 	eres->sigbits = cgen_const_sigbits(eelem->value, true);
+	eres->nonneg = eelem->value >= 0;
 	eres->unprombits = bits;
 	return EOK;
 error:
@@ -6339,6 +6341,7 @@ static int cgen_const_int(cgen_proc_t *cgproc, cgtype_elmtype_t elmtype,
 	eres->cvint = val;
 	eres->sigbits = cgen_const_sigbits(val,
 	    cgen_type_is_signed(cgproc->cgen, &btype->cgtype));
+	eres->nonneg = true;
 	eres->unprombits = (uint8_t)instr->width;
 	return EOK;
 error:
@@ -6407,6 +6410,7 @@ static int cgen_const_bool(cgen_proc_t *cgproc, bool bval, ir_lblock_t *lblock,
 	eres->cvint = bval ? 1 : 0;
 	eres->sigbits = cgen_bool_bits;
 	eres->unprombits = cgen_bool_bits;
+	eres->nonneg = true;
 	return EOK;
 error:
 	ir_instr_destroy(instr);
@@ -7904,6 +7908,7 @@ static int cgen_div(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 	}
 
 	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+	eres->nonneg = lres->nonneg && rres->nonneg;
 
 	return EOK;
 error:
@@ -8011,6 +8016,7 @@ static int cgen_mod(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	eres->sigbits = cgen_bits_min(lres->sigbits, rres->sigbits);
 	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+	eres->nonneg = lres->nonneg && rres->nonneg;
 
 	return EOK;
 error:
@@ -8132,6 +8138,7 @@ static int cgen_shl(cgen_expr_t *cgexpr, ast_tok_t *optok, cgen_eres_t *lres,
 
 	eres->sigbits = lres->sigbits;
 	eres->unprombits = rres->sigbits;
+	eres->nonneg = lres->nonneg;
 
 	return EOK;
 error:
@@ -8245,6 +8252,7 @@ static int cgen_shr(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = cgtype;
+	eres->nonneg = lres->nonneg;
 
 	if (lres->cvknown && rres->cvknown) {
 		eres->cvknown = true;
@@ -8366,6 +8374,7 @@ static int cgen_band(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	eres->sigbits = cgen_bits_min(lres->sigbits, rres->sigbits);
 	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+	eres->nonneg = lres->nonneg && rres->nonneg;
 
 	return EOK;
 error:
@@ -8465,6 +8474,7 @@ static int cgen_bxor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	eres->sigbits = cgen_bits_max(lres->sigbits, rres->sigbits);
 	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+	eres->nonneg = lres->nonneg && rres->nonneg;
 
 	return EOK;
 error:
@@ -8564,6 +8574,7 @@ static int cgen_bor(cgen_expr_t *cgexpr, cgen_eres_t *lres, cgen_eres_t *rres,
 
 	eres->sigbits = cgen_bits_max(lres->sigbits, rres->sigbits);
 	eres->unprombits = cgen_bits_max(lres->unprombits, rres->unprombits);
+	eres->nonneg = lres->nonneg && rres->nonneg;
 
 	return EOK;
 error:
@@ -9071,6 +9082,7 @@ static int cgen_lt_int(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *ares,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	return EOK;
 error:
@@ -9173,6 +9185,7 @@ static int cgen_lt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok, cgen_eres_t *lres,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -9364,6 +9377,7 @@ static int cgen_lteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	return EOK;
 error:
@@ -9466,6 +9480,7 @@ static int cgen_lteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -9657,6 +9672,7 @@ static int cgen_gt_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	return EOK;
 error:
@@ -9759,6 +9775,7 @@ static int cgen_gt_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -9950,6 +9967,7 @@ static int cgen_gteq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	return EOK;
 error:
@@ -10052,6 +10070,7 @@ static int cgen_gteq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -10226,6 +10245,7 @@ static int cgen_eq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
 	eres->cgtype = &btype->cgtype;
+	eres->nonneg = true;
 
 	if (lres.cvknown && rres.cvknown) {
 		eres->cvknown = true;
@@ -10336,6 +10356,7 @@ static int cgen_eq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -10518,6 +10539,7 @@ static int cgen_neq_int(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	return EOK;
 error:
@@ -10620,6 +10642,7 @@ static int cgen_neq_ptr(cgen_expr_t *cgexpr, ast_tok_t *atok,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* In a constant expression the result must be known */
 	if (cgexpr->cexpr && eres->cvknown == false) {
@@ -10743,8 +10766,9 @@ static int cgen_bo_band(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 	    (flags & cguac_enum) == cguac_none)
 		cgen_warn_bitop_signed(cgexpr->cgen, &ebinop->top);
 	/* Any operand is a negative constant */
-	if ((flags & cguac_negative) != cguac_none)
+	if ((flags & cguac_negative) != cguac_none) {
 		cgen_warn_bitop_negative(cgexpr->cgen, &ebinop->top);
+	}
 	/* Two incompatible enums */
 	if ((flags & cguac_enuminc) != cguac_none)
 		cgen_warn_bitop_enum_inc(cgexpr->cgen, &ebinop->top);
@@ -11160,6 +11184,7 @@ static int cgen_land(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	/* %end_and label */
 	rc = ir_lblock_append(lblock, elabel, NULL);
@@ -11291,6 +11316,7 @@ static int cgen_lor(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	eres->varname = destvn;
 	eres->valtype = cgen_rvalue;
+	eres->nonneg = true;
 
 	/* jmp %end_or */
 
@@ -12068,6 +12094,7 @@ static int cgen_assign(cgen_expr_t *cgexpr, ast_ebinop_t *ebinop,
 
 	eres->sigbits = rres.sigbits;
 	eres->unprombits = rres.unprombits;
+	eres->nonneg = rres.nonneg;
 
 	cgen_eres_fini(&lres);
 	cgen_eres_fini(&rres);
@@ -13387,6 +13414,7 @@ static int cgen_etcond(cgen_expr_t *cgexpr, ast_etcond_t *etcond,
 		eres->cgtype = rtype;
 		eres->sigbits = cgen_bits_max(tres.sigbits, fres.sigbits);
 		eres->unprombits = cgen_bits_max(tres.unprombits, fres.unprombits);
+		eres->nonneg = tres.nonneg && fres.nonneg;
 
 		dest = NULL;
 		larg = NULL;
@@ -15369,6 +15397,7 @@ static int cgen_eusign(cgen_expr_t *cgexpr, ast_eusign_t *eusign,
 
 	eres->sigbits = bres.sigbits;
 	eres->unprombits = bres.unprombits;
+	eres->nonneg = bres.nonneg && (eusign->usign == aus_plus);
 
 	cgen_eres_fini(&bres);
 	cgen_eres_fini(&bires);
@@ -15553,6 +15582,7 @@ static int cgen_elnot(cgen_expr_t *cgexpr, ast_elnot_t *elnot,
 
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = true;
 
 	cgen_eres_fini(&bres);
 
@@ -15683,6 +15713,7 @@ static int cgen_ebnot(cgen_expr_t *cgexpr, ast_ebnot_t *ebnot,
 	eres->cgtype = cgtype;
 	eres->sigbits = cgen_logic_bits;
 	eres->unprombits = cgen_logic_bits;
+	eres->nonneg = bres.nonneg;
 
 	if (bires.cvknown) {
 		eres->cvknown = true;
@@ -16619,6 +16650,7 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->cvint = res->cvint;
 		eres->cvsymbol = res->cvsymbol;
 		eres->sigbits = res->sigbits;
+		eres->nonneg = res->nonneg;
 		eres->unprombits = res->unprombits;
 		eres->tfirst = res->tfirst;
 		eres->tlast = res->tlast;
@@ -16791,6 +16823,7 @@ static int cgen_enum2int(cgen_t *cgen, cgen_eres_t *res,
 	rres->cvsymbol = res->cvsymbol;
 	rres->sigbits = res->sigbits;
 	rres->unprombits = res->unprombits;
+	rres->nonneg = res->nonneg;
 	rres->tfirst = res->tfirst;
 	rres->tlast = res->tlast;
 	rres->cgtype = rtype;
@@ -16824,6 +16857,7 @@ static int cgen_bool2char(cgen_t *cgen, cgen_eres_t *res, bool to_signed,
 	rres->cvsymbol = res->cvsymbol;
 	rres->sigbits = res->sigbits;
 	rres->unprombits = res->unprombits;
+	rres->nonneg = res->nonneg;
 	rres->tfirst = res->tfirst;
 	rres->tlast = res->tlast;
 	rres->cgtype = rtype;
@@ -16875,6 +16909,7 @@ static int cgen_int2enum(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 	eres->cvsymbol = ares->cvsymbol;
 	eres->sigbits = ares->sigbits;
 	eres->unprombits = ares->unprombits;
+	eres->nonneg = ares->nonneg;
 	eres->tfirst = ares->tfirst;
 	eres->tlast = ares->tlast;
 
@@ -17110,17 +17145,23 @@ static int cgen_uac(cgen_expr_t *cgexpr, cgen_eres_t *res1,
 
 	sign1 = cgen_type_is_signed(cgexpr->cgen, pr1.cgtype);
 	const1 = pr1.cvknown;
-	neg1 = const1 && cgen_cvint_is_negative(cgexpr->cgen, sign1, pr1.cvint);
+	neg1 = !pr1.nonneg && const1 &&
+	    cgen_cvint_is_negative(cgexpr->cgen, sign1, pr1.cvint);
 
 	sign2 = cgen_type_is_signed(cgexpr->cgen, pr2.cgtype);
 	const2 = pr2.cvknown;
-	neg2 = const2 && cgen_cvint_is_negative(cgexpr->cgen, sign2, pr2.cvint);
+	neg2 = !pr2.nonneg && const2 &&
+	    cgen_cvint_is_negative(cgexpr->cgen, sign2, pr2.cvint);
 
 	/* Result type signedness */
 	rsign = cgen_type_is_signed(cgexpr->cgen, rtype);
 
-	/* One of the operands is signed (but not a constant) */
-	if ((sign1 && !const1) || (sign2 && !const2))
+	/*
+	 * One of the operands is signed (but not a constant or provably
+	 * non-negative)
+	 */
+	if ((sign1 && !const1 && !pr1.nonneg) ||
+	    (sign2 && !const2 && !pr2.nonneg))
 		*flags |= cguac_signed;
 	/* One of the operands is a negative constant */
 	if (neg1 || neg2)
@@ -17370,6 +17411,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 		cres->valused = true;
 		cres->sigbits = ares->sigbits;
 		cres->unprombits = ares->unprombits;
+		cres->nonneg = ares->nonneg;
 		cres->tfirst = ares->tfirst;
 		cres->tlast = ares->tlast;
 
@@ -17387,9 +17429,11 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 			    src_signed, ares->cvint);
 			dest_neg = cgen_cvint_is_negative(cgexpr->cgen,
 			    dest_signed, cres->cvint);
-			if (expl != cgen_explicit && src_neg != dest_neg)
+			if (expl != cgen_explicit && src_neg != dest_neg &&
+			    !ares->nonneg)
 				cgen_warn_sign_changed(cgexpr->cgen, ctok);
-		} else if (expl != cgen_explicit && src_signed != dest_signed) {
+		} else if (expl != cgen_explicit && src_signed != dest_signed &&
+		    !(dest_signed == false && ares->nonneg)) {
 			cgen_warn_sign_convert(cgexpr->cgen,
 			    ctok, ares, cres);
 		}
@@ -17475,6 +17519,7 @@ static int cgen_type_convert_integer(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->sigbits = cgen_bits_min(cgen_type_sigbits(cgexpr->cgen, cgtype),
 	    ares->sigbits);
 	cres->unprombits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	cres->nonneg = ares->nonneg && (destw >= srcw);
 
 	cgen_eres_fini(&rres);
 	return EOK;
@@ -17669,6 +17714,7 @@ static int cgen_type_convert_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->cvint = ares->cvint;
 	cres->cvsymbol = ares->cvsymbol;
 	cres->sigbits = ares->sigbits;
+	cres->nonneg = ares->nonneg;
 	cres->unprombits = ares->unprombits;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
@@ -17777,6 +17823,7 @@ static int cgen_type_convert_to_enum(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cres->cvsymbol = ares->cvsymbol;
 	cres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
 	cres->unprombits = cres->sigbits;
+	cres->nonneg = ares->nonneg;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 
@@ -17924,6 +17971,7 @@ static int cgen_type_convert_logic_to_bool(cgen_expr_t *cgexpr,
 	cres->cvsymbol = ares->cvsymbol;
 	cres->sigbits = cgen_bool_bits;
 	cres->unprombits = cgen_bool_bits;
+	cres->nonneg = ares->nonneg;
 	cres->tfirst = ares->tfirst;
 	cres->tlast = ares->tlast;
 	cres->cgtype = &btype->cgtype;
@@ -18712,6 +18760,7 @@ static int cgen_int_notzero(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 
 	cres->sigbits = cgen_logic_bits;
 	cres->unprombits = cgen_logic_bits;
+	cres->nonneg = true;
 
 	cgen_eres_fini(&ires);
 	return EOK;

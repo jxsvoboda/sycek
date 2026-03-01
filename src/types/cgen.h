@@ -222,6 +222,8 @@ typedef struct {
 	uint8_t sigbits;
 	/** Number of unpromoted bits. (only for diagnostics) */
 	uint8_t unprombits;
+	/** Value of expression is known to be nonnegative. */
+	bool nonneg;
 	/** First token of original expression for printing diagnostics */
 	ast_tok_t *tfirst;
 	/** Last token of original expression for printing diagnostics */
