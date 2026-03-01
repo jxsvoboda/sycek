@@ -1001,7 +1001,8 @@ int main(int argc, char *argv[])
 		--argc;
 	}
 
-	mem = calloc(mem_size, 1);
+	// XXX Note this will not work on IP16
+	mem = calloc((size_t)mem_size, 1);
 	if (mem == NULL) {
 		(void)fprintf(stderr, "Out of memory.\n");
 		return 1;
