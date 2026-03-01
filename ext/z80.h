@@ -2,7 +2,7 @@
  * GZX - George's ZX Spectrum Emulator
  * Z80 CPU emulation
  *
- * Copyright (c) 1999-2025 Jiri Svoboda
+ * Copyright (c) 1999-2026 Jiri Svoboda
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,7 +111,7 @@ extern unsigned long smc;
 
 void z80_init_tables(void);
 void z80_execinstr(void);
-int z80_reset(void);
+void z80_reset(void);
 void z80_nmi(void);
 void z80_int(void);
 
