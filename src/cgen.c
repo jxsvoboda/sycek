@@ -50,6 +50,8 @@
 static cgsize_t cgen_type_sizeof(cgen_t *, cgtype_t *);
 static bool cgen_type_is_integral(cgen_t *, cgtype_t *);
 static bool cgen_type_is_bool(cgen_t *, cgtype_t *);
+static void cgen_dspec_res_init(cgen_dspec_res_t *);
+static void cgen_dspec_res_fini(cgen_dspec_res_t *);
 static int cgen_proc_create(cgen_t *, ir_proc_t *, cgen_proc_t **);
 static void cgen_proc_destroy(cgen_proc_t *);
 static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
@@ -57,8 +59,7 @@ static int cgen_decl(cgen_t *, cgtype_t *, ast_node_t *,
 static void cgen_error_expr_not_constant(cgen_t *, ast_tok_t *);
 static void cgen_error_inv_restrict(cgen_t *, comp_tok_t *);
 static int cgen_sqlist(cgen_t *, ast_sqlist_t *, cgtype_t **);
-static int cgen_dspecs(cgen_t *, ast_dspecs_t *, ast_sclass_type_t *,
-    cgen_rd_flags_t *, cgtype_t **);
+static int cgen_dspecs(cgen_t *, ast_dspecs_t *, cgen_dspec_res_t *);
 static int cgen_const_int(cgen_proc_t *, cgtype_elmtype_t, int64_t,
     ir_lblock_t *, cgen_eres_t *);
 static int cgen_const_bool(cgen_proc_t *, bool, ir_lblock_t *, cgen_eres_t *);
@@ -115,7 +116,8 @@ static int cgen_ret(cgen_proc_t *, ir_lblock_t *);
 static int cgen_stmt(cgen_proc_t *, ast_node_t *, ir_lblock_t *);
 
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
-static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *, cgtype_t *);
+static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *,
+    cgen_dspec_res_t *);
 static void cgen_init_destroy(cgen_init_t *);
 static int cgen_init_digest(cgen_t *, cgen_init_t *, cgtype_t *, int,
     ir_dblock_t *);
@@ -129,7 +131,7 @@ static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, uint8_t, comp_tok_t *,
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
     ast_estring_t *, ir_dblock_t *);
 static int cgen_global_decln(cgen_t *, ast_node_t *);
-static int cgen_fundef(cgen_t *, ast_gdecln_t *, ast_sclass_type_t, cgtype_t *);
+static int cgen_fundef(cgen_t *, ast_gdecln_t *, cgen_dspec_res_t *);
 static int cgen_if(cgen_proc_t *, ast_if_t *, ir_lblock_t *);
 static int cgen_while(cgen_proc_t *, ast_while_t *, ir_lblock_t *);
 static int cgen_do(cgen_proc_t *, ast_do_t *, ir_lblock_t *);
@@ -211,29 +213,29 @@ static int cgen_process_global_decln(void *arg, parser_t *parser,
 static int cgen_process_fundef(void *arg, parser_t *parser, ast_gdecln_t *gdecln)
 {
 	cgen_t *cgen = (cgen_t *)arg;
-	cgtype_t *stype = NULL;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	parser_t *old_parser;
 	int rc;
 
 	old_parser = cgen->parser;
 	cgen->parser = parser;
 
+	cgen_dspec_res_init(&dsres);
+
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
-	rc = cgen_fundef(cgen, gdecln, sctype, stype);
+	rc = cgen_fundef(cgen, gdecln, &dsres);
 	if (rc != EOK)
 		goto error;
 
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgen->parser = old_parser;
 	return EOK;
 error:
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgen->parser = old_parser;
 	return rc;
 }
@@ -1673,6 +1675,34 @@ static void cgen_eres_fini(cgen_eres_t *eres)
 	eres->cgtype = NULL;
 }
 
+/** Initialize result of processing declaration specifieres.
+ *
+ * Every variable of type cgen_dspec_res_t must be initialized using this
+ * function first.
+ *
+ * @param dsres Result of processing declaration specifiers to initialize
+ */
+static void cgen_dspec_res_init(cgen_dspec_res_t *dsres)
+{
+	memset(dsres, 0, sizeof(*dsres));
+}
+
+/** Finalize result of processing declaration specifiers.
+ *
+ * Every variable of type cgen_dspec_res_t must be finalized using this
+ * function.
+ *
+ * @param eres Expression result to finalize
+ */
+static void cgen_dspec_res_fini(cgen_dspec_res_t *dsres)
+{
+	if (dsres->stype == NULL)
+		return;
+
+	cgtype_destroy(dsres->stype);
+	dsres->stype = NULL;
+}
+
 /** Clone expression result.
  *
  * @param res Expression result to copy
@@ -2505,6 +2535,19 @@ static void cgen_error_signed_unsigned(cgen_t *cgen, ast_tsbasic_t *tspec)
 	cgen->error = true; // TODO
 }
 
+/** Generate error: invalid use of 'inline'.
+ *
+ * @param cgen Code generator
+ * @param tok Token for printing diagnostics
+ */
+static void cgen_error_invalid_inline(cgen_t *cgen, comp_tok_t *tok)
+{
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Invalid use of 'inline'.\n");
+
+	cgen->error = true; // TODO
+}
+
 /** Generate error: invalid use of void value.
  *
  * @param cgen Code generator
@@ -2712,6 +2755,19 @@ static void cgen_warn_dupl_type_qual(cgen_t *cgen, ast_tqual_t *tqual)
 	(void)lexer_dprint_tok(&tok->tok, stderr);
 	(void)fprintf(stderr, ": Warning: Duplicate '%s' type qualifier.\n",
 	    tok->tok.text);
+	++cgen->warnings;
+}
+
+/** Generate warning: mutiple 'inline' specifiers.
+ *
+ * @param cgen Code generator
+ * @param tspec Char specifier
+ */
+static void cgen_warn_multiple_inline(cgen_t *cgen, comp_tok_t *tok)
+{
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": multiple 'inline' specifiers.\n");
+
 	++cgen->warnings;
 }
 
@@ -4356,6 +4412,7 @@ static void cgen_dspec_init(cgen_t *cgen, cgen_dspec_t *cgds)
 	cgds->sctype = asc_none;
 	cgds->qual = cgqual_none;
 	cgds->lastds = NULL;
+	cgds->is_inline = false;
 }
 
 /** Generate code for type qualifier.
@@ -4406,6 +4463,7 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
 	ast_tok_t *atok;
 	ast_tsbasic_t *tsbasic;
 	ast_sclass_t *sclass;
+	ast_fspec_t *fspec;
 	comp_tok_t *tok;
 	int rc;
 
@@ -4497,6 +4555,15 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
 		if (rc != EOK)
 			return rc;
 		break;
+	case ant_fspec:
+		/* Currenty 'inline' is the only function specifier. */
+		if (cgds->is_inline) {
+			fspec = (ast_fspec_t *)dspec->ext;
+			tok = (comp_tok_t *)fspec->tfspec.data;
+			cgen_warn_multiple_inline(cgds->cgen, tok);
+		}
+		cgds->is_inline = true;
+		break;
 	default:
 		atok = ast_tree_first_tok(dspec);
 		tok = (comp_tok_t *) atok->data;
@@ -4514,13 +4581,11 @@ static int cgen_dspec(cgen_dspec_t *cgds, ast_node_t *dspec)
  * list.
  *
  * @param cgds Code generator for declaration specifiers
- * @param rsctype Place to store storage class type
- * @param rflags Place to store recorrd declaration flags
- * @param rstype Place to store pointer to the specified type
+ * @param dsres Place to store results (already initialized using
+ *              cgen_ds_res_init)
  * @return EOK on success or an error code
  */
-static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
-    cgen_rd_flags_t *rflags, cgtype_t **rstype)
+static int cgen_dspec_finish(cgen_dspec_t *cgds, cgen_dspec_res_t *dsres)
 {
 	cgen_t *cgen = cgds->cgen;
 	ast_tok_t *atok;
@@ -4706,13 +4771,14 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, ast_sclass_type_t *rsctype,
 		stype = &btype->cgtype;
 	}
 
-	*rsctype = cgds->sctype;
-	*rflags = flags;
-	*rstype = stype;
-	(*rstype)->qual = cgds->qual;
+	dsres->sctype = cgds->sctype;
+	dsres->rdflags = flags;
+	dsres->stype = stype;
+	dsres->stype->qual = cgds->qual;
+	dsres->is_inline = cgds->is_inline;
 
-	if (((*rstype)->qual & cgqual_restrict) != cgqual_none &&
-	    (*rstype)->ntype != cgn_pointer) {
+	if ((dsres->stype->qual & cgqual_restrict) != cgqual_none &&
+	    dsres->stype->ntype != cgn_pointer) {
 		/*
 		 * Use type specifier for diagnostics. If we don't have
 		 * one, use the last declaration specifier.
@@ -4741,13 +4807,12 @@ error:
  *
  * @param cgen Code generator
  * @param dspecs Declaration specifiers
- * @param rsctype Place to store storage class
- * @param rflags Place to store record declaration flags
- * @param rstype Place to store pointer to the specified type
+ * @param dsres Place to store results (already initialized using
+ *              cgen_dspec_res_init)
  * @return EOK on success or an error code
  */
 static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
-    ast_sclass_type_t *rsctype, cgen_rd_flags_t *rflags, cgtype_t **rstype)
+    cgen_dspec_res_t *dsres)
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
@@ -4774,7 +4839,7 @@ static int cgen_dspecs(cgen_t *cgen, ast_dspecs_t *dspecs,
 		dspec = ast_dspecs_next(dspec);
 	}
 
-	return cgen_dspec_finish(&cgds, rsctype, rflags, rstype);
+	return cgen_dspec_finish(&cgds, dsres);
 }
 
 /** Generate code for specifier-qualifier list.
@@ -4788,13 +4853,15 @@ static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 {
 	ast_node_t *dspec;
 	ast_node_t *prev;
-	ast_sclass_type_t sctype;
 	cgen_dspec_t cgds;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	int rc;
 
 	/* Initialize dspec tracking structure. */
 	cgen_dspec_init(cgen, &cgds);
+
+	/* Initialize results structure. */
+	cgen_dspec_res_init(&dsres);
 
 	dspec = ast_sqlist_first(sqlist);
 	prev = NULL;
@@ -4806,20 +4873,27 @@ static int cgen_sqlist(cgen_t *cgen, ast_sqlist_t *sqlist, cgtype_t **rstype)
 		/* Process specifier-qualifier list entry */
 		rc = cgen_dspec(&cgds, dspec);
 		if (rc != EOK)
-			return rc;
+			goto error;
 
 		prev = dspec;
 		dspec = ast_sqlist_next(dspec);
 	}
 
-	rc = cgen_dspec_finish(&cgds, &sctype, &flags, rstype);
+	rc = cgen_dspec_finish(&cgds, &dsres);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
-	(void)flags;
+	(void)dsres.rdflags;
+	assert(dsres.sctype == asc_none);
+	assert(!dsres.is_inline);
 
-	assert(sctype == asc_none);
+	*rstype = dsres.stype;
+	dsres.stype = NULL;
+	cgen_dspec_res_fini(&dsres);
 	return EOK;
+error:
+	cgen_dspec_res_fini(&dsres);
+	return rc;
 }
 
 /** Generate code for identifier declarator.
@@ -4999,17 +5073,17 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 	comp_tok_t *tok;
 	cgtype_t *btype_copy = NULL;
 	cgtype_t *bdtype = NULL;
-	cgtype_t *stype = NULL;
 	cgtype_t *atype = NULL;
 	cgtype_basic_t *abasic;
-	ast_sclass_type_t sctype;
 	bool have_args = false;
 	ast_tok_t *aident;
 	comp_tok_t *ident;
 	bool arg_with_ident;
 	bool arg_without_ident;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	int rc;
+
+	cgen_dspec_res_init(&dsres);
 
 	rc = cgtype_clone(btype, &btype_copy);
 	if (rc != EOK)
@@ -5043,15 +5117,20 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 	arg = ast_dfun_first(dfun);
 	while (arg != NULL) {
-		rc = cgen_dspecs(cgen, arg->dspecs, &sctype, &flags, &stype);
+		rc = cgen_dspecs(cgen, arg->dspecs, &dsres);
 		if (rc != EOK) {
 			--cgen->arglist_cnt;
 			goto error;
 		}
 
-		(void)flags;
+		(void)dsres.rdflags;
+		if (dsres.is_inline) {
+			// ZZZ
+			// printf("inline function declaration\n");
+			// ZZZ
+		}
 
-		if (sctype != asc_none) {
+		if (dsres.sctype != asc_none) {
 			atok = ast_tree_first_tok(&arg->dspecs->node);
 			tok = (comp_tok_t *) atok->data;
 			(void)lexer_dprint_tok(&tok->tok, stderr);
@@ -5063,7 +5142,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 			goto error;
 		}
 
-		rc = cgen_decl(cgen, stype, arg->decl, arg->aslist,
+		rc = cgen_decl(cgen, dsres.stype, arg->decl, arg->aslist,
 		    &atype);
 		if (rc != EOK) {
 			--cgen->arglist_cnt;
@@ -5084,7 +5163,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 			/* Insert identifier into argument scope */
 			rc = scope_insert_arg(arg_scope, &ident->tok,
-			    stype, "dummy");
+			    dsres.stype, "dummy");
 			if (rc != EOK) {
 				if (rc == EEXIST) {
 					(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -5101,7 +5180,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		}
 
 		/* Check for 'void' being the only parameter */
-		if (stype->ntype == cgn_basic) {
+		if (dsres.stype->ntype == cgn_basic) {
 			abasic = (cgtype_basic_t *)atype->ext;
 
 			if (abasic->elmtype == cgelm_void &&
@@ -5118,8 +5197,6 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 					goto error;
 				}
 
-				cgtype_destroy(stype);
-				stype = NULL;
 				cgtype_destroy(atype);
 				atype = NULL;
 				break;
@@ -5148,8 +5225,8 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 
 		atype = NULL; /* ownership transferred */
 
-		cgtype_destroy(stype);
-		stype = NULL;
+		cgen_dspec_res_fini(&dsres);
+		cgen_dspec_res_init(&dsres);
 
 		arg = ast_dfun_next(arg);
 	}
@@ -5186,6 +5263,7 @@ static int cgen_decl_fun(cgen_t *cgen, cgtype_t *btype, ast_dfun_t *dfun,
 		goto error;
 
 	cgtype_destroy(&func->cgtype);
+	cgen_dspec_res_fini(&dsres);
 	*rdtype = bdtype;
 	return EOK;
 error:
@@ -5194,14 +5272,14 @@ error:
 		scope_destroy(arg_scope);
 	}
 
-	if (stype != NULL)
-		cgtype_destroy(stype);
 	if (atype != NULL)
 		cgtype_destroy(atype);
 	if (func != NULL)
 		cgtype_destroy(&func->cgtype);
 	if (btype_copy != NULL)
 		cgtype_destroy(btype_copy);
+
+	cgen_dspec_res_fini(&dsres);
 	return rc;
 }
 
@@ -14287,31 +14365,30 @@ error:
 static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	cgtype_t *stype = NULL;
 	cgtype_t *etype = NULL;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	int rc;
 
+	cgen_dspec_res_init(&dsres);
+
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgexpr->cgen, ealignof->atypename->dspecs,
-	    &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgexpr->cgen, ealignof->atypename->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
 	atok = ast_tree_first_tok(&ealignof->atypename->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if ((flags & cgrd_def) != cgrd_none) {
+	if ((dsres.rdflags & cgrd_def) != cgrd_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Struct/union/enum definition "
 		    "inside alignof().\n");
 		++cgexpr->cgen->warnings;
 	}
 
-	if (sctype != asc_none) {
+	if (dsres.sctype != asc_none) {
 		atok = ast_tree_first_tok(&ealignof->atypename->node);
 		ctok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
@@ -14322,9 +14399,18 @@ static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
 		goto error;
 	}
 
+	/* Inline is not allowed inside alignof. */
+	if (dsres.is_inline) {
+		atok = ast_tree_first_tok(&ealignof->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		cgen_error_invalid_inline(cgexpr->cgen, ctok);
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Declarator */
-	rc = cgen_decl(cgexpr->cgen, stype, ealignof->atypename->decl, NULL,
-	    &etype);
+	rc = cgen_decl(cgexpr->cgen, dsres.stype, ealignof->atypename->decl,
+	    NULL, &etype);
 	if (rc != EOK)
 		goto error;
 
@@ -14332,11 +14418,11 @@ static int cgen_ealignof_typename(cgen_expr_t *cgexpr, ast_ealignof_t *ealignof,
 	if (rc != EOK)
 		goto error;
 
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgtype_destroy(etype);
 	return EOK;
 error:
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgtype_destroy(etype);
 	return rc;
 }
@@ -14481,31 +14567,30 @@ error:
 static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
     ir_lblock_t *lblock, cgen_eres_t *eres)
 {
-	cgtype_t *stype = NULL;
 	cgtype_t *etype = NULL;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	int rc;
 
+	cgen_dspec_res_init(&dsres);
+
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgexpr->cgen, esizeof->atypename->dspecs,
-	    &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgexpr->cgen, esizeof->atypename->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
 	atok = ast_tree_first_tok(&esizeof->atypename->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if ((flags & cgrd_def) != cgrd_none) {
+	if ((dsres.rdflags & cgrd_def) != cgrd_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Struct/union/enum "
 		    "definition inside sizeof().\n");
 		++cgexpr->cgen->warnings;
 	}
 
-	if (sctype != asc_none) {
+	if (dsres.sctype != asc_none) {
 		atok = ast_tree_first_tok(&esizeof->atypename->node);
 		ctok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
@@ -14516,9 +14601,18 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 		goto error;
 	}
 
+	/* Inline is not allowed inside sizeof. */
+	if (dsres.is_inline) {
+		atok = ast_tree_first_tok(&esizeof->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		cgen_error_invalid_inline(cgexpr->cgen, ctok);
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Declarator */
-	rc = cgen_decl(cgexpr->cgen, stype, esizeof->atypename->decl, NULL,
-	    &etype);
+	rc = cgen_decl(cgexpr->cgen, dsres.stype, esizeof->atypename->decl,
+	    NULL, &etype);
 	if (rc != EOK)
 		goto error;
 
@@ -14526,11 +14620,11 @@ static int cgen_esizeof_typename(cgen_expr_t *cgexpr, ast_esizeof_t *esizeof,
 	if (rc != EOK)
 		goto error;
 
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgtype_destroy(etype);
 	return EOK;
 error:
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgtype_destroy(etype);
 	return rc;
 }
@@ -14857,14 +14951,13 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
 	comp_tok_t *ident;
-	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	scope_member_t *member;
 	int rc;
 
 	cgen_eres_init(&bres);
+	cgen_dspec_res_init(&dsres);
 
 	/*
 	 * Check for overparenthesized mutiplication, addition or subtraction
@@ -14910,11 +15003,11 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	}
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgexpr->cgen, ecast->dspecs, &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgexpr->cgen, ecast->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & cgrd_def) != cgrd_none) {
+	if ((dsres.rdflags & cgrd_def) != cgrd_none) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
 		ctok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
@@ -14923,7 +15016,7 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 		++cgexpr->cgen->warnings;
 	}
 
-	if (sctype != asc_none) {
+	if (dsres.sctype != asc_none) {
 		atok = ast_tree_first_tok(&ecast->dspecs->node);
 		ctok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
@@ -14935,7 +15028,7 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 	}
 
 	/* Declarator */
-	rc = cgen_decl(cgexpr->cgen, stype, ecast->decl, NULL, &dtype);
+	rc = cgen_decl(cgexpr->cgen, dsres.stype, ecast->decl, NULL, &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -14952,13 +15045,13 @@ static int cgen_ecast(cgen_expr_t *cgexpr, ast_ecast_t *ecast,
 		goto error;
 
 	cgtype_destroy(dtype);
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	cgen_eres_fini(&bres);
 	return EOK;
 error:
+	cgen_dspec_res_fini(&dsres);
 	cgen_eres_fini(&bres);
 	cgtype_destroy(dtype);
-	cgtype_destroy(stype);
 	return rc;
 }
 
@@ -15962,17 +16055,16 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	ir_oper_var_t *dest = NULL;
 	ir_oper_var_t *var = NULL;
 	ir_oper_imm_t *imm = NULL;
-	cgtype_t *stype = NULL;
 	cgtype_t *etype = NULL;
 	ast_tok_t *atok;
 	comp_tok_t *ctok;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	cgsize_t sz;
 	char *destvn;
 	int rc;
 
 	cgen_eres_init(&apres);
+	cgen_dspec_res_init(&dsres);
 
 	/* Evaluate ap expression */
 	rc = cgen_expr(cgexpr, eva_arg->apexpr, lblock, &apres);
@@ -15986,22 +16078,21 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 		goto error;
 
 	/* Declaration specifiers */
-	rc = cgen_dspecs(cgexpr->cgen, eva_arg->atypename->dspecs,
-	    &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgexpr->cgen, eva_arg->atypename->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
 	atok = ast_tree_first_tok(&eva_arg->atypename->node);
 	ctok = (comp_tok_t *) atok->data;
 
-	if ((flags & cgrd_def) != cgrd_none) {
+	if ((dsres.rdflags & cgrd_def) != cgrd_none) {
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Struct/union/enum definition "
 		    "inside __va_arg().\n");
 		++cgexpr->cgen->warnings;
 	}
 
-	if (sctype != asc_none) {
+	if (dsres.sctype != asc_none) {
 		atok = ast_tree_first_tok(&eva_arg->atypename->node);
 		ctok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
@@ -16011,9 +16102,18 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 		goto error;
 	}
 
+	/* Inline is not allowed inside __va_arg. */
+	if (dsres.is_inline) {
+		atok = ast_tree_first_tok(&eva_arg->atypename->node);
+		ctok = (comp_tok_t *) atok->data;
+		cgen_error_invalid_inline(cgexpr->cgen, ctok);
+		rc = EINVAL;
+		goto error;
+	}
+
 	/* Declarator */
-	rc = cgen_decl(cgexpr->cgen, stype, eva_arg->atypename->decl, NULL,
-	    &etype);
+	rc = cgen_decl(cgexpr->cgen, dsres.stype, eva_arg->atypename->decl,
+	    NULL, &etype);
 	if (rc != EOK)
 		goto error;
 
@@ -16060,14 +16160,14 @@ static int cgen_eva_arg(cgen_expr_t *cgexpr, ast_eva_arg_t *eva_arg,
 	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, etype);
 	eres->unprombits = eres->sigbits;
 
-	cgtype_destroy(stype);
 	cgen_eres_fini(&apres);
+	cgen_dspec_res_fini(&dsres);
 
 	return EOK;
 error:
-	cgtype_destroy(stype);
 	cgtype_destroy(etype);
 	cgen_eres_fini(&apres);
+	cgen_dspec_res_fini(&dsres);
 	ir_instr_destroy(instr);
 	if (dest != NULL)
 		ir_oper_destroy(&dest->oper);
@@ -20921,13 +21021,14 @@ error:
  *
  * @param cgproc Code generator for procedure
  * @param stdecln Declaration statement for local variables
+ * @param dsres Results of processing declaration specifiers
  * @param sctype Storage class type
  * @param stype Type based on declaration specifiers
  * @param lblock IR labeled block to which the code should be appended
  * @return EOK on success or an error code
  */
 static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
-    ast_sclass_type_t sctype, cgtype_t *stype, ir_lblock_t *lblock)
+    cgen_dspec_res_t *dsres, ir_lblock_t *lblock)
 {
 	ast_tok_t *atok;
 	ast_idlist_entry_t *identry;
@@ -20940,9 +21041,7 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	comp_tok_t *itok;
 	int rc;
 
-	(void) lblock;
-
-	if (sctype != asc_none) {
+	if (dsres->sctype != asc_none) {
 		atok = ast_tree_first_tok(&stdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&tok->tok, stderr);
@@ -20956,13 +21055,13 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 	identry = ast_idlist_first(stdecln->idlist);
 	while (identry != NULL) {
 		/* Mark enum as named, because it has an instance. */
-		if (stype->ntype == cgn_enum) {
-			tenum = (cgtype_enum_t *)stype;
+		if (dsres->stype->ntype == cgn_enum) {
+			tenum = (cgtype_enum_t *)dsres->stype;
 			tenum->cgenum->named = true;
 		}
 
 		/* Process declarator */
-		rc = cgen_decl(cgproc->cgen, stype, identry->decl,
+		rc = cgen_decl(cgproc->cgen, dsres->stype, identry->decl,
 		    identry->aslist, &dtype);
 		if (rc != EOK)
 			goto error;
@@ -20980,7 +21079,7 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 
 		/* Attribute specifier list */
 		if (identry->aslist != NULL) {
-			atok = ast_tree_first_tok(&identry->aslist->node);
+			atok = ast_tree_first_tok(&stdecln->dspecs->node);
 			tok = (comp_tok_t *) atok->data;
 			(void)lexer_dprint_tok(&tok->tok, stderr);
 			(void)fprintf(stderr, ": Attribute specifier "
@@ -21010,8 +21109,16 @@ static int cgen_stdecln_lvars(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
 			itok = NULL;
 		}
 
+		if (dsres->is_inline) {
+			atok = ast_tree_first_tok(identry->decl);
+			tok = (comp_tok_t *) atok->data;
+			cgen_error_invalid_inline(cgproc->cgen, tok);
+			rc = EINVAL;
+			goto error;
+		}
+
 		/* Local variable */
-		rc = cgen_lvar(cgproc, sctype, dtype, ident, itok,
+		rc = cgen_lvar(cgproc, dsres->sctype, dtype, ident, itok,
 		    identry->init, lblock);
 		if (rc != EOK)
 			goto error;
@@ -21038,36 +21145,35 @@ error:
 static int cgen_stdecln(cgen_proc_t *cgproc, ast_stdecln_t *stdecln,
     ir_lblock_t *lblock)
 {
-	cgtype_t *stype = NULL;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	int rc;
+
+	cgen_dspec_res_init(&dsres);
 
 	/* Process declaration specifiers */
 
-	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &sctype, &flags,
-	    &stype);
+	rc = cgen_dspecs(cgproc->cgen, stdecln->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
-	(void)flags;
+	(void)dsres.rdflags;
 
-	if (sctype == asc_typedef) {
+	if (dsres.sctype == asc_typedef) {
 		rc = cgen_typedef(cgproc->cgen,
 		    ast_tree_first_tok(&stdecln->dspecs->node), stdecln->idlist,
-		    stype);
+		    &dsres);
 		if (rc != EOK)
 			goto error;
 	} else {
-		rc = cgen_stdecln_lvars(cgproc, stdecln, sctype, stype, lblock);
+		rc = cgen_stdecln_lvars(cgproc, stdecln, &dsres, lblock);
 		if (rc != EOK)
 			goto error;
 	}
 
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	return EOK;
 error:
-	cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	return rc;
 }
 
@@ -22106,12 +22212,11 @@ error:
  *
  * @param cgen Code generator
  * @param gdecln Global declaration that is a function definition
- * @param sctype Storace class specifier type
- * @param btype Type derived from declaration specifiers
+ * @param dsres Results of processing declaration specifiers
  * @return EOK on success or an error code
  */
 static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
-    ast_sclass_type_t sctype, cgtype_t *btype)
+    cgen_dspec_res_t *dsres)
 {
 	ir_proc_t *proc = NULL;
 	ir_lblock_t *lblock = NULL;
@@ -22148,16 +22253,21 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
 
-	if (sctype == asc_static) {
+	// ZZZ
+	// if (dsres->is_inline)
+	//	printf("cgen_fundef: inline function\n");
+	// ZZZ
+
+	if (dsres->sctype == asc_static) {
 		vstatic = true;
-	} else if (sctype == asc_extern) {
+	} else if (dsres->sctype == asc_extern) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&tok->tok, stderr);
 		(void)fprintf(stderr, ": Warning: Function definition should "
 		    "not use 'extern'.\n");
 		++cgen->warnings;
-	} else if (sctype != asc_none) {
+	} else if (dsres->sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&tok->tok, stderr);
@@ -22232,7 +22342,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	assert(ast_idlist_next(idle) == NULL);
 
 	/* Process declarator */
-	rc = cgen_decl(cgen, btype, idle->decl, idle->aslist, &dtype);
+	rc = cgen_decl(cgen, dsres->stype, idle->decl, idle->aslist, &dtype);
 	if (rc != EOK)
 		goto error;
 
@@ -22506,11 +22616,11 @@ error:
  * @param cgen Code generator
  * @param atok Type definition token (for diagnostics)
  * @param idlist Init-declarator list
- * @param btype Type derived from declaration specifiers
+ * @param dsres Reults of processing declaration specifiers
  * @return EOK on success or an error code
  */
 static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
-    cgtype_t *btype)
+    cgen_dspec_res_t *dsres)
 {
 	ast_idlist_entry_t *idle;
 	scope_member_t *member;
@@ -22520,17 +22630,24 @@ static int cgen_typedef(cgen_t *cgen, ast_tok_t *dtok, ast_idlist_t *idlist,
 	cgtype_enum_t *tenum;
 	int rc;
 
+	if (dsres->is_inline) {
+		atok = ast_tree_first_tok(&idlist->node);
+		ctok = (comp_tok_t *)atok->data;
+		cgen_error_invalid_inline(cgen, ctok);
+		return EINVAL;
+	}
+
 	/* For all init-declarator list entries */
 	idle = ast_idlist_first(idlist);
 	while (idle != NULL) {
 		/* Mark enum as named, because it has an instance. */
-		if (btype->ntype == cgn_enum) {
-			tenum = (cgtype_enum_t *)btype;
+		if (dsres->stype->ntype == cgn_enum) {
+			tenum = (cgtype_enum_t *)dsres->stype;
 			tenum->cgenum->named = true;
 		}
 
 		/* Process declarator */
-		rc = cgen_decl(cgen, btype, idle->decl, idle->aslist,
+		rc = cgen_decl(cgen, dsres->stype, idle->decl, idle->aslist,
 		    &dtype);
 		if (rc != EOK)
 			goto error;
@@ -24550,11 +24667,9 @@ error:
 static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 {
 	ast_idlist_entry_t *entry;
-	cgtype_t *stype = NULL;
 	cgtype_t *dtype = NULL;
 	cgtype_record_t *trecord;
-	ast_sclass_type_t sctype;
-	cgen_rd_flags_t flags;
+	cgen_dspec_res_t dsres;
 	ast_tok_t *atok;
 	comp_tok_t *tok;
 	int rc;
@@ -24564,15 +24679,17 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 		return EOK;
 	}
 
+	cgen_dspec_res_init(&dsres);
+
 	/* Process declaration specifiers */
-	rc = cgen_dspecs(cgen, gdecln->dspecs, &sctype, &flags, &stype);
+	rc = cgen_dspecs(cgen, gdecln->dspecs, &dsres);
 	if (rc != EOK)
 		goto error;
 
-	if (sctype == asc_typedef) {
+	if (dsres.sctype == asc_typedef) {
 		rc = cgen_typedef(cgen,
 		    ast_tree_first_tok(&gdecln->dspecs->node),
-		    gdecln->idlist, stype);
+		    gdecln->idlist, &dsres);
 		if (rc != EOK)
 			goto error;
 	} else if (gdecln->idlist != NULL) {
@@ -24580,17 +24697,26 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 		entry = ast_idlist_first(gdecln->idlist);
 		while (entry != NULL) {
 			/* Process declarator */
-			rc = cgen_decl(cgen, stype, entry->decl, entry->aslist,
+			rc = cgen_decl(cgen, dsres.stype, entry->decl,
+			    entry->aslist,
 			    &dtype);
 			if (rc != EOK)
 				goto error;
 
 			if (ast_decl_is_vardecln(entry->decl)) {
 				/* Variable declaration */
-				rc = cgen_vardef(cgen, dtype, sctype, entry,
-				    gdecln);
+				rc = cgen_vardef(cgen, dtype, dsres.sctype,
+				    entry, gdecln);
 				if (rc != EOK)
 					goto error;
+
+				if (dsres.is_inline) {
+					atok = ast_tree_first_tok(&gdecln->dspecs->node);
+					tok = (comp_tok_t *) atok->data;
+					cgen_error_invalid_inline(cgen, tok);
+					rc = EINVAL;
+					goto error;
+				}
 			} else if (entry->decl->ntype == ant_dnoident) {
 				if (entry->have_init) {
 					tok = (comp_tok_t *)
@@ -24602,26 +24728,26 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 					rc = EINVAL;
 					goto error;
 				}
-				if ((flags & cgrd_ident) == cgrd_none) {
+				if ((dsres.rdflags & cgrd_ident) == cgrd_none) {
 					atok = ast_tree_first_tok(&gdecln->dspecs->node);
 					cgen_warn_useless_type(cgen, atok);
 				}
-				if ((flags & cgrd_def) == cgrd_none) {
+				if ((dsres.rdflags & cgrd_def) == cgrd_none) {
 					/* This is a pure struct/union declaration */
-					if ((flags & cgrd_prevdef) != cgrd_none) {
+					if ((dsres.rdflags & cgrd_prevdef) != cgrd_none) {
 						atok = ast_tree_first_tok(&gdecln->dspecs->node);
 						tok = (comp_tok_t *) atok->data;
 						(void)lexer_dprint_tok(&tok->tok, stderr);
 						(void)fprintf(stderr, ": Warning: Declaration of '");
-						(void)cgtype_print(stype, stderr);
+						(void)cgtype_print(dsres.stype, stderr);
 						(void)fprintf(stderr, "' follows definition.\n");
 						++cgen->warnings;
-					} else if ((flags & cgrd_prevdecl) != cgrd_none) {
+					} else if ((dsres.rdflags & cgrd_prevdecl) != cgrd_none) {
 						atok = ast_tree_first_tok(&gdecln->dspecs->node);
 						tok = (comp_tok_t *) atok->data;
 						(void)lexer_dprint_tok(&tok->tok, stderr);
 						(void)fprintf(stderr, ": Warning: Multiple declarations of '");
-						(void)cgtype_print(stype, stderr);
+						(void)cgtype_print(dsres.stype, stderr);
 						(void)fprintf(stderr, "'.\n");
 						++cgen->warnings;
 					}
@@ -24632,7 +24758,8 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 				}
 			} else {
 				/* Assuming it's a function declaration */
-				rc = cgen_fundecl(cgen, dtype, sctype, gdecln);
+				rc = cgen_fundecl(cgen, dtype, dsres.sctype,
+				    gdecln);
 				if (rc != EOK)
 					goto error;
 			}
@@ -24644,13 +24771,10 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 		}
 	}
 
-	cgtype_destroy(stype);
-	stype = NULL;
-
+	cgen_dspec_res_fini(&dsres);
 	return EOK;
 error:
-	if (stype != NULL)
-		cgtype_destroy(stype);
+	cgen_dspec_res_fini(&dsres);
 	if (dtype != NULL)
 		cgtype_destroy(dtype);
 	return rc;

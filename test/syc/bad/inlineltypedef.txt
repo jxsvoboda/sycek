@@ -1,0 +1,1 @@
+<test/syc/bad/inlineltypedef.c:7:28-30:id:i_t>: Invalid use of 'inline'.

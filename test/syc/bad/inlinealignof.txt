@@ -1,0 +1,1 @@
+<test/syc/bad/inlinealignof.c:9:21-26:'inline'>: Invalid use of 'inline'.

@@ -1,0 +1,1 @@
+<test/syc/bad/inlinesizeof.c:9:22-27:'inline'>: Invalid use of 'inline'.

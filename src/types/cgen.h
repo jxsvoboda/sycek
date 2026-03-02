@@ -169,7 +169,35 @@ typedef struct {
 	ast_sclass_type_t sctype;
 	/** Mask of type qualifiers */
 	cgtype_qual_t qual;
+	/** Is inline specifier present? */
+	bool is_inline;
 } cgen_dspec_t;
+
+/** Record declaration flags */
+typedef enum {
+	/** No flags */
+	cgrd_none = 0,
+	/** This is a struct/union definition */
+	cgrd_def = 0x1,
+	/** The struct/union has a tag identifer */
+	cgrd_ident = 0x2,
+	/** The struct/union was already declared before */
+	cgrd_prevdecl = 0x4,
+	/** The struct/union was already defined beore */
+	cgrd_prevdef = 0x8
+} cgen_rd_flags_t;
+
+/** Result of processing declaration specifiers */
+typedef struct {
+	/* Storage class type */
+	ast_sclass_type_t sctype;
+	/** Is inline specifier present? */
+	bool is_inline;
+	/** Specified type */
+	cgtype_t *stype;
+	/** Record declaration flags */
+	cgen_rd_flags_t rdflags;
+} cgen_dspec_res_t;
 
 /** Value type.
  *
@@ -312,20 +340,6 @@ typedef enum {
 	/** Any of the operands was a negative constant */
 	cguac_negative = 0x100
 } cgen_uac_flags_t;
-
-/** Record declaration flags */
-typedef enum {
-	/** No flags */
-	cgrd_none = 0,
-	/** This is a struct/union definition */
-	cgrd_def = 0x1,
-	/** The struct/union has a tag identifer */
-	cgrd_ident = 0x2,
-	/** The struct/union was already declared before */
-	cgrd_prevdecl = 0x4,
-	/** The struct/union was already defined beore */
-	cgrd_prevdef = 0x8
-} cgen_rd_flags_t;
 
 /** (Designated) initializer. */
 typedef struct cgen_init {

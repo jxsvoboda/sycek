@@ -1,0 +1,1 @@
+<test/syc/bad/inlinegvar.c:5:1-6:'inline'>: Invalid use of 'inline'.
