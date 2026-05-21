@@ -42,7 +42,9 @@ typedef enum {
 	/** Lvalue function arguments */
 	cgf_lvalue_args = 0x1,
 	/** Integer promotion */
-	cgf_int_promotion = 0x2
+	cgf_int_promotion = 0x2,
+	/** Fatal warnings */
+	cgf_fatal_warn = 0x4
 } cgen_flags_t;
 
 /** Code generator */

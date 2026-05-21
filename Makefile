@@ -274,7 +274,7 @@ z80asms: $(asms_z80)
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
 %.z80.pp.asm:%.z80.pp.c $(syc)
-	$(syc) $(sycflags) $<
+	$(syc) $(sycflags) --fatal-warn $<
 
 %.z80.o: %.z80.asm
 	z80asm -r0x6400 --output=$@ $<

@@ -25156,6 +25156,12 @@ int cgen_module(cgen_t *cgen, parser_input_ops_t *inops, void *inarg,
 	if (rc != EOK)
 		goto error;
 
+	if (cgen->warnings > 0 && (cgen->flags & cgf_fatal_warn) != cgf_none) {
+		(void)fprintf(stderr, "Failed, because warnings are fatal.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
 	parser_destroy(parser);
 	*rirmod = irmod;
 	return EOK;

@@ -320,6 +320,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--int-promotion") == 0) {
 			++i;
 			cgflags |= cgf_int_promotion;
+		} else if (strcmp(argv[i], "--fatal-warn") == 0) {
+			++i;
+			cgflags |= cgf_fatal_warn;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;

@@ -329,6 +329,7 @@ program in various compilation stages to the standard output:
  * `--dump-vric` Dump instruction code before register allocation
 
 The following code generation options are available:
+ * `--fatal-warn` Make warnings fatal
  * `--lvalue-args` Make function arguments lvalues (addressable/modifiable)
  * `--int-promotion` Enable integer promotion
 
@@ -646,7 +647,7 @@ To test functionality of generated Z80 code run `make test_z80` which
  * Runs `z80test` for all `.scr` files under `test/syc/good` which verifies
    correct function of the generated code
  * Compiles all Sycek componets using syc (making sure there are no errors
-   reported)
+   or warnings reported)
 
 For this to work you need to have `z80asm` from z88dk to convert .asm files
 to binary, plus `gcc` for preprocessing C source files. Note that this
