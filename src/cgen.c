@@ -6114,6 +6114,28 @@ static int cgen_eident_gsym(cgen_expr_t *cgexpr, ast_eident_t *eident,
     symbol_t *symbol, cgtype_t *cgtype, ir_lblock_t *lblock, cgen_eres_t *eres)
 {
 	int rc;
+	comp_tok_t *tok;
+	symbol_t *fsymbol;
+
+	/* Symbol of the current function. */
+	fsymbol = cgexpr->cgproc->symbol;
+
+	/* Inside inline function with external linkage? */
+	if (fsymbol != NULL && (fsymbol->flags & sf_inline) != sf_none &&
+	    (fsymbol->flags & sf_static) == sf_none) {
+
+		/* Symbol with static storage duration? */
+		if ((symbol->flags & sf_static) != sf_none) {
+			tok = (comp_tok_t *)eident->tident.data;
+			(void)lexer_dprint_tok(&tok->tok, stderr);
+			(void)fprintf(stderr, ": Containing Inline function "
+			    "'%s' has external inkage, '%s' is static.\n",
+			    fsymbol->ident->tok.text,
+			    symbol->ident->tok.text);
+			cgexpr->cgen->error = true; // TODO
+			return EINVAL;
+		}
+	}
 
 	if (cgexpr->icexpr) {
 		cgen_error_expr_not_constant(cgexpr->cgen, &eident->tident);
@@ -22243,7 +22265,9 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	cgtype_func_arg_t *dtarg;
 	scope_t *prev_scope = NULL;
 	bool vstatic = false;
+	bool vextern = false;
 	bool old_static;
+	bool old_inline;
 	ir_linkage_t linkage;
 	int rc;
 	int rv;
@@ -22261,12 +22285,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (dsres->sctype == asc_static) {
 		vstatic = true;
 	} else if (dsres->sctype == asc_extern) {
-		atok = ast_tree_first_tok(&gdecln->dspecs->node);
-		tok = (comp_tok_t *) atok->data;
-		(void)lexer_dprint_tok(&tok->tok, stderr);
-		(void)fprintf(stderr, ": Warning: Function definition should "
-		    "not use 'extern'.\n");
-		++cgen->warnings;
+		vextern = true;
 	} else if (dsres->sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
@@ -22291,6 +22310,10 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		assert(symbol != NULL);
 		if (vstatic)
 			symbol->flags |= sf_static;
+		if (vextern)
+			symbol->flags |= sf_extern;
+		if (dsres->is_inline)
+			symbol->flags |= sf_inline;
 	} else {
 		if (symbol->stype != st_fun) {
 			/* Already declared as a different type of symbol */
@@ -22315,7 +22338,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		/* Check if static did not change */
 		old_static = (symbol->flags & sf_static) != sf_none;
 		if (vstatic && !old_static) {
-			/* Non-static previously declared as static */
+			/* Static previously declared as non-static */
 			(void)lexer_dprint_tok(&ident->tok, stderr);
 			(void)fprintf(stderr, ": Static '%s' was previously "
 			    "declared as non-static.\n", ident->tok.text);
@@ -22330,11 +22353,45 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 			    ident->tok.text);
 			++cgen->warnings;
 		}
+
+		if (vextern)
+			symbol->flags |= sf_extern;
+
+		/* Check if inline did not change */
+		old_inline = (symbol->flags & sf_inline) != sf_none;
+		if (dsres->is_inline && !old_inline) {
+			/* Inline previously declared as non-inline */
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Inline '%s' was previously "
+			    "declared as non-inline.\n", ident->tok.text);
+			++cgen->warnings;
+		} else if (!dsres->is_inline && old_inline) {
+			/* Non-inline previously declared as inline */
+			(void)lexer_dprint_tok(&ident->tok, stderr);
+			(void)fprintf(stderr, ": Warning: non-inline '%s' was "
+			    "previously declared as inline.\n",
+			    ident->tok.text);
+			++cgen->warnings;
+
+			/*
+			 * Any non-inline declaration or definition means
+			 * it is a regular function.
+			 */
+			symbol->flags &= ~sf_inline;
+		}
 	}
 
-	/* Mark the symbol as defined and not extern */
+	if (vextern && !dsres->is_inline) {
+		atok = ast_tree_first_tok(&gdecln->dspecs->node);
+		tok = (comp_tok_t *) atok->data;
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Warning: Function definition "
+		    "should not use 'extern'.\n");
+		++cgen->warnings;
+	}
+
+	/* Mark the symbol as defined */
 	symbol->flags |= sf_defined;
-	symbol->flags &= ~sf_extern;
 
 	/* Identifier-declarator list entry */
 	idle = ast_idlist_first(gdecln->idlist);
@@ -22394,10 +22451,21 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
-	if ((symbol->flags & sf_static) != sf_none)
-		linkage = irl_default;
-	else
-		linkage = irl_global;
+	if ((symbol->flags & sf_inline) != sf_none) {
+		/* Only export inline function if declared extern */
+		if ((symbol->flags & sf_extern) != sf_none)
+			linkage = irl_global;
+		else
+			linkage = irl_default;
+	} else {
+		/* Export non-inline function if it has external linkage */
+		if ((symbol->flags & sf_static) != sf_none)
+			linkage = irl_default;
+		else
+			linkage = irl_global;
+	}
+
+	symbol->flags &= ~sf_extern;
 
 	rc = ir_proc_create(pident, linkage, lblock, &proc);
 	if (rc != EOK)
@@ -22409,6 +22477,7 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 	if (rc != EOK)
 		goto error;
 
+	cgproc->symbol = symbol;
 	cgen->cur_cgproc = cgproc;
 
 	/* Function returning a struct/union? */
@@ -22726,11 +22795,11 @@ error:
  *
  * @param cgen Code generator
  * @param ftype Function type
- * @param sctype Storace class specifier type
+ * @param dsres Result of processing declaration specifiers
  * @param gdecln Global declaration that is a function definition
  * @return EOK on success or an error code
  */
-static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
+static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, cgen_dspec_res_t *dsres,
     ast_gdecln_t *gdecln)
 {
 	ast_tok_t *aident;
@@ -22750,9 +22819,9 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 	aident = ast_gdecln_get_ident(gdecln);
 	ident = (comp_tok_t *) aident->data;
 
-	if (sctype == asc_static) {
+	if (dsres->sctype == asc_static) {
 		vstatic = true;
-	} else if (sctype == asc_extern) {
+	} else if (dsres->sctype == asc_extern) {
 		/*
 		 * XXX If we knew that we are not in a header,
 		 * we could print a warning here (since extern functions should
@@ -22760,7 +22829,7 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 		 * should not have extern storage class.
 		 */
 		vextern = true;
-	} else if (sctype != asc_none) {
+	} else if (dsres->sctype != asc_none) {
 		atok = ast_tree_first_tok(&gdecln->dspecs->node);
 		tok = (comp_tok_t *) atok->data;
 		(void)lexer_dprint_tok(&tok->tok, stderr);
@@ -22802,6 +22871,8 @@ static int cgen_fundecl(cgen_t *cgen, cgtype_t *ftype, ast_sclass_type_t sctype,
 			symbol->flags |= sf_static;
 		if (vextern)
 			symbol->flags |= sf_extern;
+		if (dsres->is_inline)
+			symbol->flags |= sf_inline;
 
 		rc = cgtype_clone(ftype, &symbol->cgtype);
 		if (rc != EOK)
@@ -24758,8 +24829,7 @@ static int cgen_gdecln(cgen_t *cgen, ast_gdecln_t *gdecln)
 				}
 			} else {
 				/* Assuming it's a function declaration */
-				rc = cgen_fundecl(cgen, dtype, dsres.sctype,
-				    gdecln);
+				rc = cgen_fundecl(cgen, dtype, &dsres, gdecln);
 				if (rc != EOK)
 					goto error;
 			}
@@ -24833,6 +24903,17 @@ static int cgen_module_symdecl_fun(cgen_t *cgen, symbol_t *symbol)
 	ir_proc_t *proc = NULL;
 	ir_proc_attr_t *irattr;
 	cgtype_func_t *cgfunc;
+
+	if ((symbol->flags & sf_inline) != sf_none &&
+	    (symbol->flags & sf_static) == sf_none) {
+		/* Static previously declared as non-static */
+		(void)lexer_dprint_tok(&symbol->ident->tok, stderr);
+		(void)fprintf(stderr, ": Inline function '%s' has external "
+		    "linkage, but is not defined.\n", symbol->ident->tok.text);
+		cgen->error = true; // XXX
+		rc = EINVAL;
+		goto error;
+	}
 
 	rc = ir_proc_create(symbol->irident, irl_extern, NULL, &proc);
 	if (rc != EOK)

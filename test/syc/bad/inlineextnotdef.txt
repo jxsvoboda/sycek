@@ -1,0 +1,1 @@
+<test/syc/bad/inlineextnotdef.c:6:13-19:id:finline>: Inline function 'finline' has external linkage, but is not defined.

@@ -19,7 +19,7 @@ int *volatile restrict const b;
  * Declaration specifiers should be in order:
  *   storage class, type qualifier, inline, attribute, type specifier
  */
-int __attribute__((foo)) inline const static c;
+int __attribute__((foo)) inline const static c(void);
 
 /* A remarkably strange example of 'storage class' coming after type specifier */
 int typedef foo_t;

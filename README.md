@@ -254,11 +254,14 @@ Specifically, these language features are supported:
  * `_Alignof()` (C11), `alignof()` (C23)
  * Passing and returning struct/union by value
  * Integer promotion
+ * Inline functions
 
 These are NOT supported yet:
 
  * Floating point
  * Variable-length arrays
+ * Explicit use of `auto`
+ * `static` and `extern` in non-global scope
 
 Supported features not related to language coverage:
  * Large stack frames (i.e. containing more than 128 bytes of virtual register

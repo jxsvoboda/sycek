@@ -2,4 +2,6 @@
  * Multiple 'inline' specifiers.
  */
 
-inline inline void bar(void);
+inline inline void bar(void)
+{
+}

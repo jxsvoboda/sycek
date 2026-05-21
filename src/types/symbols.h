@@ -56,7 +56,9 @@ typedef enum {
 	/** Symbol is static / not visible to other modules */
 	sf_static = 0x4,
 	/** Extern variable */
-	sf_extern = 0x8
+	sf_extern = 0x8,
+	/** Inline function */
+	sf_inline = 0x10
 } symbol_flags_t;
 
 /** Symbol */

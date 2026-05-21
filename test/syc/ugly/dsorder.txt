@@ -6,7 +6,6 @@
 <test/syc/ugly/dsorder.c:22:5-17:'__attribute__'>: Warning: '__attribute__' should come before 'int'.
 <test/syc/ugly/dsorder.c:22:5-17:'__attribute__'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:22:26-31:'inline'>: Warning: 'inline' should come before '__attribute__'.
-<test/syc/ugly/dsorder.c:22:26-31:'inline'>: Warning: Unimplemented declaration specifier.
 <test/syc/ugly/dsorder.c:22:33-37:'const'>: Warning: 'const' should come before 'inline'.
 <test/syc/ugly/dsorder.c:22:39-44:'static'>: Warning: 'static' should come before 'const'.
 <test/syc/ugly/dsorder.c:25:5-11:'typedef'>: Warning: 'typedef' should come before 'int'.

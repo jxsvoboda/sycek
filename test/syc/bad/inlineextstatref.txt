@@ -1,0 +1,1 @@
+<test/syc/bad/inlineextstatref.c:10:15:id:i>: Containing Inline function 'finline' has external inkage, 'i' is static.

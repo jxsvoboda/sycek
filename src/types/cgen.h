@@ -105,6 +105,8 @@ typedef struct cgen_proc {
 	cgen_t *cgen;
 	/** IR procedure being constructed */
 	struct ir_proc *irproc;
+	/** Procedure symbol */
+	struct symbol *symbol;
 	/** Return type of the current procedure */
 	cgtype_t *rtype;
 	/** Next local variable number to allocate */
@@ -119,7 +121,7 @@ typedef struct cgen_proc {
 	struct cgen_loop *cur_loop;
 	/** Current (innermost) switch */
 	struct cgen_switch *cur_switch;
-	/** Current (innermo) loop or switch */
+	/** Current (innermost) loop or switch */
 	struct cgen_loop_switch *cur_loop_switch;
 	/** Goto labels */
 	struct labels *labels;
