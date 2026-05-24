@@ -1939,6 +1939,15 @@ static int cgen_szexpr_type(cgen_t *cgen, ast_node_t *expr,
 	cgexpr.cgen = cgproc->cgen;
 	cgexpr.cgproc = cgproc;
 
+	/*
+	 * In sizeof expression an array argument will be
+	 * adjusted to pointer so that sizeof() returns the size
+	 * of the pointer, as mandated by the standard,
+	 * even though we don't actually adjust the type
+	 * to allow for bounds checking.
+	 */
+	cgexpr.szexpr = true;
+
 	rc = cgen_expr(&cgexpr, expr, irproc->lblock, &eres);
 	if (rc != EOK)
 		goto error;
@@ -6168,6 +6177,9 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
     const char *vident, cgtype_t *cgtype, ir_lblock_t *lblock,
     cgen_eres_t *eres)
 {
+	cgen_eres_t tres;
+	int rc;
+
 	(void)lblock;
 
 	if (cgexpr->cexpr) {
@@ -6175,12 +6187,36 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		return EINVAL;
 	}
 
-	eres->varname = vident;
-	eres->valtype = cgen_rvalue;
-	eres->cgtype = cgtype;
-	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
-	eres->unprombits = eres->sigbits;
+	cgen_eres_init(&tres);
+	tres.varname = vident;
+	tres.valtype = cgen_rvalue;
+	tres.cgtype = cgtype;
+	tres.sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	tres.unprombits = eres->sigbits;
+
+	/*
+	 * If the argument type is an array and this is a sizeof expression,
+	 */
+	if (cgtype->ntype == cgn_array && cgexpr->szexpr) {
+		/*
+		 * Convert array to pointer, so that sizeof returns the
+		 * size of the 'adjusted' type (per the C standard).
+		 */
+
+		rc = cgen_array_to_ptr(cgexpr, &tres, eres);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = cgen_eres_clone(&tres, eres);
+		if (rc != EOK)
+			goto error;
+	}
+
+	cgen_eres_fini(&tres);
 	return EOK;
+error:
+	cgen_eres_fini(&tres);
+	return rc;
 }
 
 /** Generate code for identifier expression referencing local variable.

@@ -99,6 +99,8 @@ typedef struct {
 	bool cexpr;
 	/** @c true iff integer constant expression */
 	bool icexpr;
+	/** @c true iff sizeof expression */
+	bool szexpr;
 } cgen_expr_t;
 
 /** Code generator for procedure */
