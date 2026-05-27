@@ -27,6 +27,7 @@
 #ifndef SCOPE_H
 #define SCOPE_H
 
+#include <stdbool.h>
 #include <types/cgenum.h>
 #include <types/cgrec.h>
 #include <types/cgtype.h>
@@ -39,7 +40,7 @@ extern int scope_insert_gsym(scope_t *, lexer_tok_t *, cgtype_t *, symbol_t *);
 extern int scope_insert_arg(scope_t *, lexer_tok_t *, cgtype_t *,
     const char *);
 extern int scope_insert_lvar(scope_t *, lexer_tok_t *, cgtype_t *,
-    const char *);
+    bool, const char *);
 extern int scope_insert_tdef(scope_t *, lexer_tok_t *, cgtype_t *);
 extern int scope_insert_record(scope_t *, lexer_tok_t *, scope_rec_type_t,
     cgen_record_t *, scope_member_t **);

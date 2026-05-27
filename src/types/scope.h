@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,7 @@
 #define TYPES_SCOPE_H
 
 #include <adt/list.h>
+#include <stdbool.h>
 #include <types/lexer.h>
 
 /** Scope */
@@ -72,6 +73,8 @@ typedef struct {
 typedef struct {
 	/** IR variable identifier (e.g. '%foo') */
 	char *vident;
+	/** This variable holds a pointer to an lvalue array argument */
+	bool lval_array_arg;
 } scope_member_lvar_t;
 
 /** Scope record type */

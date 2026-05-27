@@ -213,7 +213,9 @@ typedef enum {
 	/** Rvalue (value) */
 	cgen_rvalue,
 	/** Lvalue (address) */
-	cgen_lvalue
+	cgen_lvalue,
+	/** Reference (address of pointer, only for lvalue array arguments) */
+	cgen_ref
 } cgen_valtype_t;
 
 /** Code generator expression result.

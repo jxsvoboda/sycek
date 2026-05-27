@@ -91,9 +91,12 @@ static int cgen_expr2lr_uac(cgen_expr_t *, ast_node_t *, ast_node_t *,
     cgen_uac_flags_t *);
 static int cgen_expr(cgen_expr_t *, ast_node_t *, ir_lblock_t *,
     cgen_eres_t *);
+static int cgen_eres_loadref(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
+    cgen_eres_t *);
 static int cgen_eres_rvalue(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
     cgen_eres_t *);
-static int cgen_array_to_ptr(cgen_expr_t *, cgen_eres_t *, cgen_eres_t *);
+static int cgen_array_to_ptr(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
+    cgen_eres_t *);
 static int cgen_type_convert(cgen_expr_t *, comp_tok_t *, cgen_eres_t *,
     cgtype_t *, cgen_expl_t, ir_lblock_t *, cgen_eres_t *);
 static int cgen_int_notzero(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
@@ -137,6 +140,8 @@ static int cgen_while(cgen_proc_t *, ast_while_t *, ir_lblock_t *);
 static int cgen_do(cgen_proc_t *, ast_do_t *, ir_lblock_t *);
 static int cgen_for(cgen_proc_t *, ast_for_t *, ir_lblock_t *);
 static int cgen_switch(cgen_proc_t *, ast_switch_t *, ir_lblock_t *);
+static int cgen_load(cgen_expr_t *, cgen_eres_t *, ir_lblock_t *,
+    cgen_eres_t *);
 
 enum {
 	cgen_pointer_bits = 16,
@@ -6202,8 +6207,7 @@ static int cgen_eident_arg(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		 * Convert array to pointer, so that sizeof returns the
 		 * size of the 'adjusted' type (per the C standard).
 		 */
-
-		rc = cgen_array_to_ptr(cgexpr, &tres, eres);
+		rc = cgen_array_to_ptr(cgexpr, &tres, lblock, eres);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -6225,15 +6229,17 @@ error:
  * @param eident AST identifier expression
  * @param vident Identifier of IR variable holding the local variable
  * @param cgtype Variable type
+ * @param lval_array_arg Variable is a copy of an array argument
  * @param lblock IR labeled block to which the code should be appended
  * @param eres Place to store expression result
  *
  * @return EOK on success or an error code
  */
 static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
-    const char *vident, cgtype_t *cgtype, ir_lblock_t *lblock,
-    cgen_eres_t *eres)
+    const char *vident, cgtype_t *cgtype, bool lval_array_arg,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
 {
+	cgen_eres_t tres;
 	int rc;
 
 	if (cgexpr->cexpr) {
@@ -6241,14 +6247,57 @@ static int cgen_eident_lvar(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		return EINVAL;
 	}
 
-	rc = cgen_lvaraddr(cgexpr->cgproc, vident, lblock, eres);
+	cgen_eres_init(&tres);
+
+	rc = cgen_lvaraddr(cgexpr->cgproc, vident, lblock, &tres);
 	if (rc != EOK)
 		return rc;
 
-	eres->cgtype = cgtype;
-	eres->sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
-	eres->unprombits = eres->sigbits;
+	tres.cgtype = cgtype;
+	tres.sigbits = cgen_type_sigbits(cgexpr->cgen, cgtype);
+	tres.unprombits = eres->sigbits;
+
+	if (lval_array_arg) {
+		if (cgexpr->szexpr) {
+			/*
+			 * Convert array to pointer, so that sizeof returns the
+			 * size of the 'adjusted' type (per the C standard).
+			 */
+			rc = cgen_array_to_ptr(cgexpr, &tres, lblock, eres);
+			if (rc != EOK)
+				goto error;
+		} else {
+			rc = cgen_eres_clone(&tres, eres);
+			if (rc != EOK)
+				goto error;
+
+			/*
+			 * Eres holds address of the pointer, not address of
+			 * the array. This is necessary for an array argument
+			 * to be a modifiable lvalue (in which case it works
+			 * as a pointer), We have a copy of the pointer in a
+			 * modifiable variable and eres holds address of that
+			 * variable.
+			 *
+			 * We cannot give the variable simply a pointer type,
+			 * that would prevent us from doing bounds checking.
+			 * So it's an array but we need to mark it with
+			 * different valtype so that the value of the pointer
+			 * is loaded when needed.
+			 */
+			eres->valtype = cgen_ref;
+		}
+	} else {
+		rc = cgen_eres_clone(&tres, eres);
+		if (rc != EOK)
+			goto error;
+	}
+
+	cgen_eres_fini(&tres);
 	return EOK;
+error:
+	cgen_eres_fini(&tres);
+	return rc;
 }
 
 /** Generate code for identifier expression referencing enum element.
@@ -6366,7 +6415,7 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 		break;
 	case sm_lvar:
 		rc = cgen_eident_lvar(cgexpr, eident, member->m.lvar.vident,
-		    cgtype, lblock, eres);
+		    cgtype, member->m.lvar.lval_array_arg, lblock, eres);
 		break;
 	case sm_record:
 	case sm_enum:
@@ -6930,7 +6979,11 @@ static int cgen_add_ptra_int(cgen_expr_t *cgexpr, comp_tok_t *optok,
 			/* TODO Optional run-time check */
 		}
 
-		rc = cgen_eres_clone(lres, &lval);
+		/*
+		 * If it is an address of local variable holding pointer
+		 * to the array, need to load it, otherwise just copy.
+		 */
+		rc = cgen_eres_loadref(cgexpr, lres, lblock, &lval);
 		if (rc != EOK)
 			goto error;
 
@@ -15909,7 +15962,6 @@ static int cgen_epreadj(cgen_expr_t *cgexpr, ast_epreadj_t *epreadj,
 	cgen_eres_init(&adj);
 	cgen_eres_init(&ares);
 
-	/* Evaluate base expression as lvalue */
 	rc = cgen_expr_lvalue(cgexpr, epreadj->bexpr, lblock, &baddr);
 	if (rc != EOK)
 		goto error;
@@ -16399,7 +16451,8 @@ static int cgen_expr_lvalue(cgen_expr_t *cgexpr, ast_node_t *expr,
 	if (rc != EOK)
 		return rc;
 
-	if (eres->valtype != cgen_lvalue) {
+	if (eres->valtype != cgen_lvalue &&
+	    eres->valtype != cgen_ref) {
 		atok = ast_tree_first_tok(expr);
 		tok = (comp_tok_t *) atok->data;
 		cgen_error_lvalue_required(cgexpr->cgen, tok);
@@ -16710,7 +16763,8 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 			rc = EINVAL;
 			goto error;
 		}
-	} else if (res->cgtype->ntype == cgn_pointer) {
+	} else if (res->cgtype->ntype == cgn_pointer ||
+	    (res->valtype == cgen_ref && res->cgtype->ntype == cgn_array)) {
 		bits = cgen_pointer_bits;
 	} else if (res->cgtype->ntype == cgn_enum) {
 		bits = cgen_enum_bits;
@@ -16774,6 +16828,41 @@ error:
 	return rc;
 }
 
+/** Generate code for converting expression result to lvalue.
+ *
+ * If the result is a reference (address of pointer to array argument),
+ * read it to produce an lvalue (address of the array). An rvalue
+ * is left as is.
+ *
+ * @param cgexpr Code generator for expression
+ * @param res Original expression result
+ * @param lblock IR labeled block to which the code should be appended
+ * @param eres Place to store rvalue expression result
+ * @return EOK on success or an error code
+ */
+static int cgen_eres_loadref(cgen_expr_t *cgexpr, cgen_eres_t *res,
+    ir_lblock_t *lblock, cgen_eres_t *eres)
+{
+	int rc;
+
+	/*
+	 * If we already have an lvalue, then we don't need
+	 * to do anything.
+	 */
+	if (res->valtype == cgen_lvalue || res->valtype == cgen_rvalue) {
+		rc = cgen_eres_clone(res, eres);
+		if (rc != EOK)
+			goto error;
+
+		return EOK;
+	}
+
+	assert(res->valtype == cgen_ref);
+	return cgen_load(cgexpr, res, lblock, eres);
+error:
+	return rc;
+}
+
 /** Generate code for converting expression result to rvalue.
  *
  * If the result is an lvalue, read it to produce an rvalue.
@@ -16795,6 +16884,18 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	 * which are always handled via a pointer, then we don't need
 	 * to do anything.
 	 */
+
+	/*
+	 * If it is an array, we need to convert it to a pointer.
+	 */
+	if (res->cgtype->ntype == cgn_array) {
+		rc = cgen_array_to_ptr(cgexpr, res, lblock, eres);
+		if (rc != EOK)
+			goto error;
+
+		return EOK;
+	}
+
 	if (res->valtype == cgen_rvalue || res->cgtype->ntype == cgn_record) {
 		rc = cgtype_clone(res->cgtype, &cgtype);
 		if (rc != EOK)
@@ -16812,17 +16913,6 @@ static int cgen_eres_rvalue(cgen_expr_t *cgexpr, cgen_eres_t *res,
 		eres->unprombits = res->unprombits;
 		eres->tfirst = res->tfirst;
 		eres->tlast = res->tlast;
-		return EOK;
-	}
-
-	/*
-	 * If it is an array, we need to convert it to a pointer.
-	 */
-	if (res->cgtype->ntype == cgn_array) {
-		rc = cgen_array_to_ptr(cgexpr, res, eres);
-		if (rc != EOK)
-			goto error;
-
 		return EOK;
 	}
 
@@ -18520,12 +18610,13 @@ static int cgen_type_convert_rval(cgen_expr_t *cgexpr, comp_tok_t *ctok,
  *
  * @param cgexpr Code generator for expression
  * @param ares Argument (expression result)
+ * @param lblock IR labeled block to which the code should be appended
  * @param cres Place to store conversion result
  *
  * @return EOK or an error code
  */
 static int cgen_array_to_ptr(cgen_expr_t *cgexpr, cgen_eres_t *ares,
-    cgen_eres_t *cres)
+    ir_lblock_t *lblock, cgen_eres_t *cres)
 {
 	cgtype_t *etype = NULL;
 	cgtype_pointer_t *ptrt = NULL;
@@ -18551,8 +18642,8 @@ static int cgen_array_to_ptr(cgen_expr_t *cgexpr, cgen_eres_t *ares,
 
 	etype = NULL;
 
-	/* Clone the result except... */
-	rc = cgen_eres_clone(ares, cres);
+	/* Load address of array if needed, otherwise just copy. */
+	rc = cgen_eres_loadref(cgexpr, ares, lblock, cres);
 	if (rc != EOK)
 		goto error;
 
@@ -18600,7 +18691,7 @@ static int cgen_type_convert_array(cgen_expr_t *cgexpr, comp_tok_t *ctok,
 	cgen_eres_init(&pres);
 
 	/* Convert array to pointer */
-	rc = cgen_array_to_ptr(cgexpr, ares, &pres);
+	rc = cgen_array_to_ptr(cgexpr, ares, lblock, &pres);
 	if (rc != EOK)
 		goto error;
 
@@ -20998,7 +21089,7 @@ static int cgen_lvar(cgen_proc_t *cgproc, ast_sclass_type_t sctype,
 
 	/* Insert identifier into current scope */
 	rc = scope_insert_lvar(cgproc->cgen->cur_scope, &ident->tok,
-	    dtype, vident);
+	    dtype, false, vident);
 	if (rc != EOK) {
 		if (rc == EEXIST) {
 			(void)lexer_dprint_tok(&ident->tok, stderr);
@@ -22065,7 +22156,7 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 
 		/* Insert identifier into argument scope */
 		rc = scope_insert_lvar(cgproc->arg_scope, &caident->tok,
-		    stype, vident);
+		    stype, stype->ntype == cgn_array, vident);
 		if (rc != EOK)
 			goto error;
 

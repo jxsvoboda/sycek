@@ -185,12 +185,14 @@ int scope_insert_arg(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
  * @param scope Scope
  * @param tident Identifier token
  * @param cgtype C type of the variable
+ * @param lvalue_array_arg @c true if the variable is a pointer to an
+ *        array argument
  * @param vident IR variable identifer (e.g. '%foo')
  * @return EOK on success, ENOMEM if out of memory, EEXIST if the
  *         identifier is already present in the scope
  */
 int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
-    const char *vident)
+    bool lvalue_array_arg, const char *vident)
 {
 	scope_member_t *member;
 	char *dvident;
@@ -224,6 +226,7 @@ int scope_insert_lvar(scope_t *scope, lexer_tok_t *tident, cgtype_t *cgtype,
 	member->cgtype = dtype;
 	member->mtype = sm_lvar;
 	member->m.lvar.vident = dvident;
+	member->m.lvar.lval_array_arg = lvalue_array_arg;
 	member->scope = scope;
 	list_append(&member->lmembers, &scope->members);
 	return EOK;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -150,11 +150,11 @@ static int test_scope_insert_lvar(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(scope, &tok, NULL, "%a");
+	rc = scope_insert_lvar(scope, &tok, NULL, false, "%a");
 	if (rc != EOK)
 		goto error;
 
-	rc = scope_insert_lvar(scope, &tok, NULL, "%a");
+	rc = scope_insert_lvar(scope, &tok, NULL, false, "%a");
 	if (rc != EEXIST)
 		goto error;
 
@@ -197,13 +197,13 @@ static int test_scope_first_next(void)
 
 	toka.text = "a";
 
-	rc = scope_insert_lvar(scope, &toka, NULL, "%a");
+	rc = scope_insert_lvar(scope, &toka, NULL, false, "%a");
 	if (rc != EOK)
 		goto error;
 
 	tokb.text = "b";
 
-	rc = scope_insert_lvar(scope, &tokb, NULL, "%b");
+	rc = scope_insert_lvar(scope, &tokb, NULL, false, "%b");
 	if (rc != EOK)
 		goto error;
 
@@ -263,7 +263,7 @@ static int test_scope_lookup_local(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(child, &tok, NULL, "%a");
+	rc = scope_insert_lvar(child, &tok, NULL, false, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -309,7 +309,7 @@ static int test_scope_lookup(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(parent, &tok, NULL, "%a");
+	rc = scope_insert_lvar(parent, &tok, NULL, false, "%a");
 	if (rc != EOK)
 		goto error;
 
@@ -332,7 +332,7 @@ static int test_scope_lookup(void)
 
 	tok.text = "a";
 
-	rc = scope_insert_lvar(child, &tok, NULL, "%a");
+	rc = scope_insert_lvar(child, &tok, NULL, false, "%a");
 	if (rc != EOK)
 		goto error;
 

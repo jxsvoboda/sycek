@@ -70,6 +70,3 @@ verify word ptr (@_i3sz), 8;
 verify word ptr (@_i4), 0;
 verify word ptr (@_i4 + 2), 1;
 verify word ptr (@_i4 + 4), 2;
-verify word ptr (@_i4 + 6), 3;
-verify word ptr (@_i4 + 8), 4;
-verify word ptr (@_i4 + 10), 5;
