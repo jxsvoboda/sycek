@@ -8,3 +8,29 @@ verify word ptr (@_a + 18), 42;
 
 call @_callsize;
 verify word ptr (@_s), 2;
+
+ld word ptr (@_i), 9;
+ld word ptr (@_v), 43;
+ld HL, @_a;
+call @_ptradd;
+verify word ptr (@_a + 18), 43;
+
+ld word ptr (@_v), 44;
+ld HL, @_a;
+call @_preinc;
+verify word ptr (@_a + 2), 44;
+
+ld word ptr (@_v), 45;
+ld HL, @_a;
+call @_postinc;
+verify word ptr (@_a + 2), 45;
+
+ld word ptr (@_v), 46;
+ld HL, @_a;
+call @_incr;
+verify word ptr (@_a + 2), 46;
+
+ld word ptr (@_v), 47;
+ld HL, @_a;
+call @_toptr;
+verify word ptr (@_a), 47;
