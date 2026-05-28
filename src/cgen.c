@@ -24071,6 +24071,15 @@ static int cgen_init_dentries_scalar(cgen_t *cgen, cgtype_t *stype,
 			goto error;
 		}
 
+		if (initsym != NULL) {
+			(void)lexer_dprint_tok(&itok->tok, stderr);
+			(void)fprintf(stderr, ": Expression is not constant.\n");
+
+			cgen->error = true; // TODO
+			rc = EINVAL;
+			goto error;
+		}
+
 		bffilt = (1 << width) - 1;
 
 		if (width > 0) {

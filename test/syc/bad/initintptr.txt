@@ -1,0 +1,2 @@
+<test/syc/bad/initintptr.c:5:7:'='>: Warning: Implicit conversion from pointer to integer.
+<test/syc/bad/initintptr.c:5:7:'='>: Expression is not constant.
