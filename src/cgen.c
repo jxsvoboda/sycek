@@ -121,6 +121,7 @@ static int cgen_stmt(cgen_proc_t *, ast_node_t *, ir_lblock_t *);
 static int cgen_cgtype(cgen_t *, cgtype_t *, ir_texpr_t **);
 static int cgen_typedef(cgen_t *, ast_tok_t *, ast_idlist_t *,
     cgen_dspec_res_t *);
+static int cgen_init_create(cgen_init_t **);
 static void cgen_init_destroy(cgen_init_t *);
 static int cgen_init_digest(cgen_t *, cgen_init_t *, cgtype_t *, int,
     ir_dblock_t *);
@@ -132,7 +133,7 @@ static int cgen_fun_arg_received_type(cgen_t *, cgtype_t *, cgtype_t **);
 static int cgen_init_dentries_cinit(cgen_t *, cgtype_t *, uint8_t, comp_tok_t *,
     ast_cinit_elem_t **, cgen_init_t *);
 static int cgen_init_dentries_string(cgen_t *, cgtype_t *, comp_tok_t *,
-    ast_estring_t *, ir_dblock_t *);
+    ast_estring_t *, cgen_init_t *);
 static int cgen_global_decln(cgen_t *, ast_node_t *);
 static int cgen_fundef(cgen_t *, ast_gdecln_t *, cgen_dspec_res_t *);
 static int cgen_if(cgen_proc_t *, ast_if_t *, ir_lblock_t *);
@@ -6018,6 +6019,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	cgtype_basic_t *itype = NULL;
 	cgtype_array_t *atype = NULL;
 	ast_estring_lit_t *lit;
+	cgen_init_t *init = NULL;
 	bool wide;
 	int rc;
 	int rv;
@@ -6077,8 +6079,17 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 
 	itok = (comp_tok_t *)ast_tree_first_tok(&estring->node)->data;
 
+	rc = cgen_init_create(&init);
+	if (rc != EOK)
+		return rc;
+
 	rc = cgen_init_dentries_string(cgexpr->cgen, &atype->cgtype, itok,
-	    estring, var->dblock);
+	    estring, init);
+	if (rc != EOK)
+		goto error;
+
+	rc = cgen_init_digest(cgexpr->cgen, init, &atype->cgtype, 0,
+	    var->dblock);
 	if (rc != EOK)
 		goto error;
 
@@ -6103,6 +6114,8 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 	eres->cgtype = &atype->cgtype;
 	return EOK;
 error:
+	if (init != NULL)
+		cgen_init_destroy(init);
 	if (pident != NULL)
 		free(pident);
 	if (itype != NULL)
@@ -24276,7 +24289,7 @@ error:
  * @param width Bit width or zero if not a bitfield
  * @param itok Initialization token (for printing diagnostics)
  * @param elem Compound initializer element pointer
- * @param dblock Data block to which data should be appended
+ * @param parent Initializer
  * @return EOK on success or an error code
  */
 static int cgen_init_dentries_cinit(cgen_t *cgen, cgtype_t *stype,
@@ -24380,11 +24393,11 @@ error:
  * @param stype Variable type
  * @param itok Initialization token (for printing diagnostics)
  * @param estring String initializer
- * @param dblock Data block to which data should be appended
+ * @param parent Initializer
  * @return EOK on success or an error code
  */
 static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
-    comp_tok_t *itok, ast_estring_t *estring, ir_dblock_t *dblock)
+    comp_tok_t *itok, ast_estring_t *estring, cgen_init_t *parent)
 {
 	ast_estring_lit_t *lit;
 	ir_dentry_t *dentry = NULL;
@@ -24396,9 +24409,15 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 	uint32_t max;
 	uint64_t idx;
 	bool wide = false;
+	cgen_init_t *init;
+	cgtype_basic_t *tbasic = NULL;
 	int rc;
 
 	(void)itok;
+
+	rc = cgtype_basic_create(cgelm_char, &tbasic);
+	if (rc != EOK)
+		goto error;
 
 	if (stype->ntype != cgn_array) {
 		(void)fprintf(stderr, ": Cannot initialize variable of type ");
@@ -24484,12 +24503,17 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 				goto error;
 			}
 
+			rc = cgen_init_insert(parent, &tbasic->cgtype, idx,
+			    NULL, &init);
+			if (rc != EOK)
+				goto error;
+
 			rc = ir_dentry_create_int(wide ? cgen_lchar_bits :
 			    cgen_char_bits, value, &dentry);
 			if (rc != EOK)
 				goto error;
 
-			rc = ir_dblock_append(dblock, dentry);
+			rc = ir_dblock_append(init->dblock, dentry);
 			if (rc != EOK)
 				goto error;
 
@@ -24508,12 +24532,17 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 
 	/* Pad with zeroes up to the size of the array */
 	while (idx < tarray->asize) {
+		rc = cgen_init_insert(parent, &tbasic->cgtype, idx,
+		    NULL, &init);
+		if (rc != EOK)
+			goto error;
+
 		rc = ir_dentry_create_int(wide ? cgen_lchar_bits :
 		    cgen_char_bits, 0, &dentry);
 		if (rc != EOK)
 			goto error;
 
-		rc = ir_dblock_append(dblock, dentry);
+		rc = ir_dblock_append(init->dblock, dentry);
 		if (rc != EOK)
 			goto error;
 
@@ -24522,6 +24551,8 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 
 	return EOK;
 error:
+	if (tbasic != NULL)
+		cgtype_destroy(&tbasic->cgtype);
 	ir_dentry_destroy(dentry);
 	return rc;
 }
@@ -24586,7 +24617,7 @@ static int cgen_init_dentries(cgen_t *cgen, cgtype_t *stype, comp_tok_t *itok,
 			}
 		} else if (init->ntype == ant_estring) {
 			rc = cgen_init_dentries_string(cgen, stype, itok,
-			    (ast_estring_t *)init->ext, parent->dblock);
+			    (ast_estring_t *)init->ext, parent);
 			if (rc != EOK)
 				goto error;
 		} else {
