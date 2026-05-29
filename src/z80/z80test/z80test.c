@@ -861,8 +861,10 @@ static int script_do_verify(script_t *script)
 	regmem_t rm;
 	uint64_t rmval;
 	uint64_t eval;
+	scr_lexer_tok_t tok;
 	int rc;
 
+	script_next_input_tok(script, &tok);
 	script_skip(script);
 
 	rc = script_parse_rm(script, &rm);
@@ -882,7 +884,8 @@ static int script_do_verify(script_t *script)
 		return EINVAL;
 
 	if (rmval != eval) {
-		(void)printf("Verification failed! (0x%lx != 0x%lx)\n",
+		scr_lexer_dprint_tok(&tok, stdout);
+		(void)printf(": Verification failed! (0x%lx != 0x%lx)\n",
 		    rmval, eval);
 		return EINVAL;
 	}
