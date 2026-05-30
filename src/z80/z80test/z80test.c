@@ -884,7 +884,7 @@ static int script_do_verify(script_t *script)
 		return EINVAL;
 
 	if (rmval != eval) {
-		scr_lexer_dprint_tok(&tok, stdout);
+		(void)scr_lexer_dprint_tok(&tok, stdout);
 		(void)printf(": Verification failed! (0x%lx != 0x%lx)\n",
 		    rmval, eval);
 		return EINVAL;

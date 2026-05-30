@@ -51,6 +51,7 @@ extern int cgtype_compose(cgtype_t *, cgtype_t *, cgtype_t **);
 extern void cgtype_destroy(cgtype_t *);
 extern int cgtype_print(cgtype_t *, FILE *);
 extern bool cgtype_is_void(cgtype_t *);
+extern bool cgtype_is_va_list(cgtype_t *);
 extern cgtype_int_rank_t cgtype_int_rank(cgtype_t *);
 extern int cgtype_int_construct(bool, cgtype_int_rank_t, cgtype_t **);
 extern bool cgtype_ptr_compatible(cgtype_pointer_t *, cgtype_pointer_t *);

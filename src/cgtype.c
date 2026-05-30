@@ -1210,6 +1210,22 @@ bool cgtype_is_void(cgtype_t *cgtype)
 	return basic->elmtype == cgelm_void;
 }
 
+/** Determine if type is __va_list.
+ *
+ * @param cgtype Code generator type
+ * @return @c true iff type is __va_list
+ */
+bool cgtype_is_va_list(cgtype_t *cgtype)
+{
+	cgtype_basic_t *basic;
+
+	if (cgtype->ntype != cgn_basic)
+		return false;
+
+	basic = (cgtype_basic_t *)cgtype->ext;
+	return basic->elmtype == cgelm_va_list;
+}
+
 /** Determine integer rank of type.
  *
  * @param cgtype Code generator type (integer type)

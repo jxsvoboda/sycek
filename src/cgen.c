@@ -6111,6 +6111,7 @@ static int cgen_estring(cgen_expr_t *cgexpr, ast_estring_t *estring,
 		goto error;
 
 	free(pident);
+	cgen_init_destroy(init);
 	eres->cgtype = &atype->cgtype;
 	return EOK;
 error:
@@ -22143,6 +22144,8 @@ static int cgen_fun_lvalue_args(cgen_proc_t *cgproc, comp_tok_t *ident,
 			rc = cgen_cgtype(cgproc->cgen, stype, &atype);
 			if (rc != EOK)
 				goto error;
+		} else if (cgtype_is_va_list(stype)) {
+			goto skip;
 		} else {
 			/* Skip non-record args if not --lvalue-args */
 			if ((cgproc->cgen->flags & cgf_lvalue_args) ==
@@ -22705,8 +22708,8 @@ static int cgen_fundef(cgen_t *cgen, ast_gdecln_t *gdecln,
 		if (rc != EOK)
 			goto error;
 
-		if ((cgproc->cgen->flags & cgf_lvalue_args) == cgf_none &&
-		    stype->ntype != cgn_record) {
+		if (((cgproc->cgen->flags & cgf_lvalue_args) == cgf_none ||
+		    cgtype_is_va_list(stype)) && stype->ntype != cgn_record) {
 			/* Insert identifier into argument scope */
 			rc = scope_insert_arg(cgproc->arg_scope, &tok->tok,
 			    stype, arg_ident);
@@ -24549,6 +24552,7 @@ static int cgen_init_dentries_string(cgen_t *cgen, cgtype_t *stype,
 		++idx;
 	}
 
+	cgtype_destroy(&tbasic->cgtype);
 	return EOK;
 error:
 	if (tbasic != NULL)
