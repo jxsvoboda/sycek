@@ -21,28 +21,18 @@
  */
 
 /*
- * Compiler
+ * Z80 binary instruction emitter
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef Z80_EMIT_H
+#define Z80_EMIT_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <types/object/object.h>
+#include <types/z80/emit.h>
+#include <types/z80/z80ic.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+extern int z80_emit_create(z80_emit_t **);
+extern int z80_emit_module(z80_emit_t *, z80ic_module_t *, obj_object_t **);
+extern void z80_emit_destroy(z80_emit_t *);
 
 #endif

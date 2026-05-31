@@ -67,6 +67,8 @@ sources_syc_common = \
     src/irlexer.c \
     src/irparser.c \
     src/labels.c \
+    src/object/object.c \
+    src/object/section.c \
     src/scope.c \
     src/syc.c \
     src/symbols.c \
@@ -80,6 +82,7 @@ sources_syc_common = \
     src/test/z80/ralloc.c \
     src/test/z80/z80ic.c \
     src/z80/argloc.c \
+    src/z80/emit.c \
     src/z80/isel.c \
     src/z80/ralloc.c \
     src/z80/varmap.c \

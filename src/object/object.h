@@ -21,28 +21,17 @@
  */
 
 /*
- * Compiler
+ * Binary object
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef OBJECT_OBJECT_H
+#define OBJECT_OBJECT_H
 
 #include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <types/object/object.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+extern int obj_object_create(obj_object_t **);
+extern void obj_object_destroy(obj_object_t *);
+extern int obj_object_dump(obj_object_t *, FILE *);
 
 #endif

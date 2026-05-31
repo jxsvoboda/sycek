@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <symbols.h>
+#include <object/object.h>
+#include <z80/emit.h>
 #include <z80/isel.h>
 #include <z80/ralloc.h>
 #include <z80/z80ic.h>
@@ -118,6 +120,7 @@ static void comp_module_destroy(comp_module_t *module)
 	ir_module_destroy(module->ir);
 	z80ic_module_destroy(module->vric);
 	z80ic_module_destroy(module->ic);
+	obj_object_destroy(module->object);
 
 	free(module);
 }
@@ -472,12 +475,12 @@ error:
 	return rc;
 }
 
-/** Run compiler.
+/** Run all compiler steps needed to get IC.
  *
  * @param comp Compiler
- * @param outf Output file (for writing assembly)
+ * @return EOK on success or an error code
  */
-int comp_run(comp_t *comp, FILE *outf)
+int comp_make_ic(comp_t *comp)
 {
 	int rc;
 	z80_ralloc_t *ralloc = NULL;
@@ -500,10 +503,43 @@ int comp_run(comp_t *comp, FILE *outf)
 		ralloc = NULL;
 	}
 
+	return EOK;
+error:
+	return rc;
+}
+
+/** Run compiler.
+ *
+ * @param comp Compiler
+ * @param outf Output file (for writing assembly)
+ * @return EOK on success or an error code
+ */
+int comp_run(comp_t *comp, FILE *outf)
+{
+	int rc;
+	z80_emit_t *emit = NULL;
+
+	rc = comp_make_ic(comp);
+	if (rc != EOK)
+		goto error;
+
 	if (outf != NULL) {
 		rc = comp_dump_ic(comp, outf);
 		if (rc != EOK)
 			goto error;
+	}
+
+	if (comp->mod->object == NULL) {
+		rc = z80_emit_create(&emit);
+		if (rc != EOK)
+			goto error;
+
+		rc = z80_emit_module(emit, comp->mod->ic, &comp->mod->object);
+		if (rc != EOK)
+			goto error;
+
+		z80_emit_destroy(emit);
+		emit = NULL;
 	}
 
 	return EOK;
@@ -612,6 +648,21 @@ int comp_dump_ic(comp_t *comp, FILE *f)
 
 	assert(comp->mod->ic != NULL);
 	rc = z80ic_module_print(comp->mod->ic, f);
+	return rc;
+}
+
+/** Dump binary object.
+ *
+ * @param comp Compiler
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int comp_dump_obj(comp_t *comp, FILE *f)
+{
+	int rc;
+
+	assert(comp->mod->object != NULL);
+	rc = obj_object_dump(comp->mod->object, f);
 	return rc;
 }
 

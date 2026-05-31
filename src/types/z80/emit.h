@@ -21,28 +21,20 @@
  */
 
 /*
- * Compiler
+ * Z80 instruction selection
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TYPES_Z80_EMIT_H
+#define TYPES_Z80_EMIT_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
-
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+/** Z80 binary instruction emitter */
+typedef struct {
+	/** Z80 IC module */
+	struct z80ic_module *ic_module;
+	/** Binary object */
+	struct obj_object *object;
+	/** Binary object section */
+	struct obj_section *section;
+} z80_emit_t;
 
 #endif

@@ -21,28 +21,27 @@
  */
 
 /*
- * Compiler
+ * Binary object symbol
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TYPES_OBJECT_SYMBOL_H
+#define TYPES_OBJECT_SYMBOL_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <adt/list.h>
+#include <stdint.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+/** Object symbol */
+typedef struct obj_symbol {
+	/** Containing object */
+	struct obj_object *object;
+	/** Link to @c object->symbols */
+	link_t lsymbols;
+	/** Symbol name */
+	char *name;
+	/** Section where the symbol is located */
+	struct obj_section *section;
+	/** Symbol offset within section */
+	uint32_t offset;
+} obj_symbol_t;
 
 #endif

@@ -21,28 +21,35 @@
  */
 
 /*
- * Compiler
+ * Binary object relocation
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TYPES_OBJECT_RELOC_H
+#define TYPES_OBJECT_RELOC_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <adt/list.h>
+#include <stdint.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+/** Object relocation type */
+typedef enum {
+	/** 16-bit address (symbol value + addend) */
+	objr_addr16
+} obj_reloc_type_t;
+
+/** Object relocation */
+typedef struct obj_reloc {
+	/** Containing object */
+	struct obj_object *object;
+	/** Link to @c object->relocs */
+	link_t lrelocs;
+	/** Section where the relocation is located */
+	struct obj_section *section;
+	/** Relocation offset within section */
+	uint32_t offset;
+	/** Referenced symbol name */
+	char *sym_name;
+	/** Addend */
+	uint64_t addend;
+} obj_reloc_t;
 
 #endif

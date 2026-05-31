@@ -33,6 +33,7 @@
 #include <types/ir.h>
 #include <types/irlexer.h>
 #include <types/lexer.h>
+#include <types/object/object.h>
 #include <types/symbols.h>
 #include <types/z80/z80ic.h>
 
@@ -72,6 +73,8 @@ typedef struct comp_module {
 	z80ic_module_t *vric;
 	/** Module Z80 IC */
 	z80ic_module_t *ic;
+	/** Module binary object */
+	obj_object_t *object;
 } comp_module_t;
 
 /** Compiler */
@@ -111,7 +114,9 @@ typedef enum {
 	/** Dump intermediate representation */
 	compf_dump_ir = 0x4,
 	/** Dump instruction code with virtual registers */
-	compf_dump_vric = 0x8
+	compf_dump_vric = 0x8,
+	/** Dump binary object */
+	compf_dump_obj = 0x10
 } comp_flags_t;
 
 #endif

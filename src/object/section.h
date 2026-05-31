@@ -21,28 +21,20 @@
  */
 
 /*
- * Compiler
+ * Binary object section
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef OBJECT_SECTION_H
+#define OBJECT_SECTION_H
 
 #include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <types/object/object.h>
+#include <types/object/section.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+extern int obj_section_create(obj_object_t *, obj_section_t **);
+extern void obj_section_destroy(obj_section_t *);
+extern int obj_section_dump(obj_section_t *, FILE *);
+extern obj_section_t *obj_section_first(obj_object_t *);
+extern obj_section_t *obj_section_next(obj_section_t *);
 
 #endif
