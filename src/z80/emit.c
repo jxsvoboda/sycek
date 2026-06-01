@@ -29,6 +29,7 @@
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <types/z80/z80opc.h>
 #include <object/object.h>
 #include <object/section.h>
 #include <z80/emit.h>
@@ -146,6 +147,44 @@ static int z80_emit_var(z80_emit_t *emit, z80ic_var_t *var)
 	return rc;
 }
 
+/** Emit binary return instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC return instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ret(z80_emit_t *emit, z80ic_ret_t *instr)
+{
+	int rc;
+
+	(void)instr;
+
+	rc = obj_section_append_u8(emit->section, z80opc_ret);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Emit binary instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param var Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
+{
+	switch (instr->itype) {
+	case z80i_ret:
+		return z80_emit_ret(emit, (z80ic_ret_t *)instr->ext);
+	default:
+		/* XXX */
+		return EOK;
+	}
+
+	return EINVAL;
+}
+
 /** Emit binary instructions for procedure.
  *
  * @param emit Binary instruction emitter
@@ -154,12 +193,21 @@ static int z80_emit_var(z80_emit_t *emit, z80ic_var_t *var)
  */
 static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 {
-	int rc = EOK;
+	z80ic_lblock_entry_t *entry;
+	int rc;
 
-	(void)emit;
-	(void)proc;
+	entry = z80ic_lblock_first(proc->lblock);
+	while (entry != NULL) {
+		if (entry->instr != NULL) {
+			rc = z80_emit_instr(emit, entry->instr);
+			if (rc != EOK)
+				return rc;
+		}
 
-	return rc;
+		entry = z80ic_lblock_next(entry);
+	}
+
+	return EOK;
 }
 
 /** Emit binary instructions for declaration.
