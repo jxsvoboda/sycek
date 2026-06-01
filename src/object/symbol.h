@@ -24,26 +24,19 @@
  * Binary object symbol
  */
 
-#ifndef TYPES_OBJECT_SYMBOL_H
-#define TYPES_OBJECT_SYMBOL_H
+#ifndef OBJECT_SYMBOL_H
+#define OBJECT_SYMBOL_H
 
-#include <adt/list.h>
-#include <stdint.h>
+#include <stdio.h>
+#include <types/object/object.h>
+#include <types/object/section.h>
+#include <types/object/symbol.h>
 
-/** Object symbol */
-typedef struct obj_symbol {
-	/** Containing object */
-	struct obj_object *object;
-	/** Link to @c object->symbols */
-	link_t lsymbols;
-	/** Symbol name */
-	char *name;
-	/** Section where the symbol is located */
-	struct obj_section *section;
-	/** Symbol offset within section */
-	uint32_t offset;
-	/** Symbol size */
-	uint32_t size;
-} obj_symbol_t;
+extern int obj_symbol_create(obj_object_t *, const char *, obj_section_t *,
+    uint32_t, uint32_t, obj_symbol_t **);
+extern void obj_symbol_destroy(obj_symbol_t *);
+extern int obj_symbol_dump(obj_symbol_t *, FILE *);
+extern obj_symbol_t *obj_symbol_first(obj_object_t *);
+extern obj_symbol_t *obj_symbol_next(obj_symbol_t *);
 
 #endif

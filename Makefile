@@ -69,6 +69,7 @@ sources_syc_common = \
     src/labels.c \
     src/object/object.c \
     src/object/section.c \
+    src/object/symbol.c \
     src/scope.c \
     src/syc.c \
     src/symbols.c \

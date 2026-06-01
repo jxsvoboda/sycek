@@ -26,16 +26,19 @@
 
 #include <merrno.h>
 #include <stdlib.h>
+#include <string.h>
 #include <object/object.h>
 #include <object/section.h>
 
 /** Create binary object section structure.
  *
  * @param object Containing object
+ * @param name Section name
  * @param rsection Place to store pointer to new binary object section
  * @return EOK on success, ENOMEM if out of memory
  */
-int obj_section_create(obj_object_t *object, obj_section_t **rsection)
+int obj_section_create(obj_object_t *object, const char *name,
+    obj_section_t **rsection)
 {
 	obj_section_t *section;
 
@@ -47,8 +50,15 @@ int obj_section_create(obj_object_t *object, obj_section_t **rsection)
 	section->len = 0;
 	section->alloc_len = 16;
 
+	section->name = strdup(name);
+	if (section->name == NULL) {
+		free(section);
+		return ENOMEM;
+	}
+
 	section->data = malloc((size_t)section->alloc_len);
 	if (section->data == NULL) {
+		free(section->name);
 		free(section);
 		return ENOMEM;
 	}
@@ -68,6 +78,7 @@ void obj_section_destroy(obj_section_t *section)
 		return;
 
 	list_remove(&section->lsections);
+	free(section->name);
 	free(section->data);
 	free(section);
 }
@@ -82,8 +93,6 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 {
 	int rc;
 	size_t i;
-
-	(void)section;
 
 	rc = fprintf(outf, "  Section: (length: %u bytes)\n", section->len);
 	if (rc < 0)

@@ -32,6 +32,7 @@
 #include <types/z80/z80opc.h>
 #include <object/object.h>
 #include <object/section.h>
+#include <object/symbol.h>
 #include <z80/emit.h>
 #include <z80/z80ic.h>
 
@@ -129,11 +130,13 @@ static int z80_emit_dblock_entry(z80_emit_t *emit, z80ic_dblock_entry_t *entry)
  */
 static int z80_emit_var(z80_emit_t *emit, z80ic_var_t *var)
 {
-	int rc = EOK;
+	int rc;
 	z80ic_dblock_entry_t *entry;
+	uint32_t offset;
+	uint32_t size;
+	obj_symbol_t *symbol;
 
-	(void)emit;
-	(void)var;
+	offset = emit->section->len;
 
 	entry = z80ic_dblock_first(var->dblock);
 	while (entry != NULL) {
@@ -144,7 +147,14 @@ static int z80_emit_var(z80_emit_t *emit, z80ic_var_t *var)
 		entry = z80ic_dblock_next(entry);
 	}
 
-	return rc;
+	size = emit->section->len - offset;
+	rc = obj_symbol_create(emit->object, var->ident, emit->section,
+	    offset, size, &symbol);
+	if (rc != EOK)
+		return rc;
+
+	(void)symbol;
+	return EOK;
 }
 
 /** Emit binary return instruction.
@@ -194,7 +204,12 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 {
 	z80ic_lblock_entry_t *entry;
+	uint32_t offset;
+	uint32_t size;
+	obj_symbol_t *symbol;
 	int rc;
+
+	offset = emit->section->len;
 
 	entry = z80ic_lblock_first(proc->lblock);
 	while (entry != NULL) {
@@ -206,6 +221,12 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 
 		entry = z80ic_lblock_next(entry);
 	}
+
+	size = emit->section->len - offset;
+	rc = obj_symbol_create(emit->object, proc->ident, emit->section,
+	    offset, size, &symbol);
+	if (rc != EOK)
+		return rc;
 
 	return EOK;
 }
@@ -261,7 +282,7 @@ int z80_emit_module(z80_emit_t *emit, z80ic_module_t *icmod,
 	emit->object = object;
 	emit->ic_module = icmod;
 
-	rc = obj_section_create(object, &section);
+	rc = obj_section_create(object, "common", &section);
 	if (rc != EOK)
 		goto error;
 

@@ -27,11 +27,12 @@
 #ifndef OBJECT_SECTION_H
 #define OBJECT_SECTION_H
 
+#include <stdint.h>
 #include <stdio.h>
 #include <types/object/object.h>
 #include <types/object/section.h>
 
-extern int obj_section_create(obj_object_t *, obj_section_t **);
+extern int obj_section_create(obj_object_t *, const char *, obj_section_t **);
 extern void obj_section_destroy(obj_section_t *);
 extern int obj_section_dump(obj_section_t *, FILE *);
 extern obj_section_t *obj_section_first(obj_object_t *);

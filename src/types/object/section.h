@@ -36,6 +36,8 @@ typedef struct obj_section {
 	struct obj_object *object;
 	/** Link to @c object->sections */
 	link_t lsections;
+	/** Section name */
+	char *name;
 	/** Section data */
 	uint8_t *data;
 	/** Section length */

@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <object/object.h>
 #include <object/section.h>
+#include <object/symbol.h>
 
 /** Create binary object structure.
  *
@@ -56,6 +57,7 @@ int obj_object_create(obj_object_t **robject)
 void obj_object_destroy(obj_object_t *object)
 {
 	obj_section_t *section;
+	obj_symbol_t *symbol;
 
 	if (object == NULL)
 		return;
@@ -67,7 +69,13 @@ void obj_object_destroy(obj_object_t *object)
 		section = obj_section_first(object);
 	}
 
-	/* XXX Destroy symbols. */
+	/* Destroy symbols. */
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		obj_symbol_destroy(symbol);
+		symbol = obj_symbol_first(object);
+	}
+
 	/* XXX Destroy relocations. */
 
 	free(object);
@@ -82,6 +90,7 @@ void obj_object_destroy(obj_object_t *object)
 int obj_object_dump(obj_object_t *object, FILE *outf)
 {
 	obj_section_t *section;
+	obj_symbol_t *symbol;
 	int rc;
 
 	(void)object;
@@ -97,6 +106,15 @@ int obj_object_dump(obj_object_t *object, FILE *outf)
 			return rc;
 
 		section = obj_section_next(section);
+	}
+
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		rc = obj_symbol_dump(symbol, outf);
+		if (rc != EOK)
+			return rc;
+
+		symbol = obj_symbol_next(symbol);
 	}
 
 	return EOK;
