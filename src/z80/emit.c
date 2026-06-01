@@ -27,6 +27,7 @@
  */
 
 #include <merrno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <object/object.h>
 #include <object/section.h>
@@ -50,6 +51,51 @@ int z80_emit_create(z80_emit_t **remit)
 	return EOK;
 
 }
+
+/** Emit constant 8-bit value.
+ *
+ * @param emit Binary instruction emitter.
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+static int z80_emit_u8(z80_emit_t *emit, uint8_t value)
+{
+	return obj_section_append_u8(emit->section, value);
+}
+
+/** Emit constant 16-bit value.
+ *
+ * @param emit Binary instruction emitter.
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+static int z80_emit_u16(z80_emit_t *emit, uint16_t value)
+{
+	return obj_section_append_u16le(emit->section, value);
+}
+
+/** Emit constant 32-bit value.
+ *
+ * @param emit Binary instruction emitter.
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+static int z80_emit_u32(z80_emit_t *emit, uint32_t value)
+{
+	return obj_section_append_u32le(emit->section, value);
+}
+
+/** Emit constant 64-bit value.
+ *
+ * @param emit Binary instruction emitter.
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+static int z80_emit_u64(z80_emit_t *emit, uint64_t value)
+{
+	return obj_section_append_u64le(emit->section, value);
+}
+
 /** Emit binary instructions for data block entry.
  *
  * @param emit Binary instruction emitter
@@ -58,12 +104,20 @@ int z80_emit_create(z80_emit_t **remit)
  */
 static int z80_emit_dblock_entry(z80_emit_t *emit, z80ic_dblock_entry_t *entry)
 {
-	int rc = EOK;
+	z80ic_dentry_t *dentry = entry->dentry;
 
-	(void)emit;
-	(void)entry;
+	switch (dentry->dtype) {
+	case z80icd_defb:
+		return z80_emit_u8(emit, (uint8_t)dentry->value);
+	case z80icd_defw:
+		return z80_emit_u16(emit, (uint16_t)dentry->value);
+	case z80icd_defdw:
+		return z80_emit_u32(emit, (uint32_t)dentry->value);
+	case z80icd_defqw:
+		return z80_emit_u64(emit, (uint64_t)dentry->value);
+	}
 
-	return rc;
+	return EINVAL;
 }
 
 /** Emit binary instructions for variable.
@@ -162,6 +216,8 @@ int z80_emit_module(z80_emit_t *emit, z80ic_module_t *icmod,
 	rc = obj_section_create(object, &section);
 	if (rc != EOK)
 		goto error;
+
+	emit->section = section;
 
 	decln = z80ic_module_first(icmod);
 	while (decln != NULL) {

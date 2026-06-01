@@ -44,6 +44,15 @@ int obj_section_create(obj_object_t *object, obj_section_t **rsection)
 		return ENOMEM;
 
 	section->object = object;
+	section->len = 0;
+	section->alloc_len = 16;
+
+	section->data = malloc((size_t)section->alloc_len);
+	if (section->data == NULL) {
+		free(section);
+		return ENOMEM;
+	}
+
 	list_append(&section->lsections, &object->sections);
 	*rsection = section;
 	return EOK;
@@ -59,6 +68,7 @@ void obj_section_destroy(obj_section_t *section)
 		return;
 
 	list_remove(&section->lsections);
+	free(section->data);
 	free(section);
 }
 
@@ -71,12 +81,31 @@ void obj_section_destroy(obj_section_t *section)
 int obj_section_dump(obj_section_t *section, FILE *outf)
 {
 	int rc;
+	size_t i;
 
 	(void)section;
 
-	rc = fprintf(outf, "  Section:\n");
+	rc = fprintf(outf, "  Section: (length: %u bytes)\n", section->len);
 	if (rc < 0)
 		return EIO;
+
+	i = 0;
+	while (i < section->len) {
+		rc = fprintf(outf, "    %04zx:", i);
+		if (rc < 0)
+			return EIO;
+
+		do {
+			rc = fprintf(outf, " %02x", section->data[i]);
+			if (rc < 0)
+				return EIO;
+			++i;
+		} while (i % 16 != 0 && i < section->len);
+
+		rc = fputc('\n', outf);
+		if (rc < 0)
+			return EIO;
+	}
 
 	return EOK;
 }
@@ -111,4 +140,92 @@ obj_section_t *obj_section_next(obj_section_t *cur)
 		return NULL;
 
 	return list_get_instance(link, obj_section_t, lsections);
+}
+
+/** Append 8-bit value at the end of section.
+ *
+ * @param section Section
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+int obj_section_append_u8(obj_section_t *section, uint8_t value)
+{
+	void *ptr;
+
+	/* Need to allocate more memory? */
+	if (section->len >= section->alloc_len) {
+		section->alloc_len *= 2;
+		ptr = realloc(section->data, (size_t)(section->alloc_len * 2));
+		if (ptr == NULL)
+			return ENOMEM;
+
+		section->data = ptr;
+		section->alloc_len = section->alloc_len * 2;
+	}
+
+	section->data[(size_t)(section->len++)] = value;
+	return EOK;
+}
+
+/** Append 8-bit value at the end of section.
+ *
+ * @param section Section
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+int obj_section_append_u16le(obj_section_t *section, uint16_t value)
+{
+	int rc;
+
+	rc = obj_section_append_u8(section, value & 0xff);
+	if (rc != EOK)
+		return rc;
+
+	rc = obj_section_append_u8(section, value >> 8);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Append 8-bit value at the end of section.
+ *
+ * @param section Section
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+int obj_section_append_u32le(obj_section_t *section, uint32_t value)
+{
+	int rc;
+
+	rc = obj_section_append_u16le(section, value & 0xffffl);
+	if (rc != EOK)
+		return rc;
+
+	rc = obj_section_append_u16le(section, value >> 16);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Append 8-bit value at the end of section.
+ *
+ * @param section Section
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+int obj_section_append_u64le(obj_section_t *section, uint64_t value)
+{
+	int rc;
+
+	rc = obj_section_append_u32le(section, value & 0xffffffffll);
+	if (rc != EOK)
+		return rc;
+
+	rc = obj_section_append_u32le(section, value >> 32);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
 }

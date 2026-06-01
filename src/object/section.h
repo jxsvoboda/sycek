@@ -36,5 +36,9 @@ extern void obj_section_destroy(obj_section_t *);
 extern int obj_section_dump(obj_section_t *, FILE *);
 extern obj_section_t *obj_section_first(obj_object_t *);
 extern obj_section_t *obj_section_next(obj_section_t *);
+extern int obj_section_append_u8(obj_section_t *, uint8_t);
+extern int obj_section_append_u16le(obj_section_t *, uint16_t);
+extern int obj_section_append_u32le(obj_section_t *, uint32_t);
+extern int obj_section_append_u64le(obj_section_t *, uint64_t);
 
 #endif
