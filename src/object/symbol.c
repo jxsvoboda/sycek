@@ -69,7 +69,7 @@ int obj_symbol_create(obj_object_t *object, const char *name,
 
 /** Destroy binary object symbol.
  *
- * @param symbol symbol or @c NULL
+ * @param symbol Symbol or @c NULL
  */
 void obj_symbol_destroy(obj_symbol_t *symbol)
 {
@@ -83,7 +83,7 @@ void obj_symbol_destroy(obj_symbol_t *symbol)
 
 /** Dump binary object symbol.
  *
- * @param symbol symbol
+ * @param symbol Symbol
  * @param outf Output file
  * @return EOK on success, ENOMEM if out of memory
  */

@@ -68,6 +68,7 @@ sources_syc_common = \
     src/irparser.c \
     src/labels.c \
     src/object/object.c \
+    src/object/reloc.c \
     src/object/section.c \
     src/object/symbol.c \
     src/scope.c \

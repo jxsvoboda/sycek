@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <types/z80/z80opc.h>
 #include <object/object.h>
+#include <object/reloc.h>
 #include <object/section.h>
 #include <object/symbol.h>
 #include <z80/emit.h>
@@ -98,6 +99,29 @@ static int z80_emit_u64(z80_emit_t *emit, uint64_t value)
 	return obj_section_append_u64le(emit->section, value);
 }
 
+/** Emit 16-bit symbol address with addend.
+ *
+ * @param emit Binary instruction emitter.
+ * @param ident Symbol identifier
+ * @param value Addend
+ * @return EOK on success or an error code
+ */
+static int z80_emit_sa16(z80_emit_t *emit, const char *ident, uint16_t value)
+{
+	int rc;
+	uint32_t offset;
+
+	offset = emit->section->len;
+
+	rc = obj_section_append_u16le(emit->section, 0);
+	if (rc != EOK)
+		return rc;
+
+	rc = obj_reloc_create(emit->object, emit->section, objr_sa16,
+	    offset, ident, value);
+	return rc;
+}
+
 /** Emit binary instructions for data block entry.
  *
  * @param emit Binary instruction emitter
@@ -112,7 +136,11 @@ static int z80_emit_dblock_entry(z80_emit_t *emit, z80ic_dblock_entry_t *entry)
 	case z80icd_defb:
 		return z80_emit_u8(emit, (uint8_t)dentry->value);
 	case z80icd_defw:
-		return z80_emit_u16(emit, (uint16_t)dentry->value);
+		if (dentry->ident != NULL)
+			return z80_emit_sa16(emit, dentry->ident,
+			    (uint16_t)dentry->value);
+		else
+			return z80_emit_u16(emit, (uint16_t)dentry->value);
 	case z80icd_defdw:
 		return z80_emit_u32(emit, (uint32_t)dentry->value);
 	case z80icd_defqw:

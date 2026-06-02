@@ -24,36 +24,19 @@
  * Binary object relocation
  */
 
-#ifndef TYPES_OBJECT_RELOC_H
-#define TYPES_OBJECT_RELOC_H
+#ifndef OBJECT_RELOC_H
+#define OBJECT_RELOC_H
 
-#include <adt/list.h>
-#include <stdint.h>
+#include <stdio.h>
+#include <types/object/object.h>
+#include <types/object/reloc.h>
+#include <types/object/section.h>
 
-/** Object relocation type */
-typedef enum {
-	/** 16-bit symbol value + addend */
-	objr_sa16,
-	/** 16-bit base address + addend */
-	objr_rela16
-} obj_reloc_type_t;
-
-/** Object relocation */
-typedef struct obj_reloc {
-	/** Containing object */
-	struct obj_object *object;
-	/** Link to @c object->relocs */
-	link_t lrelocs;
-	/** Section where the relocation is located */
-	struct obj_section *section;
-	/** Relocation type */
-	obj_reloc_type_t rtype;
-	/** Relocation offset within section */
-	uint32_t offset;
-	/** Referenced symbol name */
-	char *sym_name;
-	/** Addend */
-	uint64_t addend;
-} obj_reloc_t;
+extern int obj_reloc_create(obj_object_t *, obj_section_t *,
+    obj_reloc_type_t, uint32_t, const char *, uint64_t);
+extern void obj_reloc_destroy(obj_reloc_t *);
+extern int obj_reloc_dump(obj_reloc_t *, FILE *);
+extern obj_reloc_t *obj_reloc_first(obj_object_t *);
+extern obj_reloc_t *obj_reloc_next(obj_reloc_t *);
 
 #endif

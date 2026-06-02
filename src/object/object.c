@@ -27,6 +27,7 @@
 #include <merrno.h>
 #include <stdlib.h>
 #include <object/object.h>
+#include <object/reloc.h>
 #include <object/section.h>
 #include <object/symbol.h>
 
@@ -58,6 +59,7 @@ void obj_object_destroy(obj_object_t *object)
 {
 	obj_section_t *section;
 	obj_symbol_t *symbol;
+	obj_reloc_t *reloc;
 
 	if (object == NULL)
 		return;
@@ -76,7 +78,12 @@ void obj_object_destroy(obj_object_t *object)
 		symbol = obj_symbol_first(object);
 	}
 
-	/* XXX Destroy relocations. */
+	/* Destroy relocations. */
+	reloc = obj_reloc_first(object);
+	while (reloc != NULL) {
+		obj_reloc_destroy(reloc);
+		reloc = obj_reloc_first(object);
+	}
 
 	free(object);
 }
@@ -91,6 +98,7 @@ int obj_object_dump(obj_object_t *object, FILE *outf)
 {
 	obj_section_t *section;
 	obj_symbol_t *symbol;
+	obj_reloc_t *reloc;
 	int rc;
 
 	(void)object;
@@ -115,6 +123,15 @@ int obj_object_dump(obj_object_t *object, FILE *outf)
 			return rc;
 
 		symbol = obj_symbol_next(symbol);
+	}
+
+	reloc = obj_reloc_first(object);
+	while (reloc != NULL) {
+		rc = obj_reloc_dump(reloc, outf);
+		if (rc != EOK)
+			return rc;
+
+		reloc = obj_reloc_next(reloc);
 	}
 
 	return EOK;
