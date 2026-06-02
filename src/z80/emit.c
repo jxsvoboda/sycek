@@ -241,6 +241,13 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 
 	entry = z80ic_lblock_first(proc->lblock);
 	while (entry != NULL) {
+		if (entry->label != NULL) {
+			rc = obj_symbol_create(emit->object, entry->label,
+			    emit->section, emit->section->len, 0, &symbol);
+			if (rc != EOK)
+				return rc;
+		}
+
 		if (entry->instr != NULL) {
 			rc = z80_emit_instr(emit, entry->instr);
 			if (rc != EOK)
