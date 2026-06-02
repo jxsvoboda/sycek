@@ -721,31 +721,33 @@ typedef enum {
 /** Z80 IC dd register pair.
  *
  * One of the four 16-bit registers BC, DE, HL, SP.
+ * The enum values correspond to actual encoding in instruction.
  */
 typedef enum {
 	/** BC register pair */
-	z80ic_dd_bc,
+	z80ic_dd_bc = 0x0,
 	/** DE register pair */
-	z80ic_dd_de,
+	z80ic_dd_de = 0x1,
 	/** HL register pair */
-	z80ic_dd_hl,
+	z80ic_dd_hl = 0x2,
 	/** SP 16-bit register */
-	z80ic_dd_sp
+	z80ic_dd_sp = 0x3
 } z80ic_dd_t;
 
 /** Z80 IC pp register pair.
  *
  * One of the four 16-bit registers BC, DE, IX, SP.
+ * The enum values correspond to actual encoding in instruction.
  */
 typedef enum {
 	/** BC register pair */
-	z80ic_pp_bc,
+	z80ic_pp_bc = 0x0,
 	/** DE register pair */
-	z80ic_pp_de,
+	z80ic_pp_de = 0x1,
 	/** HL register pair */
-	z80ic_pp_ix,
+	z80ic_pp_ix = 0x2,
 	/** SP 16-bit register */
-	z80ic_pp_sp
+	z80ic_pp_sp = 0x3
 } z80ic_pp_t;
 
 /** Z80 IC qq register pair.
