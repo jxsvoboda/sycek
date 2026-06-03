@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -184,15 +184,15 @@ typedef enum {
 	z80i_sub_iixd,
 	/** Subtract (IY+d) */
 	z80i_sub_iiyd,
-	/** Subtract register to A with carry */
+	/** Subtract register from A with carry */
 	z80i_sbc_a_r,
-	/** Subtract 8-bit immediate to A with carry */
+	/** Subtract 8-bit immediate from A with carry */
 	z80i_sbc_a_n,
-	/** Subtract (HL) to A with carry */
+	/** Subtract (HL) from A with carry */
 	z80i_sbc_a_ihl,
-	/** Subtract (IX+d) to A with carry */
+	/** Subtract (IX+d) from A with carry */
 	z80i_sbc_a_iixd,
-	/** Subtract (IY+d) to A with carry */
+	/** Subtract (IY+d) from A with carry */
 	z80i_sbc_a_iiyd,
 	/** Bitwise AND with register */
 	z80i_and_r,
@@ -783,24 +783,25 @@ typedef enum {
 /** Z80 IC condition.
  *
  * Used in conditional jumps.
+ * The enum values correspond to actual encoding in instruction.
  */
 typedef enum {
 	/** Non-Zero */
-	z80ic_cc_nz,
+	z80ic_cc_nz = 0x0,
 	/** Zero */
-	z80ic_cc_z,
+	z80ic_cc_z = 0x1,
 	/** No Carry */
-	z80ic_cc_nc,
+	z80ic_cc_nc = 0x2,
 	/** Carry */
-	z80ic_cc_c,
+	z80ic_cc_c = 0x3,
 	/** Parity Odd */
-	z80ic_cc_po,
+	z80ic_cc_po = 0x4,
 	/** Parity Even */
-	z80ic_cc_pe,
+	z80ic_cc_pe = 0x5,
 	/** Sign Positive */
-	z80ic_cc_p,
+	z80ic_cc_p = 0x6,
 	/** Sign Negative */
-	z80ic_cc_m
+	z80ic_cc_m = 0x7
 } z80ic_cc_t;
 
 /** Z80 IC 16-bit register.
