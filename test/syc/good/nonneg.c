@@ -29,6 +29,11 @@ void foo(void)
 	u = u & ~e_2;
 
 	/* no signed to unsigned conversion warning */
-	u = (u & (0x80^0xff)) | (b ? 0x80 : 0) | 0;
+	u = (u & (0x80 ^ 0xff)) | (b ? 0x80 : 0) | 0;
 
+	/*
+	 * no bitwise operation on signed integer warning,
+	 * nonnegative bit propagated
+	 */
+	u = (1 | uc) | uc;
 }

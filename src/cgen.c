@@ -6458,6 +6458,17 @@ static int cgen_eident(cgen_expr_t *cgexpr, ast_eident_t *eident,
 
 	/* Mark identifier as used */
 	member->used = true;
+
+	/* Unsigned integral type? */
+	if (cgen_type_is_integral(cgexpr->cgen, eres->cgtype) &&
+	    !cgen_type_is_signed(cgexpr->cgen, eres->cgtype)) {
+		/*
+		 * Mark the value as nonnegative. This is propagated
+		 * through arithmetic and logical operatons
+		 * and used later for checks.
+		 */
+		eres->nonneg = true;
+	}
 	return rc;
 }
 
@@ -16831,6 +16842,7 @@ static int cgen_load(cgen_expr_t *cgexpr, cgen_eres_t *res,
 	eres->unprombits = eres->sigbits;
 	eres->tfirst = res->tfirst;
 	eres->tlast = res->tlast;
+	eres->nonneg = res->nonneg;
 
 	return EOK;
 error:
