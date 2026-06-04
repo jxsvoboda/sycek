@@ -89,6 +89,8 @@ typedef struct comp {
 	comp_mtype_t mtype;
 	/** Code generator flags */
 	cgen_flags_t cgflags;
+	/** Linked object */
+	obj_object_t *linked_object;
 } comp_t;
 
 /** Compiler parser input */
@@ -116,7 +118,9 @@ typedef enum {
 	/** Dump instruction code with virtual registers */
 	compf_dump_vric = 0x8,
 	/** Dump binary object */
-	compf_dump_obj = 0x10
+	compf_dump_obj = 0x10,
+	/** Do not link into an executable */
+	compf_no_link = 0x20
 } comp_flags_t;
 
 #endif

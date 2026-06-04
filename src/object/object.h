@@ -33,5 +33,6 @@
 extern int obj_object_create(obj_object_t **);
 extern void obj_object_destroy(obj_object_t *);
 extern int obj_object_dump(obj_object_t *, FILE *);
+extern int obj_object_copy(obj_object_t *, obj_object_t *);
 
 #endif

@@ -24,12 +24,15 @@
  * Binary object relocation
  */
 
+#include <assert.h>
+#include <inttypes.h>
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <object/object.h>
 #include <object/reloc.h>
+#include <object/section.h>
 #include <object/symbol.h>
 
 /** Create binary object relocation structure.
@@ -115,6 +118,26 @@ int obj_reloc_dump(obj_reloc_t *reloc, FILE *outf)
 	return EOK;
 }
 
+/** Copy binary object relocation to another object.
+ *
+ * @param reloc Relocation
+ * @param dest Destination object
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_reloc_copy(obj_reloc_t *reloc, obj_object_t *dest)
+{
+	obj_section_t *dsection;
+	int rc;
+
+	dsection = obj_section_by_name(dest, reloc->section->name);
+	if (dsection == NULL)
+		return EINVAL;
+
+	rc = obj_reloc_create(dest, dsection, reloc->rtype, reloc->offset,
+	    reloc->sym_name, reloc->addend);
+	return rc;
+}
+
 /** Get first relocation in object.
  *
  * @param object Object
@@ -145,4 +168,55 @@ obj_reloc_t *obj_reloc_next(obj_reloc_t *cur)
 		return NULL;
 
 	return list_get_instance(link, obj_reloc_t, lrelocs);
+}
+
+/** Process SA16 relocation.
+ *
+ * @param reloc Relocation
+ * @return EOK on success or an error code
+ */
+static int obj_reloc_process_sa16(obj_reloc_t *reloc)
+{
+	obj_symbol_t *symbol;
+	uint64_t addr;
+	int rc;
+
+	symbol = obj_symbol_find(reloc->object, reloc->sym_name);
+	if (symbol == NULL) {
+		(void)fprintf(stderr, "Link error: Symbol '%s' not found.\n",
+		    reloc->sym_name);
+		return ENOENT;
+	}
+
+	addr = symbol->section->base_addr + symbol->offset + reloc->addend;
+	if (addr > 0xffffu) {
+		(void)fprintf(stderr, "Link error: Address 0x%" PRIx64
+		    " is out of range.\n", addr);
+		return EINVAL;
+	}
+
+	rc = obj_section_write_u16le(reloc->section, reloc->offset,
+	    (uint16_t)addr);
+	if (rc != EOK)
+		return rc;
+
+	obj_reloc_destroy(reloc);
+	return EOK;
+}
+
+/** Process relocation.
+ *
+ * @param reloc Relocation
+ * @return EOK on success or an error code
+ */
+int obj_reloc_process(obj_reloc_t *reloc)
+{
+	switch (reloc->rtype) {
+	case objr_sa16:
+		return obj_reloc_process_sa16(reloc);
+		break;
+	default:
+		assert(false);
+		return EINVAL;
+	}
 }

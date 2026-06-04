@@ -21,31 +21,20 @@
  */
 
 /*
- * Binary object section
+ * Binary object linker
  */
 
-#ifndef TYPES_OBJECT_SECTION_H
-#define TYPES_OBJECT_SECTION_H
+#ifndef OBJECT_LINKER_H
+#define OBJECT_LINKER_H
 
-#include <adt/list.h>
 #include <stdint.h>
+#include <types/object/linker.h>
+#include <types/object/object.h>
 
-/** Object section */
-typedef struct obj_section {
-	/** Containing object */
-	struct obj_object *object;
-	/** Link to @c object->sections */
-	link_t lsections;
-	/** Section name */
-	char *name;
-	/** Section data */
-	uint8_t *data;
-	/** Section length */
-	uint32_t len;
-	/** Allocation length */
-	uint32_t alloc_len;
-	/** Base address */
-	uint32_t base_addr;
-} obj_section_t;
+extern int obj_linker_create(obj_linker_t **);
+extern void obj_linker_destroy(obj_linker_t *);
+extern int obj_linker_add_src(obj_linker_t *, obj_object_t *);
+extern int obj_linker_set_origin(obj_linker_t *, uint32_t);
+extern int obj_linker_link(obj_linker_t *, obj_object_t **);
 
 #endif

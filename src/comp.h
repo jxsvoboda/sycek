@@ -44,5 +44,6 @@ extern int comp_dump_ic(comp_t *, FILE *);
 extern int comp_dump_obj(comp_t *, FILE *);
 extern void comp_destroy(comp_t *);
 extern int comp_run(comp_t *, FILE *);
+extern int comp_link(comp_t *);
 
 #endif

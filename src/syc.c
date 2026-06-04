@@ -55,6 +55,7 @@ static void print_syntax(void)
 	    "\t--dump-ir Dump intermediate representation\n"
 	    "\t--dump-vric Dump instruction code with virtual registers\n"
 	    "\t--dump-obj Dump binary object\n"
+	    "\t--no-link Do not link\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
 	    "\t--int-promotion Enable integer promotion\n");
@@ -215,6 +216,12 @@ static int compile_file(const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
+	if ((flags & compf_no_link) == compf_none) {
+		rc = comp_link(comp);
+		if (rc != EOK)
+			goto error;
+	}
+
 	if (fflush(outf) < 0) {
 		(void)fprintf(stderr, "Error writing to '%s'.\n", outfname);
 		rc = EIO;
@@ -324,6 +331,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--dump-obj") == 0) {
 			++i;
 			flags |= compf_dump_obj;
+		} else if (strcmp(argv[i], "--no-link") == 0) {
+			++i;
+			flags |= compf_no_link;
 		} else if (strcmp(argv[i], "--lvalue-args") == 0) {
 			++i;
 			cgflags |= cgf_lvalue_args;

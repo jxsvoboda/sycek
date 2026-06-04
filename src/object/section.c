@@ -94,7 +94,7 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 	int rc;
 	size_t i;
 
-	rc = fprintf(outf, "  Section: (length: %u bytes)\n", section->len);
+	rc = fprintf(outf, "  Section: (length: %u bytes base:0x%x)\n", section->len, section->base_addr);
 	if (rc < 0)
 		return EIO;
 
@@ -116,6 +116,36 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 			return EIO;
 	}
 
+	return EOK;
+}
+
+/** Copy binary object section to another object.
+ *
+ * @param section Section
+ * @param dest Destination object
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_section_copy(obj_section_t *section, obj_object_t *dest)
+{
+	int rc;
+	obj_section_t *dsection = NULL;
+	void *data;
+
+	rc = obj_section_create(dest, section->name, &dsection);
+	if (rc != EOK)
+		return rc;
+
+	data = malloc((size_t)section->alloc_len);
+	if (data == NULL) {
+		obj_section_destroy(dsection);
+		return rc;
+	}
+
+	dsection->data = data;
+	dsection->alloc_len = section->alloc_len;
+	dsection->len = section->len;
+
+	memcpy(dsection->data, section->data, (size_t)section->len);
 	return EOK;
 }
 
@@ -151,6 +181,28 @@ obj_section_t *obj_section_next(obj_section_t *cur)
 	return list_get_instance(link, obj_section_t, lsections);
 }
 
+/** Find section in object by name.
+ *
+ * @param object Object
+ * @param name Section name
+ * @return Section matching @a name or @c NULL if there are none.
+ */
+obj_section_t *obj_section_by_name(obj_object_t *object, const char *name)
+{
+	obj_section_t *section;
+
+	section = obj_section_first(object);
+	while (section != NULL) {
+		if (strcmp(section->name, name) == 0)
+			return section;
+
+		section = obj_section_next(section);
+	}
+
+	/* Not found. */
+	return NULL;
+}
+
 /** Append 8-bit value at the end of section.
  *
  * @param section Section
@@ -176,7 +228,7 @@ int obj_section_append_u8(obj_section_t *section, uint8_t value)
 	return EOK;
 }
 
-/** Append 8-bit value at the end of section.
+/** Append 16-bit value at the end of section.
  *
  * @param section Section
  * @param value Value
@@ -197,7 +249,7 @@ int obj_section_append_u16le(obj_section_t *section, uint16_t value)
 	return EOK;
 }
 
-/** Append 8-bit value at the end of section.
+/** Append 32-bit value at the end of section.
  *
  * @param section Section
  * @param value Value
@@ -218,7 +270,7 @@ int obj_section_append_u32le(obj_section_t *section, uint32_t value)
 	return EOK;
 }
 
-/** Append 8-bit value at the end of section.
+/** Append 64-bit value at the end of section.
  *
  * @param section Section
  * @param value Value
@@ -233,6 +285,47 @@ int obj_section_append_u64le(obj_section_t *section, uint64_t value)
 		return rc;
 
 	rc = obj_section_append_u32le(section, value >> 32);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Write 8-bit value at the specified offset in a section.
+ *
+ * @param section Section
+ * @param offset Offset
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+int obj_section_write_u8(obj_section_t *section, uint32_t offset,
+    uint8_t value)
+{
+	/* Range check. */
+	if (offset >= section->len)
+		return EINVAL;
+
+	section->data[(size_t)offset] = value;
+	return EOK;
+}
+
+/** Write 16-bit value at the specified offset in a section.
+ *
+ * @param section Section
+ * @param offset Offset
+ * @param value Value
+ * @return EOK on success or an error code
+ */
+int obj_section_write_u16le(obj_section_t *section, uint32_t offset,
+    uint16_t value)
+{
+	int rc;
+
+	rc = obj_section_write_u8(section, offset, value & 0xff);
+	if (rc != EOK)
+		return rc;
+
+	rc = obj_section_write_u8(section, offset + 1, value >> 8);
 	if (rc != EOK)
 		return rc;
 

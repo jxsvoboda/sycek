@@ -101,8 +101,6 @@ int obj_object_dump(obj_object_t *object, FILE *outf)
 	obj_reloc_t *reloc;
 	int rc;
 
-	(void)object;
-
 	rc = fprintf(outf, "Binary object:\n");
 	if (rc < 0)
 		return EIO;
@@ -128,6 +126,52 @@ int obj_object_dump(obj_object_t *object, FILE *outf)
 	reloc = obj_reloc_first(object);
 	while (reloc != NULL) {
 		rc = obj_reloc_dump(reloc, outf);
+		if (rc != EOK)
+			return rc;
+
+		reloc = obj_reloc_next(reloc);
+	}
+
+	return EOK;
+}
+
+/** Copy contents of one object to another object.
+ *
+ * The destination can be non-empty and the contents are appended
+ * at the end. The source object is not modified.
+ *
+ * @param src Source object
+ * @param dest Destination object
+ * @return EOK on success or an error code
+ */
+int obj_object_copy(obj_object_t *src, obj_object_t *dest)
+{
+	obj_section_t *section;
+	obj_symbol_t *symbol;
+	obj_reloc_t *reloc;
+	int rc;
+
+	section = obj_section_first(src);
+	while (section != NULL) {
+		rc = obj_section_copy(section, dest);
+		if (rc != EOK)
+			return rc;
+
+		section = obj_section_next(section);
+	}
+
+	symbol = obj_symbol_first(src);
+	while (symbol != NULL) {
+		rc = obj_symbol_copy(symbol, dest);
+		if (rc != EOK)
+			return rc;
+
+		symbol = obj_symbol_next(symbol);
+	}
+
+	reloc = obj_reloc_first(src);
+	while (reloc != NULL) {
+		rc = obj_reloc_copy(reloc, dest);
 		if (rc != EOK)
 			return rc;
 

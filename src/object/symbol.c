@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <object/object.h>
+#include <object/section.h>
 #include <object/symbol.h>
 
 /** Create binary object symbol structure.
@@ -101,6 +102,27 @@ int obj_symbol_dump(obj_symbol_t *symbol, FILE *outf)
 	return EOK;
 }
 
+/** Copy binary object symbol to another object.
+ *
+ * @param symbol Symbol
+ * @param dest Destination object
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_symbol_copy(obj_symbol_t *symbol, obj_object_t *dest)
+{
+	obj_section_t *dsection;
+	obj_symbol_t *dsymbol = NULL;
+	int rc;
+
+	dsection = obj_section_by_name(dest, symbol->section->name);
+	if (dsection == NULL)
+		return EINVAL;
+
+	rc = obj_symbol_create(dest, symbol->name, dsection, symbol->offset,
+	    symbol->size, &dsymbol);
+	return rc;
+}
+
 /** Get first symbol in object.
  *
  * @param object Object
@@ -131,4 +153,26 @@ obj_symbol_t *obj_symbol_next(obj_symbol_t *cur)
 		return NULL;
 
 	return list_get_instance(link, obj_symbol_t, lsymbols);
+}
+
+/** Find symbol in object by name.
+ *
+ * @param object Object
+ * @param name Symbol name
+ * @return Symbol matching @a name or @c NULL if there are none.
+ */
+obj_symbol_t *obj_symbol_find(obj_object_t *object, const char *name)
+{
+	obj_symbol_t *symbol;
+
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		if (strcmp(symbol->name, name) == 0)
+			return symbol;
+
+		symbol = obj_symbol_next(symbol);
+	}
+
+	/* Not found. */
+	return NULL;
 }

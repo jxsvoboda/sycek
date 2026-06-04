@@ -38,6 +38,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <symbols.h>
+#include <object/linker.h>
 #include <object/object.h>
 #include <z80/emit.h>
 #include <z80/isel.h>
@@ -64,6 +65,10 @@ static void comp_ir_parser_next_tok(void *);
 static ir_parser_input_ops_t comp_ir_parser_input = {
 	.read_tok = comp_ir_parser_read_tok,
 	.next_tok = comp_ir_parser_next_tok,
+};
+
+enum {
+	org_default = 0x8000u
 };
 
 /** Create compiler module.
@@ -242,6 +247,7 @@ void comp_destroy(comp_t *comp)
 	comp_module_destroy(comp->mod);
 	ir_lexer_destroy(comp->ir_lexer);
 	lexer_destroy(comp->lexer);
+	obj_object_destroy(comp->linked_object);
 	free(comp);
 }
 
@@ -544,6 +550,45 @@ int comp_run(comp_t *comp, FILE *outf)
 
 	return EOK;
 error:
+	z80_emit_destroy(emit);
+	return rc;
+}
+
+/** Perform linking.
+ *
+ * @param comp Compiler
+ * @return EOK on success or an error code
+ */
+int comp_link(comp_t *comp)
+{
+	int rc;
+	obj_linker_t *linker = NULL;
+
+	if (comp->linked_object == NULL) {
+		rc = obj_linker_create(&linker);
+		if (rc != EOK)
+			goto error;
+
+		rc = obj_linker_add_src(linker, comp->mod->object);
+		if (rc != EOK)
+			goto error;
+
+		rc = obj_linker_set_origin(linker, org_default);
+		if (rc != EOK)
+			goto error;
+
+		rc = obj_linker_link(linker, &comp->linked_object);
+		if (rc != EOK)
+			goto error;
+
+		(void)obj_object_dump(comp->linked_object, stdout);
+
+		obj_linker_destroy(linker);
+	}
+
+	return EOK;
+error:
+	obj_linker_destroy(linker);
 	return rc;
 }
 
