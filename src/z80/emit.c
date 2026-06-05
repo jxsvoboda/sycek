@@ -29,6 +29,7 @@
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <types/z80/z80opc.h>
 #include <object/object.h>
 #include <object/reloc.h>
@@ -122,6 +123,35 @@ static int z80_emit_sa16(z80_emit_t *emit, const char *ident, uint16_t value)
 	return rc;
 }
 
+/** Emit 16-bit immediate.
+ *
+ * @param emit Binary instruction emitter.
+ * @param opc Opcode including prefixes
+ * @param imm16 16-bit immediate operand
+ * @return EOK on success or an error code
+ */
+static int z80_emit_imm16(z80_emit_t *emit, z80ic_oper_imm16_t *imm16)
+{
+	z80ic_lvar_t *lvar;
+
+	/* Is it just a constant? */
+	if (imm16->symbol == NULL)
+		return z80_emit_u16(emit, imm16->imm16);
+
+	/* Is it a local variable reference? */
+	lvar = z80ic_proc_first_lvar(emit->ic_proc);
+	while (lvar != NULL) {
+		if (strcmp(lvar->ident, imm16->symbol) == 0) {
+			return z80_emit_u16(emit, lvar->off + imm16->imm16);
+		}
+
+		lvar = z80ic_proc_next_lvar(lvar);
+	}
+
+	/* It is a symbol reference. */
+	return z80_emit_sa16(emit, imm16->symbol, imm16->imm16);
+}
+
 /** Emit instruction opcode.
  *
  * The opcode can contain prefixes encoded in big endian. E.g.,
@@ -173,11 +203,12 @@ static int z80_emit_opc_n(z80_emit_t *emit, uint32_t opc,
 	return rc;
 }
 
+
 /** Emit instruction opcode + 16-bit immediate.
  *
  * @param emit Binary instruction emitter.
  * @param opc Opcode including prefixes
- * @param imm8 8-bit immediate operand
+ * @param imm16 16-bit immediate operand
  * @return EOK on success or an error code
  */
 static int z80_emit_opc_nn(z80_emit_t *emit, uint32_t opc,
@@ -189,12 +220,7 @@ static int z80_emit_opc_nn(z80_emit_t *emit, uint32_t opc,
 	if (rc != EOK)
 		return rc;
 
-	if (imm16->symbol != NULL)
-		rc = z80_emit_sa16(emit, imm16->symbol, imm16->imm16);
-	else
-		rc = z80_emit_u16(emit, imm16->imm16);
-
-	return rc;
+	return z80_emit_imm16(emit, imm16);
 }
 
 /** Emit instruction opcode + 8-bit displacement.
@@ -728,7 +754,7 @@ static int z80_emit_dec_r(z80_emit_t *emit, z80ic_dec_r_t *instr)
 {
 	uint32_t opc;
 
-	opc = z80opc_dec_r | (uint8_t)instr->dest->reg;
+	opc = z80opc_dec_r | ((uint8_t)instr->dest->reg << 3);
 	return z80_emit_opc(emit, opc);
 }
 
@@ -1116,6 +1142,7 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 	obj_symbol_t *symbol;
 	int rc;
 
+	emit->ic_proc = proc;
 	offset = emit->section->len;
 
 	entry = z80ic_lblock_first(proc->lblock);
@@ -1124,13 +1151,13 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 			rc = obj_symbol_create(emit->object, entry->label,
 			    emit->section, emit->section->len, 0, &symbol);
 			if (rc != EOK)
-				return rc;
+				goto error;
 		}
 
 		if (entry->instr != NULL) {
 			rc = z80_emit_instr(emit, entry->instr);
 			if (rc != EOK)
-				return rc;
+				goto error;
 		}
 
 		entry = z80ic_lblock_next(entry);
@@ -1140,9 +1167,13 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 	rc = obj_symbol_create(emit->object, proc->ident, emit->section,
 	    offset, size, &symbol);
 	if (rc != EOK)
-		return rc;
+		goto error;
 
+	emit->ic_proc = NULL;
 	return EOK;
+error:
+	emit->ic_proc = NULL;
+	return rc;
 }
 
 /** Emit binary instructions for declaration.

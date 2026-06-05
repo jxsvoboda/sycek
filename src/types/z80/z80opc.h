@@ -78,7 +78,7 @@ enum {
 	z80opc_bit_b_iixd = 0xddcb46ul,
 	z80opc_set_b_iixd = 0xddcba6ul,
 	z80opc_jp_nn = 0xc3,
-	z80opc_jp_cc_nn = 0xa2,
+	z80opc_jp_cc_nn = 0xc2,
 	z80opc_call_nn = 0xcd,
 	z80opc_ret = 0xc9
 };

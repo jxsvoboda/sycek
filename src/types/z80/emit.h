@@ -31,6 +31,8 @@
 typedef struct {
 	/** Z80 IC module */
 	struct z80ic_module *ic_module;
+	/** Current IC procedure */
+	struct z80ic_proc *ic_proc;
 	/** Binary object */
 	struct obj_object *object;
 	/** Binary object section */
