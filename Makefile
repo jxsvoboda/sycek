@@ -142,7 +142,7 @@ binary_syc = syc
 binary_syc_hos = syc-hos
 binary_syc_z80 = syc-z80.bin
 syc = ./$(binary_syc)
-sycflags = --lvalue-args --int-promotion --no-link
+sycflags = --lvalue-args --int-promotion
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
@@ -206,7 +206,7 @@ test_syc_vg_outs = \
 test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
     $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
     test/syc/all.diff
-test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_bins) \
+test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_asms) \
     $(test_syc_good_maps) $(test_syc_good_taps)
 
 example_srcs = \
@@ -280,7 +280,7 @@ z80asms: $(asms_z80)
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
 %.z80.pp.asm:%.z80.pp.c $(syc)
-	$(syc) $(sycflags) --fatal-warn $<
+	$(syc) $(sycflags) --no-link --fatal-warn $<
 
 %.z80.o: %.z80.asm
 	z80asm -r0x6400 --output=$@ $<
@@ -387,10 +387,10 @@ test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/good/%.asm: test/syc/good/%.c $(syc)
-	$(syc) $(sycflags) $<
+	$(syc) $(sycflags) --no-link $<
 
-test/syc/good/%.bin: test/syc/good/%.asm
-	z80asm +zx -m --origin=0x8000 $<
+test/syc/good/%.bin: test/syc/good/%.c $(syc)
+	$(syc) $(sycflags) $<
 
 test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
 	cd test/syc/good && ../../../$(z80test) -s ../../../$< >../../../$@ || (rm ../../../$@ ; false)
@@ -415,15 +415,15 @@ test/selfcheck.out: $(ccheck)
 # Compiler example
 #
 example/%.asm: example/%.c $(syc)
-	$(syc) $<
+	$(syc) --no-link $<
 example/%.ir: example/%.c $(syc)
-	$(syc) --dump-ir $< >$@
+	$(syc) --no-link --dump-ir $< >$@
 example/%.ir.ir: example/%.ir
 	cp $< $@
 example/%.ir.asm: example/%.ir.ir $(syc)
-	$(syc) $<
+	$(syc) --no-link $<
 example/%.vric: example/%.c $(syc)
-	$(syc) --dump-vric $< >$@
+	$(syc) --no-link --dump-vric $< >$@
 example/%.bin: example/%.asm example/lib.asm
 	z80asm +zx --origin=32768 -b -m $^
 example/%.tap: example/%.bin
