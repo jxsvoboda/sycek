@@ -87,7 +87,7 @@ void obj_section_destroy(obj_section_t *section)
  *
  * @param section Section
  * @param outf Output file
- * @return EOK on success, ENOMEM if out of memory
+ * @return EOK on success, EIO on I/O error
  */
 int obj_section_dump(obj_section_t *section, FILE *outf)
 {
@@ -115,6 +115,23 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 		if (rc < 0)
 			return EIO;
 	}
+
+	return EOK;
+}
+
+/** Save binary object section raw data into a file.
+ *
+ * @param section Section
+ * @param outf Output file
+ * @return EOK on success, EIO on I/O error.
+ */
+int obj_section_save_bin(obj_section_t *section, FILE *outf)
+{
+	size_t nw;
+
+	nw = fwrite(section->data, 1, (size_t)section->len, outf);
+	if (nw < section->len)
+		return EIO;
 
 	return EOK;
 }

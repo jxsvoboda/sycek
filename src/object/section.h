@@ -35,6 +35,7 @@
 extern int obj_section_create(obj_object_t *, const char *, obj_section_t **);
 extern void obj_section_destroy(obj_section_t *);
 extern int obj_section_dump(obj_section_t *, FILE *);
+extern int obj_section_save_bin(obj_section_t *, FILE *);
 extern int obj_section_copy(obj_section_t *, obj_object_t *);
 extern obj_section_t *obj_section_first(obj_object_t *);
 extern obj_section_t *obj_section_next(obj_section_t *);

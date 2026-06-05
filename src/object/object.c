@@ -180,3 +180,49 @@ int obj_object_copy(obj_object_t *src, obj_object_t *dest)
 
 	return EOK;
 }
+
+/** Save object contents into a raw binary file.
+ *
+ * @param object Object
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_object_save_bin(obj_object_t *object, FILE *outf)
+{
+	obj_section_t *section;
+	int rc;
+
+	section = obj_section_first(object);
+	while (section != NULL) {
+		rc = obj_section_save_bin(section, outf);
+		if (rc != EOK)
+			return rc;
+
+		section = obj_section_next(section);
+	}
+
+	return EOK;
+}
+
+/** Save object contents into a z80asm compatible map file file.
+ *
+ * @param object Object
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_object_save_map(obj_object_t *object, FILE *outf)
+{
+	obj_symbol_t *symbol;
+	int rc;
+
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		rc = obj_symbol_save_map(symbol, outf);
+		if (rc != EOK)
+			return rc;
+
+		symbol = obj_symbol_next(symbol);
+	}
+
+	return EOK;
+}

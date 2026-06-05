@@ -268,9 +268,10 @@ Supported features not related to language coverage:
    storage)
 
 syc only starts after preprocessing stage (i.e. there must not be any
-preprocessor directives in the C source file) and outputs an .asm
-file in the end. This is supposed to be consumed by a Z80 assembler,
-such as z80asm from z88dk project.
+preprocessor directives in the C source file) and outputs a .bin and
+a .map file in the end. When invoked with `--no-link`, it produces a
+.asm file. (This is supposed to be consumed by a Z80 assembler,
+such as z80asm from z88dk project.)
 
 Running `syc` without arguments will print a syntax help. You can compile
 and example C source file by typing
@@ -327,6 +328,9 @@ program in various compilation stages to the standard output:
  * `--dump-toks` Dump tokenized source file
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
+ * `--dump-obj` Dump compiled object contents before linking
+ * `--no-link` Stop before assembly and linking, output a `.asm` file
+   instead.
 
 The following code generation options are available:
  * `--fatal-warn` Make warnings fatal

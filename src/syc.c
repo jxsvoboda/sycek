@@ -122,7 +122,9 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	file_input_t finput;
 	FILE *f = NULL;
 	FILE *outf = NULL;
+	FILE *mapf = NULL;
 	char *outfname = NULL;
+	char *mapfname = NULL;
 	char *ext;
 
 	ext = strrchr(fname, '.');
@@ -144,9 +146,15 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
-	rc = ext_replace(fname, "asm", &outfname);
-	if (rc != EOK)
-		goto error;
+	if ((flags & compf_no_link) != compf_none) {
+		rc = ext_replace(fname, "asm", &outfname);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = ext_replace(fname, "bin", &outfname);
+		if (rc != EOK)
+			goto error;
+	}
 
 	f = fopen(fname, "rt");
 	if (f == NULL) {
@@ -206,7 +214,8 @@ static int compile_file(const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
-	rc = comp_run(comp, outf);
+	rc = comp_run(comp, (flags & compf_no_link) != compf_none ? outf :
+	    NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -217,9 +226,33 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	}
 
 	if ((flags & compf_no_link) == compf_none) {
-		rc = comp_link(comp);
+		rc = comp_link(comp, outf);
 		if (rc != EOK)
 			goto error;
+
+		rc = ext_replace(fname, "map", &mapfname);
+		if (rc != EOK)
+			goto error;
+
+		mapf = fopen(mapfname, "wt");
+		if (mapf == NULL) {
+			rc = EIO;
+			goto error;
+		}
+
+		rc = comp_save_map(comp, mapf);
+		if (rc != EOK)
+			goto error;
+
+		if (fflush(mapf) < 0) {
+			(void)fprintf(stderr, "Error writing to '%s'.\n",
+			    mapfname);
+			rc = EIO;
+			goto error;
+		}
+
+		(void)fclose(mapf);
+		mapf = NULL;
 	}
 
 	if (fflush(outf) < 0) {
@@ -241,6 +274,12 @@ error:
 		(void)fclose(f);
 	if (outf != NULL)
 		(void)fclose(outf);
+	if (mapf != NULL)
+		(void)fclose(mapf);
+	if (mapfname != NULL) {
+		(void) remove(mapfname);
+		free(mapfname);
+	}
 	if (outfname != NULL) {
 		(void) remove(outfname);
 		free(outfname);

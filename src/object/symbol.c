@@ -24,6 +24,7 @@
  * Binary object symbol
  */
 
+#include <inttypes.h>
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -94,6 +95,29 @@ int obj_symbol_dump(obj_symbol_t *symbol, FILE *outf)
 
 	rc = fprintf(outf, "  Symbol: %s section:%s offset:0x%x "
 	    "length:%u\n",
+	    symbol->name, symbol->section->name, symbol->offset,
+	    symbol->size);
+	if (rc < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Save binary object symbol into a z80asm compatible map file.
+ *
+ * @param symbol Symbol
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_symbol_save_map(obj_symbol_t *symbol, FILE *outf)
+{
+	int rc;
+	uint32_t sym_addr;
+
+	sym_addr = symbol->section->base_addr + symbol->offset;
+
+	rc = fprintf(outf, "%s = $%04" PRIx32 " ;  Symbol: %s section:%s "
+	    "offset:0x%x length:%u\n", symbol->name, sym_addr,
 	    symbol->name, symbol->section->name, symbol->offset,
 	    symbol->size);
 	if (rc < 0)

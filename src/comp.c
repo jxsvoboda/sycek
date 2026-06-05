@@ -557,9 +557,10 @@ error:
 /** Perform linking.
  *
  * @param comp Compiler
+ * @param outf Output file (for writing linked binary)
  * @return EOK on success or an error code
  */
-int comp_link(comp_t *comp)
+int comp_link(comp_t *comp, FILE *outf)
 {
 	int rc;
 	obj_linker_t *linker = NULL;
@@ -581,7 +582,9 @@ int comp_link(comp_t *comp)
 		if (rc != EOK)
 			goto error;
 
-		(void)obj_object_dump(comp->linked_object, stdout);
+		rc = obj_object_save_bin(comp->linked_object, outf);
+		if (rc != EOK)
+			goto error;
 
 		obj_linker_destroy(linker);
 	}
@@ -590,6 +593,20 @@ int comp_link(comp_t *comp)
 error:
 	obj_linker_destroy(linker);
 	return rc;
+}
+
+/** Save map of linked executable into a z80asm compatible map file.
+ *
+ * @param comp Compiler
+ * @param outf Output file (for writing symbol map)
+ * @return EOK on success or an error code
+ */
+int comp_save_map(comp_t *comp, FILE *outf)
+{
+	if (comp->linked_object == NULL)
+		return EINVAL;
+
+	return obj_object_save_map(comp->linked_object, outf);
 }
 
 /** Dump AST.
