@@ -203,7 +203,6 @@ static int z80_emit_opc_n(z80_emit_t *emit, uint32_t opc,
 	return rc;
 }
 
-
 /** Emit instruction opcode + 16-bit immediate.
  *
  * @param emit Binary instruction emitter.

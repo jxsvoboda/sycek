@@ -34,12 +34,14 @@
 #include <irparser.h>
 #include <lexer.h>
 #include <merrno.h>
+#include <object/linker.h>
+#include <object/object.h>
 #include <parser.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <symbols.h>
-#include <object/linker.h>
-#include <object/object.h>
+#include <tape/maker.h>
+#include <tape/tzx.h>
 #include <z80/emit.h>
 #include <z80/isel.h>
 #include <z80/ralloc.h>
@@ -607,6 +609,33 @@ int comp_save_map(comp_t *comp, FILE *outf)
 		return EINVAL;
 
 	return obj_object_save_map(comp->linked_object, outf);
+}
+
+/** Make binary executable into a tape image.
+ *
+ * @param comp Compiler
+ * @return EOK on success or an error code
+ */
+int comp_make_tape(comp_t *comp)
+{
+	if (comp->linked_object == NULL)
+		return EINVAL;
+
+	return tape_make_from_object(comp->linked_object, &comp->tape);
+}
+
+/** Save map of linked executable into a z80asm compatible map file.
+ *
+ * @param comp Compiler
+ * @param fname Output file name
+ * @return EOK on success or an error code
+ */
+int comp_save_tape(comp_t *comp, const char *fname)
+{
+	if (comp->linked_object == NULL)
+		return EINVAL;
+
+	return tape_save_tzx(comp->tape, fname);
 }
 
 /** Dump AST.

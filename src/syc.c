@@ -55,7 +55,8 @@ static void print_syntax(void)
 	    "\t--dump-ir Dump intermediate representation\n"
 	    "\t--dump-vric Dump instruction code with virtual registers\n"
 	    "\t--dump-obj Dump binary object\n"
-	    "\t--no-link Do not link\n"
+	    "\t--no-link Do not link, stop after compile stage\n"
+	    "\t--no-tape Do not make a tape image, stop after link stage\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
 	    "\t--int-promotion Enable integer promotion\n");
@@ -125,6 +126,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	FILE *mapf = NULL;
 	char *outfname = NULL;
 	char *mapfname = NULL;
+	char *tapefname = NULL;
 	char *ext;
 
 	ext = strrchr(fname, '.');
@@ -253,6 +255,21 @@ static int compile_file(const char *fname, comp_flags_t flags,
 
 		(void)fclose(mapf);
 		mapf = NULL;
+
+		if ((flags & compf_no_tape) == compf_none) {
+
+			rc = comp_make_tape(comp);
+			if (rc != EOK)
+				goto error;
+
+			rc = ext_replace(fname, "tzx", &tapefname);
+			if (rc != EOK)
+				goto error;
+
+			rc = comp_save_tape(comp, tapefname);
+			if (rc != EOK)
+				goto error;
+		}
 	}
 
 	if (fflush(outf) < 0) {
@@ -264,6 +281,10 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	(void)fclose(f);
 	(void)fclose(outf);
 	free(outfname);
+	if (tapefname != NULL)
+		free(tapefname);
+	if (mapfname != NULL)
+		free(mapfname);
 	comp_destroy(comp);
 
 	return EOK;
@@ -282,6 +303,10 @@ error:
 	}
 	if (outfname != NULL) {
 		(void) remove(outfname);
+		free(outfname);
+	}
+	if (tapefname != NULL) {
+		(void) remove(tapefname);
 		free(outfname);
 	}
 	return rc;
@@ -373,6 +398,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-link") == 0) {
 			++i;
 			flags |= compf_no_link;
+		} else if (strcmp(argv[i], "--no-tape") == 0) {
+			++i;
+			flags |= compf_no_tape;
 		} else if (strcmp(argv[i], "--lvalue-args") == 0) {
 			++i;
 			cgflags |= cgf_lvalue_args;

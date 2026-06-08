@@ -75,6 +75,9 @@ sources_syc_common = \
     src/scope.c \
     src/syc.c \
     src/symbols.c \
+    src/tape/maker.c \
+    src/tape/tape.c \
+    src/tape/tzx.c \
     src/test/cgen.c \
     src/test/cgtype.c \
     src/test/comp.c \
@@ -101,7 +104,8 @@ sources_z80test_common = \
     src/z80/z80test/z80test.c
 
 sources_hcompat = \
-    src/hcompat/adt/list.c
+    src/hcompat/adt/list.c \
+    src/hcompat/byteorder.c
 
 sources_ccheck = \
     $(sources_ccheck_common) \
@@ -142,7 +146,7 @@ binary_syc = syc
 binary_syc_hos = syc-hos
 binary_syc_z80 = syc-z80.bin
 syc = ./$(binary_syc)
-sycflags = --lvalue-args --int-promotion
+sycflags = --lvalue-args --int-promotion --no-tape
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
@@ -373,17 +377,17 @@ test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/good/%-vg.txt: test/syc/good/%.c $(syc)
-	valgrind $(syc) $(sycflags) $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/ugly/%-t.txt: test/syc/ugly/%.c $(syc)
-	$(syc) $(sycflags) $< 2>$@
+	$(syc) $(sycflags) --no-link $< 2>$@
 
 test/syc/ugly/%.txt.diff: test/syc/ugly/%.txt test/syc/ugly/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
-	valgrind $(syc) $(sycflags) $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/good/%.asm: test/syc/good/%.c $(syc)

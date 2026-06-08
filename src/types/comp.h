@@ -35,6 +35,7 @@
 #include <types/lexer.h>
 #include <types/object/object.h>
 #include <types/symbols.h>
+#include <types/tape/tape.h>
 #include <types/z80/z80ic.h>
 
 /** Compiler token */
@@ -91,6 +92,8 @@ typedef struct comp {
 	cgen_flags_t cgflags;
 	/** Linked object */
 	obj_object_t *linked_object;
+	/** Tape image */
+	tape_t *tape;
 } comp_t;
 
 /** Compiler parser input */
@@ -120,7 +123,9 @@ typedef enum {
 	/** Dump binary object */
 	compf_dump_obj = 0x10,
 	/** Do not link into an executable */
-	compf_no_link = 0x20
+	compf_no_link = 0x20,
+	/** Do not make a tape image */
+	compf_no_tape = 0x40
 } comp_flags_t;
 
 #endif

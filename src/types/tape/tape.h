@@ -21,32 +21,37 @@
  */
 
 /*
- * Compiler
+ * Tape image
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TYPES_TAPE_TAPE_H
+#define TYPES_TAPE_TAPE_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <adt/list.h>
+#include <stdint.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_make_tape(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
-extern int comp_link(comp_t *, FILE *);
-extern int comp_save_map(comp_t *, FILE *);
-extern int comp_save_tape(comp_t *, const char *);
+/** Tape block */
+typedef struct tape_block {
+	/** Containing tape */
+	struct tape *tape;
+	/** Link to @c tape->blocks */
+	link_t lblocks;
+	/** Block data */
+	uint8_t *data;
+	/** Block size */
+	uint16_t size;
+	/** Pause after block in ms */
+	uint16_t pause_after;
+} tape_block_t;
+
+/** Tape image */
+typedef struct tape {
+	/** Major version */
+	uint8_t major;
+	/** Minor version */
+	uint8_t minor;
+	/** Blocks */
+	list_t blocks; /* of tape_block_t */
+} tape_t;
 
 #endif

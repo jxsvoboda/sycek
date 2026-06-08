@@ -268,37 +268,49 @@ Supported features not related to language coverage:
    storage)
 
 syc only starts after preprocessing stage (i.e. there must not be any
-preprocessor directives in the C source file) and outputs a .bin and
-a .map file in the end. When invoked with `--no-link`, it produces a
+preprocessor directives in the C source file) and outputs a .tzx tape
+image file that can be loaded into an emulator or played to a real
+Spectrum.
+
+With the `--no-tape` option this last step is skipped and Syc produces
+a .bin binary and a .map file. When invoked with `--no-link`, it produces a
 .asm file. (This is supposed to be consumed by a Z80 assembler,
 such as z80asm from z88dk project.)
 
 Running `syc` without arguments will print a syntax help. You can compile
 and example C source file by typing
 
-    $ ./syc example/test.c
+    $ ./syc example/fillscr.c
 
-which will produce `example/test.asm`. (Note that the file **must** have
-a `.c` or `.C` extension). We can convert it to a tape file using tools from
-the z88dk project
+which will produce `example/fillscr.tzx`. (Note that the file **must** have
+a `.c` or `.C` extension). We can transfer a `.tzx` file to a real
+Spectrum or open it in an emulator (such as [GZX][4]).
+
+For example, select the `fillscr.tzx` tape file in GZX (F9) and load it
+using the BASIC command
+
+    LOAD ""CODE : RANDMIZE USR 32768
+
+This will load the binary and execute its main function, filling the screen
+with black pixels.
+
+Using an external assembler
+---------------------------
+
+You can use z80asm from z88dk as an assembler. Run
+
+    $ ./syc --no-link example/test.c
+
+which will produce `example/test.asm`. We can convert it to a tape file using
+tools from the z88dk project
 
     $ z80asm +zx --origin=32768 -b -m example/test.asm example/lib.asm
     $ appmake +zx --org=32768 -b example/test.bin
 
-(Note that example/test.c, specifically, refres to an assembly function
+(Note that example/test.c, specifically, refers to an assembly function
 from example/lib.asm)
 
 You can just type `make examples` to build all the examples automatically.
-This produces a number of `.tap` files. We can transfer a `.tap` file to a real
-Spectrum or open it in an emulator (such as [GZX][4]).
-
-For example, select the `fillscr.tap` tape file and load it using the
-BASIC command
-
-    LOAD ""
-
-This will load the binary and execute its main function, filling the screen
-with black pixels.
 
 The `example/test.c` file's main function does nothing interesting, instead
 it contains a number of functions that can be individually executed as

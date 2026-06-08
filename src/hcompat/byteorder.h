@@ -21,32 +21,17 @@
  */
 
 /*
- * Compiler
+ * Byte order
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef BYTEORDER_H
+#define BYTEORDER_H
 
-#include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <stdint.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_make_tape(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
-extern int comp_link(comp_t *, FILE *);
-extern int comp_save_map(comp_t *, FILE *);
-extern int comp_save_tape(comp_t *, const char *);
+extern uint16_t host2uint16_t_le(uint16_t);
+extern uint16_t uint16_t_le2host(uint16_t);
+extern uint32_t host2uint32_t_le(uint32_t);
+extern uint32_t uint32_t_le2host(uint32_t);
 
 #endif

@@ -158,6 +158,7 @@ int obj_section_copy(obj_section_t *section, obj_object_t *dest)
 		return rc;
 	}
 
+	free(dsection->data);
 	dsection->data = data;
 	dsection->alloc_len = section->alloc_len;
 	dsection->len = section->len;

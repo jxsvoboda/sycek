@@ -21,32 +21,21 @@
  */
 
 /*
- * Compiler
+ * Tape image
  */
 
-#ifndef COMP_H
-#define COMP_H
+#ifndef TAPE_TAPE_H
+#define TAPE_TAPE_H
 
 #include <stdio.h>
-#include <types/comp.h>
-#include <types/lexer.h>
+#include <stdint.h>
+#include <types/tape/tape.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
-extern int comp_make_tape(comp_t *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
-extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
-extern int comp_link(comp_t *, FILE *);
-extern int comp_save_map(comp_t *, FILE *);
-extern int comp_save_tape(comp_t *, const char *);
+extern int tape_create(tape_t **);
+extern void tape_destroy(tape_t *);
+extern int tape_block_append(tape_t *, uint16_t, tape_block_t **);
+extern void tape_block_destroy(tape_block_t *);
+extern tape_block_t *tape_block_first(tape_t *);
+extern tape_block_t *tape_block_next(tape_block_t *);
 
 #endif
