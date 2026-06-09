@@ -21,15 +21,19 @@
  */
 
 /*
- * Tape maker
+ * BASIC line buffer
  */
 
-#ifndef TAPE_MAKER_H
-#define TAPE_MAKER_H
+#ifndef TAPE_BASIC_LINEBUF_H
+#define TAPE_BASIC_LINEBUF_H
 
-#include <types/object/object.h>
-#include <types/tape/tape.h>
+#include <stdint.h>
+#include <types/tape/basic_linebuf.h>
 
-extern int tape_make_from_object(obj_object_t *, const char *, tape_t **);
+extern void basic_linebuf_init(basic_linebuf_t *);
+extern void basic_linebuf_finish(basic_linebuf_t *);
+extern void basic_linebuf_set_lineno(basic_linebuf_t *, uint16_t);
+extern void basic_linebuf_append_u8(basic_linebuf_t *, uint8_t);
+extern void basic_linebuf_append_intlit(basic_linebuf_t *, uint16_t);
 
 #endif

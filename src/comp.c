@@ -614,14 +614,15 @@ int comp_save_map(comp_t *comp, FILE *outf)
 /** Make binary executable into a tape image.
  *
  * @param comp Compiler
+ * @parma name Program name
  * @return EOK on success or an error code
  */
-int comp_make_tape(comp_t *comp)
+int comp_make_tape(comp_t *comp, const char *name)
 {
 	if (comp->linked_object == NULL)
 		return EINVAL;
 
-	return tape_make_from_object(comp->linked_object, &comp->tape);
+	return tape_make_from_object(comp->linked_object, name, &comp->tape);
 }
 
 /** Save map of linked executable into a z80asm compatible map file.

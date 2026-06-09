@@ -75,6 +75,7 @@ sources_syc_common = \
     src/scope.c \
     src/syc.c \
     src/symbols.c \
+    src/tape/basic_linebuf.c \
     src/tape/maker.c \
     src/tape/tape.c \
     src/tape/tzx.c \

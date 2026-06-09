@@ -113,6 +113,39 @@ error:
 	return ENOMEM;
 }
 
+/** Remove filename externsion.
+ *
+ * @param fname File name
+ * @param rnewname Place to store pointer to newly constructed name
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int ext_remove(const char *fname, char **rnewname)
+{
+	char *period;
+	char *basename = NULL;
+	size_t nchars;
+
+	period = strrchr(fname, '.');
+
+	/* Compute number of characters to copy (this excludes the '.') */
+	if (period != NULL)
+		nchars = (size_t)(period - fname);
+	else
+		nchars = strlen(fname);
+
+	/* Copy just the base name */
+	basename = malloc(nchars + 1);
+	if (basename == NULL)
+		goto error;
+
+	memcpy(basename, fname, nchars);
+
+	*rnewname = basename;
+	return EOK;
+error:
+	return ENOMEM;
+}
+
 static int compile_file(const char *fname, comp_flags_t flags,
     cgen_flags_t cgflags)
 {
@@ -127,6 +160,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	char *outfname = NULL;
 	char *mapfname = NULL;
 	char *tapefname = NULL;
+	char *progname = NULL;
 	char *ext;
 
 	ext = strrchr(fname, '.');
@@ -257,8 +291,11 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		mapf = NULL;
 
 		if ((flags & compf_no_tape) == compf_none) {
+			rc = ext_remove(fname, &progname);
+			if (rc != EOK)
+				goto error;
 
-			rc = comp_make_tape(comp);
+			rc = comp_make_tape(comp, progname);
 			if (rc != EOK)
 				goto error;
 
@@ -285,6 +322,8 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		free(tapefname);
 	if (mapfname != NULL)
 		free(mapfname);
+	if (progname != NULL)
+		free(progname);
 	comp_destroy(comp);
 
 	return EOK;
@@ -309,6 +348,8 @@ error:
 		(void) remove(tapefname);
 		free(outfname);
 	}
+	if (progname != NULL)
+		free(progname);
 	return rc;
 }
 

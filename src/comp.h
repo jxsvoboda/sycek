@@ -36,7 +36,7 @@ extern int comp_make_ast(comp_t *);
 extern int comp_make_ir(comp_t *);
 extern int comp_make_vric(comp_t *);
 extern int comp_make_ic(comp_t *);
-extern int comp_make_tape(comp_t *);
+extern int comp_make_tape(comp_t *, const char *);
 extern int comp_dump_ast(comp_t *, FILE *);
 extern int comp_dump_toks(comp_t *, FILE *);
 extern int comp_dump_ir(comp_t *, FILE *);

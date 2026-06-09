@@ -21,15 +21,21 @@
  */
 
 /*
- * Tape maker
+ * Basic line buffer
  */
 
-#ifndef TAPE_MAKER_H
-#define TAPE_MAKER_H
+#ifndef TYPES_TAPE_BASIC_LINEBUF_H
+#define TYPES_TAPE_BASIC_LINEBUF_H
 
-#include <types/object/object.h>
-#include <types/tape/tape.h>
+#include <stdint.h>
 
-extern int tape_make_from_object(obj_object_t *, const char *, tape_t **);
+enum {
+	basic_line_max = 128
+};
+
+typedef struct {
+	uint8_t buf[basic_line_max];
+	uint16_t len;
+} basic_linebuf_t;
 
 #endif
