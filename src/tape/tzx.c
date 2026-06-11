@@ -43,7 +43,7 @@ static int tape_block_save_tzx(tape_block_t *block, FILE *outf)
 	uint8_t btype;
 	size_t nw;
 
-	btype = tzxb_data;
+	btype = (uint8_t)tzxb_data;
 	nw = fwrite(&btype, 1, sizeof(btype), outf);
 	if (nw < sizeof(btype))
 		return EIO;

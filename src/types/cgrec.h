@@ -82,6 +82,8 @@ typedef struct cgen_record {
 	link_t lrecords;
 	/** Record type */
 	cgen_rec_type_t rtype;
+	/** @c true iff record is packed */
+	bool packed;
 	/** C identifier */
 	char *cident;
 	/** IR identifier */

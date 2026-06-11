@@ -38,7 +38,7 @@
 #define TYPES_TAPE_BASIC_H
 
 /** BASIC tokens */
-typedef enum {
+enum {
 	btt_rnd = 0xa5,
 	btt_inkey_str = 0xa6,
 	btt_pi = 0xa7,
@@ -130,6 +130,6 @@ typedef enum {
 	btt_clear = 0xfd,
 	btt_return = 0xfe,
 	btt_copy = 0xff
-} basic_token_t;
+};
 
 #endif

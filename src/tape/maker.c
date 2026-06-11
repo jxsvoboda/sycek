@@ -67,11 +67,11 @@ static int tape_make_header(rom_ftype_t ftype, const char *name,
 	header = (rom_tape_header_t *)block->data;
 
 	header->flag = bflag_header;
-	header->ftype = ftype;
+	header->ftype = (uint8_t)ftype;
 	memset(header->fname, ' ', sizeof(header->fname));
 	for (i = 0; i < name_len; i++) {
 		if (name[i] >= 32 && name[i] < 127)
-			header->fname[i] = name[i];
+			header->fname[i] = (uint8_t)name[i];
 		else
 			header->fname[i] = '_';
 	}
@@ -184,21 +184,27 @@ int tape_make_from_object(obj_object_t *object, const char *name,
 	if (rc != EOK)
 		goto error;
 
-	rc = tape_make_loader(name, 0x8000 /* org */, tape);
+	rc = tape_make_loader(name, 0x8000u /* org */, tape);
 	if (rc != EOK)
 		goto error;
 
 	section = obj_section_first(object);
 	while (section != NULL) {
+		if (section->len >= 0x7ffe) {
+			rc = EINVAL;
+			goto error;
+		}
+
 		/* header block */
 		rc = tape_make_header(ftype_bytes, section->name,
-		    (uint16_t)section->len, 0x8000 /* org */,
-		    32768, tape);
+		    (uint16_t)section->len, 0x8000u /* org */,
+		    32768u, tape);
 		if (rc != EOK)
 			goto error;
 
 		/* data block */
-		rc = tape_block_append(tape, section->len + 2, &block);
+		rc = tape_block_append(tape, (uint16_t)(section->len + 2),
+		    &block);
 		if (rc != EOK)
 			goto error;
 

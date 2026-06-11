@@ -1,0 +1,2 @@
+<test/syc/ugly/duplpacked.c:6:25-30:id:packed>: Warning: Duplicate attribute 'packed'.
+<test/syc/ugly/duplpacked.c:6:49-54:id:packed>: Warning: Duplicate attribute 'packed'.

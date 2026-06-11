@@ -2803,6 +2803,23 @@ static void cgen_warn_unknown_attr(cgen_t *cgen, ast_aspec_attr_t *attr)
 	++cgen->warnings;
 }
 
+/** Generate warning: duplicate attribute.
+ *
+ * @param cgen Code generator
+ * @param attr AST attribute
+ */
+static void cgen_warn_duplicate_attr(cgen_t *cgen, ast_aspec_attr_t *attr)
+{
+	comp_tok_t *tok;
+
+	tok = (comp_tok_t *) attr->tname.data;
+
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": Warning: Duplicate attribute '%s'.\n",
+	    tok->tok.text);
+	++cgen->warnings;
+}
+
 /** Generate warning: int is superfluous.
  *
  * @param cgen Code generator
@@ -3798,6 +3815,76 @@ error:
 	return rc;
 }
 
+/** Process packed attribute in type record specifier.
+ *
+ * @param cgen Code generator
+ * @param attr AST attribute
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_tsrecord_attr_packed(cgen_t *cgen, ast_aspec_attr_t *attr)
+{
+	comp_tok_t *tok;
+
+	if (attr->have_params) {
+		tok = (comp_tok_t *) attr->tlparen.data;
+
+		(void)lexer_dprint_tok(&tok->tok, stderr);
+		(void)fprintf(stderr, ": Attribute 'packed' should not have "
+		    "any arguments.\n");
+		cgen->error = true; // XXX
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
+/** Generate code for attribute specifier at the end or record type specifier.
+ *
+ * @param cgen Code generator
+ * @param aslist AST attribute specifier list
+ * @param rpacked Place to store @c true iff packed attribute
+ *
+ * @return EOK on success or an error code
+ */
+static int cgen_tsrecord_aslist2(cgen_t *cgen, ast_aslist_t *aslist,
+    bool *rpacked)
+{
+	ast_aspec_t *aspec;
+	ast_aspec_attr_t *attr;
+	comp_tok_t *tok;
+	bool packed = false;
+	int rc;
+
+	aspec = ast_aslist_first(aslist);
+	while (aspec != NULL) {
+		attr = ast_aspec_first(aspec);
+		while (attr != NULL) {
+			tok = (comp_tok_t *) attr->tname.data;
+			if (strcmp(tok->tok.text, "packed") == 0) {
+				rc = cgen_tsrecord_attr_packed(cgen, attr);
+				if (rc != EOK)
+					return rc;
+
+				if (packed)
+					cgen_warn_duplicate_attr(cgen, attr);
+
+				packed = true;
+			} else {
+				/* Warning: unknown attribute. */
+				cgen_warn_unknown_attr(cgen, attr);
+			}
+
+			attr = ast_aspec_next(attr);
+		}
+
+		aspec = ast_aslist_next(aspec);
+	}
+
+	*rpacked = packed;
+	return EOK;
+}
+
 /** Generate code for record type specifier.
  *
  * @param cgen Code generator
@@ -3818,6 +3905,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 	cgtype_record_t *rectype;
 	cgen_rec_t cgrec;
 	const char *rtype;
+	bool packed = false;
 	ir_record_type_t irrtype;
 	scope_rec_type_t srtype;
 	cgen_rec_type_t cgrtype;
@@ -3851,7 +3939,7 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		ctok = (comp_tok_t *)tok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Unimplemented attribute specifier "
-		    "in this context.\n");
+		    "in this context.[1]\n");
 		cgen->error = true; // TODO
 		rc = EINVAL;
 		goto error;
@@ -3933,15 +4021,11 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 		}
 	}
 
+	/* Second attribute specifier list. */
 	if (tsrecord->aslist2 != NULL) {
-		tok = ast_tree_first_tok(&tsrecord->aslist2->node);
-		ctok = (comp_tok_t *)tok->data;
-		(void)lexer_dprint_tok(&ctok->tok, stderr);
-		(void)fprintf(stderr, ": Unimplemented attribute specifier "
-		    "in this context.\n");
-		cgen->error = true; // TODO
-		rc = EINVAL;
-		goto error;
+		rc = cgen_tsrecord_aslist2(cgen, tsrecord->aslist2, &packed);
+		if (rc != EOK)
+			goto error;
 	}
 
 	if (dmember != NULL) {
@@ -4003,8 +4087,8 @@ static int cgen_tsrecord(cgen_t *cgen, ast_tsrecord_t *tsrecord,
 
 		/* Create new record definition */
 		rc = cgen_record_create(cgen->records, cgrtype,
-		    tsrecord->have_ident ? ident : NULL, irident, irrecord,
-		    &record);
+		    tsrecord->have_ident ? ident : NULL, packed, irident,
+		    irrecord, &record);
 		if (rc != EOK) {
 			free(irident);
 			goto error;
@@ -4939,7 +5023,7 @@ static int cgen_decl_ident(cgen_t *cgen, cgtype_t *stype, ast_dident_t *dident,
 		ctok = (comp_tok_t *)tok->data;
 		(void)lexer_dprint_tok(&ctok->tok, stderr);
 		(void)fprintf(stderr, ": Unimplemented attribute specifier "
-		    "in this context.\n");
+		    "in this context.[3]\n");
 		cgen->error = true; // TODO
 		return EINVAL;
 	}

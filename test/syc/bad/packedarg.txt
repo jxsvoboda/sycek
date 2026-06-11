@@ -1,0 +1,1 @@
+<test/syc/bad/packedarg.c:6:24:'('>: Attribute 'packed' should not have any arguments.
