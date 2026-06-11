@@ -146,12 +146,21 @@ error:
 	return ENOMEM;
 }
 
-static int compile_file(const char *fname, comp_flags_t flags,
+/** Compile one input file.
+ *
+ * @param comp Compiler
+ * @param fname Input file name
+ * @param flags Compiler flags
+ * @param cfglags Code generator flags
+ *
+ * @return EOK on succcess or an error code
+ */
+static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
     cgen_flags_t cgflags)
 {
 	int rc;
 	int rv;
-	comp_t *comp = NULL;
+	comp_module_t *module = NULL;
 	comp_mtype_t mtype;
 	file_input_t finput;
 	FILE *f = NULL;
@@ -208,14 +217,15 @@ static int compile_file(const char *fname, comp_flags_t flags,
 
 	file_input_init(&finput, f, fname);
 
-	rc = comp_create(&lexer_file_input, &finput, mtype, &comp);
+	rc = comp_module_create(comp, &lexer_file_input, &finput, mtype,
+	    &module);
 	if (rc != EOK)
 		goto error;
 
 	comp->cgflags = cgflags;
 
 	if ((flags & compf_dump_ast) != compf_none) {
-		rc = comp_dump_ast(comp, stdout);
+		rc = comp_module_dump_ast(module, stdout);
 		if (rc != EOK)
 			goto error;
 
@@ -227,7 +237,7 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	}
 
 	if ((flags & compf_dump_toks) != compf_none) {
-		rc = comp_dump_toks(comp, stdout);
+		rc = comp_module_dump_toks(module, stdout);
 		if (rc != EOK)
 			goto error;
 
@@ -239,24 +249,24 @@ static int compile_file(const char *fname, comp_flags_t flags,
 	}
 
 	if ((flags & compf_dump_ir) != compf_none) {
-		rc = comp_dump_ir(comp, stdout);
+		rc = comp_module_dump_ir(module, stdout);
 		if (rc != EOK)
 			goto error;
 	}
 
 	if ((flags & compf_dump_vric) != compf_none) {
-		rc = comp_dump_vric(comp, stdout);
+		rc = comp_module_dump_vric(module, stdout);
 		if (rc != EOK)
 			goto error;
 	}
 
-	rc = comp_run(comp, (flags & compf_no_link) != compf_none ? outf :
-	    NULL);
+	rc = comp_module_compile(module, (flags & compf_no_link) !=
+	    compf_none ? outf : NULL);
 	if (rc != EOK)
 		goto error;
 
 	if ((flags & compf_dump_obj) != compf_none) {
-		rc = comp_dump_obj(comp, stdout);
+		rc = comp_module_dump_obj(module, stdout);
 		if (rc != EOK)
 			goto error;
 	}
@@ -324,12 +334,11 @@ static int compile_file(const char *fname, comp_flags_t flags,
 		free(mapfname);
 	if (progname != NULL)
 		free(progname);
-	comp_destroy(comp);
+	comp_module_destroy(module);
 
 	return EOK;
 error:
-	if (comp != NULL)
-		comp_destroy(comp);
+	comp_module_destroy(module);
 	if (f != NULL)
 		(void)fclose(f);
 	if (outf != NULL)
@@ -360,6 +369,7 @@ int main(int argc, char *argv[])
 	int i;
 	comp_flags_t flags = compf_none;
 	cgen_flags_t cgflags = cgf_none;
+	comp_t *comp = NULL;
 
 	if (argc < 2) {
 		print_syntax();
@@ -465,9 +475,19 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	rc = compile_file(argv[i], flags, cgflags);
-	if (rc != EOK)
+	rc = comp_create(&comp);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Failed creating compiler.\n");
 		return 1;
+	}
+
+	rc = compile_file(comp, argv[i], flags, cgflags);
+	if (rc != EOK) {
+		comp_destroy(comp);
+		return 1;
+	}
+
+	comp_destroy(comp);
 
 	return 0;
 }

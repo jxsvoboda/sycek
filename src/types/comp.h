@@ -28,6 +28,7 @@
 #define TYPES_COMP_H
 
 #include <adt/list.h>
+#include <stdbool.h>
 #include <types/ast.h>
 #include <types/cgen.h>
 #include <types/ir.h>
@@ -62,8 +63,16 @@ typedef enum {
 typedef struct comp_module {
 	/** Containing compiler */
 	struct comp *comp;
+	/** Module type */
+	comp_mtype_t mtype;
+	/** C lexer or @c NULL */
+	lexer_t *lexer;
+	/** IR lexer or @c NULL */
+	ir_lexer_t *ir_lexer;
 	/** Tokens */
 	list_t toks; /* of comp_tok_t */
+	/** Module was lexed. */
+	bool lexed;
 	/** Module AST */
 	ast_module_t *ast;
 	/** Module symbols */
@@ -80,14 +89,8 @@ typedef struct comp_module {
 
 /** Compiler */
 typedef struct comp {
-	/** C lexer or @c NULL */
-	lexer_t *lexer;
-	/** IR lexer or @c NULL */
-	ir_lexer_t *ir_lexer;
 	/** Module */
 	comp_module_t *mod;
-	/** Module type */
-	comp_mtype_t mtype;
 	/** Code generator flags */
 	cgen_flags_t cgflags;
 	/** Linked object */

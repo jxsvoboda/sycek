@@ -76,38 +76,74 @@ enum {
 /** Create compiler module.
  *
  * @param comp Compiler
+ * @param input_ops Input ops
+ * @param input_arg Argument to input_ops
+ * @param mtype Module type
  * @param rmodule Place to store new compiler module.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-static int comp_module_create(comp_t *comp,
-    comp_module_t **rmodule)
+int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
+    void *input_arg, comp_mtype_t mtype, comp_module_t **rmodule)
 {
 	comp_module_t *module = NULL;
+	lexer_t *lexer = NULL;
+	ir_lexer_t *ir_lexer = NULL;
+	symbols_t *symbols = NULL;
 	int rc;
 
 	module = calloc(1, sizeof(comp_module_t));
-	if (module == NULL)
-		return ENOMEM;
-
-	rc = symbols_create(&module->symbols);
-	if (rc != EOK) {
-		free(module);
-		return ENOMEM;
+	if (module == NULL) {
+		rc = ENOMEM;
+		goto error;
 	}
 
-	list_initialize(&module->toks);
-	module->comp = comp;
+	rc = symbols_create(&symbols);
+	if (rc != EOK)
+		goto error;
 
+	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
+		/* C language lexer */
+		rc = lexer_create(input_ops, input_arg, &lexer);
+		if (rc != EOK) {
+			assert(rc == ENOMEM);
+			goto error;
+		}
+	} else {
+		/* IR language lexer */
+		rc = ir_lexer_create(input_ops, input_arg, &ir_lexer);
+		if (rc != EOK) {
+			assert(rc == ENOMEM);
+			goto error;
+		}
+	}
+
+	module->comp = comp;
+	module->lexer = lexer;
+	module->ir_lexer = ir_lexer;
+	module->mtype = mtype;
+	module->symbols = symbols;
+
+	list_initialize(&module->toks);
+
+	comp->mod = module;
 	*rmodule = module;
 	return EOK;
+error:
+	if (symbols != NULL)
+		symbols_destroy(symbols);
+	if (lexer != NULL)
+		lexer_destroy(lexer);
+	if (comp != NULL)
+		free(comp);
+	return rc;
 }
 
 /** Destroy compiler module.
  *
  * @param comp Compiler
  */
-static void comp_module_destroy(comp_module_t *module)
+void comp_module_destroy(comp_module_t *module)
 {
 	comp_tok_t *tok;
 
@@ -128,7 +164,10 @@ static void comp_module_destroy(comp_module_t *module)
 	z80ic_module_destroy(module->vric);
 	z80ic_module_destroy(module->ic);
 	obj_object_destroy(module->object);
+	ir_lexer_destroy(module->ir_lexer);
+	lexer_destroy(module->lexer);
 
+	module->comp->mod = NULL;
 	free(module);
 }
 
@@ -189,20 +228,13 @@ static void comp_remove_token(comp_tok_t *tok)
 
 /** Create compiler.
  *
- * @param input_ops Input ops
- * @param input_arg Argument to input_ops
- * @param mtype Module type
- * @param cfg Configuration
  * @param rcomp Place to store new compiler.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int comp_create(lexer_input_ops_t *input_ops, void *input_arg,
-    comp_mtype_t mtype, comp_t **rcomp)
+int comp_create(comp_t **rcomp)
 {
 	comp_t *comp = NULL;
-	lexer_t *lexer = NULL;
-	ir_lexer_t *ir_lexer = NULL;
 	int rc;
 
 	comp = calloc(1, sizeof(comp_t));
@@ -211,32 +243,9 @@ int comp_create(lexer_input_ops_t *input_ops, void *input_arg,
 		goto error;
 	}
 
-	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
-		/* C language lexer */
-		rc = lexer_create(input_ops, input_arg, &lexer);
-		if (rc != EOK) {
-			assert(rc == ENOMEM);
-			goto error;
-		}
-	} else {
-		/* IR language lexer */
-		rc = ir_lexer_create(input_ops, input_arg, &ir_lexer);
-		if (rc != EOK) {
-			assert(rc == ENOMEM);
-			goto error;
-		}
-	}
-
-	comp->lexer = lexer;
-	comp->ir_lexer = ir_lexer;
-	comp->mtype = mtype;
 	*rcomp = comp;
 	return EOK;
 error:
-	if (lexer != NULL)
-		lexer_destroy(lexer);
-	if (comp != NULL)
-		free(comp);
 	return rc;
 }
 
@@ -247,34 +256,24 @@ error:
 void comp_destroy(comp_t *comp)
 {
 	comp_module_destroy(comp->mod);
-	ir_lexer_destroy(comp->ir_lexer);
-	lexer_destroy(comp->lexer);
 	obj_object_destroy(comp->linked_object);
 	free(comp);
 }
 
 /** Lex a module.
  *
- * @param comp Compiler
- * @param rmodule Place to store pointer to new module
+ * @param module Compiler module
  * @return EOK on success, or error code
  */
-static int comp_module_lex(comp_t *comp, comp_module_t **rmodule)
+static int comp_module_lex(comp_module_t *module)
 {
-	comp_module_t *module = NULL;
 	bool done;
 	lexer_tok_t tok;
 	int rc;
 
-	rc = comp_module_create(comp, &module);
-	if (rc != EOK) {
-		assert(rc == ENOMEM);
-		goto error;
-	}
-
 	done = false;
 	while (!done) {
-		rc = lexer_get_tok(comp->lexer, &tok);
+		rc = lexer_get_tok(module->lexer, &tok);
 		if (rc != EOK)
 			return rc;
 
@@ -288,10 +287,8 @@ static int comp_module_lex(comp_t *comp, comp_module_t **rmodule)
 			done = true;
 	}
 
-	*rmodule = module;
+	module->lexed = true;
 	return EOK;
-error:
-	return rc;
 }
 
 /** Get first token in a compiler module.
@@ -331,23 +328,17 @@ static comp_tok_t *comp_next_tok(comp_tok_t *tok)
 
 /** Parse an IR module.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @return EOK on success or error code
  */
-static int comp_ir_module_parse(comp_t *comp)
+static int comp_ir_module_parse(comp_module_t *module)
 {
 	ir_module_t *irmod;
 	ir_parser_t *parser = NULL;
 	comp_ir_parser_input_t pinput;
 	int rc;
 
-	rc = comp_module_create(comp, &comp->mod);
-	if (rc != EOK) {
-		assert(rc == ENOMEM);
-		goto error;
-	}
-
-	pinput.ir_lexer = comp->ir_lexer;
+	pinput.ir_lexer = module->ir_lexer;
 	pinput.have_tok = false;
 
 	rc = ir_parser_create(&comp_ir_parser_input, &pinput, &parser);
@@ -358,7 +349,7 @@ static int comp_ir_module_parse(comp_t *comp)
 	if (rc != EOK)
 		goto error;
 
-	comp->mod->ir = irmod;
+	module->ir = irmod;
 	ir_parser_destroy(parser);
 
 	return EOK;
@@ -371,15 +362,15 @@ error:
  *
  * If source hasn't been tokenized yet, do it now.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @return EOK on success or error code
  */
-static int comp_build_toks(comp_t *comp)
+static int comp_module_build_toks(comp_module_t *module)
 {
 	int rc;
 
-	if (comp->mod == NULL) {
-		rc = comp_module_lex(comp, &comp->mod);
+	if (!module->lexed) {
+		rc = comp_module_lex(module);
 		if (rc != EOK)
 			return rc;
 	}
@@ -391,28 +382,27 @@ static int comp_build_toks(comp_t *comp)
  *
  * If some parts are already built, they are skipped.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @return EOK on success or an error code
  */
-int comp_make_ir(comp_t *comp)
+int comp_module_make_ir(comp_module_t *module)
 {
 	int rc;
 	parser_t *parser = NULL;
 	comp_parser_input_t pinput;
 	cgen_t *cgen = NULL;
 
-	if (comp->mtype == cmt_ir && (comp->mod == NULL ||
-	    comp->mod->ir == NULL)) {
-		rc = comp_ir_module_parse(comp);
+	if (module->mtype == cmt_ir && module->ir == NULL) {
+		rc = comp_ir_module_parse(module);
 		if (rc != EOK)
 			goto error;
 	}
 
-	rc = comp_build_toks(comp);
+	rc = comp_module_build_toks(module);
 	if (rc != EOK)
 		return rc;
 
-	if (comp->mod->ir == NULL) {
+	if (module->ir == NULL) {
 		rc = cgen_create(&cgen);
 		if (rc != EOK)
 			goto error;
@@ -421,11 +411,11 @@ int comp_make_ir(comp_t *comp)
 		cgen->arith_width = 16;
 
 		/* Configure code generator. */
-		cgen->flags = comp->cgflags;
+		cgen->flags = module->comp->cgflags;
 
 		rc = cgen_module(cgen, &comp_parser_input, &pinput,
-		    comp_module_first_tok(comp->mod), comp->mod->symbols,
-		    &comp->mod->ir);
+		    comp_module_first_tok(module), module->symbols,
+		    &module->ir);
 		if (rc != EOK)
 			goto error;
 
@@ -435,7 +425,7 @@ int comp_make_ir(comp_t *comp)
 			goto error;
 		}
 
-		comp->mod->ast = cgen->astmod;
+		module->ast = cgen->astmod;
 
 		cgen_destroy(cgen);
 		parser_destroy(parser);
@@ -452,24 +442,24 @@ error:
  *
  * If some parts are already built, they are skipped.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @return EOK on success or an error code
  */
-int comp_make_vric(comp_t *comp)
+int comp_module_make_vric(comp_module_t *module)
 {
 	int rc;
 	z80_isel_t *isel = NULL;
 
-	rc = comp_make_ir(comp);
+	rc = comp_module_make_ir(module);
 	if (rc != EOK)
 		goto error;
 
-	if (comp->mod->vric == NULL) {
+	if (module->vric == NULL) {
 		rc = z80_isel_create(&isel);
 		if (rc != EOK)
 			goto error;
 
-		rc = z80_isel_module(isel, comp->mod->ir, &comp->mod->vric);
+		rc = z80_isel_module(isel, module->ir, &module->vric);
 		if (rc != EOK)
 			goto error;
 
@@ -485,25 +475,24 @@ error:
 
 /** Run all compiler steps needed to get IC.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @return EOK on success or an error code
  */
-int comp_make_ic(comp_t *comp)
+int comp_module_make_ic(comp_module_t *module)
 {
 	int rc;
 	z80_ralloc_t *ralloc = NULL;
 
-	rc = comp_make_vric(comp);
+	rc = comp_module_make_vric(module);
 	if (rc != EOK)
 		goto error;
 
-	if (comp->mod->ic == NULL) {
+	if (module->ic == NULL) {
 		rc = z80_ralloc_create(&ralloc);
 		if (rc != EOK)
 			goto error;
 
-		rc = z80_ralloc_module(ralloc, comp->mod->vric,
-		    &comp->mod->ic);
+		rc = z80_ralloc_module(ralloc, module->vric, &module->ic);
 		if (rc != EOK)
 			goto error;
 
@@ -516,33 +505,33 @@ error:
 	return rc;
 }
 
-/** Run compiler.
+/** Compile module (but do not link).
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param outf Output file (for writing assembly)
  * @return EOK on success or an error code
  */
-int comp_run(comp_t *comp, FILE *outf)
+int comp_module_compile(comp_module_t *module, FILE *outf)
 {
 	int rc;
 	z80_emit_t *emit = NULL;
 
-	rc = comp_make_ic(comp);
+	rc = comp_module_make_ic(module);
 	if (rc != EOK)
 		goto error;
 
 	if (outf != NULL) {
-		rc = comp_dump_ic(comp, outf);
+		rc = comp_module_dump_ic(module, outf);
 		if (rc != EOK)
 			goto error;
 	}
 
-	if (comp->mod->object == NULL) {
+	if (module->object == NULL) {
 		rc = z80_emit_create(&emit);
 		if (rc != EOK)
 			goto error;
 
-		rc = z80_emit_module(emit, comp->mod->ic, &comp->mod->object);
+		rc = z80_emit_module(emit, module->ic, &module->object);
 		if (rc != EOK)
 			goto error;
 
@@ -641,37 +630,37 @@ int comp_save_tape(comp_t *comp, const char *fname)
 
 /** Dump AST.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param f Output file
  * @return EOK on success or error code
  */
-int comp_dump_ast(comp_t *comp, FILE *f)
+int comp_module_dump_ast(comp_module_t *module, FILE *f)
 {
 	int rc;
 
-	rc = comp_make_ir(comp);
+	rc = comp_module_make_ir(module);
 	if (rc != EOK)
 		return rc;
 
-	return ast_tree_print(&comp->mod->ast->node, f);
+	return ast_tree_print(&module->ast->node, f);
 }
 
 /** Dump tokenized source.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param f Output file
  * @return EOK on success or error code
  */
-int comp_dump_toks(comp_t *comp, FILE *f)
+int comp_module_dump_toks(comp_module_t *module, FILE *f)
 {
 	comp_tok_t *tok;
 	int rc;
 
-	rc = comp_build_toks(comp);
+	rc = comp_module_build_toks(module);
 	if (rc != EOK)
 		return rc;
 
-	tok = comp_module_first_tok(comp->mod);
+	tok = comp_module_first_tok(module);
 	while (tok->tok.ttype != ltt_eof) {
 		rc = lexer_dprint_tok(&tok->tok, f);
 		if (rc != EOK)
@@ -692,69 +681,69 @@ int comp_dump_toks(comp_t *comp, FILE *f)
 
 /** Dump intermediate representation.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param f Output file
  * @return EOK on success or error code
  */
-int comp_dump_ir(comp_t *comp, FILE *f)
+int comp_module_dump_ir(comp_module_t *module, FILE *f)
 {
 	int rc;
 
-	rc = comp_make_ir(comp);
+	rc = comp_module_make_ir(module);
 	if (rc != EOK)
 		return rc;
 
-	assert(comp->mod->ir != NULL);
-	rc = ir_module_print(comp->mod->ir, f);
+	assert(module->ir != NULL);
+	rc = ir_module_print(module->ir, f);
 	return rc;
 }
 
 /** Dump instruction code with virtual registers.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param f Output file
  * @return EOK on success or error code
  */
-int comp_dump_vric(comp_t *comp, FILE *f)
+int comp_module_dump_vric(comp_module_t *module, FILE *f)
 {
 	int rc;
 
-	rc = comp_make_vric(comp);
+	rc = comp_module_make_vric(module);
 	if (rc != EOK)
 		return rc;
 
-	assert(comp->mod->vric != NULL);
-	rc = z80ic_module_print(comp->mod->vric, f);
+	assert(module->vric != NULL);
+	rc = z80ic_module_print(module->vric, f);
 	return rc;
 }
 
 /** Dump instruction code.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param f Output file
  * @return EOK on success or error code
  */
-int comp_dump_ic(comp_t *comp, FILE *f)
+int comp_module_dump_ic(comp_module_t *module, FILE *f)
 {
 	int rc;
 
-	assert(comp->mod->ic != NULL);
-	rc = z80ic_module_print(comp->mod->ic, f);
+	assert(module->ic != NULL);
+	rc = z80ic_module_print(module->ic, f);
 	return rc;
 }
 
 /** Dump binary object.
  *
- * @param comp Compiler
+ * @param module Compiler module
  * @param f Output file
  * @return EOK on success or error code
  */
-int comp_dump_obj(comp_t *comp, FILE *f)
+int comp_module_dump_obj(comp_module_t *module, FILE *f)
 {
 	int rc;
 
-	assert(comp->mod->object != NULL);
-	rc = obj_object_dump(comp->mod->object, f);
+	assert(module->object != NULL);
+	rc = obj_object_dump(module->object, f);
 	return rc;
 }
 

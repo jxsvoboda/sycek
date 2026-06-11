@@ -44,32 +44,37 @@ static int test_comp_string(const char *str)
 {
 	int rc;
 	comp_t *comp;
+	comp_module_t *module;
 	str_input_t sinput;
 
 	str_input_init(&sinput, str);
 
-	rc = comp_create(&lexer_str_input, &sinput, cmt_chdr, &comp);
+	rc = comp_create(&comp);
 	if (rc != EOK)
 		return rc;
 
-	rc = comp_run(comp, stdout);
+	rc = comp_module_create(comp, &lexer_str_input, &sinput, cmt_chdr,
+	    &module);
 	if (rc != EOK)
 		return rc;
 
-	rc = comp_dump_toks(comp, stdout);
+	rc = comp_module_compile(module, stdout);
 	if (rc != EOK)
 		return rc;
 
-	rc = comp_dump_ast(comp, stdout);
+	rc = comp_module_dump_toks(module, stdout);
 	if (rc != EOK)
 		return rc;
 
-	rc = comp_dump_ir(comp, stdout);
+	rc = comp_module_dump_ast(module, stdout);
+	if (rc != EOK)
+		return rc;
+
+	rc = comp_module_dump_ir(module, stdout);
 	if (rc != EOK)
 		return rc;
 
 	comp_destroy(comp);
-
 	return EOK;
 }
 

@@ -31,20 +31,23 @@
 #include <types/comp.h>
 #include <types/lexer.h>
 
-extern int comp_create(lexer_input_ops_t *, void *, comp_mtype_t, comp_t **);
-extern int comp_make_ast(comp_t *);
-extern int comp_make_ir(comp_t *);
-extern int comp_make_vric(comp_t *);
-extern int comp_make_ic(comp_t *);
+extern int comp_create(comp_t **);
+extern int comp_module_create(comp_t *, lexer_input_ops_t *, void *,
+    comp_mtype_t, comp_module_t **);
+extern void comp_module_destroy(comp_module_t *);
+extern int comp_module_make_ast(comp_module_t *);
+extern int comp_module_make_ir(comp_module_t *);
+extern int comp_module_make_vric(comp_module_t *);
+extern int comp_module_make_ic(comp_module_t *);
 extern int comp_make_tape(comp_t *, const char *);
-extern int comp_dump_ast(comp_t *, FILE *);
-extern int comp_dump_toks(comp_t *, FILE *);
-extern int comp_dump_ir(comp_t *, FILE *);
-extern int comp_dump_vric(comp_t *, FILE *);
-extern int comp_dump_ic(comp_t *, FILE *);
-extern int comp_dump_obj(comp_t *, FILE *);
+extern int comp_module_dump_ast(comp_module_t *, FILE *);
+extern int comp_module_dump_toks(comp_module_t *, FILE *);
+extern int comp_module_dump_ir(comp_module_t *, FILE *);
+extern int comp_module_dump_vric(comp_module_t *, FILE *);
+extern int comp_module_dump_ic(comp_module_t *, FILE *);
+extern int comp_module_dump_obj(comp_module_t *, FILE *);
 extern void comp_destroy(comp_t *);
-extern int comp_run(comp_t *, FILE *);
+extern int comp_module_compile(comp_module_t *, FILE *);
 extern int comp_link(comp_t *, FILE *);
 extern int comp_save_map(comp_t *, FILE *);
 extern int comp_save_tape(comp_t *, const char *);
