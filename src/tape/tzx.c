@@ -109,6 +109,9 @@ int tape_save_tzx(tape_t *tape, const char *fname)
 	block = tape_block_first(tape);
 	while (block != NULL) {
 		rc = tape_block_save_tzx(block, outf);
+		if (rc != EOK)
+			goto error;
+
 		block = tape_block_next(block);
 	}
 

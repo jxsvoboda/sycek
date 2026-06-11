@@ -346,7 +346,7 @@ error:
 	}
 	if (tapefname != NULL) {
 		(void) remove(tapefname);
-		free(outfname);
+		free(tapefname);
 	}
 	if (progname != NULL)
 		free(progname);
