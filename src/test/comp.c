@@ -54,7 +54,7 @@ static int test_comp_string(const char *str)
 		return rc;
 
 	rc = comp_module_create(comp, &lexer_str_input, &sinput, cmt_chdr,
-	    &module);
+	    "test.h", &module);
 	if (rc != EOK)
 		return rc;
 

@@ -47,7 +47,7 @@ static void print_syntax(void)
 {
 	(void)printf("C compiler / static checker\n");
 	(void)printf("syntax:\n"
-	    "\tsyc [options] <file> Compile / check the specified file\n"
+	    "\tsyc [options] <file>... Compile / check the specified file(s)\n"
 	    "\tsyc --test Run internal unit tests\n"
 	    "compiler options:\n"
 	    "\t--dump-ast Dump internal abstract syntax tree\n"
@@ -57,6 +57,7 @@ static void print_syntax(void)
 	    "\t--dump-obj Dump binary object\n"
 	    "\t--no-link Do not link, stop after compile stage\n"
 	    "\t--no-tape Do not make a tape image, stop after link stage\n"
+	    "\t--out=<fname> Output file name\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
 	    "\t--int-promotion Enable integer promotion\n");
@@ -146,6 +147,37 @@ error:
 	return ENOMEM;
 }
 
+/** Construct output file name from input file name.
+ *
+ * @param infname Input file name
+ * @param flags Compiler flags
+ * @param routfname Place to store pointer to output file name.
+ * @return EOK on success or an error code
+ */
+static int construct_outfname(const char *infname, comp_flags_t flags,
+    char **routfname)
+{
+	int rc;
+
+	if ((flags & compf_no_tape) != compf_none) {
+		rc = ext_replace(infname, "bin", routfname);
+		if (rc != EOK)
+			goto error;
+	} else if ((flags & compf_no_link) != compf_none) {
+		rc = ext_replace(infname, "asm", routfname);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = ext_replace(infname, "tzx", routfname);
+		if (rc != EOK)
+			goto error;
+	}
+
+	return EOK;
+error:
+	return rc;
+}
+
 /** Compile one input file.
  *
  * @param comp Compiler
@@ -168,7 +200,6 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 	FILE *mapf = NULL;
 	char *outfname = NULL;
 	char *mapfname = NULL;
-	char *tapefname = NULL;
 	char *progname = NULL;
 	char *ext;
 
@@ -191,16 +222,6 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
-	if ((flags & compf_no_link) != compf_none) {
-		rc = ext_replace(fname, "asm", &outfname);
-		if (rc != EOK)
-			goto error;
-	} else {
-		rc = ext_replace(fname, "bin", &outfname);
-		if (rc != EOK)
-			goto error;
-	}
-
 	f = fopen(fname, "rt");
 	if (f == NULL) {
 		(void)fprintf(stderr, "Cannot open '%s'.\n", fname);
@@ -208,17 +229,23 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
-	outf = fopen(outfname, "wt");
-	if (outf == NULL) {
-		(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
-		rc = EIO;
-		goto error;
+	if ((flags & compf_no_link) != compf_none) {
+		rc = ext_replace(fname, "asm", &outfname);
+		if (rc != EOK)
+			goto error;
+
+		outf = fopen(outfname, "wt");
+		if (outf == NULL) {
+			(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	file_input_init(&finput, f, fname);
 
 	rc = comp_module_create(comp, &lexer_file_input, &finput, mtype,
-	    &module);
+	    fname, &module);
 	if (rc != EOK)
 		goto error;
 
@@ -260,8 +287,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
-	rc = comp_module_compile(module, (flags & compf_no_link) !=
-	    compf_none ? outf : NULL);
+	rc = comp_module_compile(module, outf);
 	if (rc != EOK)
 		goto error;
 
@@ -271,54 +297,6 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
-	if ((flags & compf_no_link) == compf_none) {
-		rc = comp_link(comp, outf);
-		if (rc != EOK)
-			goto error;
-
-		rc = ext_replace(fname, "map", &mapfname);
-		if (rc != EOK)
-			goto error;
-
-		mapf = fopen(mapfname, "wt");
-		if (mapf == NULL) {
-			rc = EIO;
-			goto error;
-		}
-
-		rc = comp_save_map(comp, mapf);
-		if (rc != EOK)
-			goto error;
-
-		if (fflush(mapf) < 0) {
-			(void)fprintf(stderr, "Error writing to '%s'.\n",
-			    mapfname);
-			rc = EIO;
-			goto error;
-		}
-
-		(void)fclose(mapf);
-		mapf = NULL;
-
-		if ((flags & compf_no_tape) == compf_none) {
-			rc = ext_remove(fname, &progname);
-			if (rc != EOK)
-				goto error;
-
-			rc = comp_make_tape(comp, progname);
-			if (rc != EOK)
-				goto error;
-
-			rc = ext_replace(fname, "tzx", &tapefname);
-			if (rc != EOK)
-				goto error;
-
-			rc = comp_save_tape(comp, tapefname);
-			if (rc != EOK)
-				goto error;
-		}
-	}
-
 	if (fflush(outf) < 0) {
 		(void)fprintf(stderr, "Error writing to '%s'.\n", outfname);
 		rc = EIO;
@@ -326,15 +304,13 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 	}
 
 	(void)fclose(f);
-	(void)fclose(outf);
+	if (outf != NULL)
+		(void)fclose(outf);
 	free(outfname);
-	if (tapefname != NULL)
-		free(tapefname);
 	if (mapfname != NULL)
 		free(mapfname);
 	if (progname != NULL)
 		free(progname);
-	comp_module_destroy(module);
 
 	return EOK;
 error:
@@ -353,6 +329,138 @@ error:
 		(void) remove(outfname);
 		free(outfname);
 	}
+	if (progname != NULL)
+		free(progname);
+	return rc;
+}
+
+/** Link modules into a single binary.
+ *
+ * @param comp Compiler
+ * @param outfn Output file name
+ * @param flags Compiler flags
+ *
+ * @return EOK on succcess or an error code
+ */
+static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
+{
+	int rc;
+	FILE *f = NULL;
+	FILE *outf = NULL;
+	FILE *mapf = NULL;
+	char *outfname = NULL;
+	char *mapfname = NULL;
+	char *tapefname = NULL;
+	char *progname = NULL;
+	comp_module_t *module;
+
+	if ((flags & compf_no_link) != compf_none)
+		return EOK;
+
+	if (outfn == NULL) {
+		module = comp_module_first(comp);
+		if (comp_module_next(module) != NULL) {
+			(void)fprintf(stderr, "When linking multiple files, "
+			    "you must specify output file name with "
+			    "--out=<fname>.\n");
+			rc = EINVAL;
+			goto error;
+		}
+
+		rc = construct_outfname(module->fname, flags, &outfname);
+		if (rc != EOK)
+			goto error;
+	} else {
+		outfname = strdup(outfn);
+		if (outfname == NULL) {
+			rc = ENOMEM;
+			goto error;
+		}
+	}
+
+	outf = fopen(outfname, "wb");
+	if (outf == NULL) {
+		(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
+		rc = EIO;
+		goto error;
+	}
+
+	rc = comp_link(comp, outf);
+	if (rc != EOK)
+		goto error;
+
+	rc = ext_replace(outfname, "map", &mapfname);
+	if (rc != EOK)
+		goto error;
+
+	mapf = fopen(mapfname, "wt");
+	if (mapf == NULL) {
+		rc = EIO;
+		goto error;
+	}
+
+	rc = comp_save_map(comp, mapf);
+	if (rc != EOK)
+		goto error;
+
+	if (fflush(mapf) < 0) {
+		(void)fprintf(stderr, "Error writing to '%s'.\n",
+		    mapfname);
+		rc = EIO;
+		goto error;
+	}
+
+	(void)fclose(mapf);
+	mapf = NULL;
+
+	if ((flags & compf_no_tape) == compf_none) {
+		rc = ext_remove(outfname, &progname);
+		if (rc != EOK)
+			goto error;
+
+		rc = comp_make_tape(comp, progname);
+		if (rc != EOK)
+			goto error;
+
+		rc = ext_replace(outfname, "tzx", &tapefname);
+		if (rc != EOK)
+			goto error;
+
+		rc = comp_save_tape(comp, tapefname);
+		if (rc != EOK)
+			goto error;
+	}
+
+	if (fflush(outf) < 0) {
+		(void)fprintf(stderr, "Error writing to '%s'.\n", outfname);
+		rc = EIO;
+		goto error;
+	}
+
+	(void)fclose(outf);
+
+	if (tapefname != NULL)
+		free(tapefname);
+	if (mapfname != NULL)
+		free(mapfname);
+	if (progname != NULL)
+		free(progname);
+	if (outfname != NULL)
+		free(outfname);
+	return EOK;
+error:
+	if (f != NULL)
+		(void)fclose(f);
+	if (outf != NULL)
+		(void)fclose(outf);
+	if (mapf != NULL)
+		(void)fclose(mapf);
+	if (outfname != NULL)
+		free(outfname);
+	if (mapfname != NULL) {
+		(void) remove(mapfname);
+		free(mapfname);
+	}
 	if (tapefname != NULL) {
 		(void) remove(tapefname);
 		free(tapefname);
@@ -370,6 +478,7 @@ int main(int argc, char *argv[])
 	comp_flags_t flags = compf_none;
 	cgen_flags_t cgflags = cgf_none;
 	comp_t *comp = NULL;
+	const char *outfname = NULL;
 
 	if (argc < 2) {
 		print_syntax();
@@ -461,6 +570,10 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--fatal-warn") == 0) {
 			++i;
 			cgflags |= cgf_fatal_warn;
+		} else if (strncmp(argv[i], "--out=", strlen("--out=")) == 0) {
+			outfname = argv[i] + strlen("--out=");
+			++i;
+			cgflags |= cgf_fatal_warn;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;
@@ -481,7 +594,15 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	rc = compile_file(comp, argv[i], flags, cgflags);
+	while (i < argc) {
+		rc = compile_file(comp, argv[i++], flags, cgflags);
+		if (rc != EOK) {
+			comp_destroy(comp);
+			return 1;
+		}
+	}
+
+	rc = link_binary(comp, outfname, flags);
 	if (rc != EOK) {
 		comp_destroy(comp);
 		return 1;

@@ -30,6 +30,7 @@ void *memcpy(void *, const void *, size_t) __attribute__((may_ignore_return));
 void *memmove(void *, const void *, size_t) __attribute__((may_ignore_return));
 void *memset(void *, int, unsigned) __attribute__((may_ignore_return));
 int strcmp(const char *, const char *);
+int strncmp(const char *, const char *, size_t);
 char *strdup(const char *);
 size_t strlen(const char *);
 char *strncpy(char *, const char *, size_t) __attribute__((may_ignore_return));

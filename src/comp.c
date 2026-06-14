@@ -39,8 +39,10 @@
 #include <parser.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <symbols.h>
 #include <tape/maker.h>
+#include <tape/tape.h>
 #include <tape/tzx.h>
 #include <z80/emit.h>
 #include <z80/isel.h>
@@ -79,12 +81,14 @@ enum {
  * @param input_ops Input ops
  * @param input_arg Argument to input_ops
  * @param mtype Module type
+ * #param fname File name
  * @param rmodule Place to store new compiler module.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
 int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
-    void *input_arg, comp_mtype_t mtype, comp_module_t **rmodule)
+    void *input_arg, comp_mtype_t mtype, const char *fname,
+    comp_module_t **rmodule)
 {
 	comp_module_t *module = NULL;
 	lexer_t *lexer = NULL;
@@ -118,7 +122,15 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 		}
 	}
 
+	module->fname = strdup(fname);
+	if (module->fname == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
 	module->comp = comp;
+	list_append(&module->lmods, &comp->mods);
+
 	module->lexer = lexer;
 	module->ir_lexer = ir_lexer;
 	module->mtype = mtype;
@@ -126,7 +138,6 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 
 	list_initialize(&module->toks);
 
-	comp->mod = module;
 	*rmodule = module;
 	return EOK;
 error:
@@ -167,8 +178,41 @@ void comp_module_destroy(comp_module_t *module)
 	ir_lexer_destroy(module->ir_lexer);
 	lexer_destroy(module->lexer);
 
-	module->comp->mod = NULL;
+	list_remove(&module->lmods);
+	free(module->fname);
 	free(module);
+}
+
+/** Get first module in compiler.
+ *
+ * @param comp Compiler
+ * @return First module or @c NULL if there are none
+ */
+comp_module_t *comp_module_first(comp_t *comp)
+{
+	link_t *link;
+
+	link = list_first(&comp->mods);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, comp_module_t, lmods);
+}
+
+/** Get nex module in compiler.
+ *
+ * @param cur Current module
+ * @return Next module or @c NULL if cur is the last one
+ */
+comp_module_t *comp_module_next(comp_module_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lmods, &cur->comp->mods);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, comp_module_t, lmods);
 }
 
 /** Create a compiler token.
@@ -243,6 +287,7 @@ int comp_create(comp_t **rcomp)
 		goto error;
 	}
 
+	list_initialize(&comp->mods);
 	*rcomp = comp;
 	return EOK;
 error:
@@ -255,8 +300,16 @@ error:
  */
 void comp_destroy(comp_t *comp)
 {
-	comp_module_destroy(comp->mod);
+	comp_module_t *module;
+
+	module = comp_module_first(comp);
+	while (module != NULL) {
+		comp_module_destroy(module);
+		module = comp_module_first(comp);
+	}
+
 	obj_object_destroy(comp->linked_object);
+	tape_destroy(comp->tape);
 	free(comp);
 }
 
@@ -555,31 +608,38 @@ int comp_link(comp_t *comp, FILE *outf)
 {
 	int rc;
 	obj_linker_t *linker = NULL;
+	comp_module_t *module;
 
-	if (comp->linked_object == NULL) {
-		rc = obj_linker_create(&linker);
+	if (comp->linked_object != NULL)
+		return EOK;
+
+	rc = obj_linker_create(&linker);
+	if (rc != EOK)
+		goto error;
+
+	/* Add objects from all modules as sources. */
+	module = comp_module_first(comp);
+	while (module != NULL) {
+		rc = obj_linker_add_src(linker, module->object);
 		if (rc != EOK)
 			goto error;
 
-		rc = obj_linker_add_src(linker, comp->mod->object);
-		if (rc != EOK)
-			goto error;
-
-		rc = obj_linker_set_origin(linker, org_default);
-		if (rc != EOK)
-			goto error;
-
-		rc = obj_linker_link(linker, &comp->linked_object);
-		if (rc != EOK)
-			goto error;
-
-		rc = obj_object_save_bin(comp->linked_object, outf);
-		if (rc != EOK)
-			goto error;
-
-		obj_linker_destroy(linker);
+		module = comp_module_next(module);
 	}
 
+	rc = obj_linker_set_origin(linker, org_default);
+	if (rc != EOK)
+		goto error;
+
+	rc = obj_linker_link(linker, &comp->linked_object);
+	if (rc != EOK)
+		goto error;
+
+	rc = obj_object_save_bin(comp->linked_object, outf);
+	if (rc != EOK)
+		goto error;
+
+	obj_linker_destroy(linker);
 	return EOK;
 error:
 	obj_linker_destroy(linker);

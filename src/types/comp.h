@@ -63,8 +63,12 @@ typedef enum {
 typedef struct comp_module {
 	/** Containing compiler */
 	struct comp *comp;
+	/** Link to comp->mods */
+	link_t lmods;
 	/** Module type */
 	comp_mtype_t mtype;
+	/** File name */
+	char *fname;
 	/** C lexer or @c NULL */
 	lexer_t *lexer;
 	/** IR lexer or @c NULL */
@@ -89,8 +93,8 @@ typedef struct comp_module {
 
 /** Compiler */
 typedef struct comp {
-	/** Module */
-	comp_module_t *mod;
+	/** Modules (comp_module_t) */
+	list_t mods;
 	/** Code generator flags */
 	cgen_flags_t cgflags;
 	/** Linked object */
