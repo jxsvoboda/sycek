@@ -129,6 +129,7 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 	obj_reloc_t *reloc;
 	obj_reloc_t *next;
 	uint32_t address;
+	unsigned modidx;
 	int rc;
 
 	rc = obj_object_create(&dest);
@@ -137,8 +138,9 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 
 	/* Copy everything from sources. */
 	src = obj_linker_src_first(linker);
+	modidx = 1;
 	while (src != NULL) {
-		rc = obj_object_copy(src->object, dest);
+		rc = obj_object_copy(src->object, modidx++, dest);
 		if (rc != EOK)
 			goto error;
 

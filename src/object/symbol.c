@@ -129,22 +129,31 @@ int obj_symbol_save_map(obj_symbol_t *symbol, FILE *outf)
 /** Copy binary object symbol to another object.
  *
  * @param symbol Symbol
+ * @param modidx Source module index
  * @param dest Destination object
  * @return EOK on success, ENOMEM if out of memory
  */
-int obj_symbol_copy(obj_symbol_t *symbol, obj_object_t *dest)
+int obj_symbol_copy(obj_symbol_t *symbol, unsigned modidx, obj_object_t *dest)
 {
 	obj_section_t *dsection;
 	obj_symbol_t *dsymbol = NULL;
+	char *sname = NULL;
 	int rc;
 
-	dsection = obj_section_by_name(dest, symbol->section->name);
-	if (dsection == NULL)
-		return EINVAL;
+	rc = obj_section_tagged_name(symbol->section, modidx, &sname);
+	if (rc != EOK)
+		return rc;
 
-	rc = obj_symbol_create(dest, symbol->name, dsection, symbol->offset,
+	dsection = obj_section_by_name(dest, sname);
+	if (dsection == NULL) {
+		free(sname);
+		return EINVAL;
+	}
+
+	free(sname);
+
+	return obj_symbol_create(dest, symbol->name, dsection, symbol->offset,
 	    symbol->size, &dsymbol);
-	return rc;
 }
 
 /** Get first symbol in object.

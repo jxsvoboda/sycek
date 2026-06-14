@@ -121,21 +121,29 @@ int obj_reloc_dump(obj_reloc_t *reloc, FILE *outf)
 /** Copy binary object relocation to another object.
  *
  * @param reloc Relocation
+ * @param modidx Source module index
  * @param dest Destination object
  * @return EOK on success, ENOMEM if out of memory
  */
-int obj_reloc_copy(obj_reloc_t *reloc, obj_object_t *dest)
+int obj_reloc_copy(obj_reloc_t *reloc, unsigned modidx, obj_object_t *dest)
 {
 	obj_section_t *dsection;
+	char *sname = NULL;
 	int rc;
 
-	dsection = obj_section_by_name(dest, reloc->section->name);
-	if (dsection == NULL)
-		return EINVAL;
+	rc = obj_section_tagged_name(reloc->section, modidx, &sname);
+	if (rc != EOK)
+		return rc;
 
-	rc = obj_reloc_create(dest, dsection, reloc->rtype, reloc->offset,
+	dsection = obj_section_by_name(dest, sname);
+	if (dsection == NULL) {
+		free(sname);
+		return EINVAL;
+	}
+
+	free(sname);
+	return obj_reloc_create(dest, dsection, reloc->rtype, reloc->offset,
 	    reloc->sym_name, reloc->addend);
-	return rc;
 }
 
 /** Get first relocation in object.

@@ -136,21 +136,56 @@ int obj_section_save_bin(obj_section_t *section, FILE *outf)
 	return EOK;
 }
 
+/** Get section name with module index appended.
+ *
+ * This is used when copying modules into a single object. The sections
+ * are then renamed by appending 'at-sign' + modidx.
+ *
+ * @param section Original section
+ * @param modidx Module index
+ * @param rname Place to store pointer to tagged name.
+ * @return EOK on success or an error code
+ */
+int obj_section_tagged_name(obj_section_t *section, unsigned modidx,
+    char **rname)
+{
+	char *dname = NULL;
+	int rv;
+
+	rv = asprintf(&dname, "%s@%u", section->name, modidx);
+	if (rv < 0)
+		return ENOMEM;
+
+	*rname = dname;
+	return EOK;
+}
+
 /** Copy binary object section to another object.
  *
  * @param section Section
+ * @param modidx Source module index
  * @param dest Destination object
  * @return EOK on success, ENOMEM if out of memory
  */
-int obj_section_copy(obj_section_t *section, obj_object_t *dest)
+int obj_section_copy(obj_section_t *section, unsigned modidx,
+    obj_object_t *dest)
 {
 	int rc;
 	obj_section_t *dsection = NULL;
+	char *dname = NULL;
 	void *data;
 
-	rc = obj_section_create(dest, section->name, &dsection);
+	rc = obj_section_tagged_name(section, modidx, &dname);
 	if (rc != EOK)
 		return rc;
+
+	rc = obj_section_create(dest, dname, &dsection);
+	if (rc != EOK) {
+		free(dname);
+		return rc;
+	}
+
+	free(dname);
 
 	data = malloc((size_t)section->alloc_len);
 	if (data == NULL) {

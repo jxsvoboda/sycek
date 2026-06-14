@@ -141,10 +141,11 @@ int obj_object_dump(obj_object_t *object, FILE *outf)
  * at the end. The source object is not modified.
  *
  * @param src Source object
+ * @param modidx Source module index
  * @param dest Destination object
  * @return EOK on success or an error code
  */
-int obj_object_copy(obj_object_t *src, obj_object_t *dest)
+int obj_object_copy(obj_object_t *src, unsigned modidx, obj_object_t *dest)
 {
 	obj_section_t *section;
 	obj_symbol_t *symbol;
@@ -153,7 +154,7 @@ int obj_object_copy(obj_object_t *src, obj_object_t *dest)
 
 	section = obj_section_first(src);
 	while (section != NULL) {
-		rc = obj_section_copy(section, dest);
+		rc = obj_section_copy(section, modidx, dest);
 		if (rc != EOK)
 			return rc;
 
@@ -162,7 +163,7 @@ int obj_object_copy(obj_object_t *src, obj_object_t *dest)
 
 	symbol = obj_symbol_first(src);
 	while (symbol != NULL) {
-		rc = obj_symbol_copy(symbol, dest);
+		rc = obj_symbol_copy(symbol, modidx, dest);
 		if (rc != EOK)
 			return rc;
 
@@ -171,7 +172,7 @@ int obj_object_copy(obj_object_t *src, obj_object_t *dest)
 
 	reloc = obj_reloc_first(src);
 	while (reloc != NULL) {
-		rc = obj_reloc_copy(reloc, dest);
+		rc = obj_reloc_copy(reloc, modidx, dest);
 		if (rc != EOK)
 			return rc;
 

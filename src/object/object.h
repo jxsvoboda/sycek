@@ -35,6 +35,6 @@ extern void obj_object_destroy(obj_object_t *);
 extern int obj_object_dump(obj_object_t *, FILE *);
 extern int obj_object_save_bin(obj_object_t *, FILE *);
 extern int obj_object_save_map(obj_object_t *, FILE *);
-extern int obj_object_copy(obj_object_t *, obj_object_t *);
+extern int obj_object_copy(obj_object_t *, unsigned, obj_object_t *);
 
 #endif
