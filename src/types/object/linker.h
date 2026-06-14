@@ -27,13 +27,24 @@
 #ifndef TYPES_OBJECT_LINKER_H
 #define TYPES_OBJECT_LINKER_H
 
+#include <adt/list.h>
 #include <stdint.h>
 #include <types/object/object.h>
 
+/** Object linker source */
+typedef struct {
+	/** Containing linker */
+	struct obj_linker *linker;
+	/** Link to @c linker->sources */
+	link_t lsources;
+	/** Source object */
+	obj_object_t *object;
+} obj_linker_src_t;
+
 /** Object linker */
 typedef struct obj_linker {
-	/** Source object */
-	obj_object_t *src;
+	/** Linking sources (obj_linker_src_t) */
+	list_t sources;
 	/** Address where the output object should start. */
 	uint32_t org;
 	/** Destination object */

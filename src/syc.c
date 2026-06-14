@@ -386,8 +386,10 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 	}
 
 	rc = comp_link(comp, outf);
-	if (rc != EOK)
+	if (rc != EOK) {
+		printf("link failed\n");
 		goto error;
+	}
 
 	rc = ext_replace(outfname, "map", &mapfname);
 	if (rc != EOK)
@@ -455,14 +457,16 @@ error:
 		(void)fclose(outf);
 	if (mapf != NULL)
 		(void)fclose(mapf);
-	if (outfname != NULL)
+	if (outfname != NULL) {
+		(void)remove(outfname);
 		free(outfname);
+	}
 	if (mapfname != NULL) {
 		(void) remove(mapfname);
 		free(mapfname);
 	}
 	if (tapefname != NULL) {
-		(void) remove(tapefname);
+		(void)remove(tapefname);
 		free(tapefname);
 	}
 	if (progname != NULL)

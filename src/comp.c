@@ -621,8 +621,10 @@ int comp_link(comp_t *comp, FILE *outf)
 	module = comp_module_first(comp);
 	while (module != NULL) {
 		rc = obj_linker_add_src(linker, module->object);
-		if (rc != EOK)
+		if (rc != EOK) {
+			(void)fprintf(stderr, "Error adding link source.\n");
 			goto error;
+		}
 
 		module = comp_module_next(module);
 	}
@@ -634,6 +636,9 @@ int comp_link(comp_t *comp, FILE *outf)
 	rc = obj_linker_link(linker, &comp->linked_object);
 	if (rc != EOK)
 		goto error;
+
+	if (0)
+		obj_object_dump(comp->linked_object, stdout);
 
 	rc = obj_object_save_bin(comp->linked_object, outf);
 	if (rc != EOK)

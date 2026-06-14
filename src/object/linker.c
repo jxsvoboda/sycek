@@ -24,6 +24,7 @@
  * Binary object linker
  */
 
+#include <adt/list.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +32,10 @@
 #include <object/object.h>
 #include <object/reloc.h>
 #include <object/section.h>
+
+static obj_linker_src_t *obj_linker_src_first(obj_linker_t *);
+static obj_linker_src_t *obj_linker_src_next(obj_linker_src_t *);
+static void obj_linker_src_destroy(obj_linker_src_t *);
 
 /** Create binary linker.
  *
@@ -45,6 +50,7 @@ int obj_linker_create(obj_linker_t **rlinker)
 	if (linker == NULL)
 		return ENOMEM;
 
+	list_initialize(&linker->sources);
 	*rlinker = linker;
 	return EOK;
 }
@@ -55,10 +61,17 @@ int obj_linker_create(obj_linker_t **rlinker)
  */
 void obj_linker_destroy(obj_linker_t *linker)
 {
+	obj_linker_src_t *src;
+
 	if (linker == NULL)
 		return;
 
-	obj_object_destroy(linker->dest);
+	src = obj_linker_src_first(linker);
+	while (src != NULL) {
+		obj_linker_src_destroy(src);
+		src = obj_linker_src_first(linker);
+	}
+
 	free(linker);
 }
 
@@ -69,11 +82,26 @@ void obj_linker_destroy(obj_linker_t *linker)
  */
 int obj_linker_add_src(obj_linker_t *linker, obj_object_t *src)
 {
-	if (linker->src != NULL)
-		return EINVAL;
+	obj_linker_src_t *source;
 
-	linker->src = src;
+	source = calloc(1, sizeof(obj_linker_src_t));
+	if (source == NULL)
+		return ENOMEM;
+
+	source->linker = linker;
+	source->object = src;
+	list_append(&source->lsources, &linker->sources);
 	return EOK;
+}
+
+/** Destroy linker source.
+ *
+ * @param src Linker source
+ */
+void obj_linker_src_destroy(obj_linker_src_t *src)
+{
+	list_remove(&src->lsources);
+	free(src);
 }
 
 /** Set address where code should start.
@@ -96,6 +124,7 @@ int obj_linker_set_origin(obj_linker_t *linker, uint32_t origin)
 int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 {
 	obj_object_t *dest = NULL;
+	obj_linker_src_t *src;
 	obj_section_t *section;
 	obj_reloc_t *reloc;
 	obj_reloc_t *next;
@@ -107,10 +136,13 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 		return rc;
 
 	/* Copy everything from sources. */
-	if (linker->src != NULL) {
-		rc = obj_object_copy(linker->src, dest);
+	src = obj_linker_src_first(linker);
+	while (src != NULL) {
+		rc = obj_object_copy(src->object, dest);
 		if (rc != EOK)
 			goto error;
+
+		src = obj_linker_src_next(src);
 	}
 
 	/* Assign addresses to sections. */
@@ -141,4 +173,36 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 error:
 	obj_object_destroy(dest);
 	return rc;
+}
+
+/** Get first linker source.
+ *
+ * @param linker Linker
+ * @return First source or @c NULL if there are none.
+ */
+obj_linker_src_t *obj_linker_src_first(obj_linker_t *linker)
+{
+	link_t *link;
+
+	link = list_first(&linker->sources);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, obj_linker_src_t, lsources);
+}
+
+/** Get next linker source.
+ *
+ * @param cur Current source
+ * @return Next section or @c NULL if @a cur is the last source.
+ */
+obj_linker_src_t *obj_linker_src_next(obj_linker_src_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lsources, &cur->linker->sources);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, obj_linker_src_t, lsources);
 }
