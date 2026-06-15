@@ -381,17 +381,15 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 	if ((flags & compf_no_tape) != compf_none) {
 		outf = fopen(outfname, "wb");
 		if (outf == NULL) {
-		    	(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
+			(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
 			rc = EIO;
 			goto error;
 		}
 	}
 
 	rc = comp_link(comp, outf);
-	if (rc != EOK) {
-		printf("link failed\n");
+	if (rc != EOK)
 		goto error;
-	}
 
 	rc = ext_replace(outfname, "map", &mapfname);
 	if (rc != EOK)

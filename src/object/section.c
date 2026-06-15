@@ -29,6 +29,7 @@
 #include <string.h>
 #include <object/object.h>
 #include <object/section.h>
+#include <object/symbol.h>
 
 /** Create binary object section structure.
  *
@@ -199,6 +200,90 @@ int obj_section_copy(obj_section_t *section, unsigned modidx,
 	dsection->len = section->len;
 
 	memcpy(dsection->data, section->data, (size_t)section->len);
+	return EOK;
+}
+
+/** Merge section into another section.
+ *
+ * The @a src section is merged into (appended to) @a dest, section
+ * @a src is removed.
+ *
+ * @param dest Destination section (extended)
+ * @param src Source section (removed)
+ * @return EOK on success or an error code
+ */
+int obj_section_merge(obj_section_t *dest, obj_section_t *src)
+{
+	size_t new_len;
+	obj_symbol_t *symbol;
+	void *data;
+
+	new_len = (size_t)(dest->len + src->len);
+
+	/* Enlarge destination section buffer. */
+	data = realloc(dest->data, new_len);
+	if (data == NULL)
+		return ENOMEM;
+
+	/* Copy data. */
+	memcpy(dest->data + (size_t)dest->len, src->data, (size_t)src->len);
+
+	/* Move symbols. */
+	symbol = obj_symbol_first(dest->object);
+	while (symbol != NULL) {
+		if (symbol->section == src) {
+			symbol->section = dest;
+			symbol->offset += dest->len;
+		}
+		symbol = obj_symbol_next(symbol);
+	}
+
+	dest->len = new_len;
+
+	obj_section_destroy(src);
+	return EOK;
+}
+
+/** Compare base names of two sections.
+ *
+ * Base name is the name without the traling 'at'-module-index tag.
+ *
+ * @param sa First section
+ * @param sb Second section
+ *
+ * @return Zero if the two base names are the same, non-zero otherwise.
+ */
+int obj_section_basename_cmp(obj_section_t *sa, obj_section_t *sb)
+{
+	char *a;
+	char *b;
+
+	a = sa->name;
+	b = sb->name;
+
+	while (*a != '\0' && *a != '@' && *b != '\0' && *b != '@' &&
+	    *a == *b) {
+		++a;
+		++b;
+	}
+
+	return (int)(*a - *b);
+}
+
+/** Remove module index tag from section name.
+ *
+ * E.g. 'common@1' -> 'common'.
+ *
+ * @param section Section to be modified.
+ * @return EOK on success or an error code
+ */
+int obj_section_remove_tag(obj_section_t *section)
+{
+	char *p;
+
+	p = strchr(section->name, '@');
+	if (p != NULL)
+		*p = '\0';
 	return EOK;
 }
 

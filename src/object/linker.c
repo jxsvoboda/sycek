@@ -98,7 +98,7 @@ int obj_linker_add_src(obj_linker_t *linker, obj_object_t *src)
  *
  * @param src Linker source
  */
-void obj_linker_src_destroy(obj_linker_src_t *src)
+static void obj_linker_src_destroy(obj_linker_src_t *src)
 {
 	list_remove(&src->lsources);
 	free(src);
@@ -126,6 +126,8 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 	obj_object_t *dest = NULL;
 	obj_linker_src_t *src;
 	obj_section_t *section;
+	obj_section_t *src_sec;
+	obj_section_t *src_nsec;
 	obj_reloc_t *reloc;
 	obj_reloc_t *next;
 	uint32_t address;
@@ -170,6 +172,29 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 		reloc = next;
 	}
 
+	/* Merge sections. */
+	section = obj_section_first(dest);
+	while (section != NULL) {
+		src_sec = obj_section_next(section);
+		while (src_sec != NULL) {
+			src_nsec = obj_section_next(src_sec);
+
+			if (obj_section_basename_cmp(section, src_sec) == 0) {
+				rc = obj_section_merge(section, src_sec);
+				if (rc != EOK)
+					goto error;
+
+				rc = obj_section_remove_tag(section);
+				if (rc != EOK)
+					goto error;
+			}
+
+			src_sec = src_nsec;
+		}
+
+		section = obj_section_next(section);
+	}
+
 	*rdest = dest;
 	return EOK;
 error:
@@ -182,7 +207,7 @@ error:
  * @param linker Linker
  * @return First source or @c NULL if there are none.
  */
-obj_linker_src_t *obj_linker_src_first(obj_linker_t *linker)
+static obj_linker_src_t *obj_linker_src_first(obj_linker_t *linker)
 {
 	link_t *link;
 
@@ -198,7 +223,7 @@ obj_linker_src_t *obj_linker_src_first(obj_linker_t *linker)
  * @param cur Current source
  * @return Next section or @c NULL if @a cur is the last source.
  */
-obj_linker_src_t *obj_linker_src_next(obj_linker_src_t *cur)
+static obj_linker_src_t *obj_linker_src_next(obj_linker_src_t *cur)
 {
 	link_t *link;
 
