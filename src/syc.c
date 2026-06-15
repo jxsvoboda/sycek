@@ -378,11 +378,13 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 		}
 	}
 
-	outf = fopen(outfname, "wb");
-	if (outf == NULL) {
-		(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
-		rc = EIO;
-		goto error;
+	if ((flags & compf_no_tape) != compf_none) {
+		outf = fopen(outfname, "wb");
+		if (outf == NULL) {
+		    	(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
+			rc = EIO;
+			goto error;
+		}
 	}
 
 	rc = comp_link(comp, outf);
@@ -433,13 +435,14 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 			goto error;
 	}
 
-	if (fflush(outf) < 0) {
+	if (outf != NULL && fflush(outf) < 0) {
 		(void)fprintf(stderr, "Error writing to '%s'.\n", outfname);
 		rc = EIO;
 		goto error;
 	}
 
-	(void)fclose(outf);
+	if (outf != NULL)
+		(void)fclose(outf);
 
 	if (tapefname != NULL)
 		free(tapefname);

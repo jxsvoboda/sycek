@@ -601,7 +601,7 @@ error:
 /** Perform linking.
  *
  * @param comp Compiler
- * @param outf Output file (for writing linked binary)
+ * @param outf Output file (for writing linked binary) or @c NULL
  * @return EOK on success or an error code
  */
 int comp_link(comp_t *comp, FILE *outf)
@@ -637,12 +637,14 @@ int comp_link(comp_t *comp, FILE *outf)
 	if (rc != EOK)
 		goto error;
 
-	if (0)
-		obj_object_dump(comp->linked_object, stdout);
+	if (false)
+		(void)obj_object_dump(comp->linked_object, stdout);
 
-	rc = obj_object_save_bin(comp->linked_object, outf);
-	if (rc != EOK)
-		goto error;
+	if (outf != NULL) {
+		rc = obj_object_save_bin(comp->linked_object, outf);
+		if (rc != EOK)
+			goto error;
+	}
 
 	obj_linker_destroy(linker);
 	return EOK;
