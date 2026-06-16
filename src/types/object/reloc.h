@@ -33,9 +33,9 @@
 /** Object relocation type */
 typedef enum {
 	/** 16-bit symbol value + addend */
-	objr_sa16,
+	objr_sa16 = 1,
 	/** 16-bit base address + addend */
-	objr_rela16
+	objr_rela16 = 2
 } obj_reloc_type_t;
 
 /** Object relocation */

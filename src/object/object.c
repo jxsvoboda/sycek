@@ -24,12 +24,14 @@
  * Binary object
  */
 
+#include <byteorder.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <object/object.h>
 #include <object/reloc.h>
 #include <object/section.h>
 #include <object/symbol.h>
+#include <types/object/file.h>
 
 /** Create binary object structure.
  *
@@ -227,3 +229,69 @@ int obj_object_save_map(obj_object_t *object, FILE *outf)
 
 	return EOK;
 }
+
+/** Save binary object into an object file.
+ *
+ * @param object Object
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_object_save_obj(obj_object_t *object, FILE *outf)
+{
+	obj_file_hdr_t hdr;
+	obj_section_t *section;
+	obj_symbol_t *symbol;
+	obj_reloc_t *reloc;
+	size_t nw;
+	int rc;
+
+	hdr.signature = host2uint32_t_le(obj_file_sign);
+	hdr.major = host2uint16_t_le(obj_file_major);
+	hdr.minor = host2uint16_t_le(obj_file_minor);
+
+	nw = fwrite(&hdr, 1, sizeof(hdr), outf);
+	if (nw != sizeof(hdr)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	section = obj_section_first(object);
+	while (section != NULL) {
+		rc = obj_section_save_obj(section, outf);
+		if (rc != EOK)
+			return rc;
+
+		section = obj_section_next(section);
+	}
+
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		rc = obj_symbol_save_obj(symbol, outf);
+		if (rc != EOK)
+			return rc;
+
+		symbol = obj_symbol_next(symbol);
+	}
+
+	reloc = obj_reloc_first(object);
+	while (reloc != NULL) {
+		rc = obj_reloc_save_obj(reloc, outf);
+		if (rc != EOK)
+			return rc;
+
+		reloc = obj_reloc_next(reloc);
+	}
+
+	return EOK;
+}
+
+/** Align size to multiple of obj_file_align.
+ *
+ * @param size
+ * @return Size aligned up
+ */
+uint32_t obj_align_up(uint32_t size)
+{
+	return (size + (obj_file_align - 1)) & ~((uint32_t)obj_file_align - 1);
+}
+

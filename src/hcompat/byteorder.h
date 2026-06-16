@@ -33,5 +33,7 @@ extern uint16_t host2uint16_t_le(uint16_t);
 extern uint16_t uint16_t_le2host(uint16_t);
 extern uint32_t host2uint32_t_le(uint32_t);
 extern uint32_t uint32_t_le2host(uint32_t);
+extern uint64_t host2uint64_t_le(uint64_t);
+extern uint64_t uint64_t_le2host(uint64_t);
 
 #endif

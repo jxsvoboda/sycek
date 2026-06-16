@@ -129,10 +129,12 @@ typedef enum {
 	compf_dump_vric = 0x8,
 	/** Dump binary object */
 	compf_dump_obj = 0x10,
+	/** Do not emit binary instructions */
+	compf_no_emit = 0x20,
 	/** Do not link into an executable */
-	compf_no_link = 0x20,
+	compf_no_link = 0x40,
 	/** Do not make a tape image */
-	compf_no_tape = 0x40
+	compf_no_tape = 0x80
 } comp_flags_t;
 
 #endif

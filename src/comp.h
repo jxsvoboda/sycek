@@ -50,6 +50,7 @@ extern int comp_module_dump_ic(comp_module_t *, FILE *);
 extern int comp_module_dump_obj(comp_module_t *, FILE *);
 extern void comp_destroy(comp_t *);
 extern int comp_module_compile(comp_module_t *, FILE *);
+extern int comp_module_emit(comp_module_t *, FILE *);
 extern int comp_link(comp_t *, FILE *);
 extern int comp_save_map(comp_t *, FILE *);
 extern int comp_save_tape(comp_t *, const char *);

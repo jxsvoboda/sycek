@@ -273,8 +273,11 @@ image file that can be loaded into an emulator or played to a real
 Spectrum.
 
 With the `--no-tape` option this last step is skipped and Syc produces
-a .bin binary and a .map file. When invoked with `--no-link`, it produces a
-.asm file. (This is supposed to be consumed by a Z80 assembler,
+a .bin binary and a .map file. When invoked with `--no-link`, it produces an
+`.obj.` object file.
+
+When invoked with `--no-emit`, it produces
+an `.asm` file. (This is supposed to be consumed by a Z80 assembler,
 such as z80asm from z88dk project.)
 
 Running `syc` without arguments will print a syntax help. You can compile
@@ -341,8 +344,12 @@ program in various compilation stages to the standard output:
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
  * `--dump-obj` Dump compiled object contents before linking
- * `--no-link` Stop before assembly and linking, output a `.asm` file
-   instead.
+ * `--no-emit` Stop before emitting binary instructions, output an assembly
+   file instead (`.asm`).
+ * `--no-link` Stop before assembly and linking, output an object file
+   instead (`.obj`).
+ * `--no-tape` Stop before creating tape image, output a binary executable
+   file instead (`.bin`).
 
 The following code generation options are available:
  * `--fatal-warn` Make warnings fatal

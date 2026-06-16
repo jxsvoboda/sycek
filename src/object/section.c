@@ -24,12 +24,15 @@
  * Binary object section
  */
 
+#include <assert.h>
+#include <byteorder.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <object/object.h>
 #include <object/section.h>
 #include <object/symbol.h>
+#include <types/object/file.h>
 
 /** Create binary object section structure.
  *
@@ -137,6 +140,81 @@ int obj_section_save_bin(obj_section_t *section, FILE *outf)
 	return EOK;
 }
 
+/** Save binary object section into object file.
+ *
+ * @param section Section
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_section_save_obj(obj_section_t *section, FILE *outf)
+{
+	obj_file_entry_hdr_t hdr;
+	obj_file_section_t sect;
+	uint32_t dsize;
+	uint32_t size;
+	uint32_t nsize;
+	uint8_t pad[obj_file_align];
+	size_t nw;
+
+	/* Entry header */
+	nsize = obj_align_up(strlen(section->name));
+	dsize = sizeof(obj_file_section_t) + nsize + section->len;
+	size = obj_align_up(dsize);
+
+	hdr.etype = host2uint32_t_le(obj_file_esection);
+	hdr.esize = host2uint32_t_le(size);
+
+	nw = fwrite(&hdr, 1, sizeof(hdr), outf);
+	if (nw != sizeof(hdr)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Section header */
+
+	sect.name_len = host2uint32_t_le(nsize);
+	sect.data_len = host2uint32_t_le(section->len);
+	sect.base_addr = host2uint32_t_le(section->base_addr);
+	sect.pad = 0;
+
+	nw = fwrite(&sect, 1, sizeof(sect), outf);
+	if (nw != sizeof(sect)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Section name */
+	nw = fwrite(section->name, 1, strlen(section->name), outf);
+	if (nw != strlen(section->name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Padding */
+	memset(pad, 0, sizeof(pad));
+	nw = fwrite(pad, 1, (size_t)nsize - strlen(section->name), outf);
+	if (nw != nsize - strlen(section->name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Section data */
+	nw = fwrite(section->data, 1, (size_t)section->len, outf);
+	if (nw != section->len) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Padding */
+	nw = fwrite(pad, 1, (size_t)(size - dsize), outf);
+	if (nw != size - dsize) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	return EOK;
+}
+
 /** Get section name with module index appended.
  *
  * This is used when copying modules into a single object. The sections
@@ -159,6 +237,22 @@ int obj_section_tagged_name(obj_section_t *section, unsigned modidx,
 
 	*rname = dname;
 	return EOK;
+}
+
+uint32_t obj_section_get_idx(obj_section_t *section)
+{
+	uint32_t idx;
+	obj_section_t *sp;
+
+	idx = 0;
+	sp = obj_section_first(section->object);
+	while (sp != NULL && sp != section) {
+		++idx;
+		sp = obj_section_next(sp);
+	}
+
+	assert(sp == section);
+	return idx;
 }
 
 /** Copy binary object section to another object.

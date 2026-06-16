@@ -55,7 +55,8 @@ static void print_syntax(void)
 	    "\t--dump-ir Dump intermediate representation\n"
 	    "\t--dump-vric Dump instruction code with virtual registers\n"
 	    "\t--dump-obj Dump binary object\n"
-	    "\t--no-link Do not link, stop after compile stage\n"
+	    "\t--no-emit Do not emit binary object, stop after compile stage\n"
+	    "\t--no-link Do not link, stop after binary object emission\n"
 	    "\t--no-tape Do not make a tape image, stop after link stage\n"
 	    "\t--out=<fname> Output file name\n"
 	    "code generation options:\n"
@@ -159,12 +160,16 @@ static int construct_outfname(const char *infname, comp_flags_t flags,
 {
 	int rc;
 
-	if ((flags & compf_no_tape) != compf_none) {
-		rc = ext_replace(infname, "bin", routfname);
+	if ((flags & compf_no_emit) != compf_none) {
+		rc = ext_replace(infname, "asm", routfname);
 		if (rc != EOK)
 			goto error;
 	} else if ((flags & compf_no_link) != compf_none) {
-		rc = ext_replace(infname, "asm", routfname);
+		rc = ext_replace(infname, "obj", routfname);
+		if (rc != EOK)
+			goto error;
+	} else if ((flags & compf_no_tape) != compf_none) {
+		rc = ext_replace(infname, "bin", routfname);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -229,12 +234,13 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
-	if ((flags & compf_no_link) != compf_none) {
-		rc = ext_replace(fname, "asm", &outfname);
-		if (rc != EOK)
-			goto error;
+	rc = construct_outfname(fname, flags, &outfname);
+	if (rc != EOK)
+		goto error;
 
-		outf = fopen(outfname, "wt");
+	if ((flags & compf_no_link) != compf_none ||
+	    (flags & compf_no_emit) != compf_none) {
+		outf = fopen(outfname, "wb");
 		if (outf == NULL) {
 			(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
 			rc = EIO;
@@ -287,9 +293,15 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
-	rc = comp_module_compile(module, outf);
-	if (rc != EOK)
-		goto error;
+	if ((flags & compf_no_emit) != compf_none) {
+		rc = comp_module_compile(module, outf);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = comp_module_emit(module, outf);
+		if (rc != EOK)
+			goto error;
+	}
 
 	if ((flags & compf_dump_obj) != compf_none) {
 		rc = comp_module_dump_obj(module, stdout);
@@ -354,6 +366,8 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 	char *progname = NULL;
 	comp_module_t *module;
 
+	if ((flags & compf_no_emit) != compf_none)
+		return EOK;
 	if ((flags & compf_no_link) != compf_none)
 		return EOK;
 
@@ -560,6 +574,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--dump-obj") == 0) {
 			++i;
 			flags |= compf_dump_obj;
+		} else if (strcmp(argv[i], "--no-emit") == 0) {
+			++i;
+			flags |= compf_no_emit;
 		} else if (strcmp(argv[i], "--no-link") == 0) {
 			++i;
 			flags |= compf_no_link;

@@ -24,6 +24,7 @@
  * Binary object symbol
  */
 
+#include <byteorder.h>
 #include <inttypes.h>
 #include <merrno.h>
 #include <stdint.h>
@@ -32,6 +33,7 @@
 #include <object/object.h>
 #include <object/section.h>
 #include <object/symbol.h>
+#include <types/object/file.h>
 
 /** Create binary object symbol structure.
  *
@@ -122,6 +124,65 @@ int obj_symbol_save_map(obj_symbol_t *symbol, FILE *outf)
 	    symbol->size);
 	if (rc < 0)
 		return EIO;
+
+	return EOK;
+}
+
+/** Save binary object symbol into object file.
+ *
+ * @param symbol Symbol
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_symbol_save_obj(obj_symbol_t *symbol, FILE *outf)
+{
+	obj_file_entry_hdr_t hdr;
+	obj_file_symbol_t sym;
+	size_t nw;
+	uint32_t nsize;
+	uint8_t pad[obj_file_align];
+
+	nsize = obj_align_up(strlen(symbol->name));
+
+	/* Entry header */
+
+	hdr.etype = host2uint32_t_le(obj_file_esymbol);
+	hdr.esize = host2uint32_t_le(sizeof(obj_file_symbol_t) + nsize);
+
+	nw = fwrite(&hdr, 1, sizeof(hdr), outf);
+	if (nw != sizeof(hdr)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Symbol header */
+
+	sym.name_len = host2uint32_t_le(nsize);
+	sym.section_idx =
+	    host2uint32_t_le(obj_section_get_idx(symbol->section));
+	sym.offset = host2uint32_t_le(symbol->offset);
+	sym.size = host2uint32_t_le(symbol->size);
+
+	nw = fwrite(&sym, 1, sizeof(sym), outf);
+	if (nw != sizeof(sym)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Symbol name */
+	nw = fwrite(symbol->name, 1, strlen(symbol->name), outf);
+	if (nw != strlen(symbol->name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Padding */
+	memset(pad, 0, sizeof(pad));
+	nw = fwrite(pad, 1, nsize - strlen(symbol->name), outf);
+	if (nw != nsize - strlen(symbol->name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
 
 	return EOK;
 }

@@ -91,7 +91,49 @@ uint32_t uint32_t_le2host(uint32_t le_dw)
 
 	memcpy(b, &le_dw, sizeof(b));
 	dw = b[0] | ((uint32_t)b[1] << 8) |
-	    ((uint32_t)b[2] << 16) | ((uint32_t)b[2] << 24);
+	    ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24);
 
 	return dw;
+}
+
+/** Convert 64-bit integer from host to little endian.
+ *
+ * @param w 64-bit integer in host endian
+ * @return Value converted to little endian.
+ */
+uint64_t host2uint64_t_le(uint64_t qw)
+{
+	uint8_t b[8];
+	uint64_t le_qw;
+
+	b[0] = qw & 0xff;
+	b[1] = (qw >> 8) & 0xff;
+	b[2] = (qw >> 16) & 0xff;
+	b[3] = (qw >> 24) & 0xff;
+	b[4] = (qw >> 32) & 0xff;
+	b[5] = (qw >> 40) & 0xff;
+	b[6] = (qw >> 48) & 0xff;
+	b[7] = qw >> 56;
+
+	memcpy(&le_qw, b, sizeof(le_qw));
+	return le_qw;
+}
+
+/** Convert 64-bit integer from little endian to host endian.
+ *
+ * @param w 64-bit integer in little endian
+ * @return Value converted to host endian.
+ */
+uint64_t uint64_t_le2host(uint64_t le_qw)
+{
+	uint8_t b[8];
+	uint64_t qw;
+
+	memcpy(b, &le_qw, sizeof(b));
+	qw = b[0] | ((uint64_t)b[1] << 8) | ((uint64_t)b[2] << 16) |
+	    ((uint64_t)b[3] << 24) | ((uint64_t)b[4] << 32) |
+	    ((uint64_t)b[5] << 40) | ((uint64_t)b[6] << 48) |
+	    ((uint64_t)b[7] << 56);
+
+	return qw;
 }

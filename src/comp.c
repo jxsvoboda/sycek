@@ -558,7 +558,7 @@ error:
 	return rc;
 }
 
-/** Compile module (but do not link).
+/** Compile module (but do not emit binary instructions).
  *
  * @param module Compiler module
  * @param outf Output file (for writing assembly)
@@ -579,6 +579,27 @@ int comp_module_compile(comp_module_t *module, FILE *outf)
 			goto error;
 	}
 
+	return EOK;
+error:
+	z80_emit_destroy(emit);
+	return rc;
+}
+
+/** Emit binary instructions (but do not link).
+ *
+ * @param module Compiler module
+ * @param outf Output file (for writing assembly)
+ * @return EOK on success or an error code
+ */
+int comp_module_emit(comp_module_t *module, FILE *outf)
+{
+	int rc;
+	z80_emit_t *emit = NULL;
+
+	rc = comp_module_make_ic(module);
+	if (rc != EOK)
+		goto error;
+
 	if (module->object == NULL) {
 		rc = z80_emit_create(&emit);
 		if (rc != EOK)
@@ -590,6 +611,12 @@ int comp_module_compile(comp_module_t *module, FILE *outf)
 
 		z80_emit_destroy(emit);
 		emit = NULL;
+	}
+
+	if (outf != NULL) {
+		rc = obj_object_save_obj(module->object, outf);
+		if (rc != EOK)
+			goto error;
 	}
 
 	return EOK;

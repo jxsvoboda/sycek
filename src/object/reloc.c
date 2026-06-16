@@ -25,6 +25,7 @@
  */
 
 #include <assert.h>
+#include <byteorder.h>
 #include <inttypes.h>
 #include <merrno.h>
 #include <stdint.h>
@@ -34,6 +35,7 @@
 #include <object/reloc.h>
 #include <object/section.h>
 #include <object/symbol.h>
+#include <types/object/file.h>
 
 /** Create binary object relocation structure.
  *
@@ -114,6 +116,67 @@ int obj_reloc_dump(obj_reloc_t *reloc, FILE *outf)
 	    (unsigned long long)reloc->addend);
 	if (rc < 0)
 		return EIO;
+
+	return EOK;
+}
+
+/** Save binary object relocation into object file.
+ *
+ * @param reloc Relocation
+ * @param outf Output file
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int obj_reloc_save_obj(obj_reloc_t *reloc, FILE *outf)
+{
+	obj_file_entry_hdr_t hdr;
+	obj_file_reloc_t rel;
+	uint32_t nsize;
+	uint32_t size;
+	uint8_t pad[obj_file_align];
+	size_t nw;
+
+	nsize = obj_align_up(strlen(reloc->sym_name));
+	size = sizeof(obj_file_reloc_t) + nsize;
+
+	/* Entry header */
+
+	hdr.etype = host2uint32_t_le(obj_file_ereloc);
+	hdr.esize = host2uint32_t_le(size);
+
+	nw = fwrite(&hdr, 1, sizeof(hdr), outf);
+	if (nw != sizeof(hdr)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Relocation header */
+
+	rel.section_idx = host2uint32_t_le(obj_section_get_idx(reloc->section));
+	rel.rtype = host2uint32_t_le((uint32_t)reloc->rtype);
+	rel.offset = host2uint32_t_le(reloc->offset);
+	rel.sym_name_len = host2uint32_t_le(nsize);
+	rel.addend = host2uint64_t_le(reloc->addend);
+
+	nw = fwrite(&rel, 1, sizeof(rel), outf);
+	if (nw != sizeof(rel)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Symbol name */
+	nw = fwrite(reloc->sym_name, 1, strlen(reloc->sym_name), outf);
+	if (nw != strlen(reloc->sym_name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Padding */
+	memset(pad, 0, sizeof(pad));
+	nw = fwrite(pad, 1, nsize - strlen(reloc->sym_name), outf);
+	if (nw != nsize - strlen(reloc->sym_name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
 
 	return EOK;
 }

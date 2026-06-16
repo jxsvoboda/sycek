@@ -285,7 +285,7 @@ z80asms: $(asms_z80)
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
 %.z80.pp.asm:%.z80.pp.c $(syc)
-	$(syc) $(sycflags) --no-link --fatal-warn $<
+	$(syc) $(sycflags) --no-emit --fatal-warn $<
 
 %.z80.o: %.z80.asm
 	z80asm -r0x6400 --output=$@ $<
@@ -378,21 +378,21 @@ test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/good/%-vg.txt: test/syc/good/%.c $(syc)
-	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) --no-emit $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/ugly/%-t.txt: test/syc/ugly/%.c $(syc)
-	$(syc) $(sycflags) --no-link $< 2>$@
+	$(syc) $(sycflags) --no-emit $< 2>$@
 
 test/syc/ugly/%.txt.diff: test/syc/ugly/%.txt test/syc/ugly/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
-	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) --no-emit $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/good/%.asm: test/syc/good/%.c $(syc)
-	$(syc) $(sycflags) --no-link $<
+	$(syc) $(sycflags) --no-emit $<
 
 test/syc/good/%.bin: test/syc/good/%.c $(syc)
 	$(syc) $(sycflags) $<
@@ -420,15 +420,15 @@ test/selfcheck.out: $(ccheck)
 # Compiler example
 #
 example/%.asm: example/%.c $(syc)
-	$(syc) --no-link $<
+	$(syc) --no-emit $<
 example/%.ir: example/%.c $(syc)
-	$(syc) --no-link --dump-ir $< >$@
+	$(syc) --no-emit --dump-ir $< >$@
 example/%.ir.ir: example/%.ir
 	cp $< $@
 example/%.ir.asm: example/%.ir.ir $(syc)
-	$(syc) --no-link $<
+	$(syc) --no-emit $<
 example/%.vric: example/%.c $(syc)
-	$(syc) --no-link --dump-vric $< >$@
+	$(syc) --no-emit --dump-vric $< >$@
 example/%.bin: example/%.asm example/lib.asm
 	z80asm +zx --origin=32768 -b -m $^
 example/%.tap: example/%.bin
