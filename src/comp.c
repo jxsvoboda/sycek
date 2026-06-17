@@ -141,12 +141,71 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	*rmodule = module;
 	return EOK;
 error:
-	if (symbols != NULL)
-		symbols_destroy(symbols);
+	symbols_destroy(symbols);
 	if (lexer != NULL)
 		lexer_destroy(lexer);
 	if (comp != NULL)
 		free(comp);
+	return rc;
+}
+
+/** Create compiler module from object file.
+ *
+ * @param comp Compiler
+ * #param fname File name
+ * @param rmodule Place to store new compiler module.
+ *
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int comp_module_create_from_obj(comp_t *comp, const char *fname,
+    comp_module_t **rmodule)
+{
+	comp_module_t *module = NULL;
+	FILE *objf = NULL;
+	int rc;
+
+	module = calloc(1, sizeof(comp_module_t));
+	if (module == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	module->fname = strdup(fname);
+	if (module->fname == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	objf = fopen(fname, "rb");
+	if (objf == NULL) {
+		(void)fprintf(stderr, "Error opening '%s'.\n",
+		    fname);
+		rc = EIO;
+		goto error;
+	}
+
+	rc = obj_object_load_obj(objf, &module->object);
+	if (rc != EOK)
+		goto error;
+
+	(void)fclose(objf);
+	objf = NULL;
+
+	module->comp = comp;
+	list_append(&module->lmods, &comp->mods);
+
+	module->mtype = cmt_obj;
+	list_initialize(&module->toks);
+
+	*rmodule = module;
+	return EOK;
+error:
+	if (objf != NULL)
+		(void)fclose(objf);
+	if (module != NULL && module->fname != NULL)
+		free(module->fname);
+	if (module != NULL)
+		free(module);
 	return rc;
 }
 
@@ -596,11 +655,16 @@ int comp_module_emit(comp_module_t *module, FILE *outf)
 	int rc;
 	z80_emit_t *emit = NULL;
 
-	rc = comp_module_make_ic(module);
-	if (rc != EOK)
-		goto error;
+	if (module->mtype == cmt_obj) {
+		/* nothing to do */
+		return EOK;
+	}
 
 	if (module->object == NULL) {
+		rc = comp_module_make_ic(module);
+		if (rc != EOK)
+			goto error;
+
 		rc = z80_emit_create(&emit);
 		if (rc != EOK)
 			goto error;

@@ -35,6 +35,7 @@
 extern int obj_section_create(obj_object_t *, const char *, obj_section_t **);
 extern void obj_section_destroy(obj_section_t *);
 extern int obj_section_dump(obj_section_t *, FILE *);
+extern int obj_section_load_obj(obj_object_t *, FILE *, obj_section_t **);
 extern int obj_section_save_bin(obj_section_t *, FILE *);
 extern int obj_section_save_obj(obj_section_t *, FILE *);
 extern int obj_section_copy(obj_section_t *, unsigned, obj_object_t *);
@@ -45,6 +46,7 @@ extern int obj_section_tagged_name(obj_section_t *, unsigned, char **);
 extern uint32_t obj_section_get_idx(obj_section_t *);
 extern obj_section_t *obj_section_first(obj_object_t *);
 extern obj_section_t *obj_section_next(obj_section_t *);
+extern obj_section_t *obj_section_by_idx(obj_object_t *, uint32_t);
 extern obj_section_t *obj_section_by_name(obj_object_t *, const char *);
 extern int obj_section_append_u8(obj_section_t *, uint8_t);
 extern int obj_section_append_u16le(obj_section_t *, uint16_t);

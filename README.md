@@ -297,6 +297,29 @@ using the BASIC command
 This will load the binary and execute its main function, filling the screen
 with black pixels.
 
+Input file types
+----------------
+The following types of input files can be passed to Syc:
+
+ * C source files and headers (`.c`, `.h`)
+ * Syc IR files (`.ir`)
+ * Syc object files (`.obj`)
+
+Compiling a binary from multiple sources
+----------------------------------------
+Syc can take multiple input files. If you provide multiple `.c` source
+files, it will compile all of them and link them in a single step.
+You must provide an output file name. For example:
+
+    $ ./syc --out=out.tzx a.c b.c
+
+You can also compile each source file separately to an object file and
+then link them together:
+
+    $ ./syc --no-link a.c
+    $ ./syc --no-link b.c
+    $ ./syc --out=out.tzx a.obj b.obj
+
 Using an external assembler
 ---------------------------
 

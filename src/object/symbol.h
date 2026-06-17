@@ -36,6 +36,7 @@ extern int obj_symbol_create(obj_object_t *, const char *, obj_section_t *,
     uint32_t, uint32_t, obj_symbol_t **);
 extern void obj_symbol_destroy(obj_symbol_t *);
 extern int obj_symbol_dump(obj_symbol_t *, FILE *);
+extern int obj_symbol_load_obj(obj_object_t *, FILE *, obj_symbol_t **);
 extern int obj_symbol_save_map(obj_symbol_t *, FILE *);
 extern int obj_symbol_save_obj(obj_symbol_t *, FILE *);
 extern int obj_symbol_copy(obj_symbol_t *, unsigned, obj_object_t *);

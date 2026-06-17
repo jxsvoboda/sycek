@@ -128,6 +128,71 @@ int obj_symbol_save_map(obj_symbol_t *symbol, FILE *outf)
 	return EOK;
 }
 
+/** Load binary object symbol from object file.
+ *
+ * @param object Object
+ * @param inf Output file
+ * @param rsymbol Place to store pointer to loaded symbol
+ * @return EOK on success or an error code
+ */
+int obj_symbol_load_obj(obj_object_t *object, FILE *inf, obj_symbol_t **rsymbol)
+{
+	obj_file_symbol_t sym;
+	size_t nr;
+	uint32_t nsize;
+	uint32_t section_idx;
+	uint32_t offset;
+	uint32_t size;
+	obj_section_t *section;
+	char *name = NULL;
+	int rc;
+
+	/* Read symbol header. */
+
+	nr = fread(&sym, 1, sizeof(sym), inf);
+	if (nr != sizeof(sym)) {
+		(void)fprintf(stderr, "Error reading symbol header.\n");
+		return EIO;
+	}
+
+	nsize = uint32_t_le2host(sym.name_len);
+	section_idx = uint32_t_le2host(sym.section_idx);
+	offset = uint32_t_le2host(sym.offset);
+	size = uint32_t_le2host(sym.size);
+
+	section = obj_section_by_idx(object, section_idx);
+	if (section == NULL) {
+		(void)fprintf(stderr, "Invalid section index.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	name = calloc((size_t)nsize + 1, 1);
+	if (name == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
+		rc = ENOMEM;
+		goto error;
+	}
+
+	/* Read symbol name including padding. */
+	nr = fread(name, 1, (size_t)nsize, inf);
+	if (nr != nsize) {
+		(void)fprintf(stderr, "Error reading symbol name.\n");
+		return EIO;
+	}
+
+	rc = obj_symbol_create(object, name, section, offset, size, rsymbol);
+	if (rc != EOK)
+		goto error;
+
+	free(name);
+	return EOK;
+error:
+	if (name != NULL)
+		free(name);
+	return rc;
+}
+
 /** Save binary object symbol into object file.
  *
  * @param symbol Symbol
@@ -178,7 +243,7 @@ int obj_symbol_save_obj(obj_symbol_t *symbol, FILE *outf)
 
 	/* Padding */
 	memset(pad, 0, sizeof(pad));
-	nw = fwrite(pad, 1, nsize - strlen(symbol->name), outf);
+	nw = fwrite(pad, 1, (size_t)nsize - strlen(symbol->name), outf);
 	if (nw != nsize - strlen(symbol->name)) {
 		(void)fprintf(stderr, "Write error.\n");
 		return EIO;

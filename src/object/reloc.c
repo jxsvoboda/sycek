@@ -120,6 +120,75 @@ int obj_reloc_dump(obj_reloc_t *reloc, FILE *outf)
 	return EOK;
 }
 
+/** Load binary object relocation from object file.
+ *
+ * @param object Object
+ * @param inf Input file
+ * @return EOK on success or an error code
+ */
+int obj_reloc_load_obj(obj_object_t *object, FILE *inf)
+{
+	obj_file_reloc_t rel;
+	uint32_t nsize;
+	obj_section_t *section;
+	uint32_t section_idx;
+	obj_reloc_type_t rtype;
+	uint32_t offset;
+	char *sym_name = NULL;
+	uint64_t addend;
+	size_t nr;
+	int rc;
+
+	/* Read relocation header */
+
+	nr = fread(&rel, 1, sizeof(rel), inf);
+	if (nr != sizeof(rel)) {
+		(void)fprintf(stderr, "Error reading relocation header.\n");
+		return EIO;
+	}
+
+	section_idx = uint32_t_le2host(rel.section_idx);
+	rtype = (obj_reloc_type_t)uint32_t_le2host((uint32_t)rel.rtype);
+	offset = uint32_t_le2host(rel.offset);
+	nsize = uint32_t_le2host(rel.sym_name_len);
+	addend = uint64_t_le2host(rel.addend);
+
+	section = obj_section_by_idx(object, section_idx);
+	if (section == NULL) {
+		(void)fprintf(stderr, "Invalid section index.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	sym_name = calloc((size_t)nsize + 1, 1);
+	if (sym_name == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
+		rc = ENOMEM;
+		goto error;
+	}
+
+	/* Symbol name including padding */
+	nr = fread(sym_name, 1, (size_t)nsize, inf);
+	if (nr != nsize) {
+		(void)fprintf(stderr, "Error reading referenced symbol "
+		    "name.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	rc = obj_reloc_create(object, section, rtype, offset, sym_name,
+	    addend);
+	if (rc != EOK)
+		goto error;
+
+	free(sym_name);
+	return EOK;
+error:
+	if (sym_name != NULL)
+		free(sym_name);
+	return rc;
+}
+
 /** Save binary object relocation into object file.
  *
  * @param reloc Relocation
@@ -172,7 +241,7 @@ int obj_reloc_save_obj(obj_reloc_t *reloc, FILE *outf)
 
 	/* Padding */
 	memset(pad, 0, sizeof(pad));
-	nw = fwrite(pad, 1, nsize - strlen(reloc->sym_name), outf);
+	nw = fwrite(pad, 1, (size_t)nsize - strlen(reloc->sym_name), outf);
 	if (nw != nsize - strlen(reloc->sym_name)) {
 		(void)fprintf(stderr, "Write error.\n");
 		return EIO;

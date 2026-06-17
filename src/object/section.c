@@ -56,12 +56,14 @@ int obj_section_create(obj_object_t *object, const char *name,
 
 	section->name = strdup(name);
 	if (section->name == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
 		free(section);
 		return ENOMEM;
 	}
 
 	section->data = malloc((size_t)section->alloc_len);
 	if (section->data == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
 		free(section->name);
 		free(section);
 		return ENOMEM;
@@ -121,6 +123,87 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 	}
 
 	return EOK;
+}
+
+/** Load binary object section from object file.
+ *
+ * #param object Object
+ * @param inf Output file
+ * @param rsection Place to store pointer to loaded section
+ * @return EOK on success or an error code
+ */
+int obj_section_load_obj(obj_object_t *object, FILE *inf,
+    obj_section_t **rsection)
+{
+	obj_section_t *section = NULL;
+	obj_file_section_t sect;
+	uint32_t nsize;
+	uint32_t data_len;
+	char *name = NULL;
+	void *data;
+	size_t nr;
+	int rc;
+
+	/* Read section header */
+
+	nr = fread(&sect, 1, sizeof(sect), inf);
+	if (nr != sizeof(sect)) {
+		(void)fprintf(stderr, "Error reading section header.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	/* Read section name */
+	nsize = uint32_t_le2host(sect.name_len);
+	name = calloc((size_t)nsize + 1, 1);
+	if (name == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
+		rc = ENOMEM;
+		goto error;
+	}
+
+	nr = fread(name, 1, (size_t)nsize, inf);
+	if (nr != nsize) {
+		(void)fprintf(stderr, "Error reading section name.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	rc = obj_section_create(object, name, &section);
+	if (rc != EOK)
+		goto error;
+
+	free(name);
+	name = NULL;
+
+	data_len = uint32_t_le2host(sect.data_len);
+	data = malloc((size_t)obj_align_up(data_len));
+	if (data == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
+		goto error;
+	}
+
+	free(section->data);
+	section->data = data;
+	section->len = data_len;
+	section->alloc_len = obj_align_up(data_len);
+
+	section->base_addr = uint32_t_le2host(sect.base_addr);
+
+	/* Read section data including padding */
+	nr = fread(section->data, 1, (size_t)section->alloc_len, inf);
+	if (nr != section->alloc_len) {
+		(void)fprintf(stderr, "Error reading section data.\n");
+		return EIO;
+	}
+
+	*rsection = section;
+	return EOK;
+error:
+	obj_section_destroy(section);
+	if (name != NULL)
+		free(name);
+	return rc;
 }
 
 /** Save binary object section raw data into a file.
@@ -320,6 +403,7 @@ int obj_section_merge(obj_section_t *dest, obj_section_t *src)
 		return ENOMEM;
 
 	/* Copy data. */
+	dest->data = data;
 	memcpy(dest->data + (size_t)dest->len, src->data, (size_t)src->len);
 
 	/* Move symbols. */
@@ -333,6 +417,7 @@ int obj_section_merge(obj_section_t *dest, obj_section_t *src)
 	}
 
 	dest->len = new_len;
+	dest->alloc_len = new_len;
 
 	obj_section_destroy(src);
 	return EOK;
@@ -411,6 +496,25 @@ obj_section_t *obj_section_next(obj_section_t *cur)
 		return NULL;
 
 	return list_get_instance(link, obj_section_t, lsections);
+}
+
+/** Find section in object by index.
+ *
+ * @param object Object
+ * @param idx Section index (0 = first, 1 = second, ...)
+ * @return Section with the index @a idx or @c NULL if not found.
+ */
+obj_section_t *obj_section_by_idx(obj_object_t *object, uint32_t idx)
+{
+	obj_section_t *section;
+
+	section = obj_section_first(object);
+	while (section != NULL && idx > 0) {
+		--idx;
+		section = obj_section_next(section);
+	}
+
+	return section;
 }
 
 /** Find section in object by name.

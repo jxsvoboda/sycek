@@ -56,7 +56,9 @@ typedef enum {
 	/** C header file */
 	cmt_chdr,
 	/** IR file */
-	cmt_ir
+	cmt_ir,
+	/** OBJ file */
+	cmt_obj
 } comp_mtype_t;
 
 /** Compiler module */

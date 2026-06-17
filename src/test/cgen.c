@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -81,8 +81,7 @@ static int test_cgen_module(void)
 
 	return EOK;
 error:
-	if (symbols != NULL)
-		symbols_destroy(symbols);
+	symbols_destroy(symbols);
 	if (amodule != NULL)
 		ast_tree_destroy(&amodule->node);
 	ir_module_destroy(module);

@@ -141,6 +141,7 @@ static int ext_remove(const char *fname, char **rnewname)
 		goto error;
 
 	memcpy(basename, fname, nchars);
+	basename[nchars] = '\0';
 
 	*rnewname = basename;
 	return EOK;
@@ -221,6 +222,8 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		mtype = cmt_chdr;
 	} else if (strcmp(ext, ".ir") == 0 || strcmp(ext, ".IR") == 0) {
 		mtype = cmt_ir;
+	} else if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0) {
+		mtype = cmt_obj;
 	} else {
 		(void)fprintf(stderr, "Unknown file extension '%s'.\n", ext);
 		rc = EINVAL;
@@ -250,10 +253,16 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 
 	file_input_init(&finput, f, fname);
 
-	rc = comp_module_create(comp, &lexer_file_input, &finput, mtype,
-	    fname, &module);
-	if (rc != EOK)
-		goto error;
+	if (mtype == cmt_obj) {
+		rc = comp_module_create_from_obj(comp, fname, &module);
+		if (rc != EOK)
+			goto error;
+	} else {
+		rc = comp_module_create(comp, &lexer_file_input, &finput, mtype,
+		    fname, &module);
+		if (rc != EOK)
+			goto error;
+	}
 
 	comp->cgflags = cgflags;
 

@@ -25,7 +25,9 @@
  */
 
 #include <byteorder.h>
+#include <inttypes.h>
 #include <merrno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <object/object.h>
 #include <object/reloc.h>
@@ -230,6 +232,100 @@ int obj_object_save_map(obj_object_t *object, FILE *outf)
 	return EOK;
 }
 
+/** Load binary object from an object file.
+ *
+ * @param inf Input file
+ * @param robject Place to store pointer to loaded object
+ * @return EOK on success or an error code
+ */
+int obj_object_load_obj(FILE *inf, obj_object_t **robject)
+{
+	obj_file_hdr_t hdr;
+	obj_object_t *object = NULL;
+	obj_file_entry_hdr_t ehdr;
+	obj_section_t *section;
+	obj_symbol_t *symbol;
+	size_t nr;
+	int rc;
+	int rv;
+
+	rc = obj_object_create(&object);
+	if (rc != EOK)
+		goto error;
+
+	/* Read object file header. */
+
+	nr = fread(&hdr, 1, sizeof(hdr), inf);
+	if (nr != sizeof(hdr)) {
+		(void)fprintf(stderr, "Error reading object file header\n");
+		rc = EIO;
+		goto error;
+	}
+
+	if (uint32_t_le2host(hdr.signature) != obj_file_sign) {
+		(void)fprintf(stderr, "Invalid object file signature.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	if (uint16_t_le2host(hdr.major) != obj_file_major ||
+	    uint16_t_le2host(hdr.minor) != obj_file_minor) {
+		(void)fprintf(stderr, "Invalid object file version %" PRIu16
+		    ".%" PRIu16 ".\n", uint16_t_le2host(hdr.major),
+		    uint16_t_le2host(hdr.minor));
+		rc = EIO;
+		goto error;
+	}
+
+	while (true) {
+		nr = fread(&ehdr, 1, sizeof(ehdr), inf);
+		if (nr == 0)
+			break;
+
+		if (nr != sizeof(ehdr)) {
+			(void)fprintf(stderr, "Error reading object file "
+			    "entry header.\n");
+			rc = EIO;
+			goto error;
+		}
+
+		switch (uint32_t_le2host(ehdr.etype)) {
+		case obj_file_ereloc:
+			rc = obj_reloc_load_obj(object, inf);
+			break;
+		case obj_file_esection:
+			rc = obj_section_load_obj(object, inf, &section);
+			(void)section;
+			break;
+		case obj_file_esymbol:
+			rc = obj_symbol_load_obj(object, inf, &symbol);
+			(void)symbol;
+			break;
+		default:
+			/* Skip over unknown entry. */
+			rv = fseek(inf, (long)uint32_t_le2host(ehdr.esize),
+			    SEEK_CUR);
+			if (rv < 0) {
+				(void)fprintf(stderr, "Error reading unknown "
+				    "object file entry.\n");
+				rc = EIO;
+				goto error;
+			}
+			rc = EOK;
+			break;
+		}
+
+		if (rc != EOK)
+			goto error;
+	}
+
+	*robject = object;
+	return EOK;
+error:
+	obj_object_destroy(object);
+	return rc;
+}
+
 /** Save binary object into an object file.
  *
  * @param object Object
@@ -294,4 +390,3 @@ uint32_t obj_align_up(uint32_t size)
 {
 	return (size + (obj_file_align - 1)) & ~((uint32_t)obj_file_align - 1);
 }
-

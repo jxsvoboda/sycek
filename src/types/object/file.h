@@ -65,7 +65,7 @@ typedef struct {
 
 /** Object file section header */
 typedef struct {
-	/** Section name length*/
+	/** Section name length */
 	uint32_t name_len;
 	/** Section data length */
 	uint32_t data_len;

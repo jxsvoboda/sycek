@@ -34,6 +34,8 @@
 extern int comp_create(comp_t **);
 extern int comp_module_create(comp_t *, lexer_input_ops_t *, void *,
     comp_mtype_t, const char *, comp_module_t **);
+extern int comp_module_create_from_obj(comp_t *, const char *,
+    comp_module_t **);
 extern void comp_module_destroy(comp_module_t *);
 extern comp_module_t *comp_module_first(comp_t *);
 extern comp_module_t *comp_module_next(comp_module_t *);

@@ -36,6 +36,7 @@ extern int obj_reloc_create(obj_object_t *, obj_section_t *,
     obj_reloc_type_t, uint32_t, const char *, uint64_t);
 extern void obj_reloc_destroy(obj_reloc_t *);
 extern int obj_reloc_dump(obj_reloc_t *, FILE *);
+extern int obj_reloc_load_obj(obj_object_t *, FILE *);
 extern int obj_reloc_save_obj(obj_reloc_t *, FILE *);
 extern int obj_reloc_copy(obj_reloc_t *, unsigned, obj_object_t *);
 extern obj_reloc_t *obj_reloc_first(obj_object_t *);

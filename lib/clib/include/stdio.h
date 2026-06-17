@@ -27,6 +27,10 @@
 
 #define EOF (-1)
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
 typedef struct {
 } FILE;
 
@@ -44,6 +48,7 @@ int printf(char *, ...);
 int fputc(int, FILE *);
 int fputs(const char *, FILE *);
 size_t fread(void *, size_t, size_t, FILE *);
+int fseek(FILE *, long, int);
 size_t fwrite(void *, size_t, size_t, FILE *);
 int getchar(void);
 int getc(FILE *);

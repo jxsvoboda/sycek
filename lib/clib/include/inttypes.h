@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -22,5 +22,20 @@
 
 #ifndef _INTTYPES_H
 #define _INTTYPES_H
+
+#include <stdint.h>
+
+#define PRId8 "d"
+#define PRId16 "d"
+#define PRId32 "ld"
+#define PRId64 "lld"
+#define PRIu8 "u"
+#define PRIu16 "u"
+#define PRIu32 "lu"
+#define PRIu64 "llu"
+#define PRIx8 "x"
+#define PRIx16 "x"
+#define PRIx32 "lx"
+#define PRIx64 "llx"
 
 #endif

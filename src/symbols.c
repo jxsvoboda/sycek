@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -53,11 +53,14 @@ int symbols_create(symbols_t **rsymbols)
 
 /** Destroy symbol index.
  *
- * @param symbols Symbol index
+ * @param symbols Symbol index or @c NULL
  */
 void symbols_destroy(symbols_t *symbols)
 {
 	symbol_t *symbol;
+
+	if (symbols == NULL)
+		return;
 
 	symbol = symbols_first(symbols);
 	while (symbol != NULL) {
