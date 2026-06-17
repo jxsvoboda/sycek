@@ -195,7 +195,7 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     test/ccheck/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
 test_syc_good_srcs = $(wildcard test/syc/good/*.c)
 test_syc_good_scripts = $(wildcard test/syc/good/*.scr)
-test_syc_good_asms = $(test_syc_good_srcs:.c=.asm)
+test_syc_good_objs = $(test_syc_good_srcs:.c=.obj)
 test_syc_good_z80ts = $(test_syc_good_scripts:.scr=-z80t.txt)
 test_syc_good_bins = $(test_syc_good_srcs:.c=.bin)
 test_syc_good_maps = $(test_syc_good_srcs:.c=.map)
@@ -203,15 +203,15 @@ test_syc_good_taps = $(test_syc_good_srcs:.c=.tap)
 test_syc_bad_srcs = $(wildcard test/syc/bad/*.c)
 test_syc_bad_diffs = $(test_syc_bad_srcs:.c=.txt.diff)
 test_syc_ugly_srcs = $(wildcard test/syc/ugly/*.c)
-test_syc_ugly_asms = $(test_syc_ugly_srcs:.c=.asm)
+test_syc_ugly_objs = $(test_syc_ugly_srcs:.c=.obj)
 test_syc_ugly_diffs = $(test_syc_ugly_srcs:.c=.txt.diff)
 test_syc_vg_outs = \
     $(test_syc_good_srcs:.c=-vg.txt) \
     $(test_syc_ugly_srcs:.c=-vg.txt)
-test_syc_outs = $(test_syc_good_asms) $(test_syc_bad_diffs) \
-    $(test_syc_ugly_asms) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
+test_syc_outs = $(test_syc_good_objs) $(test_syc_bad_diffs) \
+    $(test_syc_ugly_objs) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
     test/syc/all.diff
-test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_asms) \
+test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_objs) \
     $(test_syc_good_maps) $(test_syc_good_taps)
 
 example_srcs = \
@@ -378,21 +378,21 @@ test/syc/bad/%.txt.diff: test/syc/bad/%.txt test/syc/bad/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/good/%-vg.txt: test/syc/good/%.c $(syc)
-	valgrind $(syc) $(sycflags) --no-emit $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
 test/syc/ugly/%-t.txt: test/syc/ugly/%.c $(syc)
-	$(syc) $(sycflags) --no-emit $< 2>$@
+	$(syc) $(sycflags) --no-link $< 2>$@
 
 test/syc/ugly/%.txt.diff: test/syc/ugly/%.txt test/syc/ugly/%-t.txt
 	diff -u $^ >$@ || (rm $@ ; false)
 
 test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
-	valgrind $(syc) $(sycflags) --no-emit $< 2>$@ || (rm $@ ; false)
+	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
-test/syc/good/%.asm: test/syc/good/%.c $(syc)
-	$(syc) $(sycflags) --no-emit $<
+test/syc/good/%.obj: test/syc/good/%.c $(syc)
+	$(syc) $(sycflags) --no-link $<
 
 test/syc/good/%.bin: test/syc/good/%.c $(syc)
 	$(syc) $(sycflags) $<
@@ -444,7 +444,7 @@ examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) \
     test/selfcheck.out
-test_z80: $(test_syc_good_asms) $(test_syc_good_z80ts) z80asms
+test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) z80asms
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk
