@@ -156,19 +156,15 @@ z80test = ./$(binary_z80test)
 
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
 objects_ccheck = $(sources_ccheck:.c=.o)
-objects_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.o)
+objects_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.pp.obj)
 
 objects_syc = $(sources_syc:.c=.o)
 objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
-objects_syc_z80 = $(sources_syc_z80:.c=.z80.o)
+objects_syc_z80 = $(sources_syc_z80:.c=.z80.pp.obj)
 
 objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
-objects_z80test_z80 = $(sources_z80test_z80:.c=.z80.o)
-
-asms_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.pp.asm)
-asms_syc_z80 = $(sources_syc_z80:.c=.z80.pp.asm)
-asms_z80test_z80 = $(sources_z80test_z80:.c=.z80.pp.asm)
+objects_z80test_z80 = $(sources_z80test_z80:.c=.z80.pp.obj)
 
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h src/*/*/*/*.h)
 lib_headers = $(wildcard lib/clib/include/*.h)
@@ -278,26 +274,23 @@ test-hos: install-hos
 
 z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_z80test_z80)
 
-asms_z80 = $(asms_ccheck_z80) $(asms_syc_z80) $(asms_z80test_z80)
-z80asms: $(asms_z80)
+objects_z80 = $(objecs_ccheck_z80) $(objects_syc_z80) $(objects_z80test_z80)
+z80objs: $(objects_z80)
 
 %.z80.pp.c: %.c
 	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
 
-%.z80.pp.asm:%.z80.pp.c $(syc)
-	$(syc) $(sycflags) --no-emit --fatal-warn $<
-
-%.z80.o: %.z80.asm
-	z80asm -r0x6400 --output=$@ $<
+%.z80.pp.obj: %.z80.pp.c $(syc)
+	$(syc) $(sycflags) --no-link --fatal-warn $<
 
 $(binary_ccheck_z80): $(objects_ccheck_z80)
-	z80asm +zx -m -b -r0x6400 -o$@ $(LIBS_z80) $^
+	$(syc) --no-tape --out=$@ $(LIBS_z80) $^
 
 $(binary_syc_z80): $(objects_syc_z80)
-	$(LD_hos) $(CFLAGS_hos) -o $@ $(LIBS_z80) $^
+	$(syc) --no-tape --out=$@ $(LIBS_z80) $^
 
 $(binary_z80test_z80): $(objects_z80test_z80)
-	$(LD_hos) $(CFLAGS_hos) -o $@ $(LIBS_z80) $^
+	$(syc) --no-tape --out=$@ $(LIBS_z80) $^
 
 $(objects_ccheck_z80): $(headers) $(lib_headers)
 $(objects_syc_z80): $(headers) $(lib_headers)
@@ -311,10 +304,10 @@ clean:
 	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
-	$(example_outs) $(asms_z80)
+	$(example_outs)
 
 clean_z80:
-	rm -f $(asms_z80)
+	rm -f $(objects_z80)
 
 test/ccheck/good/%-out-t.txt: test/ccheck/good/%-in.c $(ccheck)
 	$(ccheck) $< >$@
@@ -444,7 +437,7 @@ examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) \
     test/selfcheck.out
-test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) z80asms
+test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) z80objs
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk

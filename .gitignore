@@ -1,4 +1,5 @@
 *.o
+*.pp.obj
 /ccheck
 /ccheck-hos
 /syc
