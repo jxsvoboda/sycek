@@ -31,6 +31,14 @@
 #include <stdint.h>
 #include <types/object/object.h>
 
+/** Object linker flags */
+typedef enum {
+	/** No flags */
+	lf_none = 0,
+	/* Do not generate error if binary is too large */
+	lf_no_range_error = 0x1
+} obj_linker_flags_t;
+
 /** Object linker source */
 typedef struct {
 	/** Containing linker */
@@ -43,6 +51,8 @@ typedef struct {
 
 /** Object linker */
 typedef struct obj_linker {
+	/** Linker flags */
+	obj_linker_flags_t flags;
 	/** Linking sources (obj_linker_src_t) */
 	list_t sources;
 	/** Address where the output object should start. */

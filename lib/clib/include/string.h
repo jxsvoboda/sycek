@@ -28,7 +28,7 @@
 int asprintf(char **, const char *, ...);
 void *memcpy(void *, const void *, size_t) __attribute__((may_ignore_return));
 void *memmove(void *, const void *, size_t) __attribute__((may_ignore_return));
-void *memset(void *, int, unsigned) __attribute__((may_ignore_return));
+void *memset(void *, int, size_t) __attribute__((may_ignore_return));
 char *strchr(const char *, int);
 int strcmp(const char *, const char *);
 int strncmp(const char *, const char *, size_t);

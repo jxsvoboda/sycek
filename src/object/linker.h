@@ -31,7 +31,7 @@
 #include <types/object/linker.h>
 #include <types/object/object.h>
 
-extern int obj_linker_create(obj_linker_t **);
+extern int obj_linker_create(obj_linker_flags_t, obj_linker_t **);
 extern void obj_linker_destroy(obj_linker_t *);
 extern int obj_linker_add_src(obj_linker_t *, obj_object_t *);
 extern int obj_linker_set_origin(obj_linker_t *, uint32_t);

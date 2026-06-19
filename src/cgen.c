@@ -24912,12 +24912,7 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 
 		/*
 		 * Check if variable declared as extern is later declared
-		 * as non extern. The inverse is normal, as variable
-		 * declared extern in a header file is then declared/defined
-		 * non extern in the C file.
-		 *
-		 * XXX HDR We should, however, generate warning for a
-		 * non-extern variable in a header file.
+		 * as non extern.
 		 */
 		if (vextern && !old_extern) {
 			/* Non-extern previously declared as extern */
@@ -24926,6 +24921,16 @@ static int cgen_vardef(cgen_t *cgen, cgtype_t *stype, ast_sclass_type_t sctype,
 			    "previously declared as non-extern.\n",
 			    ident->tok.text);
 			++cgen->warnings;
+		} else if (!vextern && old_extern) {
+			/*
+			 * It's normal for a variable to be declared extern
+			 * in the header file and then declared non-extern
+			 * (i.e., defined) in the C file.
+			 *
+			 * XXX HDR We should, however, generate warning for a
+			 * non-extern variable in a header file.
+			 */
+			symbol->flags &= ~sf_extern;
 		}
 	}
 

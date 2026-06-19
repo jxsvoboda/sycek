@@ -28,6 +28,7 @@
 #define OBJECT_RELOC_H
 
 #include <stdio.h>
+#include <types/object/linker.h>
 #include <types/object/object.h>
 #include <types/object/reloc.h>
 #include <types/object/section.h>
@@ -41,6 +42,6 @@ extern int obj_reloc_save_obj(obj_reloc_t *, FILE *);
 extern int obj_reloc_copy(obj_reloc_t *, unsigned, obj_object_t *);
 extern obj_reloc_t *obj_reloc_first(obj_object_t *);
 extern obj_reloc_t *obj_reloc_next(obj_reloc_t *);
-extern int obj_reloc_process(obj_reloc_t *);
+extern int obj_reloc_process(obj_reloc_t *, obj_linker_flags_t);
 
 #endif

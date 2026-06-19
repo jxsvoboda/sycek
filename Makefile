@@ -35,6 +35,7 @@ INSTALL = install
 
 CPP_z80 = gcc
 CPPFLAGS_z80 = -nostdinc -E -I lib/clib/include -I src -I src/hcompat
+LIBS_z80 = lib/clib/src/stubs.z80.pp.obj
 
 bkqual = $$(date '+%Y-%m-%d')
 
@@ -141,17 +142,20 @@ sources_z80test_z80 = \
 binary_ccheck = ccheck
 binary_ccheck_hos = ccheck-hos
 binary_ccheck_z80 = ccheck-z80.bin
+mapfile_ccheck_z80 = ccheck-z80.map
 ccheck = ./$(binary_ccheck)
 
 binary_syc = syc
 binary_syc_hos = syc-hos
 binary_syc_z80 = syc-z80.bin
+mapfile_syc_z80 = syc-z80.map
 syc = ./$(binary_syc)
 sycflags = --lvalue-args --int-promotion --no-tape
 
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
 binary_z80test_z80 = z80test-z80.bin
+mapfile_z80test_z80 = z80test-z80.map
 z80test = ./$(binary_z80test)
 
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
@@ -283,14 +287,14 @@ z80objs: $(objects_z80)
 %.z80.pp.obj: %.z80.pp.c $(syc)
 	$(syc) $(sycflags) --no-link --fatal-warn $<
 
-$(binary_ccheck_z80): $(objects_ccheck_z80)
-	$(syc) --no-tape --out=$@ $(LIBS_z80) $^
+$(binary_ccheck_z80): $(LIBS_z80) $(objects_ccheck_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $^
 
-$(binary_syc_z80): $(objects_syc_z80)
-	$(syc) --no-tape --out=$@ $(LIBS_z80) $^
+$(binary_syc_z80): $(LIBS_z80) $(objects_syc_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $^
 
-$(binary_z80test_z80): $(objects_z80test_z80)
-	$(syc) --no-tape --out=$@ $(LIBS_z80) $^
+$(binary_z80test_z80): $(LIBS_z80) $(objects_z80test_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $^
 
 $(objects_ccheck_z80): $(headers) $(lib_headers)
 $(objects_syc_z80): $(headers) $(lib_headers)
@@ -303,6 +307,7 @@ clean:
 	$(binary_ccheck) $(binary_ccheck_hos) $(binary_ccheck_z80) \
 	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
+	$(mapfile_syc_z80) $(mapfile_ccheck_z80) $(mapfile_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
 	$(example_outs)
 

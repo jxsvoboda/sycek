@@ -28,6 +28,7 @@
 #include <file_input.h>
 #include <lexer.h>
 #include <merrno.h>
+#include <object/linker.h>
 #include <parser.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -61,7 +62,10 @@ static void print_syntax(void)
 	    "\t--out=<fname> Output file name\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
-	    "\t--int-promotion Enable integer promotion\n");
+	    "\t--int-promotion Enable integer promotion\n"
+	    "linker options:\n"
+	    "\t--no-link-range-error Disable link error if binary is "
+	    "too large\n");
 }
 
 /** Replace filename extension with a different one.
@@ -360,6 +364,7 @@ error:
  * @param comp Compiler
  * @param outfn Output file name
  * @param flags Compiler flags
+ * @param lflags Linker flags
  *
  * @return EOK on succcess or an error code
  */
@@ -505,6 +510,7 @@ int main(int argc, char *argv[])
 	int i;
 	comp_flags_t flags = compf_none;
 	cgen_flags_t cgflags = cgf_none;
+	obj_linker_flags_t lflags = lf_none;
 	comp_t *comp = NULL;
 	const char *outfname = NULL;
 
@@ -605,6 +611,9 @@ int main(int argc, char *argv[])
 			outfname = argv[i] + strlen("--out=");
 			++i;
 			cgflags |= cgf_fatal_warn;
+		} else if (strcmp(argv[i], "--no-link-range-error") == 0) {
+			++i;
+			lflags |= lf_no_range_error;
 		} else if (strcmp(argv[i], "-") == 0) {
 			++i;
 			break;
@@ -624,6 +633,8 @@ int main(int argc, char *argv[])
 		(void)fprintf(stderr, "Failed creating compiler.\n");
 		return 1;
 	}
+
+	comp->lflags = lflags;
 
 	while (i < argc) {
 		rc = compile_file(comp, argv[i++], flags, cgflags);

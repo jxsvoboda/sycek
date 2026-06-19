@@ -39,10 +39,11 @@ static void obj_linker_src_destroy(obj_linker_src_t *);
 
 /** Create binary linker.
  *
+ * @param lflags Linker flags
  * @param rlinker Place to store pointer to new binary object linker
  * @return EOK on success, ENOMEM if out of memory
  */
-int obj_linker_create(obj_linker_t **rlinker)
+int obj_linker_create(obj_linker_flags_t lflags, obj_linker_t **rlinker)
 {
 	obj_linker_t *linker;
 
@@ -50,6 +51,7 @@ int obj_linker_create(obj_linker_t **rlinker)
 	if (linker == NULL)
 		return ENOMEM;
 
+	linker->flags = lflags;
 	list_initialize(&linker->sources);
 	*rlinker = linker;
 	return EOK;
@@ -165,7 +167,7 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 		/* Relocation can disappear when processed. */
 		next = obj_reloc_next(reloc);
 
-		rc = obj_reloc_process(reloc);
+		rc = obj_reloc_process(reloc, linker->flags);
 		if (rc != EOK)
 			goto error;
 

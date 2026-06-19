@@ -375,9 +375,15 @@ program in various compilation stages to the standard output:
    file instead (`.bin`).
 
 The following code generation options are available:
+
  * `--fatal-warn` Make warnings fatal
  * `--lvalue-args` Make function arguments lvalues (addressable/modifiable)
  * `--int-promotion` Enable integer promotion
+
+The following linker options are available:
+
+ * `--no-link-range-error` Do not raise an error if the binary is larger
+   than 64 kB symbol references cannot be correctly resolved.
 
 NOTE: By default arguments are rvalues. This is just a temporary measure
 to produce more efficient code (as we do not have copy elimination).

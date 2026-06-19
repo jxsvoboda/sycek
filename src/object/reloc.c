@@ -313,9 +313,10 @@ obj_reloc_t *obj_reloc_next(obj_reloc_t *cur)
 /** Process SA16 relocation.
  *
  * @param reloc Relocation
+ * @param lflags Linker flags
  * @return EOK on success or an error code
  */
-static int obj_reloc_process_sa16(obj_reloc_t *reloc)
+static int obj_reloc_process_sa16(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 {
 	obj_symbol_t *symbol;
 	uint64_t addr;
@@ -329,7 +330,7 @@ static int obj_reloc_process_sa16(obj_reloc_t *reloc)
 	}
 
 	addr = symbol->section->base_addr + symbol->offset + reloc->addend;
-	if (addr > 0xffffu) {
+	if (addr > 0xffffu && (lflags & lf_no_range_error) == lf_none) {
 		(void)fprintf(stderr, "Link error: Address 0x%" PRIx64
 		    " is out of range.\n", addr);
 		return EINVAL;
@@ -347,13 +348,14 @@ static int obj_reloc_process_sa16(obj_reloc_t *reloc)
 /** Process relocation.
  *
  * @param reloc Relocation
+ * @param lflags Linker flags
  * @return EOK on success or an error code
  */
-int obj_reloc_process(obj_reloc_t *reloc)
+int obj_reloc_process(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 {
 	switch (reloc->rtype) {
 	case objr_sa16:
-		return obj_reloc_process_sa16(reloc);
+		return obj_reloc_process_sa16(reloc, lflags);
 		break;
 	default:
 		assert(false);

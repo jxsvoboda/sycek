@@ -704,7 +704,7 @@ int comp_link(comp_t *comp, FILE *outf)
 	if (comp->linked_object != NULL)
 		return EOK;
 
-	rc = obj_linker_create(&linker);
+	rc = obj_linker_create(comp->lflags, &linker);
 	if (rc != EOK)
 		goto error;
 

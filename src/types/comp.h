@@ -34,6 +34,7 @@
 #include <types/ir.h>
 #include <types/irlexer.h>
 #include <types/lexer.h>
+#include <types/object/linker.h>
 #include <types/object/object.h>
 #include <types/symbols.h>
 #include <types/tape/tape.h>
@@ -99,6 +100,8 @@ typedef struct comp {
 	list_t mods;
 	/** Code generator flags */
 	cgen_flags_t cgflags;
+	/** Linker flags */
+	obj_linker_flags_t lflags;
 	/** Linked object */
 	obj_object_t *linked_object;
 	/** Tape image */
