@@ -610,7 +610,6 @@ int main(int argc, char *argv[])
 		} else if (strncmp(argv[i], "--out=", strlen("--out=")) == 0) {
 			outfname = argv[i] + strlen("--out=");
 			++i;
-			cgflags |= cgf_fatal_warn;
 		} else if (strcmp(argv[i], "--no-link-range-error") == 0) {
 			++i;
 			lflags |= lf_no_range_error;
