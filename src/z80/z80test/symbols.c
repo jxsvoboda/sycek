@@ -183,14 +183,13 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 		return EIO;
 
 	while (true) {
-		/* Stop if not an identifier */
 		c = fgetc(f);
 		if (c < 0)
-			goto error;
+			break;
 
 		if (c != '_' && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') &&
 		    (c < '0' || c > '9'))
-			break;
+			goto error;
 
 		i = 0;
 		ident[i++] = '@';

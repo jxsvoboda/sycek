@@ -97,7 +97,7 @@ static int mapfile_load(const char *fname)
 	rc = symbols_mapfile_load(symbols, fname);
 	if (rc != 0) {
 		(void)fprintf(stderr, "Error loading '%s'.\n", fname);
-		return EIO;
+		return -1;
 	}
 
 	if (!quiet)
