@@ -694,18 +694,17 @@ After making any changes run `make test` command which runs a number of tests
 
 Everything should finish successfully (exit code from `make` should be zero).
 
-To test functionality of generated Z80 code run `make test_z80` which
- * Compiles all sources under `test/syc/good` with Syc into `.asm` files
- * Assembles all of them using `z80asm` into binary files
+Running `make test_z80` runs the following tests:
+
+ * Compiles all sources under `test/syc/good` with Syc into `.obj` files
+ * For sources with corresponding `.scr` files compiles and links them
+   into `.bin` files.
  * Runs `z80test` for all `.scr` files under `test/syc/good` which verifies
    correct function of the generated code
- * Compiles all Sycek componets using syc (making sure there are no errors
+ * Compiles all Sycek components using syc (making sure there are no errors
    or warnings reported)
 
-For this to work you need to have `z80asm` from z88dk to convert .asm files
-to binary, plus `gcc` for preprocessing C source files. Note that this
-requirement is only temporary and will be removed once Syc can produce
-binary files directly and it implements its own preprocessor, respectively.
+Everything should finish successfully (exit code from `make` should be zero).
 
 Run Clang Analyzer using the command
 
