@@ -32,7 +32,8 @@
 #include <types/z80/z80ic.h>
 
 extern int z80_emit_create(z80_emit_t **);
-extern int z80_emit_module(z80_emit_t *, z80ic_module_t *, obj_object_t **);
+extern int z80_emit_module(z80_emit_t *, z80ic_module_t *, const char *,
+    obj_object_t **);
 extern void z80_emit_destroy(z80_emit_t *);
 
 #endif

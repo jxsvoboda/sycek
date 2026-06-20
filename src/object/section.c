@@ -38,40 +38,48 @@
  *
  * @param object Containing object
  * @param name Section name
+ * @param modname Module name
  * @param rsection Place to store pointer to new binary object section
  * @return EOK on success, ENOMEM if out of memory
  */
 int obj_section_create(obj_object_t *object, const char *name,
-    obj_section_t **rsection)
+    const char *modname, obj_section_t **rsection)
 {
 	obj_section_t *section;
 
 	section = calloc(1, sizeof(obj_section_t));
-	if (section == NULL)
+	if (section == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
 		return ENOMEM;
+	}
 
 	section->object = object;
 	section->len = 0;
 	section->alloc_len = 16;
 
 	section->name = strdup(name);
-	if (section->name == NULL) {
-		(void)fprintf(stderr, "Out of memory.\n");
-		free(section);
-		return ENOMEM;
-	}
+	if (section->name == NULL)
+		goto error;
+
+	section->modname = strdup(modname);
+	if (section->name == NULL)
+		goto error;
 
 	section->data = malloc((size_t)section->alloc_len);
-	if (section->data == NULL) {
-		(void)fprintf(stderr, "Out of memory.\n");
-		free(section->name);
-		free(section);
-		return ENOMEM;
-	}
+	if (section->data == NULL)
+		goto error;
 
 	list_append(&section->lsections, &object->sections);
 	*rsection = section;
 	return EOK;
+error:
+	(void)fprintf(stderr, "Out of memory.\n");
+	if (section->name != NULL)
+		free(section->name);
+	if (section->modname != NULL)
+		free(section->modname);
+	free(section);
+	return ENOMEM;
 }
 
 /** Destroy binary object section.
@@ -85,6 +93,7 @@ void obj_section_destroy(obj_section_t *section)
 
 	list_remove(&section->lsections);
 	free(section->name);
+	free(section->modname);
 	free(section->data);
 	free(section);
 }
@@ -100,7 +109,8 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 	int rc;
 	size_t i;
 
-	rc = fprintf(outf, "  Section: (length: %u bytes base:0x%x)\n", section->len, section->base_addr);
+	rc = fprintf(outf, "  Section: %s (length: %u bytes base:0x%x)\n",
+	    section->name, section->len, section->base_addr);
 	if (rc < 0)
 		return EIO;
 
@@ -128,11 +138,12 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 /** Load binary object section from object file.
  *
  * #param object Object
- * @param inf Output file
+ * @param inf Input file
+ * @param modname Module name
  * @param rsection Place to store pointer to loaded section
  * @return EOK on success or an error code
  */
-int obj_section_load_obj(obj_object_t *object, FILE *inf,
+int obj_section_load_obj(obj_object_t *object, FILE *inf, const char *modname,
     obj_section_t **rsection)
 {
 	obj_section_t *section = NULL;
@@ -169,7 +180,7 @@ int obj_section_load_obj(obj_object_t *object, FILE *inf,
 		goto error;
 	}
 
-	rc = obj_section_create(object, name, &section);
+	rc = obj_section_create(object, name, modname, &section);
 	if (rc != EOK)
 		goto error;
 
@@ -357,7 +368,7 @@ int obj_section_copy(obj_section_t *section, unsigned modidx,
 	if (rc != EOK)
 		return rc;
 
-	rc = obj_section_create(dest, dname, &dsection);
+	rc = obj_section_create(dest, dname, section->modname, &dsection);
 	if (rc != EOK) {
 		free(dname);
 		return rc;

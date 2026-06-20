@@ -339,7 +339,7 @@ static int z80_emit_var(z80_emit_t *emit, z80ic_var_t *var)
 
 	size = emit->section->len - offset;
 	rc = obj_symbol_create(emit->object, var->ident, emit->section,
-	    offset, size, &symbol);
+	    objb_local, offset, size, &symbol);
 	if (rc != EOK)
 		return rc;
 
@@ -1148,7 +1148,8 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 	while (entry != NULL) {
 		if (entry->label != NULL) {
 			rc = obj_symbol_create(emit->object, entry->label,
-			    emit->section, emit->section->len, 0, &symbol);
+			    emit->section, objb_local, emit->section->len, 0,
+			    &symbol);
 			if (rc != EOK)
 				goto error;
 		}
@@ -1164,7 +1165,7 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 
 	size = emit->section->len - offset;
 	rc = obj_symbol_create(emit->object, proc->ident, emit->section,
-	    offset, size, &symbol);
+	    objb_local, offset, size, &symbol);
 	if (rc != EOK)
 		goto error;
 
@@ -1173,6 +1174,27 @@ static int z80_emit_proc(z80_emit_t *emit, z80ic_proc_t *proc)
 error:
 	emit->ic_proc = NULL;
 	return rc;
+}
+
+/** Emit binary instructions global symbol export.
+ *
+ * @param emit Binary instruction emitter
+ * @param global Global symbol export
+ * @param modname Module name
+ * @return EOK on success or an error code
+ */
+static int z80_emit_global(z80_emit_t *emit, z80ic_global_t *global,
+    const char *modname)
+{
+	obj_symbol_t *symbol;
+
+	symbol = obj_symbol_find(emit->object, global->ident,
+	    modname);
+	if (symbol == NULL)
+		return EINVAL;
+
+	symbol->binding = objb_global;
+	return EOK;
 }
 
 /** Emit binary instructions for declaration.
@@ -1189,8 +1211,8 @@ static int z80_emit_decln(z80_emit_t *emit, z80ic_decln_t *decln)
 	(void)decln;
 
 	switch (decln->dtype) {
-	case z80icd_extern:
 	case z80icd_global:
+	case z80icd_extern:
 		rc = EOK;
 		break;
 	case z80icd_var:
@@ -1208,11 +1230,12 @@ static int z80_emit_decln(z80_emit_t *emit, z80ic_decln_t *decln)
  *
  * @param emit Binary instruction emitter
  * @param icmod Z80 IC module
+ * @param modname Module name
  * @param robject Place to store pointer to new binary object
  * @return EOK on success or an error code
  */
 int z80_emit_module(z80_emit_t *emit, z80ic_module_t *icmod,
-    obj_object_t **robject)
+    const char *modname, obj_object_t **robject)
 {
 	obj_object_t *object = NULL;
 	obj_section_t *section = NULL;
@@ -1226,17 +1249,31 @@ int z80_emit_module(z80_emit_t *emit, z80ic_module_t *icmod,
 	emit->object = object;
 	emit->ic_module = icmod;
 
-	rc = obj_section_create(object, "common", &section);
+	rc = obj_section_create(object, "common", modname, &section);
 	if (rc != EOK)
 		goto error;
 
 	emit->section = section;
 
+	/* Process variable and procedure declarations */
 	decln = z80ic_module_first(icmod);
 	while (decln != NULL) {
 		rc = z80_emit_decln(emit, decln);
 		if (rc != EOK)
 			goto error;
+
+		decln = z80ic_module_next(decln);
+	}
+
+	/* Process symbol exports once all symbols are defined. */
+	decln = z80ic_module_first(icmod);
+	while (decln != NULL) {
+		if (decln->dtype == z80icd_global) {
+			rc = z80_emit_global(emit,
+			    (z80ic_global_t *)decln->ext, modname);
+			if (rc != EOK)
+				goto error;
+		}
 
 		decln = z80ic_module_next(decln);
 	}

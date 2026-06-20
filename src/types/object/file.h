@@ -81,10 +81,16 @@ typedef struct {
 	uint32_t name_len;
 	/** Index of section the symbol belongs to */
 	uint32_t section_idx;
+	/** Symbol binding */
+	uint8_t binding;
+	/* Padding */
+	uint8_t pad0[3];
 	/** Symbol offset within section */
 	uint32_t offset;
 	/** Symbol size */
 	uint32_t size;
+	/** Padding */
+	uint8_t pad1[4];
 } __attribute__((packed)) obj_file_symbol_t;
 
 /** Object file relocation header */

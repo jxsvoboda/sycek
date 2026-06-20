@@ -40,14 +40,15 @@
  * @param object Containing object
  * @param name Symbol name
  * @param section Section containing symbol
+ * @param binding Symbol binding
  * @param offset Symbol start offset within section
  * @param size Symbol size
  * @param rsymbol Place to store pointer to new binary object symbol
  * @return EOK on success, ENOMEM if out of memory
  */
 int obj_symbol_create(obj_object_t *object, const char *name,
-    obj_section_t *section, uint32_t offset, uint32_t size,
-    obj_symbol_t **rsymbol)
+    obj_section_t *section, obj_symbol_binding_t binding, uint32_t offset,
+    uint32_t size, obj_symbol_t **rsymbol)
 {
 	obj_symbol_t *symbol;
 
@@ -63,6 +64,7 @@ int obj_symbol_create(obj_object_t *object, const char *name,
 	}
 
 	symbol->section = section;
+	symbol->binding = binding;
 	symbol->offset = offset;
 	symbol->size = size;
 
@@ -85,6 +87,30 @@ void obj_symbol_destroy(obj_symbol_t *symbol)
 	free(symbol);
 }
 
+/** Return object binding as string.
+ *
+ * @param binding Symbol biding
+ * @return Object binding as string
+ */
+static const char *obj_symbol_binding_str(obj_symbol_binding_t binding)
+{
+	const char *sbinding;
+
+	switch (binding) {
+	case objb_global:
+		sbinding = "global";
+		break;
+	case objb_local:
+		sbinding = "local";
+		break;
+	default:
+		sbinding = "unknown";
+		break;
+	}
+
+	return sbinding;
+}
+
 /** Dump binary object symbol.
  *
  * @param symbol Symbol
@@ -94,11 +120,14 @@ void obj_symbol_destroy(obj_symbol_t *symbol)
 int obj_symbol_dump(obj_symbol_t *symbol, FILE *outf)
 {
 	int rc;
+	const char *sbinding;
+
+	sbinding = obj_symbol_binding_str(symbol->binding);
 
 	rc = fprintf(outf, "  Symbol: %s section:%s offset:0x%x "
-	    "length:%u\n",
+	    "length:%u binding:%s\n",
 	    symbol->name, symbol->section->name, symbol->offset,
-	    symbol->size);
+	    symbol->size, sbinding);
 	if (rc < 0)
 		return EIO;
 
@@ -114,14 +143,16 @@ int obj_symbol_dump(obj_symbol_t *symbol, FILE *outf)
 int obj_symbol_save_map(obj_symbol_t *symbol, FILE *outf)
 {
 	int rc;
+	const char *sbinding;
 	uint32_t sym_addr;
 
+	sbinding = obj_symbol_binding_str(symbol->binding);
 	sym_addr = symbol->section->base_addr + symbol->offset;
 
 	rc = fprintf(outf, "%s = $%04" PRIx32 " ;  Symbol: %s section:%s "
-	    "offset:0x%x length:%u\n", symbol->name, sym_addr,
+	    "offset:0x%x length:%u binding:%s\n", symbol->name, sym_addr,
 	    symbol->name, symbol->section->name, symbol->offset,
-	    symbol->size);
+	    symbol->size, sbinding);
 	if (rc < 0)
 		return EIO;
 
@@ -141,6 +172,7 @@ int obj_symbol_load_obj(obj_object_t *object, FILE *inf, obj_symbol_t **rsymbol)
 	size_t nr;
 	uint32_t nsize;
 	uint32_t section_idx;
+	obj_symbol_binding_t binding;
 	uint32_t offset;
 	uint32_t size;
 	obj_section_t *section;
@@ -157,6 +189,7 @@ int obj_symbol_load_obj(obj_object_t *object, FILE *inf, obj_symbol_t **rsymbol)
 
 	nsize = uint32_t_le2host(sym.name_len);
 	section_idx = uint32_t_le2host(sym.section_idx);
+	binding = (obj_symbol_binding_t)sym.binding;
 	offset = uint32_t_le2host(sym.offset);
 	size = uint32_t_le2host(sym.size);
 
@@ -181,7 +214,8 @@ int obj_symbol_load_obj(obj_object_t *object, FILE *inf, obj_symbol_t **rsymbol)
 		return EIO;
 	}
 
-	rc = obj_symbol_create(object, name, section, offset, size, rsymbol);
+	rc = obj_symbol_create(object, name, section, binding, offset, size,
+	    rsymbol);
 	if (rc != EOK)
 		goto error;
 
@@ -225,6 +259,7 @@ int obj_symbol_save_obj(obj_symbol_t *symbol, FILE *outf)
 	sym.name_len = host2uint32_t_le(nsize);
 	sym.section_idx =
 	    host2uint32_t_le(obj_section_get_idx(symbol->section));
+	sym.binding = (uint8_t)symbol->binding;
 	sym.offset = host2uint32_t_le(symbol->offset);
 	sym.size = host2uint32_t_le(symbol->size);
 
@@ -278,8 +313,8 @@ int obj_symbol_copy(obj_symbol_t *symbol, unsigned modidx, obj_object_t *dest)
 
 	free(sname);
 
-	return obj_symbol_create(dest, symbol->name, dsection, symbol->offset,
-	    symbol->size, &dsymbol);
+	return obj_symbol_create(dest, symbol->name, dsection, symbol->binding,
+	    symbol->offset, symbol->size, &dsymbol);
 }
 
 /** Get first symbol in object.
@@ -318,16 +353,28 @@ obj_symbol_t *obj_symbol_next(obj_symbol_t *cur)
  *
  * @param object Object
  * @param name Symbol name
+ * @param modname Module name (only find local symbols in this module)
  * @return Symbol matching @a name or @c NULL if there are none.
  */
-obj_symbol_t *obj_symbol_find(obj_object_t *object, const char *name)
+obj_symbol_t *obj_symbol_find(obj_object_t *object, const char *name,
+    const char *modname)
 {
 	obj_symbol_t *symbol;
 
 	symbol = obj_symbol_first(object);
 	while (symbol != NULL) {
-		if (strcmp(symbol->name, name) == 0)
-			return symbol;
+		/* Local or global? */
+		if (symbol->binding == objb_local) {
+			/* Local symbol: Same name, same module? */
+			if (strcmp(symbol->name, name) == 0 &&
+			    strcmp(symbol->section->modname, modname) == 0)
+				return symbol;
+		} else {
+			/* Global symbol: Same name? */
+			if (strcmp(symbol->name, name) == 0)
+				return symbol;
+
+		}
 
 		symbol = obj_symbol_next(symbol);
 	}

@@ -1,0 +1,8 @@
+mapfile "test.map";
+ldbin "test.bin", 0x8000;
+
+verify word ptr (@_resa), 0;
+verify word ptr (@_resb), 0;
+call @_run;
+verify word ptr (@_resa), 1;
+verify word ptr (@_resb), 2;

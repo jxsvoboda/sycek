@@ -256,8 +256,13 @@ int symbols_mapfile_load(symbols_t *symbols, const char *fname)
 
 		rc = symbols_insert(symbols, ident, addr);
 		if (rc != 0) {
-			(void)fclose(f);
-			return rc;
+			if (rc == EEXIST) {
+				(void)fprintf(stderr, "Warning: Identifier "
+				    "'%s' appears multiple times.\n", ident);
+			} else {
+				(void)fclose(f);
+				return rc;
+			}
 		}
 	}
 

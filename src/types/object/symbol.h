@@ -30,6 +30,14 @@
 #include <adt/list.h>
 #include <stdint.h>
 
+/** Symbol binding */
+typedef enum {
+	/** Symbol is visible everywhere */
+	objb_global,
+	/** Symbol is only visible in the same module */
+	objb_local
+} obj_symbol_binding_t;
+
 /** Object symbol */
 typedef struct obj_symbol {
 	/** Containing object */
@@ -40,6 +48,8 @@ typedef struct obj_symbol {
 	char *name;
 	/** Section where the symbol is located */
 	struct obj_section *section;
+	/** Symbol binding */
+	obj_symbol_binding_t binding;
 	/** Symbol offset within section */
 	uint32_t offset;
 	/** Symbol size */

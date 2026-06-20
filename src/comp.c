@@ -184,7 +184,7 @@ int comp_module_create_from_obj(comp_t *comp, const char *fname,
 		goto error;
 	}
 
-	rc = obj_object_load_obj(objf, &module->object);
+	rc = obj_object_load_obj(objf, fname, &module->object);
 	if (rc != EOK)
 		goto error;
 
@@ -669,7 +669,8 @@ int comp_module_emit(comp_module_t *module, FILE *outf)
 		if (rc != EOK)
 			goto error;
 
-		rc = z80_emit_module(emit, module->ic, &module->object);
+		rc = z80_emit_module(emit, module->ic, module->fname,
+		    &module->object);
 		if (rc != EOK)
 			goto error;
 

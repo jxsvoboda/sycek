@@ -322,7 +322,8 @@ static int obj_reloc_process_sa16(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 	uint64_t addr;
 	int rc;
 
-	symbol = obj_symbol_find(reloc->object, reloc->sym_name);
+	symbol = obj_symbol_find(reloc->object, reloc->sym_name,
+	    reloc->section->modname);
 	if (symbol == NULL) {
 		(void)fprintf(stderr, "Link error: Symbol '%s' not found.\n",
 		    reloc->sym_name);

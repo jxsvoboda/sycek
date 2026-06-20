@@ -235,10 +235,11 @@ int obj_object_save_map(obj_object_t *object, FILE *outf)
 /** Load binary object from an object file.
  *
  * @param inf Input file
+ * @param modname Module name
  * @param robject Place to store pointer to loaded object
  * @return EOK on success or an error code
  */
-int obj_object_load_obj(FILE *inf, obj_object_t **robject)
+int obj_object_load_obj(FILE *inf, const char *modname, obj_object_t **robject)
 {
 	obj_file_hdr_t hdr;
 	obj_object_t *object = NULL;
@@ -294,7 +295,8 @@ int obj_object_load_obj(FILE *inf, obj_object_t **robject)
 			rc = obj_reloc_load_obj(object, inf);
 			break;
 		case obj_file_esection:
-			rc = obj_section_load_obj(object, inf, &section);
+			rc = obj_section_load_obj(object, inf, modname,
+			    &section);
 			(void)section;
 			break;
 		case obj_file_esymbol:

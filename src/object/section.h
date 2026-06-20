@@ -32,10 +32,12 @@
 #include <types/object/object.h>
 #include <types/object/section.h>
 
-extern int obj_section_create(obj_object_t *, const char *, obj_section_t **);
+extern int obj_section_create(obj_object_t *, const char *, const char *,
+    obj_section_t **);
 extern void obj_section_destroy(obj_section_t *);
 extern int obj_section_dump(obj_section_t *, FILE *);
-extern int obj_section_load_obj(obj_object_t *, FILE *, obj_section_t **);
+extern int obj_section_load_obj(obj_object_t *, FILE *, const char *,
+    obj_section_t **);
 extern int obj_section_save_bin(obj_section_t *, FILE *);
 extern int obj_section_save_obj(obj_section_t *, FILE *);
 extern int obj_section_copy(obj_section_t *, unsigned, obj_object_t *);

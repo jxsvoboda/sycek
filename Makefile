@@ -213,6 +213,13 @@ test_syc_outs = $(test_syc_good_objs) $(test_syc_bad_diffs) \
     test/syc/all.diff
 test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_objs) \
     $(test_syc_good_maps) $(test_syc_good_taps)
+test_linker_good_z80ts = \
+    test/linker/good/local/test-z80t.txt
+test_linker_good_outs = \
+    test/linker/good/local/a.obj \
+    test/linker/good/local/b.obj \
+    test/linker/good/local/test.bin \
+    test/linker/good/local/test.map
 
 example_srcs = \
 	example/fillscr.c \
@@ -309,6 +316,8 @@ clean:
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
 	$(mapfile_syc_z80) $(mapfile_ccheck_z80) $(mapfile_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
+	$(test_linker_good_outs) \
+\
 	$(example_outs)
 
 clean_z80:
@@ -401,6 +410,15 @@ test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
 test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@
 
+test/linker/good/local/%.obj: test/linker/good/local/%.c
+	$(syc) $(sycflags) --no-link $<
+
+test/linker/good/local/test.bin: test/linker/good/local/a.obj test/linker/good/local/b.obj
+	$(syc) $(sycflags) --out=$@ $^
+
+test/linker/good/local/test-z80t.txt: test/linker/good/local/test.scr test/linker/good/local/test.bin $(z80test)
+	cd test/linker/good/local && ../../../../$(z80test) -s ../../../../$< >../../../../$@ || (rm ../../../../$@ ; false)
+
 # Run ccheck internal unit tests
 test/test-int.out: $(ccheck)
 	$(ccheck) --test >test/test-int.out
@@ -442,7 +460,10 @@ examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) \
     test/selfcheck.out
-test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) z80objs
+test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) \
+    $(test_linker_good_z80ts) z80objs
+
+test_l: $(test_linker_good_z80ts)
 
 backup: clean
 	cd .. && tar czf sycek-$(bkqual).tar.gz trunk

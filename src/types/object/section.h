@@ -38,6 +38,8 @@ typedef struct obj_section {
 	link_t lsections;
 	/** Section name */
 	char *name;
+	/** Module name */
+	char *modname;
 	/** Section data */
 	uint8_t *data;
 	/** Section length */
