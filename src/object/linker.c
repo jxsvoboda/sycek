@@ -32,6 +32,7 @@
 #include <object/object.h>
 #include <object/reloc.h>
 #include <object/section.h>
+#include <object/symbol.h>
 
 static obj_linker_src_t *obj_linker_src_first(obj_linker_t *);
 static obj_linker_src_t *obj_linker_src_next(obj_linker_src_t *);
@@ -117,6 +118,45 @@ int obj_linker_set_origin(obj_linker_t *linker, uint32_t origin)
 	return EOK;
 }
 
+/** Check for duplicate symbols.
+ *
+ * @param linker Linker
+ * @param object Object
+ * @return EOK on success or an error code
+ */
+static int obj_linker_dup_symbol_check(obj_linker_t *linker,
+    obj_object_t *object)
+{
+	obj_symbol_t *s1;
+	obj_symbol_t *s2;
+
+	(void)linker;
+
+	s1 = obj_symbol_first(object);
+	while (s1 != NULL) {
+		s2 = obj_symbol_next(s1);
+		while (s2 != NULL) {
+			if (strcmp(s1->name, s2->name) == 0) {
+				if ((s1->binding == objb_global &&
+				    s2->binding == objb_global) ||
+				    strcmp(s1->section->modname,
+				    s2->section->modname) == 0) {
+					(void)fprintf(stderr, "%s: Link error: "
+					    "Duplicate symbol '%s', found in "
+					    "%s.\n",
+					    s2->section->modname, s1->name,
+					    s1->section->modname);
+					return EINVAL;
+				}
+			}
+			s2 = obj_symbol_next(s2);
+		}
+		s1 = obj_symbol_next(s1);
+	}
+
+	return EOK;
+}
+
 /** Perform linking.
  *
  * @param linker Linker
@@ -150,6 +190,11 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 
 		src = obj_linker_src_next(src);
 	}
+
+	/* Check for duplicate symbols. */
+	rc = obj_linker_dup_symbol_check(linker, dest);
+	if (rc != EOK)
+		goto error;
 
 	/* Assign addresses to sections. */
 	address = linker->org;

@@ -1,0 +1,1 @@
+test/linker/bad/duplicate/b.c: Link error: Duplicate symbol '_i', found in test/linker/bad/duplicate/a.c.
