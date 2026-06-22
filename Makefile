@@ -91,6 +91,8 @@ sources_syc_common = \
     src/test/z80/z80ic.c \
     src/z80/argloc.c \
     src/z80/emit.c \
+    src/z80/iclexer.c \
+    src/z80/icparser.c \
     src/z80/isel.c \
     src/z80/ralloc.c \
     src/z80/varmap.c \

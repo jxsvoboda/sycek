@@ -21,30 +21,30 @@
  */
 
 /*
- * IR Parser
+ * Z80 IC Parser
  */
 
-#ifndef TYPES_IRPARSER_H
-#define TYPES_IRPARSER_H
+#ifndef TYPES_Z80_ICPARSER_H
+#define TYPES_Z80_ICPARSER_H
 
 #include <types/irlexer.h>
 
-/** IR parser input ops */
+/** Z80 IC parser input ops */
 typedef struct {
 	/** Read current token */
-	void (*read_tok)(void *, ir_lexer_tok_t *);
+	void (*read_tok)(void *, z80ic_lexer_tok_t *);
 	/** Advance to the next token */
 	void (*next_tok)(void *);
-} ir_parser_input_ops_t;
+} z80ic_parser_input_ops_t;
 
-/** IR parser */
+/** Z80 IC parser */
 typedef struct {
 	/** Input ops */
-	ir_parser_input_ops_t *input_ops;
+	z80ic_parser_input_ops_t *input_ops;
 	/** Input argument */
 	void *input_arg;
 	/** Next token */
 	void *tok;
-} ir_parser_t;
+} z80ic_parser_t;
 
 #endif

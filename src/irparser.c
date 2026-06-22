@@ -95,6 +95,7 @@ static void ir_parser_next_input_tok(ir_parser_t *parser, ir_lexer_tok_t *rtok)
 {
 	parser->input_ops->read_tok(parser->input_arg, rtok);
 	while (ir_parser_ttype_ignore(rtok->ttype)) {
+		ir_lexer_free_tok(rtok);
 		parser->input_ops->next_tok(parser->input_arg);
 		parser->input_ops->read_tok(parser->input_arg, rtok);
 	}

@@ -45,6 +45,8 @@
 #include <tape/tape.h>
 #include <tape/tzx.h>
 #include <z80/emit.h>
+#include <z80/iclexer.h>
+#include <z80/icparser.h>
 #include <z80/isel.h>
 #include <z80/ralloc.h>
 #include <z80/z80ic.h>
@@ -71,9 +73,40 @@ static ir_parser_input_ops_t comp_ir_parser_input = {
 	.next_tok = comp_ir_parser_next_tok,
 };
 
+static void comp_z80ic_parser_read_tok(void *, z80ic_lexer_tok_t *);
+static void comp_z80ic_parser_next_tok(void *);
+
+static z80ic_parser_input_ops_t comp_z80ic_parser_input = {
+	.read_tok = comp_z80ic_parser_read_tok,
+	.next_tok = comp_z80ic_parser_next_tok,
+};
+
 enum {
 	org_default = 0x8000u
 };
+
+/** Return compiler module type as string.
+ *
+ * @param mtype Module type
+ * @return Module type as string (e.g. ".c")
+ */
+static const char *comp_mtype_str(comp_mtype_t mtype)
+{
+	switch (mtype) {
+	case cmt_csrc:
+		return ".c";
+	case cmt_chdr:
+		return ".h";
+	case cmt_ir:
+		return ".ir";
+	case cmt_ic:
+		return ".ic";
+	case cmt_obj:
+		return ".obj";
+	}
+
+	return "unknown";
+}
 
 /** Create compiler module.
  *
@@ -93,6 +126,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	comp_module_t *module = NULL;
 	lexer_t *lexer = NULL;
 	ir_lexer_t *ir_lexer = NULL;
+	z80ic_lexer_t *ic_lexer = NULL;
 	symbols_t *symbols = NULL;
 	int rc;
 
@@ -109,6 +143,13 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
 		/* C language lexer */
 		rc = lexer_create(input_ops, input_arg, &lexer);
+		if (rc != EOK) {
+			assert(rc == ENOMEM);
+			goto error;
+		}
+	} else if (mtype == cmt_ic) {
+		/* IC language lexer */
+		rc = z80ic_lexer_create(input_ops, input_arg, &ic_lexer);
 		if (rc != EOK) {
 			assert(rc == ENOMEM);
 			goto error;
@@ -133,6 +174,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 
 	module->lexer = lexer;
 	module->ir_lexer = ir_lexer;
+	module->ic_lexer = ic_lexer;
 	module->mtype = mtype;
 	module->symbols = symbols;
 
@@ -144,8 +186,8 @@ error:
 	symbols_destroy(symbols);
 	if (lexer != NULL)
 		lexer_destroy(lexer);
-	if (comp != NULL)
-		free(comp);
+	if (module != NULL)
+		free(module);
 	return rc;
 }
 
@@ -233,6 +275,7 @@ void comp_module_destroy(comp_module_t *module)
 	ir_module_destroy(module->ir);
 	z80ic_module_destroy(module->vric);
 	z80ic_module_destroy(module->ic);
+	z80ic_lexer_destroy(module->ic_lexer);
 	obj_object_destroy(module->object);
 	ir_lexer_destroy(module->ir_lexer);
 	lexer_destroy(module->lexer);
@@ -470,6 +513,38 @@ error:
 	return rc;
 }
 
+/** Parse an S (symbolic instruction code) module.
+ *
+ * @param module Compiler module
+ * @return EOK on success or error code
+ */
+static int comp_z80ic_module_parse(comp_module_t *module)
+{
+	z80ic_module_t *icmod;
+	z80ic_parser_t *parser = NULL;
+	comp_z80ic_parser_input_t pinput;
+	int rc;
+
+	pinput.ic_lexer = module->ic_lexer;
+	pinput.have_tok = false;
+
+	rc = z80ic_parser_create(&comp_z80ic_parser_input, &pinput, &parser);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_process_module(parser, &icmod);
+	if (rc != EOK)
+		goto error;
+
+	module->ic = icmod;
+	z80ic_parser_destroy(parser);
+
+	return EOK;
+error:
+	z80ic_parser_destroy(parser);
+	return rc;
+}
+
 /** Make sure compiler tokenized source is available.
  *
  * If source hasn't been tokenized yet, do it now.
@@ -510,11 +585,11 @@ int comp_module_make_ir(comp_module_t *module)
 			goto error;
 	}
 
-	rc = comp_module_build_toks(module);
-	if (rc != EOK)
-		return rc;
-
 	if (module->ir == NULL) {
+		rc = comp_module_build_toks(module);
+		if (rc != EOK)
+			return rc;
+
 		rc = cgen_create(&cgen);
 		if (rc != EOK)
 			goto error;
@@ -595,11 +670,17 @@ int comp_module_make_ic(comp_module_t *module)
 	int rc;
 	z80_ralloc_t *ralloc = NULL;
 
-	rc = comp_module_make_vric(module);
-	if (rc != EOK)
-		goto error;
+	if (module->mtype == cmt_ic && module->ic == NULL) {
+		rc = comp_z80ic_module_parse(module);
+		if (rc != EOK)
+			goto error;
+	}
 
 	if (module->ic == NULL) {
+		rc = comp_module_make_vric(module);
+		if (rc != EOK)
+			goto error;
+
 		rc = z80_ralloc_create(&ralloc);
 		if (rc != EOK)
 			goto error;
@@ -797,6 +878,18 @@ int comp_module_dump_ast(comp_module_t *module, FILE *f)
 {
 	int rc;
 
+	switch (module->mtype) {
+	case cmt_csrc:
+	case cmt_chdr:
+		break;
+	case cmt_ir:
+	case cmt_ic:
+	case cmt_obj:
+		(void)fprintf(stderr, "Error: Cannot dump AST for '%s' file.\n",
+		    comp_mtype_str(module->mtype));
+		return EINVAL;
+	}
+
 	rc = comp_module_make_ir(module);
 	if (rc != EOK)
 		return rc;
@@ -814,6 +907,18 @@ int comp_module_dump_toks(comp_module_t *module, FILE *f)
 {
 	comp_tok_t *tok;
 	int rc;
+
+	switch (module->mtype) {
+	case cmt_csrc:
+	case cmt_chdr:
+		break;
+	case cmt_ir:
+	case cmt_ic:
+	case cmt_obj:
+		(void)fprintf(stderr, "Error: Cannot dump tokens for "
+		    "'%s' file.\n", comp_mtype_str(module->mtype));
+		return EINVAL;
+	}
 
 	rc = comp_module_build_toks(module);
 	if (rc != EOK)
@@ -848,6 +953,18 @@ int comp_module_dump_ir(comp_module_t *module, FILE *f)
 {
 	int rc;
 
+	switch (module->mtype) {
+	case cmt_csrc:
+	case cmt_chdr:
+	case cmt_ir:
+		break;
+	case cmt_ic:
+	case cmt_obj:
+		(void)fprintf(stderr, "Error: Cannot dump IR for "
+		    "'%s' file.\n", comp_mtype_str(module->mtype));
+		return EINVAL;
+	}
+
 	rc = comp_module_make_ir(module);
 	if (rc != EOK)
 		return rc;
@@ -866,6 +983,18 @@ int comp_module_dump_ir(comp_module_t *module, FILE *f)
 int comp_module_dump_vric(comp_module_t *module, FILE *f)
 {
 	int rc;
+
+	switch (module->mtype) {
+	case cmt_csrc:
+	case cmt_chdr:
+	case cmt_ir:
+		break;
+	case cmt_ic:
+	case cmt_obj:
+		(void)fprintf(stderr, "Error: Cannot dump VRIC for "
+		    "'%s' file.\n", comp_mtype_str(module->mtype));
+		return EINVAL;
+	}
 
 	rc = comp_module_make_vric(module);
 	if (rc != EOK)
@@ -900,6 +1029,11 @@ int comp_module_dump_ic(comp_module_t *module, FILE *f)
 int comp_module_dump_obj(comp_module_t *module, FILE *f)
 {
 	int rc;
+
+	if (module->object == NULL) {
+		(void)fprintf(stderr, "Error: Object not built.\n");
+		return EINVAL;
+	}
 
 	assert(module->object != NULL);
 	rc = obj_object_dump(module->object, f);
@@ -967,7 +1101,7 @@ static void *comp_parser_tok_data(void *apinput, void *tok)
 	return tok;
 }
 
-/** IR parser function to read currnet input token from compiler.
+/** IR parser function to read current input token from compiler.
  *
  * @param apinput Compiler parser input (comp_ir_parser_input_t *)
  * @param ltok Place to store token
@@ -1000,6 +1134,46 @@ static void comp_ir_parser_next_tok(void *apinput)
 	if (pinput->have_tok == false) {
 		comp_ir_parser_read_tok(apinput, &itok);
 		ir_lexer_free_tok(&itok);
+	}
+
+	pinput->have_tok = false;
+}
+
+/** Z80 IC parser function to read current input token from compiler.
+ *
+ * @param apinput Compiler parser input (comp_z80ic_parser_input_t *)
+ * @param ltok Place to store token
+ */
+static void comp_z80ic_parser_read_tok(void *apinput, z80ic_lexer_tok_t *itok)
+{
+	comp_z80ic_parser_input_t *pinput =
+	    (comp_z80ic_parser_input_t *)apinput;
+	int rc;
+
+	if (pinput->have_tok == false) {
+		rc = z80ic_lexer_get_tok(pinput->ic_lexer, &pinput->itok);
+		if (rc != EOK)
+			itok->ttype = ztt_invalid;
+
+		pinput->have_tok = true;
+	}
+
+	*itok = pinput->itok;
+}
+
+/** Z80 IC parser function to advance to the next input token from compiler.
+ *
+ * @param apinput Compiler parser input (comp_z80ic_parser_input_t *)
+ */
+static void comp_z80ic_parser_next_tok(void *apinput)
+{
+	comp_z80ic_parser_input_t *pinput =
+	    (comp_z80ic_parser_input_t *)apinput;
+	z80ic_lexer_tok_t itok;
+
+	if (pinput->have_tok == false) {
+		comp_z80ic_parser_read_tok(apinput, &itok);
+		z80ic_lexer_free_tok(&itok);
 	}
 
 	pinput->have_tok = false;

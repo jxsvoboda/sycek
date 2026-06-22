@@ -93,7 +93,7 @@ typedef enum {
 	/** Load HL from fixed memory location */
 	z80i_ld_hl_inn,
 	/** Load register pair from fixed memory location */
-	z80i_ldd_dd_inn,
+	z80i_ld_dd_inn,
 	/** Load IX from fixed memory location */
 	z80i_ld_ix_inn,
 	/** Load IY from fixed memory location */

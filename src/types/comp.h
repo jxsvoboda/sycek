@@ -38,6 +38,7 @@
 #include <types/object/object.h>
 #include <types/symbols.h>
 #include <types/tape/tape.h>
+#include <types/z80/iclexer.h>
 #include <types/z80/z80ic.h>
 
 /** Compiler token */
@@ -58,6 +59,8 @@ typedef enum {
 	cmt_chdr,
 	/** IR file */
 	cmt_ir,
+	/** IC (.s) file */
+	cmt_ic,
 	/** OBJ file */
 	cmt_obj
 } comp_mtype_t;
@@ -76,6 +79,8 @@ typedef struct comp_module {
 	lexer_t *lexer;
 	/** IR lexer or @c NULL */
 	ir_lexer_t *ir_lexer;
+	/** Z80 IC lexer or @c NULL */
+	z80ic_lexer_t *ic_lexer;
 	/** Tokens */
 	list_t toks; /* of comp_tok_t */
 	/** Module was lexed. */
@@ -119,6 +124,13 @@ typedef struct {
 	ir_lexer_tok_t itok;
 	bool have_tok;
 } comp_ir_parser_input_t;
+
+/** Compiler Z80 IC parser input */
+typedef struct {
+	z80ic_lexer_t *ic_lexer;
+	z80ic_lexer_tok_t itok;
+	bool have_tok;
+} comp_z80ic_parser_input_t;
 
 /** Compiler flags */
 typedef enum {
