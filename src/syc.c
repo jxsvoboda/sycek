@@ -226,7 +226,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		mtype = cmt_chdr;
 	} else if (strcmp(ext, ".ir") == 0 || strcmp(ext, ".IR") == 0) {
 		mtype = cmt_ir;
-	} else if (strcmp(ext, ".ic") == 0 || strcmp(ext, ".IC") == 0) {
+	} else if (strcmp(ext, ".asm") == 0 || strcmp(ext, ".ASM") == 0) {
 		mtype = cmt_ic;
 	} else if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0) {
 		mtype = cmt_obj;

@@ -100,7 +100,7 @@ static const char *comp_mtype_str(comp_mtype_t mtype)
 	case cmt_ir:
 		return ".ir";
 	case cmt_ic:
-		return ".ic";
+		return ".asm";
 	case cmt_obj:
 		return ".obj";
 	}
