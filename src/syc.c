@@ -249,6 +249,13 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 
 	if ((flags & compf_no_link) != compf_none ||
 	    (flags & compf_no_emit) != compf_none) {
+		if (strcmp(fname, outfname) == 0) {
+			(void)fprintf(stderr, "Error: Input and output file "
+			    "names are identical.\n");
+			rc = EINVAL;
+			goto error;
+		}
+
 		outf = fopen(outfname, "wb");
 		if (outf == NULL) {
 			(void)fprintf(stderr, "Cannot open '%s'.\n", outfname);
@@ -344,18 +351,18 @@ error:
 	comp_module_destroy(module);
 	if (f != NULL)
 		(void)fclose(f);
-	if (outf != NULL)
+	if (outf != NULL) {
 		(void)fclose(outf);
-	if (mapf != NULL)
+		(void)remove(outfname);
+	}
+	if (mapf != NULL) {
 		(void)fclose(mapf);
-	if (mapfname != NULL) {
-		(void) remove(mapfname);
+		(void)remove(mapfname);
+	}
+	if (mapfname != NULL)
 		free(mapfname);
-	}
-	if (outfname != NULL) {
-		(void) remove(outfname);
+	if (outfname != NULL)
 		free(outfname);
-	}
 	if (progname != NULL)
 		free(progname);
 	return rc;

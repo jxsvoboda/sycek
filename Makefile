@@ -215,6 +215,10 @@ test_syc_outs = $(test_syc_good_objs) $(test_syc_bad_diffs) \
     test/syc/all.diff
 test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_objs) \
     $(test_syc_good_maps) $(test_syc_good_taps)
+test_asm_good_srcs = $(wildcard test/asm/good/*.asm)
+test_asm_good_maps = $(test_asm_good_srcs:.asm=.map)
+test_asm_good_tzxs = $(test_asm_good_srcs:.asm=.tzx)
+test_asm_outs = $(test_asm_good_maps) $(test_asm_good_tzxs)
 test_linker_good_z80ts = \
     test/linker/good/local/test-z80t.txt
 test_linker_good_outs = \
@@ -318,7 +322,7 @@ clean:
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
 	$(mapfile_syc_z80) $(mapfile_ccheck_z80) $(mapfile_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
-	$(test_linker_good_outs) \
+	$(test_asm_outs) $(test_linker_good_outs) \
 \
 	$(example_outs)
 
@@ -412,6 +416,12 @@ test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
 test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@
 
+test/asm/good/%.map: test/asm/good/%.asm $(syc)
+	$(syc) $<
+
+test/asm/good/%.tzx: test/asm/good/%.asm $(syc)
+	$(syc) $<
+
 test/linker/good/local/%.obj: test/linker/good/local/%.c
 	$(syc) $(sycflags) --no-link $<
 
@@ -460,7 +470,7 @@ examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
 # return non-zero exit code, failing the make
 #
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
-    test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) \
+    test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) $(test_asm_outs) \
     test/selfcheck.out
 test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) \
     $(test_linker_good_z80ts) z80objs

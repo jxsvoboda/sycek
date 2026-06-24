@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -88,10 +88,23 @@ extern int z80ic_ld_r_r_create(z80ic_ld_r_r_t **);
 extern int z80ic_ld_r_n_create(z80ic_ld_r_n_t **);
 extern int z80ic_ld_r_ihl_create(z80ic_ld_r_ihl_t **);
 extern int z80ic_ld_r_iixd_create(z80ic_ld_r_iixd_t **);
+extern int z80ic_ld_r_iiyd_create(z80ic_ld_r_iiyd_t **);
 extern int z80ic_ld_ihl_r_create(z80ic_ld_ihl_r_t **);
 extern int z80ic_ld_iixd_r_create(z80ic_ld_iixd_r_t **);
+extern int z80ic_ld_iiyd_r_create(z80ic_ld_iiyd_r_t **);
 extern int z80ic_ld_ihl_n_create(z80ic_ld_ihl_n_t **);
 extern int z80ic_ld_iixd_n_create(z80ic_ld_iixd_n_t **);
+extern int z80ic_ld_iiyd_n_create(z80ic_ld_iiyd_n_t **);
+extern int z80ic_ld_a_ibc_create(z80ic_ld_a_ibc_t **);
+extern int z80ic_ld_a_ide_create(z80ic_ld_a_ide_t **);
+extern int z80ic_ld_a_inn_create(z80ic_ld_a_inn_t **);
+extern int z80ic_ld_ibc_a_create(z80ic_ld_ibc_a_t **);
+extern int z80ic_ld_ide_a_create(z80ic_ld_ide_a_t **);
+extern int z80ic_ld_inn_a_create(z80ic_ld_inn_a_t **);
+extern int z80ic_ld_a_i_create(z80ic_ld_a_i_t **);
+extern int z80ic_ld_a_r_create(z80ic_ld_a_r_t **);
+extern int z80ic_ld_i_a_create(z80ic_ld_i_a_t **);
+extern int z80ic_ld_r_a_create(z80ic_ld_r_a_t **);
 extern int z80ic_ld_dd_nn_create(z80ic_ld_dd_nn_t **);
 extern int z80ic_ld_ix_nn_create(z80ic_ld_ix_nn_t **);
 extern int z80ic_ld_sp_ix_create(z80ic_ld_sp_ix_t **);

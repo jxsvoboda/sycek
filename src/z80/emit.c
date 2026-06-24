@@ -447,6 +447,20 @@ static int z80_emit_ld_iixd_r(z80_emit_t *emit, z80ic_ld_iixd_r_t *instr)
 	return z80_emit_opc_d(emit, opc, instr->disp);
 }
 
+/** Emit binary load (IY+d) from register instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_iiyd_r(z80_emit_t *emit, z80ic_ld_iiyd_r_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_ld_iiyd_r | (uint8_t)instr->src->reg;
+	return z80_emit_opc_d(emit, opc, instr->disp);
+}
+
 /** Emit binary load (HL) from 8-bit immediate instruction.
  *
  * @param emit Binary instruction emitter
@@ -468,6 +482,136 @@ static int z80_emit_ld_iixd_n(z80_emit_t *emit, z80ic_ld_iixd_n_t *instr)
 {
 	return z80_emit_opc_d_n(emit, z80opc_ld_iixd_n, instr->disp,
 	    instr->imm8);
+}
+
+/** Emit binary load (IY+d) from 8-bit immediate instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_iiyd_n(z80_emit_t *emit, z80ic_ld_iiyd_n_t *instr)
+{
+	return z80_emit_opc_d_n(emit, z80opc_ld_iiyd_n, instr->disp,
+	    instr->imm8);
+}
+
+/** Emit binary load A from (BC) instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_a_ibc(z80_emit_t *emit, z80ic_ld_a_ibc_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_a_ibc);
+}
+
+/** Emit binary load A from (DE) instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_a_ide(z80_emit_t *emit, z80ic_ld_a_ide_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_a_ide);
+}
+
+/** Emit binary load A from fixed memory location instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_a_inn(z80_emit_t *emit, z80ic_ld_a_inn_t *instr)
+{
+	return z80_emit_opc_nn(emit, z80opc_ld_a_inn, instr->imm16);
+}
+
+/** Emit binary load (BC) from A instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_ibc_a(z80_emit_t *emit, z80ic_ld_ibc_a_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_ibc_a);
+}
+
+/** Emit binary load (DE) from A instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_ide_a(z80_emit_t *emit, z80ic_ld_ide_a_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_ide_a);
+}
+
+/** Emit binary load fixed memory from A location instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_inn_a(z80_emit_t *emit, z80ic_ld_inn_a_t *instr)
+{
+	return z80_emit_opc_nn(emit, z80opc_ld_inn_a, instr->imm16);
+}
+
+/** Emit binary load A from interrupt vector register instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_a_i(z80_emit_t *emit, z80ic_ld_a_i_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_a_i);
+}
+
+/** Emit binary load A from refresh register instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_a_r(z80_emit_t *emit, z80ic_ld_a_r_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_a_r);
+}
+
+/** Emit binary load A from interrupt vector register instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_i_a(z80_emit_t *emit, z80ic_ld_i_a_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_i_a);
+}
+
+/** Emit binary load A from refresh register instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ld_r_a(z80_emit_t *emit, z80ic_ld_r_a_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ld_r_a);
 }
 
 /** Emit binary load register pair from 16-bit immediate instruction.
@@ -1017,11 +1161,37 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 	case z80i_ld_iixd_r:
 		return z80_emit_ld_iixd_r(emit,
 		    (z80ic_ld_iixd_r_t *)instr->ext);
+	case z80i_ld_iiyd_r:
+		return z80_emit_ld_iiyd_r(emit,
+		    (z80ic_ld_iiyd_r_t *)instr->ext);
 	case z80i_ld_ihl_n:
 		return z80_emit_ld_ihl_n(emit, (z80ic_ld_ihl_n_t *)instr->ext);
 	case z80i_ld_iixd_n:
 		return z80_emit_ld_iixd_n(emit,
 		    (z80ic_ld_iixd_n_t *)instr->ext);
+	case z80i_ld_iiyd_n:
+		return z80_emit_ld_iiyd_n(emit,
+		    (z80ic_ld_iiyd_n_t *)instr->ext);
+	case z80i_ld_a_ibc:
+		return z80_emit_ld_a_ibc(emit, (z80ic_ld_a_ibc_t *)instr->ext);
+	case z80i_ld_a_ide:
+		return z80_emit_ld_a_ide(emit, (z80ic_ld_a_ide_t *)instr->ext);
+	case z80i_ld_a_inn:
+		return z80_emit_ld_a_inn(emit, (z80ic_ld_a_inn_t *)instr->ext);
+	case z80i_ld_ibc_a:
+		return z80_emit_ld_ibc_a(emit, (z80ic_ld_ibc_a_t *)instr->ext);
+	case z80i_ld_ide_a:
+		return z80_emit_ld_ide_a(emit, (z80ic_ld_ide_a_t *)instr->ext);
+	case z80i_ld_inn_a:
+		return z80_emit_ld_inn_a(emit, (z80ic_ld_inn_a_t *)instr->ext);
+	case z80i_ld_a_i:
+		return z80_emit_ld_a_i(emit, (z80ic_ld_a_i_t *)instr->ext);
+	case z80i_ld_a_r:
+		return z80_emit_ld_a_r(emit, (z80ic_ld_a_r_t *)instr->ext);
+	case z80i_ld_i_a:
+		return z80_emit_ld_i_a(emit, (z80ic_ld_i_a_t *)instr->ext);
+	case z80i_ld_r_a:
+		return z80_emit_ld_r_a(emit, (z80ic_ld_r_a_t *)instr->ext);
 	case z80i_ld_dd_nn:
 		return z80_emit_ld_dd_nn(emit, (z80ic_ld_dd_nn_t *)instr->ext);
 	case z80i_ld_ix_nn:

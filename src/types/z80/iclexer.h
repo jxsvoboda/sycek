@@ -49,6 +49,8 @@ typedef enum {
 	ztt_colon,
 	ztt_scolon,
 	ztt_period,
+	ztt_plus,
+	ztt_minus,
 
 	ztt_A,
 	ztt_AF,
@@ -63,6 +65,8 @@ typedef enum {
 	ztt_H,
 	ztt_HL,
 	ztt_I,
+	ztt_IX,
+	ztt_IY,
 	ztt_L,
 	ztt_M,
 	ztt_NC,

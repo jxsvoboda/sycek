@@ -175,7 +175,45 @@ static int z80ic_parser_match(z80ic_parser_t *parser,
 	return EOK;
 }
 
-#if 0
+static bool z80ic_parser_ttype_reg(z80ic_lexer_toktype_t ztt)
+{
+	switch (ztt) {
+	case ztt_A:
+	case ztt_B:
+	case ztt_C:
+	case ztt_D:
+	case ztt_E:
+	case ztt_H:
+	case ztt_L:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static z80ic_reg_t z80ic_parser_ttype_get_reg(z80ic_lexer_toktype_t ztt)
+{
+	switch (ztt) {
+	case ztt_A:
+		return z80ic_reg_a;
+	case ztt_B:
+		return z80ic_reg_b;
+	case ztt_C:
+		return z80ic_reg_c;
+	case ztt_D:
+		return z80ic_reg_d;
+	case ztt_E:
+		return z80ic_reg_e;
+	case ztt_H:
+		return z80ic_reg_h;
+	case ztt_L:
+		return z80ic_reg_l;
+	default:
+		assert(false);
+		return z80ic_reg_a;
+	}
+}
+
 /** Parse Z80 IC 8-bit immediate operand.
  *
  * @param parser Z80 IC parser
@@ -211,7 +249,1189 @@ static int z80ic_parser_process_oper_imm8(z80ic_parser_t *parser,
 	*rimm = imm;
 	return EOK;
 }
-#endif
+
+/** Parse Z80 IC 16-bit immediate operand.
+ *
+ * @param parser Z80 IC parser
+ * @param rimm Place to store pointer to new immediate operand
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_oper_imm16(z80ic_parser_t *parser,
+    z80ic_oper_imm16_t **rimm)
+{
+	z80ic_lexer_tok_t itok;
+	z80ic_oper_imm16_t *imm = NULL;
+	int32_t value;
+	int rc;
+
+	z80ic_parser_read_next_tok(parser, &itok);
+	assert(itok.ttype == ztt_number);
+
+	rc = z80ic_lexer_number_val(&itok, &value);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
+		return rc;
+	}
+
+	if (value < 0 || (uint32_t)value > 0xffffu) {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is out of range of [0, 65535].\n");
+		return rc;
+	}
+
+	rc = z80ic_oper_imm16_create_val(value, &imm);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_parser_skip(parser);
+
+	*rimm = imm;
+	return EOK;
+}
+
+/** Parse Z80 IC 8-bit displacement.
+ *
+ * @param parser Z80 IC parser
+ * @param rdisp Place to store displacement
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_disp(z80ic_parser_t *parser, int8_t *rdisp)
+{
+	z80ic_lexer_toktype_t ztt;
+	z80ic_lexer_tok_t itok;
+	int32_t value;
+	bool negative;
+	int rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+
+	switch (ztt) {
+	case ztt_plus:
+		negative = false;
+		break;
+	case ztt_minus:
+		negative = true;
+		break;
+	default:
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " sign (+/-) expected.\n");
+		return EINVAL;
+	}
+
+	z80ic_parser_skip(parser);
+
+	z80ic_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != ztt_number) {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " number expected.\n");
+		return EINVAL;
+	}
+
+	rc = z80ic_lexer_number_val(&itok, &value);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
+		return rc;
+	}
+
+	if ((negative && value > 128) || (!negative && value > 127)) {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " Displacement %" PRId32 " is out "
+		    "of range of [-128, 127].\n", value);
+		return EINVAL;
+	}
+
+	z80ic_parser_skip(parser);
+
+	if (negative)
+		*rdisp = (int8_t)-value;
+	else
+		*rdisp = (int8_t)value;
+	return EOK;
+}
+
+/** Parse Z80 IC load register from register instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param dreg Destination register
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_r(z80ic_parser_t *parser, z80ic_reg_t dreg,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_r_r_t *ld = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	z80ic_oper_reg_t *src = NULL;
+	z80ic_lexer_toktype_t ztt;
+	z80ic_reg_t sreg;
+	int rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+	z80ic_parser_skip(parser);
+
+	sreg = z80ic_parser_ttype_get_reg(ztt);
+
+	rc = z80ic_ld_r_r_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(dreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->src = src;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	z80ic_oper_reg_destroy(src);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load register from 8-bit immediate instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param dreg Destination register
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_n(z80ic_parser_t *parser, z80ic_reg_t dreg,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_r_n_t *ld = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	int rc;
+
+	rc = z80ic_parser_process_oper_imm8(parser, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_r_n_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(dreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->imm8 = imm8;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	z80ic_oper_imm8_destroy(imm8);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load register from (HL) instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param dreg Destination register
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_ihl(z80ic_parser_t *parser,
+    z80ic_reg_t dreg, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_r_ihl_t *ld = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	/* Skip 'HL'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_ld_r_ihl_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(dreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load register from (IX+d) instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param dreg Destination register
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_iixd(z80ic_parser_t *parser,
+    z80ic_reg_t dreg, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_r_iixd_t *ld = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int8_t disp;
+	int rc;
+
+	/* Skip 'IX'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_process_disp(parser, &disp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_r_iixd_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(dreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->disp = disp;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load register from (IY+d) instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param dreg Destination register
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_iiyd(z80ic_parser_t *parser,
+    z80ic_reg_t dreg, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_r_iiyd_t *ld = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int8_t disp;
+	int rc;
+
+	/* Skip 'IY'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_process_disp(parser, &disp);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_r_iiyd_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(dreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	ld->dest = dest;
+	ld->disp = disp;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load A from (BC) instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_a_ibc(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_a_ibc_t *ld;
+	int rc;
+
+	/* Skip 'BC'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_ld_a_ibc_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load A from (DE) instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_a_ide(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_a_ide_t *ld;
+	int rc;
+
+	/* Skip 'DE'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_ld_a_ide_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load A from fixed memory location instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_a_inn(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_a_inn_t *ld = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	int rc;
+
+	rc = z80ic_ld_a_inn_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_parser_process_oper_imm16(parser, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	ld->imm16 = imm16;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (BC) from A instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_ibc_a(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_ibc_a_t *ld;
+	int rc;
+
+	/* Skip 'BC'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_A);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_ld_ibc_a_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load (DE) from A instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_ide_a(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_ide_a_t *ld;
+	int rc;
+
+	/* Skip 'DE'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_A);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_ld_ide_a_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load fixed memory location from A instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_inn_a(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_inn_a_t *ld = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	int rc;
+
+	rc = z80ic_parser_process_oper_imm16(parser, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_parser_match(parser, ztt_A);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_inn_a_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	ld->imm16 = imm16;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load A from interrupt vector register instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_a_i(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_a_i_t *ld;
+	int rc;
+
+	/* Skip 'I'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_ld_a_i_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load A from refresh register instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_a_r(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_a_r_t *ld;
+	int rc;
+
+	/* Skip 'R'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_ld_a_r_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load interrupt vector register from A instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_i_a(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_i_a_t *ld;
+	int rc;
+
+	/* Skip 'I'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_A);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_ld_i_a_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load refresh register from A instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_a(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_r_a_t *ld;
+	int rc;
+
+	/* Skip 'R'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_A);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_ld_r_a_create(&ld);
+	if (rc != EOK)
+		return rc;
+
+	*rinstr = &ld->instr;
+	return EOK;
+}
+
+/** Parse Z80 IC load register from (XX) instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param dreg Destination register
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_ixx(z80ic_parser_t *parser,
+    z80ic_reg_t dreg, z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	int rc;
+
+	/* Skip '(' */
+	z80ic_parser_skip(parser);
+
+	ztt = z80ic_parser_next_ttype(parser);
+
+	if (ztt == ztt_HL) {
+		rc = z80ic_parser_process_ld_r_ihl(parser, dreg, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (ztt == ztt_IX) {
+		rc = z80ic_parser_process_ld_r_iixd(parser, dreg, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (ztt == ztt_IY) {
+		rc = z80ic_parser_process_ld_r_iiyd(parser, dreg, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (dreg == z80ic_reg_a && ztt == ztt_BC) {
+		rc = z80ic_parser_process_ld_a_ibc(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (dreg == z80ic_reg_a && ztt == ztt_DE) {
+		rc = z80ic_parser_process_ld_a_ide(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = z80ic_parser_process_ld_a_inn(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	}
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Parse Z80 IC load register from XX instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_r_xx(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	z80ic_reg_t reg;
+	int rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+	z80ic_parser_skip(parser);
+
+	reg = z80ic_parser_ttype_get_reg(ztt);
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+
+	if (z80ic_parser_ttype_reg(ztt)) {
+		rc = z80ic_parser_process_ld_r_r(parser, reg, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (ztt == ztt_lparen) {
+		rc = z80ic_parser_process_ld_r_ixx(parser, reg, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (reg == z80ic_reg_a && ztt == ztt_I) {
+		rc = z80ic_parser_process_ld_a_i(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (reg == z80ic_reg_a && ztt == ztt_R) {
+		rc = z80ic_parser_process_ld_a_r(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = z80ic_parser_process_ld_r_n(parser, reg, rinstr);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
+/** Parse Z80 IC load (HL) from register instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_ihl_r(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_ihl_r_t *ld = NULL;
+	z80ic_oper_reg_t *src = NULL;
+	z80ic_lexer_toktype_t ztt;
+	z80ic_reg_t sreg;
+	int rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+	z80ic_parser_skip(parser);
+
+	sreg = z80ic_parser_ttype_get_reg(ztt);
+
+	rc = z80ic_ld_ihl_r_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->src = src;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(src);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (IX+d) from register instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param disp Displacement
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_iixd_r(z80ic_parser_t *parser,
+    int8_t disp, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_iixd_r_t *ld = NULL;
+	z80ic_oper_reg_t *src = NULL;
+	z80ic_lexer_toktype_t ztt;
+	z80ic_reg_t sreg;
+	int rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+	z80ic_parser_skip(parser);
+
+	sreg = z80ic_parser_ttype_get_reg(ztt);
+
+	rc = z80ic_ld_iixd_r_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->disp = disp;
+	ld->src = src;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(src);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (IY+d) from register instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param disp Displacement
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_iiyd_r(z80ic_parser_t *parser,
+    int8_t disp, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_iiyd_r_t *ld = NULL;
+	z80ic_oper_reg_t *src = NULL;
+	z80ic_lexer_toktype_t ztt;
+	z80ic_reg_t sreg;
+	int rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+	z80ic_parser_skip(parser);
+
+	sreg = z80ic_parser_ttype_get_reg(ztt);
+
+	rc = z80ic_ld_iiyd_r_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &src);
+	if (rc != EOK)
+		goto error;
+
+	ld->disp = disp;
+	ld->src = src;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(src);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (HL) from 8-bit immediate instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_ihl_n(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_ld_ihl_n_t *ld = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	int rc;
+
+	rc = z80ic_parser_process_oper_imm8(parser, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_ihl_n_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	ld->imm8 = imm8;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_imm8_destroy(imm8);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (IX+d) from 8-bit immediate instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param disp Displacement
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_iixd_n(z80ic_parser_t *parser,
+    int8_t disp, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_iixd_n_t *ld = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	int rc;
+
+	rc = z80ic_parser_process_oper_imm8(parser, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_iixd_n_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	ld->disp = disp;
+	ld->imm8 = imm8;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_imm8_destroy(imm8);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (IY+d) from 8-bit immediate instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param disp Displacement
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_iiyd_n(z80ic_parser_t *parser,
+    int8_t disp, z80ic_instr_t **rinstr)
+{
+	z80ic_ld_iiyd_n_t *ld = NULL;
+	z80ic_oper_imm8_t *imm8 = NULL;
+	int rc;
+
+	rc = z80ic_parser_process_oper_imm8(parser, &imm8);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_ld_iiyd_n_create(&ld);
+	if (rc != EOK)
+		goto error;
+
+	ld->disp = disp;
+	ld->imm8 = imm8;
+
+	*rinstr = &ld->instr;
+	return EOK;
+error:
+	z80ic_oper_imm8_destroy(imm8);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
+}
+
+/** Parse Z80 IC load (HL) from XX instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_ihl_xx(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	int rc;
+
+	/* Skip 'HL' */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+
+	if (z80ic_parser_ttype_reg(ztt)) {
+		rc = z80ic_parser_process_ld_ihl_r(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = z80ic_parser_process_ld_ihl_n(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
+/** Parse Z80 IC load (IX+d) from XX instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_iixd_xx(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	int8_t disp;
+	int rc;
+
+	/* Skip 'IX'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_process_disp(parser, &disp);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+
+	if (z80ic_parser_ttype_reg(ztt)) {
+		rc = z80ic_parser_process_ld_iixd_r(parser, disp, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = z80ic_parser_process_ld_iixd_n(parser, disp, rinstr);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
+/** Parse Z80 IC load (IY+d) from XX instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_iiyd_xx(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	int8_t disp;
+	int rc;
+
+	/* Skip 'IY'. */
+	z80ic_parser_skip(parser);
+
+	rc = z80ic_parser_process_disp(parser, &disp);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_rparen);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_parser_match(parser, ztt_comma);
+	if (rc != EOK)
+		return rc;
+
+	ztt = z80ic_parser_next_ttype(parser);
+
+	if (z80ic_parser_ttype_reg(ztt)) {
+		rc = z80ic_parser_process_ld_iiyd_r(parser, disp, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = z80ic_parser_process_ld_iiyd_n(parser, disp, rinstr);
+		if (rc != EOK)
+			return rc;
+	}
+
+	return EOK;
+}
+
+/** Parse Z80 IC load (XX) from YY instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld_ixx_yy(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	int rc;
+
+	/* Skip '(' */
+	z80ic_parser_skip(parser);
+
+	ztt = z80ic_parser_next_ttype(parser);
+	switch (ztt) {
+	case ztt_HL:
+		rc = z80ic_parser_process_ld_ihl_xx(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+		break;
+	case ztt_IX:
+		rc = z80ic_parser_process_ld_iixd_xx(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+		break;
+	case ztt_IY:
+		rc = z80ic_parser_process_ld_iiyd_xx(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+		break;
+	case ztt_BC:
+		rc = z80ic_parser_process_ld_ibc_a(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+		break;
+	case ztt_DE:
+		rc = z80ic_parser_process_ld_ide_a(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+		break;
+	default:
+		rc = z80ic_parser_process_ld_inn_a(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+		break;
+	}
+
+	return EOK;
+}
+
+/** Parse Z80 IC load instruction.
+ *
+ * @param parser Z80 IC parser
+ * @param rinstr Place to store pointer to new instruction
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_ld(z80ic_parser_t *parser,
+    z80ic_instr_t **rinstr)
+{
+	z80ic_lexer_toktype_t ztt;
+	int rc;
+
+	/* Skip 'ld' */
+	z80ic_parser_skip(parser);
+
+	ztt = z80ic_parser_next_ttype(parser);
+	if (z80ic_parser_ttype_reg(ztt)) {
+		rc = z80ic_parser_process_ld_r_xx(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (ztt == ztt_lparen) {
+		rc = z80ic_parser_process_ld_ixx_yy(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (ztt == ztt_I) {
+		rc = z80ic_parser_process_ld_i_a(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (ztt == ztt_R) {
+		rc = z80ic_parser_process_ld_r_a(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected.\n");
+		return EINVAL;
+	}
+
+	return EOK;
+}
 
 /** Parse Z80 IC return instruction.
  *
@@ -253,6 +1473,9 @@ static int z80ic_parser_process_instr(z80ic_parser_t *parser,
 
 	ztt = z80ic_parser_next_ttype(parser);
 	switch (ztt) {
+	case ztt_ld:
+		rc = z80ic_parser_process_ld(parser, rinstr);
+		break;
 	case ztt_ret:
 		rc = z80ic_parser_process_ret(parser, rinstr);
 		break;

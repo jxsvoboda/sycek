@@ -618,8 +618,12 @@ int z80ic_lexer_get_tok(z80ic_lexer_t *lexer, z80ic_lexer_tok_t *tok)
 		return z80ic_lexer_onechar(lexer, ztt_lparen, tok);
 	case ')':
 		return z80ic_lexer_onechar(lexer, ztt_rparen, tok);
+	case '+':
+		return z80ic_lexer_onechar(lexer, ztt_plus, tok);
 	case ',':
 		return z80ic_lexer_onechar(lexer, ztt_comma, tok);
+	case '-':
+		return z80ic_lexer_onechar(lexer, ztt_minus, tok);
 	case '.':
 		return z80ic_lexer_onechar(lexer, ztt_period, tok);
 	case '/':
@@ -673,6 +677,10 @@ int z80ic_lexer_get_tok(z80ic_lexer_t *lexer, z80ic_lexer_tok_t *tok)
 	case 'I':
 		if (!is_idcnt(p[1]))
 			return z80ic_lexer_keyword(lexer, ztt_I, 1, tok);
+		if (p[1] == 'X' && !is_idcnt(p[2]))
+			return z80ic_lexer_keyword(lexer, ztt_IX, 2, tok);
+		if (p[1] == 'Y' && !is_idcnt(p[2]))
+			return z80ic_lexer_keyword(lexer, ztt_IY, 2, tok);
 		return z80ic_lexer_invalid(lexer, tok);
 	case 'L':
 		if (!is_idcnt(p[1]))
@@ -1076,6 +1084,10 @@ const char *z80ic_lexer_str_ttype(z80ic_lexer_toktype_t ttype)
 		return "';'";
 	case ztt_period:
 		return "'.'";
+	case ztt_plus:
+		return "'+'";
+	case ztt_minus:
+		return "'-'";
 	case ztt_A:
 		return "'A'";
 	case ztt_AF:
@@ -1102,6 +1114,10 @@ const char *z80ic_lexer_str_ttype(z80ic_lexer_toktype_t ttype)
 		return "'HL'";
 	case ztt_I:
 		return "'I'";
+	case ztt_IX:
+		return "'IX'";
+	case ztt_IY:
+		return "'IY'";
 	case ztt_L:
 		return "'L'";
 	case ztt_M:

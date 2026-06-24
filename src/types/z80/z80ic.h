@@ -1008,6 +1008,16 @@ typedef struct {
 	z80ic_oper_reg_t *src;
 } z80ic_ld_iixd_r_t;
 
+/** Z80 IC load (IY+d) from register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_ld_iiyd_r_t;
+
 /** Z80 IC load (HL) from 8-bit immediate */
 typedef struct {
 	/** Base object */
@@ -1027,6 +1037,80 @@ typedef struct {
 	/** Immediate operand */
 	z80ic_oper_imm8_t *imm8;
 } z80ic_ld_iixd_n_t;
+
+/** Z80 IC load (IY+d) from 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_ld_iiyd_n_t;
+
+/** Z80 IC load A from (BC) instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_a_ibc_t;
+
+/** Z80 IC load A from (DE) instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_a_ide_t;
+
+/** Z80 IC load A from fixed memory location instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_a_inn_t;
+
+/** Z80 IC load (BC) from A instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_ibc_a_t;
+
+/** Z80 IC load (DE) from A instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_ide_a_t;
+
+/** Z80 IC load fixed memory location from A instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_inn_a_t;
+
+/** Z80 IC load A from interrupt vector register instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_a_i_t;
+
+/** Z80 IC load A from refresh register instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_a_r_t;
+
+/** Z80 IC load interrupt vector register from A instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_i_a_t;
+
+/** Z80 IC load refresh register from A instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_r_a_t;
 
 /** Z80 IC load 16-bit dd register from 16-bit immediate */
 typedef struct {
