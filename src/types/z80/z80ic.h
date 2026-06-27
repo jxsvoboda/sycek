@@ -1122,7 +1122,7 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_dd_nn_t;
 
-/** Z80 IC load IY register from 16-bit immediate */
+/** Z80 IC load IX register from 16-bit immediate */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
@@ -1130,11 +1130,99 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_ld_ix_nn_t;
 
-/** Z80 IC load SP register from IX register */
+/** Z80 IC load IY register from 16-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_iy_nn_t;
+
+/** Z80 IC load HL from fixed memory location */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_hl_inn_t;
+
+/** Z80 IC load 16-bit dd register from fixed memory location */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_dd_t *dest;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_dd_inn_t;
+
+/** Z80 IC load IX register from fixed memory location */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_ix_inn_t;
+
+/** Z80 IC load IY register from fixed memory location */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_iy_inn_t;
+
+/** Z80 IC load fixed memory location from HL */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_inn_hl_t;
+
+/** Z80 IC load fixed memory location from 16-bit dd register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+	/** Source register */
+	z80ic_oper_dd_t *src;
+} z80ic_ld_inn_dd_t;
+
+/** Z80 IC load fixed memory location from IX */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_inn_ix_t;
+
+/** Z80 IC load fixed memory location from IY */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_ld_inn_iy_t;
+
+/** Z80 IC load SP from HL */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_sp_hl_t;
+
+/** Z80 IC load SP from IX */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_ld_sp_ix_t;
+
+/** Z80 IC load SP from IY */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ld_sp_iy_t;
 
 /** Z80 IC push 16-bit qq register */
 typedef struct {
@@ -1150,6 +1238,12 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_push_ix_t;
 
+/** Z80 IC push IY instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_push_iy_t;
+
 /** Z80 IC pop 16-bit qq register */
 typedef struct {
 	/** Base object */
@@ -1163,6 +1257,12 @@ typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_pop_ix_t;
+
+/** Z80 IC pop IY instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_pop_iy_t;
 
 /** Z80 IC add 8-bit immediate to A */
 typedef struct {

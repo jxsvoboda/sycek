@@ -1,5 +1,5 @@
 /*
- * All Z80 8-bit load group instructions
+ * Z80 8-bit Load Group
  */
 
 proc @_z80_8bit_load_group
