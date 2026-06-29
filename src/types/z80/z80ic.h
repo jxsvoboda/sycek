@@ -1264,6 +1264,90 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_pop_iy_t;
 
+/** Z80 IC exchange DE and HL instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ex_de_hl_t;
+
+/** Z80 IC exchange AF and AF" instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ex_af_afp_t;
+
+/** Exchange BC, DE, HL with BC', DE', HL' */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_exx_t;
+
+/** Z80 IC exchange (SP) with HL instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ex_isp_hl_t;
+
+/** Z80 IC exchange (SP) with IX instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ex_isp_ix_t;
+
+/** Z80 IC exchange (SP) with IY instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ex_isp_iy_t;
+
+/** Z80 IC load, increment instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ldi_t;
+
+/** Z80 IC load, increment, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ldir_t;
+
+/** Z80 IC load, decrement instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ldd_t;
+
+/** Z80 IC load, decrement, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_lddr_t;
+
+/** Z80 IC copy, increment instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_cpi_t;
+
+/** Z80 IC copy, increment, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_cpir_t;
+
+/** Z80 IC copy, decrement instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_cpd_t;
+
+/** Z80 IC copy, decrement, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_cpdr_t;
+
 /** Z80 IC add 8-bit immediate to A */
 typedef struct {
 	/** Base object */

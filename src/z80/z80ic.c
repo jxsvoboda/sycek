@@ -3423,6 +3423,665 @@ static void z80ic_pop_iy_destroy(z80ic_pop_iy_t *instr)
 	/* Intentionally empty */
 	(void) instr;
 }
+
+/** Create Z80 IC exchange DE and HL instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ex_de_hl_create(z80ic_ex_de_hl_t **rinstr)
+{
+	z80ic_ex_de_hl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ex_de_hl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ex_de_hl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC exchange DE and HL instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ex_de_hl_print(z80ic_ex_de_hl_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ex DE, HL", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC exchange DE and HL instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ex_de_hl_destroy(z80ic_ex_de_hl_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC exchange AF and AF' instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ex_af_afp_create(z80ic_ex_af_afp_t **rinstr)
+{
+	z80ic_ex_af_afp_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ex_af_afp_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ex_af_afp;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC exchange AF and AF' instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ex_af_afp_print(z80ic_ex_af_afp_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ex AF, AF'", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC exchange AF and AF' instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ex_af_afp_destroy(z80ic_ex_af_afp_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC exchange BC, DE, HL with BC', DE', HL' instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_exx_create(z80ic_exx_t **rinstr)
+{
+	z80ic_exx_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_exx_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_exx;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC exchange BC, DE, HL with BC', DE', HL' instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_exx_print(z80ic_exx_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("exx", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC exchange BC, DE, HL with BC', DE', HL' instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_exx_destroy(z80ic_exx_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC exchange (SP) with HL instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ex_isp_hl_create(z80ic_ex_isp_hl_t **rinstr)
+{
+	z80ic_ex_isp_hl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ex_isp_hl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ex_isp_hl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC exchange (SP) with HL instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ex_isp_hl_print(z80ic_ex_isp_hl_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ex (SP), HL", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC exchange (SP) with HL instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ex_isp_hl_destroy(z80ic_ex_isp_hl_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC exchange (SP) with IX instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ex_isp_ix_create(z80ic_ex_isp_ix_t **rinstr)
+{
+	z80ic_ex_isp_ix_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ex_isp_ix_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ex_isp_ix;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC exchange (SP) with IX instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ex_isp_ix_print(z80ic_ex_isp_ix_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ex (SP), IX", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC exchange (SP) with IX instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ex_isp_ix_destroy(z80ic_ex_isp_ix_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC exchange (SP) with IY instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ex_isp_iy_create(z80ic_ex_isp_iy_t **rinstr)
+{
+	z80ic_ex_isp_iy_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ex_isp_iy_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ex_isp_iy;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC exchange (SP) with IY instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ex_isp_iy_print(z80ic_ex_isp_iy_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ex (SP), IY", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC exchange (SP) with IY instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ex_isp_iy_destroy(z80ic_ex_isp_iy_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC load, increment instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ldi_create(z80ic_ldi_t **rinstr)
+{
+	z80ic_ldi_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ldi_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ldi;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load, increment instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ldi_print(z80ic_ldi_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ldi", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load, increment instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ldi_destroy(z80ic_ldi_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC load, increment, repeat instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ldir_create(z80ic_ldir_t **rinstr)
+{
+	z80ic_ldir_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ldir_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ldir;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load, increment, repeat instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ldir_print(z80ic_ldir_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ldir", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load, increment, repeat instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ldir_destroy(z80ic_ldir_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC load, decrement instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ldd_create(z80ic_ldd_t **rinstr)
+{
+	z80ic_ldd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ldd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ldd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load, decrement instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ldd_print(z80ic_ldd_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("ldd", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load, decrement instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ldd_destroy(z80ic_ldd_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC load, decrement, repeat instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_lddr_create(z80ic_lddr_t **rinstr)
+{
+	z80ic_lddr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_lddr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_lddr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC load, decrement, repeat instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_lddr_print(z80ic_lddr_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("lddr", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC load, decrement, repeat instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_lddr_destroy(z80ic_lddr_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC copy, increment instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_cpi_create(z80ic_cpi_t **rinstr)
+{
+	z80ic_cpi_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_cpi_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_cpi;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC copy, increment instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_cpi_print(z80ic_cpi_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("cpi", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC copy, increment instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_cpi_destroy(z80ic_cpi_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC copy, increment, repeat instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_cpir_create(z80ic_cpir_t **rinstr)
+{
+	z80ic_cpir_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_cpir_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_cpir;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC copy, increment, repeat instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_cpir_print(z80ic_cpir_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("cpir", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC copy, increment, repeat instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_cpir_destroy(z80ic_cpir_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC copy, decrement instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_cpd_create(z80ic_cpd_t **rinstr)
+{
+	z80ic_cpd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_cpd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_cpd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC copy, decrement instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_cpd_print(z80ic_cpd_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("cpd", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC copy, decrement instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_cpd_destroy(z80ic_cpd_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC copy, decrement, repeat instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_cpdr_create(z80ic_cpdr_t **rinstr)
+{
+	z80ic_cpdr_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_cpdr_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_cpdr;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC copy, decrement, repeat instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_cpdr_print(z80ic_cpdr_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("cpdr", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC copy, decrement, repeat instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_cpdr_destroy(z80ic_cpdr_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
 /** Create Z80 IC add 8-bit immediate to A instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -7758,6 +8417,48 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_pop_iy:
 		rc = z80ic_pop_iy_print((z80ic_pop_iy_t *) instr->ext, f);
 		break;
+	case z80i_ex_de_hl:
+		rc = z80ic_ex_de_hl_print((z80ic_ex_de_hl_t *) instr->ext, f);
+		break;
+	case z80i_ex_af_afp:
+		rc = z80ic_ex_af_afp_print((z80ic_ex_af_afp_t *) instr->ext, f);
+		break;
+	case z80i_exx:
+		rc = z80ic_exx_print((z80ic_exx_t *) instr->ext, f);
+		break;
+	case z80i_ex_isp_hl:
+		rc = z80ic_ex_isp_hl_print((z80ic_ex_isp_hl_t *) instr->ext, f);
+		break;
+	case z80i_ex_isp_ix:
+		rc = z80ic_ex_isp_ix_print((z80ic_ex_isp_ix_t *) instr->ext, f);
+		break;
+	case z80i_ex_isp_iy:
+		rc = z80ic_ex_isp_iy_print((z80ic_ex_isp_iy_t *) instr->ext, f);
+		break;
+	case z80i_ldi:
+		rc = z80ic_ldi_print((z80ic_ldi_t *) instr->ext, f);
+		break;
+	case z80i_ldir:
+		rc = z80ic_ldir_print((z80ic_ldir_t *) instr->ext, f);
+		break;
+	case z80i_ldd:
+		rc = z80ic_ldd_print((z80ic_ldd_t *) instr->ext, f);
+		break;
+	case z80i_lddr:
+		rc = z80ic_lddr_print((z80ic_lddr_t *) instr->ext, f);
+		break;
+	case z80i_cpi:
+		rc = z80ic_cpi_print((z80ic_cpi_t *) instr->ext, f);
+		break;
+	case z80i_cpir:
+		rc = z80ic_cpir_print((z80ic_cpir_t *) instr->ext, f);
+		break;
+	case z80i_cpd:
+		rc = z80ic_cpd_print((z80ic_cpd_t *) instr->ext, f);
+		break;
+	case z80i_cpdr:
+		rc = z80ic_cpdr_print((z80ic_cpdr_t *) instr->ext, f);
+		break;
 	case z80i_add_a_n:
 		rc = z80ic_add_a_n_print((z80ic_add_a_n_t *) instr->ext, f);
 		break;
@@ -8171,6 +8872,48 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_pop_iy:
 		z80ic_pop_iy_destroy((z80ic_pop_iy_t *) instr->ext);
+		break;
+	case z80i_ex_de_hl:
+		z80ic_ex_de_hl_destroy((z80ic_ex_de_hl_t *) instr->ext);
+		break;
+	case z80i_ex_af_afp:
+		z80ic_ex_af_afp_destroy((z80ic_ex_af_afp_t *) instr->ext);
+		break;
+	case z80i_exx:
+		z80ic_exx_destroy((z80ic_exx_t *) instr->ext);
+		break;
+	case z80i_ex_isp_hl:
+		z80ic_ex_isp_hl_destroy((z80ic_ex_isp_hl_t *) instr->ext);
+		break;
+	case z80i_ex_isp_ix:
+		z80ic_ex_isp_ix_destroy((z80ic_ex_isp_ix_t *) instr->ext);
+		break;
+	case z80i_ex_isp_iy:
+		z80ic_ex_isp_iy_destroy((z80ic_ex_isp_iy_t *) instr->ext);
+		break;
+	case z80i_ldi:
+		z80ic_ldi_destroy((z80ic_ldi_t *) instr->ext);
+		break;
+	case z80i_ldir:
+		z80ic_ldir_destroy((z80ic_ldir_t *) instr->ext);
+		break;
+	case z80i_ldd:
+		z80ic_ldd_destroy((z80ic_ldd_t *) instr->ext);
+		break;
+	case z80i_lddr:
+		z80ic_lddr_destroy((z80ic_lddr_t *) instr->ext);
+		break;
+	case z80i_cpi:
+		z80ic_cpi_destroy((z80ic_cpi_t *) instr->ext);
+		break;
+	case z80i_cpir:
+		z80ic_cpir_destroy((z80ic_cpir_t *) instr->ext);
+		break;
+	case z80i_cpd:
+		z80ic_cpd_destroy((z80ic_cpd_t *) instr->ext);
+		break;
+	case z80i_cpdr:
+		z80ic_cpdr_destroy((z80ic_cpdr_t *) instr->ext);
 		break;
 	case z80i_add_hl_ss:
 		z80ic_add_hl_ss_destroy((z80ic_add_hl_ss_t *) instr->ext);
