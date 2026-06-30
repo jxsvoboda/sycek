@@ -828,7 +828,7 @@ int z80ic_lexer_get_tok(z80ic_lexer_t *lexer, z80ic_lexer_tok_t *tok)
 		if (p[1] == 'n' && !is_idcnt(p[2]))
 			return z80ic_lexer_keyword(lexer, ztt_in, 2, tok);
 		if (p[1] == 'n' && p[2] == 'c' && !is_idcnt(p[3])) {
-			return z80ic_lexer_keyword(lexer, ztt_ind, 3, tok);
+			return z80ic_lexer_keyword(lexer, ztt_inc, 3, tok);
 		}
 		if (p[1] == 'n' && p[2] == 'd' && !is_idcnt(p[3])) {
 			return z80ic_lexer_keyword(lexer, ztt_ind, 3, tok);

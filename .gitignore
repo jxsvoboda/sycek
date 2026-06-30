@@ -14,6 +14,8 @@
 /example/*.map
 /example/*.tap
 /example/*.vric
+/test/asm/*/*.map
+/test/asm/*/*.tzx
 /test/ccheck/*/*-vg.txt
 /test/ccheck/*/*.c.diff
 /test/ccheck/*/*.h.diff

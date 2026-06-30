@@ -1348,6 +1348,14 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_cpdr_t;
 
+/** Z80 IC add register to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_add_a_r_t;
+
 /** Z80 IC add 8-bit immediate to A */
 typedef struct {
 	/** Base object */
@@ -1369,6 +1377,22 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_add_a_iixd_t;
+
+/** Z80 IC add (IY+d) to A */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_add_a_iiyd_t;
+
+/** Z80 IC add register to A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_adc_a_r_t;
 
 /** Z80 IC add 8-bit immediate to A with carry */
 typedef struct {
@@ -1392,13 +1416,35 @@ typedef struct {
 	int8_t disp;
 } z80ic_adc_a_iixd_t;
 
+/** Z80 IC add (IY+d) to A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_adc_a_iiyd_t;
+
+/** Z80 IC subtract register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_sub_r_t;
+
 /** Z80 IC subtract 8-bit immediate */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
-	/** Immediate */
+	/** Immediate operand */
 	z80ic_oper_imm8_t *imm8;
 } z80ic_sub_n_t;
+
+/** Z80 IC subtract (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_sub_ihl_t;
 
 /** Z80 IC subtract (IX+d) */
 typedef struct {
@@ -1408,6 +1454,36 @@ typedef struct {
 	int8_t disp;
 } z80ic_sub_iixd_t;
 
+/** Z80 IC subtract (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_sub_iiyd_t;
+
+/** Z80 IC subtract register from A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_sbc_a_r_t;
+
+/** Z80 IC subtract 8-bit immediate from A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_sbc_a_n_t;
+
+/** Z80 IC subtract (HL) from A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_sbc_a_ihl_t;
+
 /** Z80 IC subtract (IX+d) from A with carry */
 typedef struct {
 	/** Base object */
@@ -1415,6 +1491,14 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_sbc_a_iixd_t;
+
+/** Z80 IC subtract (IY+d) from A with carry */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_sbc_a_iiyd_t;
 
 /** Z80 IC bitwise AND with register */
 typedef struct {
@@ -1424,6 +1508,20 @@ typedef struct {
 	z80ic_oper_reg_t *src;
 } z80ic_and_r_t;
 
+/** Z80 IC bitwise AND with 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_and_n_t;
+
+/** Z80 IC bitwise AND with (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_and_ihl_t;
+
 /** Z80 IC bitwise AND with (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1431,6 +1529,36 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_and_iixd_t;
+
+/** Z80 IC bitwise AND with (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_and_iiyd_t;
+
+/** Z80 IC bitwise OR with register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_or_r_t;
+
+/** Z80 IC bitwise OR with 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_or_n_t;
+
+/** Z80 IC bitwise OR with (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_or_ihl_t;
 
 /** Z80 IC bitwise OR with (IX+d) */
 typedef struct {
@@ -1440,6 +1568,14 @@ typedef struct {
 	int8_t disp;
 } z80ic_or_iixd_t;
 
+/** Z80 IC bitwise OR with (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_or_iiyd_t;
+
 /** Z80 IC bitwise XOR with register */
 typedef struct {
 	/** Base object */
@@ -1447,6 +1583,20 @@ typedef struct {
 	/** Source register */
 	z80ic_oper_reg_t *src;
 } z80ic_xor_r_t;
+
+/** Z80 IC bitwise XOR with 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_xor_n_t;
+
+/** Z80 IC bitwise XOR with (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_xor_ihl_t;
 
 /** Z80 IC bitwise XOR with (IX+d) */
 typedef struct {
@@ -1456,6 +1606,22 @@ typedef struct {
 	int8_t disp;
 } z80ic_xor_iixd_t;
 
+/** Z80 IC bitwise XOR with (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_xor_iiyd_t;
+
+/** Z80 IC compare with register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_cp_r_t;
+
 /** Z80 IC compare with 8-bit immediate */
 typedef struct {
 	/** Base object */
@@ -1463,6 +1629,50 @@ typedef struct {
 	/** Immediate operand */
 	z80ic_oper_imm8_t *imm8;
 } z80ic_cp_n_t;
+
+/** Z80 IC compare with (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_cp_ihl_t;
+
+/** Z80 IC compare with (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_cp_iixd_t;
+
+/** Z80 IC compare with (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_cp_iiyd_t;
+
+/** Z80 IC increment register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_inc_r_t;
+
+/** Z80 IC increment 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_inc_n_t;
+
+/** Z80 IC increment (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_inc_ihl_t;
 
 /** Z80 IC increment (IX+d) */
 typedef struct {
@@ -1472,13 +1682,35 @@ typedef struct {
 	int8_t disp;
 } z80ic_inc_iixd_t;
 
+/** Z80 IC increment (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_inc_iiyd_t;
+
 /** Z80 IC decrement register */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
-	/** Destination / source register */
+	/** Destination register */
 	z80ic_oper_reg_t *dest;
 } z80ic_dec_r_t;
+
+/** Z80 IC decrement 8-bit immediate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_dec_n_t;
+
+/** Z80 IC decrement (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_dec_ihl_t;
 
 /** Z80 IC decrement (IX+d) */
 typedef struct {
@@ -1487,6 +1719,14 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_dec_iixd_t;
+
+/** Z80 IC decrement (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_dec_iiyd_t;
 
 /** Z80 IC complement */
 typedef struct {
