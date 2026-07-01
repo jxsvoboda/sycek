@@ -1728,17 +1728,77 @@ typedef struct {
 	int8_t disp;
 } z80ic_dec_iiyd_t;
 
+/** Z80 IC decimal adjust accumulator */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_daa_t;
+
 /** Z80 IC complement */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_cpl_t;
 
+/** Z80 IC negate */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_neg_t;
+
+/** Z80 IC complement carry flag */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ccf_t;
+
+/** Z80 IC set carry flag */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_scf_t;
+
 /** Z80 IC no operation */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_nop_t;
+
+/** Z80 IC halt */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_halt_t;
+
+/** Z80 IC disable interrupt */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_di_t;
+
+/** Z80 IC enable interrupt */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ei_t;
+
+/** Z80 IC set interrupt mode 0 */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_im_0_t;
+
+/** Z80 IC set interrupt mode 1 */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_im_1_t;
+
+/** Z80 IC set interrupt mode 2 */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_im_2_t;
 
 /** Z80 IC add 16-bit register to HL */
 typedef struct {

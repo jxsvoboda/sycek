@@ -1592,7 +1592,17 @@ static int z80_emit_dec_iiyd(z80_emit_t *emit, z80ic_dec_iiyd_t *instr)
 	return z80_emit_opc_d(emit, z80opc_dec_iiyd, instr->disp);
 }
 
-
+/** Emit binary decimal adjust accumulator instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_daa(z80_emit_t *emit, z80ic_daa_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_daa);
+}
 
 /** Emit binary complement instruction.
  *
@@ -1606,6 +1616,42 @@ static int z80_emit_cpl(z80_emit_t *emit, z80ic_cpl_t *instr)
 	return z80_emit_opc(emit, z80opc_cpl);
 }
 
+/** Emit binary negate instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_neg(z80_emit_t *emit, z80ic_neg_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_neg);
+}
+
+/** Emit binary complement carry flag instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ccf(z80_emit_t *emit, z80ic_ccf_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ccf);
+}
+
+/** Emit binary set carry flag instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_scf(z80_emit_t *emit, z80ic_scf_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_scf);
+}
+
 /** Emit binary no operation instruction.
  *
  * @param emit Binary instruction emitter
@@ -1616,6 +1662,78 @@ static int z80_emit_nop(z80_emit_t *emit, z80ic_nop_t *instr)
 {
 	(void)instr;
 	return z80_emit_opc(emit, z80opc_nop);
+}
+
+/** Emit binary halt instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_halt(z80_emit_t *emit, z80ic_halt_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_halt);
+}
+
+/** Emit binary disable interrupt instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_di(z80_emit_t *emit, z80ic_di_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_di);
+}
+
+/** Emit binary enable interrupt instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ei(z80_emit_t *emit, z80ic_ei_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ei);
+}
+
+/** Emit binary set interrupt mode 0 instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_im_0(z80_emit_t *emit, z80ic_im_0_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_im_0);
+}
+
+/** Emit binary set interrupt mode 1 instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_im_1(z80_emit_t *emit, z80ic_im_1_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_im_1);
+}
+
+/** Emit binary set interrupt mode 2 instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_im_2(z80_emit_t *emit, z80ic_im_2_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_im_2);
 }
 
 /** Emit binary add register pair to HL instruction.
@@ -2081,10 +2199,30 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 		return z80_emit_dec_iiyd(emit,
 		    (z80ic_dec_iiyd_t *)instr->ext);
 		return z80_emit_cpl(emit, (z80ic_cpl_t *)instr->ext);
+	case z80i_daa:
+		return z80_emit_daa(emit, (z80ic_daa_t *)instr->ext);
 	case z80i_cpl:
 		return z80_emit_cpl(emit, (z80ic_cpl_t *)instr->ext);
+	case z80i_neg:
+		return z80_emit_neg(emit, (z80ic_neg_t *)instr->ext);
+	case z80i_ccf:
+		return z80_emit_ccf(emit, (z80ic_ccf_t *)instr->ext);
+	case z80i_scf:
+		return z80_emit_scf(emit, (z80ic_scf_t *)instr->ext);
 	case z80i_nop:
 		return z80_emit_nop(emit, (z80ic_nop_t *)instr->ext);
+	case z80i_halt:
+		return z80_emit_halt(emit, (z80ic_halt_t *)instr->ext);
+	case z80i_di:
+		return z80_emit_di(emit, (z80ic_di_t *)instr->ext);
+	case z80i_ei:
+		return z80_emit_ei(emit, (z80ic_ei_t *)instr->ext);
+	case z80i_im_0:
+		return z80_emit_im_0(emit, (z80ic_im_0_t *)instr->ext);
+	case z80i_im_1:
+		return z80_emit_im_1(emit, (z80ic_im_1_t *)instr->ext);
+	case z80i_im_2:
+		return z80_emit_im_2(emit, (z80ic_im_2_t *)instr->ext);
 	case z80i_add_hl_ss:
 		return z80_emit_add_hl_ss(emit,
 		    (z80ic_add_hl_ss_t *)instr->ext);
