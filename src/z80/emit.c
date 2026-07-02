@@ -1750,6 +1750,20 @@ static int z80_emit_add_hl_ss(z80_emit_t *emit, z80ic_add_hl_ss_t *instr)
 	return z80_emit_opc(emit, opc);
 }
 
+/** Emit binary add register pair to HL with carry instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_adc_hl_ss(z80_emit_t *emit, z80ic_adc_hl_ss_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_adc_hl_ss | ((uint8_t)instr->src->rss << 4);
+	return z80_emit_opc(emit, opc);
+}
+
 /** Emit binary decrement register pair from HL with carry instruction.
  *
  * @param emit Binary instruction emitter
@@ -1778,6 +1792,20 @@ static int z80_emit_add_ix_pp(z80_emit_t *emit, z80ic_add_ix_pp_t *instr)
 	return z80_emit_opc(emit, opc);
 }
 
+/** Emit binary add register pair to IY instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_add_iy_rr(z80_emit_t *emit, z80ic_add_iy_rr_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_add_iy_rr | ((uint8_t)instr->src->rrr << 4);
+	return z80_emit_opc(emit, opc);
+}
+
 /** Emit binary increment register pair instruction.
  *
  * @param emit Binary instruction emitter
@@ -1790,6 +1818,68 @@ static int z80_emit_inc_ss(z80_emit_t *emit, z80ic_inc_ss_t *instr)
 
 	opc = z80opc_inc_ss | ((uint8_t)instr->dest->rss << 4);
 	return z80_emit_opc(emit, opc);
+}
+
+/** Emit binary increment IX instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_inc_ix(z80_emit_t *emit, z80ic_inc_ix_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_inc_ix);
+}
+
+/** Emit binary increment IY instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_inc_iy(z80_emit_t *emit, z80ic_inc_iy_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_inc_iy);
+}
+
+/** Emit binary decrement register pair instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_dec_ss(z80_emit_t *emit, z80ic_dec_ss_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_dec_ss | ((uint8_t)instr->dest->rss << 4);
+	return z80_emit_opc(emit, opc);
+}
+
+/** Emit binary decrement IX instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_dec_ix(z80_emit_t *emit, z80ic_dec_ix_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_dec_ix);
+}
+
+/** Emit binary decrement IY instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_dec_iy(z80_emit_t *emit, z80ic_dec_iy_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_dec_iy);
 }
 
 /** Emit binary rotate left accumulator instruction.
@@ -2226,15 +2316,36 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 	case z80i_add_hl_ss:
 		return z80_emit_add_hl_ss(emit,
 		    (z80ic_add_hl_ss_t *)instr->ext);
+	case z80i_adc_hl_ss:
+		return z80_emit_adc_hl_ss(emit,
+		    (z80ic_adc_hl_ss_t *)instr->ext);
 	case z80i_sbc_hl_ss:
 		return z80_emit_sbc_hl_ss(emit,
 		    (z80ic_sbc_hl_ss_t *)instr->ext);
 	case z80i_add_ix_pp:
 		return z80_emit_add_ix_pp(emit,
 		    (z80ic_add_ix_pp_t *)instr->ext);
+	case z80i_add_iy_rr:
+		return z80_emit_add_iy_rr(emit,
+		    (z80ic_add_iy_rr_t *)instr->ext);
 	case z80i_inc_ss:
 		return z80_emit_inc_ss(emit,
 		    (z80ic_inc_ss_t *)instr->ext);
+	case z80i_inc_ix:
+		return z80_emit_inc_ix(emit,
+		    (z80ic_inc_ix_t *)instr->ext);
+	case z80i_inc_iy:
+		return z80_emit_inc_iy(emit,
+		    (z80ic_inc_iy_t *)instr->ext);
+	case z80i_dec_ss:
+		return z80_emit_dec_ss(emit,
+		    (z80ic_dec_ss_t *)instr->ext);
+	case z80i_dec_ix:
+		return z80_emit_dec_ix(emit,
+		    (z80ic_dec_ix_t *)instr->ext);
+	case z80i_dec_iy:
+		return z80_emit_dec_iy(emit,
+		    (z80ic_dec_iy_t *)instr->ext);
 	case z80i_rla:
 		return z80_emit_rla(emit, (z80ic_rla_t *)instr->ext);
 	case z80i_rl_iixd:
