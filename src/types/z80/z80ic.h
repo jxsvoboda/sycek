@@ -363,9 +363,9 @@ typedef enum {
 	z80i_srl_iixd,
 	/** Shift right logical (IY+d) */
 	z80i_srl_iiyd,
-	/** RLD */
+	/** Rotate left digit */
 	z80i_rld,
-	/** RRD */
+	/** Rotate right digit */
 	z80i_rrd,
 
 	/** Test bit b in register */
@@ -1905,11 +1905,73 @@ typedef struct {
 	z80ic_instr_t instr;
 } z80ic_dec_iy_t;
 
+/** Z80 IC rotate left circular accumulator instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rlca_t;
+
 /** Z80 IC rotate left accumulator instruction */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_rla_t;
+
+/** Z80 IC rotate right circular accumulator instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rrca_t;
+
+/** Z80 IC rotate right accumulator instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rra_t;
+
+/** Z80 IC rotate left circular register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_rlc_r_t;
+
+/** Z80 IC rotate left circular (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rlc_ihl_t;
+
+/** Z80 IC rotate left circular (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rlc_iixd_t;
+
+/** Z80 IC rotate left circular (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rlc_iiyd_t;
+
+/** Z80 IC rotate left register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_rl_r_t;
+
+/** Z80 IC rotate left (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rl_ihl_t;
 
 /** Z80 IC rotate left (IX+d) */
 typedef struct {
@@ -1919,6 +1981,58 @@ typedef struct {
 	int8_t disp;
 } z80ic_rl_iixd_t;
 
+/** Z80 IC rotate left (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rl_iiyd_t;
+
+/** Z80 IC rotate right circular register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_rrc_r_t;
+
+/** Z80 IC rotate right circular (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rrc_ihl_t;
+
+/** Z80 IC rotate right circular (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rrc_iixd_t;
+
+/** Z80 IC rotate right circular (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rrc_iiyd_t;
+
+/** Z80 IC rotate right register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_rr_r_t;
+
+/** Z80 IC rotate right (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_rr_ihl_t;
+
 /** Z80 IC rotate right (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1926,6 +2040,28 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_rr_iixd_t;
+
+/** Z80 IC rotate right (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rr_iiyd_t;
+
+/** Z80 IC shift left arithmetic register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_sla_r_t;
+
+/** Z80 IC shift left arithmetic (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_sla_ihl_t;
 
 /** Z80 IC shift left arithmetic (IX+d) */
 typedef struct {
@@ -1935,6 +2071,28 @@ typedef struct {
 	int8_t disp;
 } z80ic_sla_iixd_t;
 
+/** Z80 IC shift left arithmetic (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_sla_iiyd_t;
+
+/** Z80 IC shift right arithmetic register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_sra_r_t;
+
+/** Z80 IC shift right arithmetic (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_sra_ihl_t;
+
 /** Z80 IC shift right arithmetic (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1943,6 +2101,28 @@ typedef struct {
 	int8_t disp;
 } z80ic_sra_iixd_t;
 
+/** Z80 IC shift right arithmetic (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_sra_iiyd_t;
+
+/** Z80 IC shift right logical register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_srl_r_t;
+
+/** Z80 IC shift right logical (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_srl_ihl_t;
+
 /** Z80 IC shift right logical (IX+d) */
 typedef struct {
 	/** Base object */
@@ -1950,6 +2130,30 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_srl_iixd_t;
+
+/** Z80 IC shift right logical (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_srl_iiyd_t;
+
+/** Z80 IC roate left digit */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rld_t;
+
+/** Z80 IC rotate right digit */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Displacement */
+	int8_t disp;
+} z80ic_rrd_t;
 
 /** Z80 IC test bit of (IX+d) */
 typedef struct {
