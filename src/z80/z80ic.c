@@ -8915,7 +8915,7 @@ static void z80ic_rld_destroy(z80ic_rld_t *instr)
 	(void) instr;
 }
 
-/** Create Z80 IC rotare right digit instruction.
+/** Create Z80 IC rotate right digit instruction.
  *
  * @param rinstr Place to store pointer to new instruction
  * @return EOK on success, ENOMEM if out of memory
@@ -8934,7 +8934,7 @@ int z80ic_rrd_create(z80ic_rrd_t **rinstr)
 	return EOK;
 }
 
-/** Print Z80 IC rotare right digit instruction.
+/** Print Z80 IC rotate right digit instruction.
  *
  * @param instr Instruction
  * @param f Output file
@@ -8952,11 +8952,105 @@ static int z80ic_rrd_print(z80ic_rrd_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy Z80 IC rotare right digit instruction.
+/** Destroy Z80 IC rotate right digit instruction.
  *
  * @param instr Instruction
  */
 static void z80ic_rrd_destroy(z80ic_rrd_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC test bit in register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_bit_b_r_create(z80ic_bit_b_r_t **rinstr)
+{
+	z80ic_bit_b_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_bit_b_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_bit_b_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC test bit in register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_bit_b_r_print(z80ic_bit_b_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "bit %" PRId8 ", ", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->src, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC test bit in register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_bit_b_r_destroy(z80ic_bit_b_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->src);
+}
+
+/** Create Z80 IC test bit in (HL) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_bit_b_ihl_create(z80ic_bit_b_ihl_t **rinstr)
+{
+	z80ic_bit_b_ihl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_bit_b_ihl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_bit_b_ihl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC test bit in register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_bit_b_ihl_print(z80ic_bit_b_ihl_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "bit %" PRId8 ", (HL)", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC test bit in register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_bit_b_ihl_destroy(z80ic_bit_b_ihl_t *instr)
 {
 	/* Intentionally empty */
 	(void) instr;
@@ -8990,7 +9084,7 @@ static int z80ic_bit_b_iixd_print(z80ic_bit_b_iixd_t *instr, FILE *f)
 {
 	int rv;
 
-	rv = fprintf(f, "bit %u, (IX%+" PRId8 ")", instr->bit,
+	rv = fprintf(f, "bit %" PRId8 ", (IX%+" PRId8 ")", instr->bit,
 	    instr->disp);
 	if (rv < 0)
 		return EIO;
@@ -9004,6 +9098,145 @@ static int z80ic_bit_b_iixd_print(z80ic_bit_b_iixd_t *instr, FILE *f)
  */
 static void z80ic_bit_b_iixd_destroy(z80ic_bit_b_iixd_t *instr)
 {
+	(void) instr;
+}
+
+/** Create Z80 IC test bit of (IY+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_bit_b_iiyd_create(z80ic_bit_b_iiyd_t **rinstr)
+{
+	z80ic_bit_b_iiyd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_bit_b_iiyd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_bit_b_iiyd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC test bit of (IY+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_bit_b_iiyd_print(z80ic_bit_b_iiyd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "bit %" PRId8 ", (IY%+" PRId8 ")", instr->bit,
+	    instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC test bit of (IY+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_bit_b_iiyd_destroy(z80ic_bit_b_iiyd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC set bit in register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_set_b_r_create(z80ic_set_b_r_t **rinstr)
+{
+	z80ic_set_b_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_set_b_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_set_b_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC set bit in register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_set_b_r_print(z80ic_set_b_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "set %" PRId8 ", ", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC set bit in register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_set_b_r_destroy(z80ic_set_b_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->dest);
+}
+
+/** Create Z80 IC set bit in (HL) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_set_b_ihl_create(z80ic_set_b_ihl_t **rinstr)
+{
+	z80ic_set_b_ihl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_set_b_ihl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_set_b_ihl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC set bit in register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_set_b_ihl_print(z80ic_set_b_ihl_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "set %" PRId8 ", (HL)", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC set bit in register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_set_b_ihl_destroy(z80ic_set_b_ihl_t *instr)
+{
+	/* Intentionally empty */
 	(void) instr;
 }
 
@@ -9035,7 +9268,7 @@ static int z80ic_set_b_iixd_print(z80ic_set_b_iixd_t *instr, FILE *f)
 {
 	int rv;
 
-	rv = fprintf(f, "set %u, (IX%+" PRId8 ")", instr->bit,
+	rv = fprintf(f, "set %" PRId8 ", (IX%+" PRId8 ")", instr->bit,
 	    instr->disp);
 	if (rv < 0)
 		return EIO;
@@ -9043,11 +9276,240 @@ static int z80ic_set_b_iixd_print(z80ic_set_b_iixd_t *instr, FILE *f)
 	return EOK;
 }
 
-/** Destroy Z80 IC test bit of (IX+d) instruction.
+/** Destroy Z80 IC set bit of (IX+d) instruction.
  *
  * @param instr Instruction
  */
 static void z80ic_set_b_iixd_destroy(z80ic_set_b_iixd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC set bit of (IY+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_set_b_iiyd_create(z80ic_set_b_iiyd_t **rinstr)
+{
+	z80ic_set_b_iiyd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_set_b_iiyd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_set_b_iiyd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC set bit of (IY+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_set_b_iiyd_print(z80ic_set_b_iiyd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "set %" PRId8 ", (IY%+" PRId8 ")", instr->bit,
+	    instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC set bit of (IY+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_set_b_iiyd_destroy(z80ic_set_b_iiyd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC reset bit in register instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_res_b_r_create(z80ic_res_b_r_t **rinstr)
+{
+	z80ic_res_b_r_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_res_b_r_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_res_b_r;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC reset bit in register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_res_b_r_print(z80ic_res_b_r_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "res %" PRId8 ", ", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_reg_print(instr->dest, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC reset bit in register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_res_b_r_destroy(z80ic_res_b_r_t *instr)
+{
+	z80ic_oper_reg_destroy(instr->dest);
+}
+
+/** Create Z80 IC reset bit in (HL) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_res_b_ihl_create(z80ic_res_b_ihl_t **rinstr)
+{
+	z80ic_res_b_ihl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_res_b_ihl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_res_b_ihl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC reset bit in register instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_res_b_ihl_print(z80ic_res_b_ihl_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "res %" PRId8 ", (HL)", instr->bit);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC reset bit in register instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_res_b_ihl_destroy(z80ic_res_b_ihl_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC reset bit of (IX+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_res_b_iixd_create(z80ic_res_b_iixd_t **rinstr)
+{
+	z80ic_res_b_iixd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_res_b_iixd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_res_b_iixd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC reset bit of (IX+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_res_b_iixd_print(z80ic_res_b_iixd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "res %" PRId8 ", (IX%+" PRId8 ")", instr->bit,
+	    instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC reset bit of (IX+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_res_b_iixd_destroy(z80ic_res_b_iixd_t *instr)
+{
+	(void) instr;
+}
+
+/** Create Z80 IC reset bit of (IY+d) instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_res_b_iiyd_create(z80ic_res_b_iiyd_t **rinstr)
+{
+	z80ic_res_b_iiyd_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_res_b_iiyd_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_res_b_iiyd;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC reset bit of (IY+d) instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_res_b_iiyd_print(z80ic_res_b_iiyd_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "res %" PRId8 ", (IY%+" PRId8 ")", instr->bit,
+	    instr->disp);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC reset bit of (IY+d) instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_res_b_iiyd_destroy(z80ic_res_b_iiyd_t *instr)
 {
 	(void) instr;
 }
@@ -11702,7 +12164,7 @@ static int z80ic_bit_b_vr_print(z80ic_bit_b_vr_t *instr, FILE *f)
 	int rc;
 	int rv;
 
-	rv = fprintf(f, "bit %u, ", instr->bit);
+	rv = fprintf(f, "bit %" PRId8 ", ", instr->bit);
 	if (rv < 0)
 		return EIO;
 
@@ -11751,7 +12213,7 @@ static int z80ic_set_b_vr_print(z80ic_set_b_vr_t *instr, FILE *f)
 	int rc;
 	int rv;
 
-	rv = fprintf(f, "set %u, ", instr->bit);
+	rv = fprintf(f, "set %" PRId8 ", ", instr->bit);
 	if (rv < 0)
 		return EIO;
 
@@ -12266,11 +12728,41 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_rrd:
 		rc = z80ic_rrd_print((z80ic_rrd_t *) instr->ext, f);
 		break;
+	case z80i_bit_b_r:
+		rc = z80ic_bit_b_r_print((z80ic_bit_b_r_t *) instr->ext, f);
+		break;
+	case z80i_bit_b_ihl:
+		rc = z80ic_bit_b_ihl_print((z80ic_bit_b_ihl_t *) instr->ext, f);
+		break;
 	case z80i_bit_b_iixd:
 		rc = z80ic_bit_b_iixd_print((z80ic_bit_b_iixd_t *) instr->ext, f);
 		break;
+	case z80i_bit_b_iiyd:
+		rc = z80ic_bit_b_iiyd_print((z80ic_bit_b_iiyd_t *) instr->ext, f);
+		break;
+	case z80i_set_b_r:
+		rc = z80ic_set_b_r_print((z80ic_set_b_r_t *) instr->ext, f);
+		break;
+	case z80i_set_b_ihl:
+		rc = z80ic_set_b_ihl_print((z80ic_set_b_ihl_t *) instr->ext, f);
+		break;
 	case z80i_set_b_iixd:
 		rc = z80ic_set_b_iixd_print((z80ic_set_b_iixd_t *) instr->ext, f);
+		break;
+	case z80i_set_b_iiyd:
+		rc = z80ic_set_b_iiyd_print((z80ic_set_b_iiyd_t *) instr->ext, f);
+		break;
+	case z80i_res_b_r:
+		rc = z80ic_res_b_r_print((z80ic_res_b_r_t *) instr->ext, f);
+		break;
+	case z80i_res_b_ihl:
+		rc = z80ic_res_b_ihl_print((z80ic_res_b_ihl_t *) instr->ext, f);
+		break;
+	case z80i_res_b_iixd:
+		rc = z80ic_res_b_iixd_print((z80ic_res_b_iixd_t *) instr->ext, f);
+		break;
+	case z80i_res_b_iiyd:
+		rc = z80ic_res_b_iiyd_print((z80ic_res_b_iiyd_t *) instr->ext, f);
 		break;
 	case z80i_jp_nn:
 		rc = z80ic_jp_nn_print((z80ic_jp_nn_t *) instr->ext, f);
@@ -12947,11 +13439,41 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_rrd:
 		z80ic_rrd_destroy((z80ic_rrd_t *) instr->ext);
 		break;
+	case z80i_bit_b_r:
+		z80ic_bit_b_r_destroy((z80ic_bit_b_r_t *) instr->ext);
+		break;
+	case z80i_bit_b_ihl:
+		z80ic_bit_b_ihl_destroy((z80ic_bit_b_ihl_t *) instr->ext);
+		break;
 	case z80i_bit_b_iixd:
 		z80ic_bit_b_iixd_destroy((z80ic_bit_b_iixd_t *) instr->ext);
 		break;
+	case z80i_bit_b_iiyd:
+		z80ic_bit_b_iiyd_destroy((z80ic_bit_b_iiyd_t *) instr->ext);
+		break;
+	case z80i_set_b_r:
+		z80ic_set_b_r_destroy((z80ic_set_b_r_t *) instr->ext);
+		break;
+	case z80i_set_b_ihl:
+		z80ic_set_b_ihl_destroy((z80ic_set_b_ihl_t *) instr->ext);
+		break;
 	case z80i_set_b_iixd:
 		z80ic_set_b_iixd_destroy((z80ic_set_b_iixd_t *) instr->ext);
+		break;
+	case z80i_set_b_iiyd:
+		z80ic_set_b_iiyd_destroy((z80ic_set_b_iiyd_t *) instr->ext);
+		break;
+	case z80i_res_b_r:
+		z80ic_res_b_r_destroy((z80ic_res_b_r_t *) instr->ext);
+		break;
+	case z80i_res_b_ihl:
+		z80ic_res_b_ihl_destroy((z80ic_res_b_ihl_t *) instr->ext);
+		break;
+	case z80i_res_b_iixd:
+		z80ic_res_b_iixd_destroy((z80ic_res_b_iixd_t *) instr->ext);
+		break;
+	case z80i_res_b_iiyd:
+		z80ic_res_b_iiyd_destroy((z80ic_res_b_iiyd_t *) instr->ext);
 		break;
 	case z80i_jp_nn:
 		z80ic_jp_nn_destroy((z80ic_jp_nn_t *) instr->ext);

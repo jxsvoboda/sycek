@@ -2155,6 +2155,24 @@ typedef struct {
 	int8_t disp;
 } z80ic_rrd_t;
 
+/** Z80 IC test bit of register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_bit_b_r_t;
+
+/** Z80 IC test bit of (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+} z80ic_bit_b_ihl_t;
+
 /** Z80 IC test bit of (IX+d) */
 typedef struct {
 	/** Base object */
@@ -2165,6 +2183,34 @@ typedef struct {
 	int8_t disp;
 } z80ic_bit_b_iixd_t;
 
+/** Z80 IC test bit of (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Displacement */
+	int8_t disp;
+} z80ic_bit_b_iiyd_t;
+
+/** Z80 IC set bit of register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_set_b_r_t;
+
+/** Z80 IC set bit of (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+} z80ic_set_b_ihl_t;
+
 /** Z80 IC set bit of (IX+d) */
 typedef struct {
 	/** Base object */
@@ -2174,6 +2220,54 @@ typedef struct {
 	/** Displacement */
 	int8_t disp;
 } z80ic_set_b_iixd_t;
+
+/** Z80 IC set bit of (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Displacement */
+	int8_t disp;
+} z80ic_set_b_iiyd_t;
+
+/** Z80 IC reset bit of register */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_res_b_r_t;
+
+/** Z80 IC reset bit of (HL) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+} z80ic_res_b_ihl_t;
+
+/** Z80 IC reset bit of (IX+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Displacement */
+	int8_t disp;
+} z80ic_res_b_iixd_t;
+
+/** Z80 IC reset bit of (IY+d) */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Bit (0 - 7) */
+	uint8_t bit;
+	/** Displacement */
+	int8_t disp;
+} z80ic_res_b_iiyd_t;
 
 /** Z80 IC jump direct instruction */
 typedef struct {
