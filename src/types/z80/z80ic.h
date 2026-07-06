@@ -2353,7 +2353,7 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_djnz_e_t;
 
-/** Z80 IC call direct instruction */
+/** Z80 IC call instruction */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
@@ -2361,11 +2361,49 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_call_nn_t;
 
+/** Z80 IC conditional call instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Condition */
+	z80ic_cc_t cc;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_call_cc_nn_t;
+
 /** Z80 IC return instruction */
 typedef struct {
 	/** Base object */
 	z80ic_instr_t instr;
 } z80ic_ret_t;
+
+/** Z80 IC conditional return instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Condition */
+	z80ic_cc_t cc;
+} z80ic_ret_cc_t;
+
+/** Z80 IC return from interrupt instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_reti_t;
+
+/** Z80 IC return from NMI instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_retn_t;
+
+/** Z80 IC restart instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Restart address */
+	uint8_t p;
+} z80ic_rst_p_t;
 
 /** Z80 IC load register from indirect virtual register pair with displacement
  */

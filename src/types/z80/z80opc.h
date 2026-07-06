@@ -213,7 +213,12 @@ enum {
 	z80opc_jp_iy = 0xfde9,
 	z80opc_djnz_e = 0x10,
 	z80opc_call_nn = 0xcd,
-	z80opc_ret = 0xc9
+	z80opc_call_cc_nn = 0xc4,
+	z80opc_ret = 0xc9,
+	z80opc_ret_cc = 0xc0,
+	z80opc_reti = 0xed4du,
+	z80opc_retn = 0xed45u,
+	z80opc_rst_p = 0xc7
 };
 
 #endif

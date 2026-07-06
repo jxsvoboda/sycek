@@ -26,6 +26,7 @@
  * Convert Z80 IC to binary object
  */
 
+#include <assert.h>
 #include <inttypes.h>
 #include <merrno.h>
 #include <stdint.h>
@@ -2687,6 +2688,20 @@ static int z80_emit_call_nn(z80_emit_t *emit, z80ic_call_nn_t *instr)
 	return z80_emit_opc_nn(emit, z80opc_call_nn, instr->imm16);
 }
 
+/** Emit binary conditional call instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_call_cc_nn(z80_emit_t *emit, z80ic_call_cc_nn_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_call_cc_nn | ((uint8_t)instr->cc << 3);
+	return z80_emit_opc_nn(emit, opc, instr->imm16);
+}
+
 /** Emit binary return instruction.
  *
  * @param emit Binary instruction emitter
@@ -2697,6 +2712,59 @@ static int z80_emit_ret(z80_emit_t *emit, z80ic_ret_t *instr)
 {
 	(void)instr;
 	return z80_emit_opc(emit, z80opc_ret);
+}
+
+/** Emit binary conditional return instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ret_cc(z80_emit_t *emit, z80ic_ret_cc_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_ret_cc | ((uint8_t)instr->cc << 3);
+	return z80_emit_opc(emit, opc);
+}
+
+/** Emit binary return from interrupt instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_reti(z80_emit_t *emit, z80ic_reti_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_reti);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_retn(z80_emit_t *emit, z80ic_retn_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_retn);
+}
+
+/** Emit binary restart instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_rst_p(z80_emit_t *emit, z80ic_rst_p_t *instr)
+{
+	uint32_t opc;
+
+	assert((instr->p & 0xc7) == 0);
+	opc = z80opc_rst_p | instr->p;
+	return z80_emit_opc(emit, opc);
 }
 
 /** Emit binary instruction.
@@ -3145,8 +3213,19 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 		return z80_emit_djnz_e(emit, (z80ic_djnz_e_t *)instr->ext);
 	case z80i_call_nn:
 		return z80_emit_call_nn(emit, (z80ic_call_nn_t *)instr->ext);
+	case z80i_call_cc_nn:
+		return z80_emit_call_cc_nn(emit,
+		    (z80ic_call_cc_nn_t *)instr->ext);
 	case z80i_ret:
 		return z80_emit_ret(emit, (z80ic_ret_t *)instr->ext);
+	case z80i_ret_cc:
+		return z80_emit_ret_cc(emit, (z80ic_ret_cc_t *)instr->ext);
+	case z80i_reti:
+		return z80_emit_reti(emit, (z80ic_reti_t *)instr->ext);
+	case z80i_retn:
+		return z80_emit_retn(emit, (z80ic_retn_t *)instr->ext);
+	case z80i_rst_p:
+		return z80_emit_rst_p(emit, (z80ic_rst_p_t *)instr->ext);
 	default:
 		/* XXX */
 		(void)fprintf(stderr, "Unsupported instruction.\n");

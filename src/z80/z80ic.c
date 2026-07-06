@@ -10098,6 +10098,55 @@ static void z80ic_call_nn_destroy(z80ic_call_nn_t *instr)
 	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
+/** Create Z80 IC conditional call instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_call_cc_nn_create(z80ic_call_cc_nn_t **rinstr)
+{
+	z80ic_call_cc_nn_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_call_cc_nn_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_call_cc_nn;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC conditional call instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_call_cc_nn_print(z80ic_call_cc_nn_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fprintf(f, "call %s, ", z80ic_cc_name[instr->cc]);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC conditional call instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_call_cc_nn_destroy(z80ic_call_cc_nn_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
 /** Create Z80 IC return instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -10140,6 +10189,192 @@ static int z80ic_ret_print(z80ic_ret_t *instr, FILE *f)
  * @param instr Instruction
  */
 static void z80ic_ret_destroy(z80ic_ret_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC conditional return instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_ret_cc_create(z80ic_ret_cc_t **rinstr)
+{
+	z80ic_ret_cc_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_ret_cc_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_ret_cc;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC conditional return instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_ret_cc_print(z80ic_ret_cc_t *instr, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "ret %s", z80ic_cc_name[instr->cc]);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC conditional call instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_ret_cc_destroy(z80ic_ret_cc_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC return from interrupt instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_reti_create(z80ic_reti_t **rinstr)
+{
+	z80ic_reti_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_reti_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_reti;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC return from interrupt instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_reti_print(z80ic_reti_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("reti", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC return from interrupt instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_reti_destroy(z80ic_reti_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC return from NMI instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_retn_create(z80ic_retn_t **rinstr)
+{
+	z80ic_retn_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_retn_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_retn;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC return from NMI instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_retn_print(z80ic_retn_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("retn", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC return from NMI instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_retn_destroy(z80ic_retn_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC restart instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_rst_p_create(z80ic_rst_p_t **rinstr)
+{
+	z80ic_rst_p_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_rst_p_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_rst_p;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC restart instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_rst_p_print(z80ic_rst_p_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fprintf(f, "rst 0x%" PRIx8, instr->p);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC restart instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_rst_p_destroy(z80ic_rst_p_t *instr)
 {
 	/* Intentionally empty */
 	(void) instr;
@@ -13235,8 +13470,24 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_call_nn:
 		rc = z80ic_call_nn_print((z80ic_call_nn_t *) instr->ext, f);
 		break;
+	case z80i_call_cc_nn:
+		rc = z80ic_call_cc_nn_print((z80ic_call_cc_nn_t *) instr->ext,
+		    f);
+		break;
 	case z80i_ret:
 		rc = z80ic_ret_print((z80ic_ret_t *) instr->ext, f);
+		break;
+	case z80i_ret_cc:
+		rc = z80ic_ret_cc_print((z80ic_ret_cc_t *) instr->ext, f);
+		break;
+	case z80i_reti:
+		rc = z80ic_reti_print((z80ic_reti_t *) instr->ext, f);
+		break;
+	case z80i_retn:
+		rc = z80ic_retn_print((z80ic_retn_t *) instr->ext, f);
+		break;
+	case z80i_rst_p:
+		rc = z80ic_rst_p_print((z80ic_rst_p_t *) instr->ext, f);
 		break;
 	case z80i_ld_r_ivrrd:
 		rc = z80ic_ld_r_ivrrd_print((z80ic_ld_r_ivrrd_t *) instr->ext,
@@ -13973,8 +14224,23 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 	case z80i_call_nn:
 		z80ic_call_nn_destroy((z80ic_call_nn_t *) instr->ext);
 		break;
+	case z80i_call_cc_nn:
+		z80ic_call_cc_nn_destroy((z80ic_call_cc_nn_t *) instr->ext);
+		break;
 	case z80i_ret:
 		z80ic_ret_destroy((z80ic_ret_t *) instr->ext);
+		break;
+	case z80i_ret_cc:
+		z80ic_ret_cc_destroy((z80ic_ret_cc_t *) instr->ext);
+		break;
+	case z80i_reti:
+		z80ic_reti_destroy((z80ic_reti_t *) instr->ext);
+		break;
+	case z80i_retn:
+		z80ic_retn_destroy((z80ic_retn_t *) instr->ext);
+		break;
+	case z80i_rst_p:
+		z80ic_rst_p_destroy((z80ic_rst_p_t *) instr->ext);
 		break;
 	case z80i_ld_r_ivrrd:
 		z80ic_ld_r_ivrrd_destroy((z80ic_ld_r_ivrrd_t *) instr->ext);
