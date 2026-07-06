@@ -9612,6 +9612,441 @@ static void z80ic_jp_cc_nn_destroy(z80ic_jp_cc_nn_t *instr)
 	z80ic_oper_imm16_destroy(instr->imm16);
 }
 
+/** Create Z80 IC relative jump instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jr_e_create(z80ic_jr_e_t **rinstr)
+{
+	z80ic_jr_e_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jr_e_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jr_e;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC relative jump instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jr_e_print(z80ic_jr_e_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("jr ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC relative jump instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jr_e_destroy(z80ic_jr_e_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
+/** Create Z80 IC relative jump if carry instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jr_c_e_create(z80ic_jr_c_e_t **rinstr)
+{
+	z80ic_jr_c_e_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jr_c_e_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jr_c_e;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC relative jump if carry instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jr_c_e_print(z80ic_jr_c_e_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("jr ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC relative jump if carry instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jr_c_e_destroy(z80ic_jr_c_e_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
+/** Create Z80 IC relative jump if not carry instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jr_nc_e_create(z80ic_jr_nc_e_t **rinstr)
+{
+	z80ic_jr_nc_e_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jr_nc_e_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jr_nc_e;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC relative jump if not carry instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jr_nc_e_print(z80ic_jr_nc_e_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("jr ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC relative jump if not carry instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jr_nc_e_destroy(z80ic_jr_nc_e_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
+/** Create Z80 IC relative jump if zero instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jr_z_e_create(z80ic_jr_z_e_t **rinstr)
+{
+	z80ic_jr_z_e_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jr_z_e_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jr_z_e;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC relative jump if zero instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jr_z_e_print(z80ic_jr_z_e_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("jr ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC relative jump if zero instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jr_z_e_destroy(z80ic_jr_z_e_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
+/** Create Z80 IC relative jump if not zero instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jr_nz_e_create(z80ic_jr_nz_e_t **rinstr)
+{
+	z80ic_jr_nz_e_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jr_nz_e_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jr_nz_e;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC relative jump if not zero instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jr_nz_e_print(z80ic_jr_nz_e_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("jr ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC relative jump if not zero instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jr_nz_e_destroy(z80ic_jr_nz_e_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
+/** Create Z80 IC jump to HL instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jp_hl_create(z80ic_jp_hl_t **rinstr)
+{
+	z80ic_jp_hl_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jp_hl_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jp_hl;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC jump to HL instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jp_hl_print(z80ic_jp_hl_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("jp (HL)", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC jump to HL instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jp_hl_destroy(z80ic_jp_hl_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC jump to IX instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jp_ix_create(z80ic_jp_ix_t **rinstr)
+{
+	z80ic_jp_ix_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jp_ix_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jp_ix;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC jump to IX instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jp_ix_print(z80ic_jp_ix_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("jp (IX)", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC jump to IX instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jp_ix_destroy(z80ic_jp_ix_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC jump to IY instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_jp_iy_create(z80ic_jp_iy_t **rinstr)
+{
+	z80ic_jp_iy_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_jp_iy_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_jp_iy;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC jump to IY instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_jp_iy_print(z80ic_jp_iy_t *instr, FILE *f)
+{
+	int rv;
+
+	(void) instr;
+
+	rv = fputs("jp (IX)", f);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC jump to IY instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_jp_iy_destroy(z80ic_jp_iy_t *instr)
+{
+	/* Intentionally empty */
+	(void) instr;
+}
+
+/** Create Z80 IC decrement, jump if not zero instruction.
+ *
+ * @param rinstr Place to store pointer to new instruction
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int z80ic_djnz_e_create(z80ic_djnz_e_t **rinstr)
+{
+	z80ic_djnz_e_t *instr;
+
+	instr = calloc(1, sizeof(z80ic_djnz_e_t));
+	if (instr == NULL)
+		return ENOMEM;
+
+	instr->instr.itype = z80i_djnz_e;
+	instr->instr.ext = instr;
+	*rinstr = instr;
+	return EOK;
+}
+
+/** Print Z80 IC decrement, jump if not zero instruction.
+ *
+ * @param instr Instruction
+ * @param f Output file
+ */
+static int z80ic_djnz_e_print(z80ic_djnz_e_t *instr, FILE *f)
+{
+	int rc;
+	int rv;
+
+	rv = fputs("jr ", f);
+	if (rv < 0)
+		return EIO;
+
+	rc = z80ic_oper_imm16_print(instr->imm16, f);
+	if (rc != EOK)
+		return rc;
+
+	return EOK;
+}
+
+/** Destroy Z80 IC decrement, jump if not zero instruction.
+ *
+ * @param instr Instruction
+ */
+static void z80ic_djnz_e_destroy(z80ic_djnz_e_t *instr)
+{
+	z80ic_oper_imm16_destroy(instr->imm16);
+}
+
 /** Create Z80 IC call instruction.
  *
  * @param rinstr Place to store pointer to new instruction
@@ -12770,6 +13205,33 @@ int z80ic_instr_print(z80ic_instr_t *instr, FILE *f)
 	case z80i_jp_cc_nn:
 		rc = z80ic_jp_cc_nn_print((z80ic_jp_cc_nn_t *) instr->ext, f);
 		break;
+	case z80i_jr_e:
+		rc = z80ic_jr_e_print((z80ic_jr_e_t *) instr->ext, f);
+		break;
+	case z80i_jr_c_e:
+		rc = z80ic_jr_c_e_print((z80ic_jr_c_e_t *) instr->ext, f);
+		break;
+	case z80i_jr_nc_e:
+		rc = z80ic_jr_nc_e_print((z80ic_jr_nc_e_t *) instr->ext, f);
+		break;
+	case z80i_jr_z_e:
+		rc = z80ic_jr_z_e_print((z80ic_jr_z_e_t *) instr->ext, f);
+		break;
+	case z80i_jr_nz_e:
+		rc = z80ic_jr_nz_e_print((z80ic_jr_nz_e_t *) instr->ext, f);
+		break;
+	case z80i_jp_hl:
+		rc = z80ic_jp_hl_print((z80ic_jp_hl_t *) instr->ext, f);
+		break;
+	case z80i_jp_ix:
+		rc = z80ic_jp_ix_print((z80ic_jp_ix_t *) instr->ext, f);
+		break;
+	case z80i_jp_iy:
+		rc = z80ic_jp_iy_print((z80ic_jp_iy_t *) instr->ext, f);
+		break;
+	case z80i_djnz_e:
+		rc = z80ic_djnz_e_print((z80ic_djnz_e_t *) instr->ext, f);
+		break;
 	case z80i_call_nn:
 		rc = z80ic_call_nn_print((z80ic_call_nn_t *) instr->ext, f);
 		break;
@@ -13480,6 +13942,33 @@ void z80ic_instr_destroy(z80ic_instr_t *instr)
 		break;
 	case z80i_jp_cc_nn:
 		z80ic_jp_cc_nn_destroy((z80ic_jp_cc_nn_t *) instr->ext);
+		break;
+	case z80i_jr_e:
+		z80ic_jr_e_destroy((z80ic_jr_e_t *) instr->ext);
+		break;
+	case z80i_jr_c_e:
+		z80ic_jr_c_e_destroy((z80ic_jr_c_e_t *) instr->ext);
+		break;
+	case z80i_jr_nc_e:
+		z80ic_jr_nc_e_destroy((z80ic_jr_nc_e_t *) instr->ext);
+		break;
+	case z80i_jr_z_e:
+		z80ic_jr_z_e_destroy((z80ic_jr_z_e_t *) instr->ext);
+		break;
+	case z80i_jr_nz_e:
+		z80ic_jr_nz_e_destroy((z80ic_jr_nz_e_t *) instr->ext);
+		break;
+	case z80i_jp_hl:
+		z80ic_jp_hl_destroy((z80ic_jp_hl_t *) instr->ext);
+		break;
+	case z80i_jp_ix:
+		z80ic_jp_ix_destroy((z80ic_jp_ix_t *) instr->ext);
+		break;
+	case z80i_jp_iy:
+		z80ic_jp_iy_destroy((z80ic_jp_iy_t *) instr->ext);
+		break;
+	case z80i_djnz_e:
+		z80ic_djnz_e_destroy((z80ic_djnz_e_t *) instr->ext);
 		break;
 	case z80i_call_nn:
 		z80ic_call_nn_destroy((z80ic_call_nn_t *) instr->ext);

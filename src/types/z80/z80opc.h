@@ -203,6 +203,15 @@ enum {
 	z80opc_res_b_iiyd = 0xfdcb86ul,
 	z80opc_jp_nn = 0xc3,
 	z80opc_jp_cc_nn = 0xc2,
+	z80opc_jr_e = 0x18,
+	z80opc_jr_c_e = 0x38,
+	z80opc_jr_nc_e = 0x30,
+	z80opc_jr_z_e = 0x28,
+	z80opc_jr_nz_e = 0x20,
+	z80opc_jp_hl = 0xe9,
+	z80opc_jp_ix = 0xdde9,
+	z80opc_jp_iy = 0xfde9,
+	z80opc_djnz_e = 0x10,
 	z80opc_call_nn = 0xcd,
 	z80opc_ret = 0xc9
 };

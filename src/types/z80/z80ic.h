@@ -2287,6 +2287,72 @@ typedef struct {
 	z80ic_oper_imm16_t *imm16;
 } z80ic_jp_cc_nn_t;
 
+/** Z80 IC relative jump instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jr_e_t;
+
+/** Z80 IC relative jump if carry instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jr_c_e_t;
+
+/** Z80 IC relative jump if not carry instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jr_nc_e_t;
+
+/** Z80 IC relative jump if zero instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jr_z_e_t;
+
+/** Z80 IC relative jump if not zero instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_jr_nz_e_t;
+
+/** Z80 IC jump to HL instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_jp_hl_t;
+
+/** Z80 IC jump to IX instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_jp_ix_t;
+
+/** Z80 IC jump to IY instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_jp_iy_t;
+
+/** Z80 IC decrement, jump if not zero instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate */
+	z80ic_oper_imm16_t *imm16;
+} z80ic_djnz_e_t;
+
 /** Z80 IC call direct instruction */
 typedef struct {
 	/** Base object */

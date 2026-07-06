@@ -26,6 +26,7 @@
  * Convert Z80 IC to binary object
  */
 
+#include <inttypes.h>
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -54,6 +55,24 @@ int z80_emit_create(z80_emit_t **remit)
 	*remit = emit;
 	return EOK;
 
+}
+
+/** Print current program position for diagnostics.
+ *
+ * @param emit Binary instruction emitter
+ * @param f Output file
+ * @return EOK on success or an error code.
+ */
+static int z80_emit_print_pc(z80_emit_t *emit, FILE *f)
+{
+	int rv;
+
+	rv = fprintf(f, "<%s:%s:%s:0x%" PRIx32 ">", emit->section->modname,
+	    emit->section->name, emit->ic_proc->ident, emit->section->len);
+	if (rv < 0)
+		return EIO;
+
+	return EOK;
 }
 
 /** Emit constant 8-bit value.
@@ -123,6 +142,29 @@ static int z80_emit_sa16(z80_emit_t *emit, const char *ident, uint16_t value)
 	return rc;
 }
 
+/** Emit 8-bit relative jump reloc (ref 16-bit symbol address with addend).
+ *
+ * @param emit Binary instruction emitter.
+ * @param ident Symbol identifier
+ * @param value Addend
+ * @return EOK on success or an error code
+ */
+static int z80_emit_rj8(z80_emit_t *emit, const char *ident, uint16_t value)
+{
+	int rc;
+	uint32_t offset;
+
+	offset = emit->section->len;
+
+	rc = obj_section_append_u8(emit->section, 0);
+	if (rc != EOK)
+		return rc;
+
+	rc = obj_reloc_create(emit->object, emit->section, objr_rj8,
+	    offset, ident, value);
+	return rc;
+}
+
 /** Emit 16-bit immediate.
  *
  * @param emit Binary instruction emitter.
@@ -150,6 +192,42 @@ static int z80_emit_imm16(z80_emit_t *emit, z80ic_oper_imm16_t *imm16)
 
 	/* It is a symbol reference. */
 	return z80_emit_sa16(emit, imm16->symbol, imm16->imm16);
+}
+
+/** Emit 8-bit relative jump offset.
+ *
+ * @param emit Binary instruction emitter.
+ * @param opc Opcode including prefixes
+ * @param imm16 16-bit immediate operand
+ * @return EOK on success or an error code
+ */
+static int z80_emit_reljmp(z80_emit_t *emit, z80ic_oper_imm16_t *imm16)
+{
+	z80ic_lvar_t *lvar;
+
+	/* Is it just a constant? */
+	if (imm16->symbol == NULL) {
+		(void)z80_emit_print_pc(emit, stderr);
+		(void)fprintf(stderr, ": Relative jump "
+		    "to absolute address.\n");
+		return EINVAL;
+	}
+
+	/* Is it a local variable reference? */
+	lvar = z80ic_proc_first_lvar(emit->ic_proc);
+	while (lvar != NULL) {
+		if (strcmp(lvar->ident, imm16->symbol) == 0) {
+			(void)z80_emit_print_pc(emit, stderr);
+			(void)fprintf(stderr, ": Relative jump to "
+			    "local variable.\n");
+			return EINVAL;
+		}
+
+		lvar = z80ic_proc_next_lvar(lvar);
+	}
+
+	/* It is a symbol reference. */
+	return z80_emit_rj8(emit, imm16->symbol, imm16->imm16);
 }
 
 /** Emit instruction opcode.
@@ -220,6 +298,25 @@ static int z80_emit_opc_nn(z80_emit_t *emit, uint32_t opc,
 		return rc;
 
 	return z80_emit_imm16(emit, imm16);
+}
+
+/** Emit instruction opcode + 8-bit relative offset.
+ *
+ * @param emit Binary instruction emitter.
+ * @param opc Opcode including prefixes
+ * @param imm16 16-bit immediate operand
+ * @return EOK on success or an error code
+ */
+static int z80_emit_opc_e(z80_emit_t *emit, uint32_t opc,
+    z80ic_oper_imm16_t *imm16)
+{
+	int rc;
+
+	rc = z80_emit_opc(emit, opc);
+	if (rc != EOK)
+		return rc;
+
+	return z80_emit_reljmp(emit, imm16);
 }
 
 /** Emit instruction opcode + 8-bit displacement.
@@ -2452,7 +2549,6 @@ static int z80_emit_res_b_iiyd(z80_emit_t *emit, z80ic_res_b_iiyd_t *instr)
 	return z80_emit_opc_d(emit, opc, instr->disp);
 }
 
-
 /** Emit binary jump to address instruction.
  *
  * @param emit Binary instruction emitter
@@ -2476,6 +2572,108 @@ static int z80_emit_jp_cc_nn(z80_emit_t *emit, z80ic_jp_cc_nn_t *instr)
 
 	opc = z80opc_jp_cc_nn | ((uint8_t)instr->cc << 3);
 	return z80_emit_opc_nn(emit, opc, instr->imm16);
+}
+
+/** Emit binary relative jump instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jr_e(z80_emit_t *emit, z80ic_jr_e_t *instr)
+{
+	return z80_emit_opc_e(emit, z80opc_jr_e, instr->imm16);
+}
+
+/** Emit binary relative jump if carry instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jr_c_e(z80_emit_t *emit, z80ic_jr_c_e_t *instr)
+{
+	return z80_emit_opc_e(emit, z80opc_jr_c_e, instr->imm16);
+}
+
+/** Emit binary relative jump if not carry instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jr_nc_e(z80_emit_t *emit, z80ic_jr_nc_e_t *instr)
+{
+	return z80_emit_opc_e(emit, z80opc_jr_nc_e, instr->imm16);
+}
+
+/** Emit binary relative jump if zero instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jr_z_e(z80_emit_t *emit, z80ic_jr_z_e_t *instr)
+{
+	return z80_emit_opc_e(emit, z80opc_jr_z_e, instr->imm16);
+}
+
+/** Emit binary relative jump if not zero instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jr_nz_e(z80_emit_t *emit, z80ic_jr_nz_e_t *instr)
+{
+	return z80_emit_opc_e(emit, z80opc_jr_nz_e, instr->imm16);
+}
+
+/** Emit binary jump to HL instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jp_hl(z80_emit_t *emit, z80ic_jp_hl_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_jp_hl);
+}
+
+/** Emit binary jump to IX instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jp_ix(z80_emit_t *emit, z80ic_jp_ix_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_jp_ix);
+}
+
+/** Emit binary jump to IY instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_jp_iy(z80_emit_t *emit, z80ic_jp_iy_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_jp_iy);
+}
+
+/** Emit binary decrement, jump if not zero instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_djnz_e(z80_emit_t *emit, z80ic_djnz_e_t *instr)
+{
+	return z80_emit_opc_e(emit, z80opc_djnz_e, instr->imm16);
 }
 
 /** Emit binary call address instruction.
@@ -2927,6 +3125,24 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 		return z80_emit_jp_nn(emit, (z80ic_jp_nn_t *)instr->ext);
 	case z80i_jp_cc_nn:
 		return z80_emit_jp_cc_nn(emit, (z80ic_jp_cc_nn_t *)instr->ext);
+	case z80i_jr_e:
+		return z80_emit_jr_e(emit, (z80ic_jr_e_t *)instr->ext);
+	case z80i_jr_c_e:
+		return z80_emit_jr_c_e(emit, (z80ic_jr_c_e_t *)instr->ext);
+	case z80i_jr_nc_e:
+		return z80_emit_jr_nc_e(emit, (z80ic_jr_nc_e_t *)instr->ext);
+	case z80i_jr_z_e:
+		return z80_emit_jr_z_e(emit, (z80ic_jr_z_e_t *)instr->ext);
+	case z80i_jr_nz_e:
+		return z80_emit_jr_nz_e(emit, (z80ic_jr_nz_e_t *)instr->ext);
+	case z80i_jp_hl:
+		return z80_emit_jp_hl(emit, (z80ic_jp_hl_t *)instr->ext);
+	case z80i_jp_ix:
+		return z80_emit_jp_ix(emit, (z80ic_jp_ix_t *)instr->ext);
+	case z80i_jp_iy:
+		return z80_emit_jp_iy(emit, (z80ic_jp_iy_t *)instr->ext);
+	case z80i_djnz_e:
+		return z80_emit_djnz_e(emit, (z80ic_djnz_e_t *)instr->ext);
 	case z80i_call_nn:
 		return z80_emit_call_nn(emit, (z80ic_call_nn_t *)instr->ext);
 	case z80i_ret:

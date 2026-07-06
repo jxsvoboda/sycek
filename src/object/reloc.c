@@ -100,6 +100,24 @@ static const char *obj_reloc_type_name(obj_reloc_type_t rtype)
 	}
 }
 
+/** Print relocation position for diagnostics.
+ *
+ * @param reloc Relocation
+ * @param outf Output file
+ * @return EOK on success or an error code
+ */
+static int obj_reloc_print_loc(obj_reloc_t *reloc, FILE *outf)
+{
+	int rc;
+
+	rc = fprintf(outf, "<%s:0x%" PRIx32 ">",
+	    reloc->section->name, reloc->offset);
+	if (rc < 0)
+		return EIO;
+
+	return EOK;
+}
+
 /** Dump binary object relocation.
  *
  * @param reloc Relocation
@@ -310,6 +328,59 @@ obj_reloc_t *obj_reloc_next(obj_reloc_t *cur)
 	return list_get_instance(link, obj_reloc_t, lrelocs);
 }
 
+/** Process RJ8 relocation.
+ *
+ * @param reloc Relocation
+ * @param lflags Linker flags
+ * @return EOK on success or an error code
+ */
+static int obj_reloc_process_rj8(obj_reloc_t *reloc, obj_linker_flags_t lflags)
+{
+	obj_symbol_t *symbol;
+	uint64_t addr;
+	uint64_t src_addr;
+	int rc;
+
+	symbol = obj_symbol_find(reloc->object, reloc->sym_name,
+	    reloc->section->modname);
+	if (symbol == NULL) {
+		(void)obj_reloc_print_loc(reloc, stderr);
+		(void)fprintf(stderr, ": Link error: Symbol '%s' not found.\n",
+		    reloc->sym_name);
+		return ENOENT;
+	}
+
+	addr = symbol->section->base_addr + symbol->offset + reloc->addend;
+	if (addr > 0xffffu && (lflags & lf_no_range_error) == lf_none) {
+		(void)obj_reloc_print_loc(reloc, stderr);
+		(void)fprintf(stderr, ": Link error: Address 0x%" PRIx64
+		    " is out of range.\n", addr);
+		return EINVAL;
+	}
+
+	/*
+	 * The 8-bit offset is relative to the byte just after the offset
+	 * (i.e., just after the relative jump instruction).
+	 */
+	src_addr = reloc->section->base_addr + reloc->offset + 1;
+
+	if (((src_addr > 0x80) && (addr < src_addr - 0x80)) ||
+	    (addr > src_addr + 0x7f)) {
+		(void)obj_reloc_print_loc(reloc, stderr);
+		(void)fprintf(stderr, ": Link error: Relative jump target "
+		    "'%s' is out of range.\n", reloc->sym_name);
+		return EINVAL;
+	}
+
+	rc = obj_section_write_u8(reloc->section, reloc->offset,
+	    (int8_t)(addr - src_addr));
+	if (rc != EOK)
+		return rc;
+
+	obj_reloc_destroy(reloc);
+	return EOK;
+}
+
 /** Process SA16 relocation.
  *
  * @param reloc Relocation
@@ -325,14 +396,16 @@ static int obj_reloc_process_sa16(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 	symbol = obj_symbol_find(reloc->object, reloc->sym_name,
 	    reloc->section->modname);
 	if (symbol == NULL) {
-		(void)fprintf(stderr, "Link error: Symbol '%s' not found.\n",
+		(void)obj_reloc_print_loc(reloc, stderr);
+		(void)fprintf(stderr, ": Link error: Symbol '%s' not found.\n",
 		    reloc->sym_name);
 		return ENOENT;
 	}
 
 	addr = symbol->section->base_addr + symbol->offset + reloc->addend;
 	if (addr > 0xffffu && (lflags & lf_no_range_error) == lf_none) {
-		(void)fprintf(stderr, "Link error: Address 0x%" PRIx64
+		(void)obj_reloc_print_loc(reloc, stderr);
+		(void)fprintf(stderr, ": Link error: Address 0x%" PRIx64
 		    " is out of range.\n", addr);
 		return EINVAL;
 	}
@@ -355,6 +428,8 @@ static int obj_reloc_process_sa16(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 int obj_reloc_process(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 {
 	switch (reloc->rtype) {
+	case objr_rj8:
+		return obj_reloc_process_rj8(reloc, lflags);
 	case objr_sa16:
 		return obj_reloc_process_sa16(reloc, lflags);
 		break;
