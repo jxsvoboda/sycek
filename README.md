@@ -5,7 +5,7 @@ Sycek aims to provide tools based around a modular C language frontend.
 The available tools are
 
   * `ccheck` a C code style checker
-  * `syc` a C compiler for ZX Spectrum, lint / checker
+  * `syc` a C compiler for ZX Spectrum, lint / checker, Z80 assembler
   * `z80test` a simple test harness / Z80 emulator
 
 Sycek is available under an MIT-style license.
@@ -39,7 +39,8 @@ Syc
 NOTE: Floating point support is not implemented yet.
 
 `syc` is a compiler, lint-like tool / checker. It compiles C for the
-Sinclair ZX Spectrum (Zilog Z80 processor).
+Sinclair ZX Spectrum (Zilog Z80 processor). It can be also used as a
+Z80 assembler.
 
 `syc` also complements `ccheck` checking for certain programming
 iand C style issues that cannot be reliably detected withough actually
@@ -320,21 +321,17 @@ then link them together:
     $ ./syc --no-link b.c
     $ ./syc --out=out.tzx a.obj b.obj
 
-Using an external assembler
----------------------------
+Using Syc as an assembler
+-------------------------
+You can pass an assembler file to Syc as input, in a similar fashion to
+a C or IR file:
 
-You can use z80asm from z88dk as an assembler. Run
+    $ ./syc a.asm
 
-    $ ./syc --no-link example/test.c
+This will assemble, link and produce a tape file (`a.tzx`). You can even
+combine C and assember files in the same command line:
 
-which will produce `example/test.asm`. We can convert it to a tape file using
-tools from the z88dk project
-
-    $ z80asm +zx --origin=32768 -b -m example/test.asm example/lib.asm
-    $ appmake +zx --org=32768 -b example/test.bin
-
-(Note that example/test.c, specifically, refers to an assembly function
-from example/lib.asm)
+    $ ./syc --out=example/test.tzx example/test.c example/lib.asm
 
 You can just type `make examples` to build all the examples automatically.
 

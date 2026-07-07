@@ -231,18 +231,17 @@ example_srcs = \
 	example/fillscr.c \
 	example/mul16.c \
 	example/test.c
-example_asms = $(example_srcs:.c=.asm)
-example_bins = $(example_asms:.asm=.bin)
-example_os = $(example_asms:.asm=.o)
-example_maps = $(example_asms:.asm=.map)
-example_taps = $(example_asms:.asm=.tap)
+example_bins = $(example_srcs:.c=.bin)
+example_objs = $(example_srcs:.c=.obj)
+example_maps = $(example_srcs:.c=.map)
+example_tzxs = $(example_srcs:.c=.tzx)
 example_irs = $(example_srcs:.c=.ir)
 example_vrics = $(example_srcs:.c=.vric)
 example_irirs = $(example_srcs:.c=.ir.ir)
-example_irasms = $(example_irirs:.ir.ir=.ir.asm)
-example_outs = example/lib.o $(example_asms) $(example_os) $(example_bins) \
-    $(example_maps) $(example_taps) $(example_irs) $(example_vrics) \
-    $(example_irirs) $(example_irasms)
+example_irobjs = $(example_irirs:.ir.ir=.ir.obj)
+example_outs = example/lib.o $(example_objs) $(example_bins) \
+    $(example_maps) $(example_tzxs) $(example_irs) $(example_vrics) \
+    $(example_irirs) $(example_irobjs)
 
 all: $(binary_ccheck) $(binary_syc) $(binary_z80test)
 
@@ -447,23 +446,21 @@ test/selfcheck.out: $(ccheck)
 #
 # Compiler example
 #
-example/%.asm: example/%.c $(syc)
-	$(syc) --no-emit $<
 example/%.ir: example/%.c $(syc)
-	$(syc) --no-emit --dump-ir $< >$@
+	$(syc) --no-link --dump-ir $< >$@
 example/%.ir.ir: example/%.ir
 	cp $< $@
-example/%.ir.asm: example/%.ir.ir $(syc)
-	$(syc) --no-emit $<
+example/%.ir.obj: example/%.ir.ir $(syc)
+	$(syc) --no-link $<
 example/%.vric: example/%.c $(syc)
-	$(syc) --no-emit --dump-vric $< >$@
-example/%.bin: example/%.asm example/lib.asm
-	z80asm +zx --origin=32768 -b -m $^
-example/%.tap: example/%.bin
-	appmake +zx --org=32768 -b $<
+	$(syc) --no-link --dump-vric $< >$@
+example/%.bin: example/%.c example/lib.asm
+	syc --out=$@ --no-tape $^
+example/%.tzx: example/%.c example/lib.asm
+	syc --out=$@ $^
 
-examples: $(example_asms) $(example_taps) $(example_irs) $(example_vrics) \
-    $(example_irasms)
+examples: $(syc) $(example_tzxs) $(example_irs) $(example_vrics) \
+    $(example_irobjs)
 
 #
 # Note that if any of the diffs is not empty, that diff command will
