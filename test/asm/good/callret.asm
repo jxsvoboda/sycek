@@ -10,12 +10,12 @@ begin
 	ret NZ; /* ret cc */
 	reti;
 	retn;
-	rst 0;
-	rst 8;
-	rst 16;
-	rst 24;
-	rst 32;
-	rst 40;
-	rst 48;
-	rst 56;
+	rst 0x00;
+	rst 0x08;
+	rst 0x10;
+	rst 0x18;
+	rst 0x20;
+	rst 0x28;
+	rst 0x30;
+	rst 0x38;
 end;

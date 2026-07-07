@@ -492,11 +492,23 @@ static int z80ic_lexer_number(z80ic_lexer_t *lexer, z80ic_lexer_tok_t *tok)
 {
 	char *p;
 	int rc;
+	int base = 10;
 
 	z80ic_lexer_get_pos(lexer, &tok->bpos);
 	p = z80ic_lexer_chars(lexer);
 
-	while (is_digit(p[1], 10)) {
+	if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
+		rc = z80ic_lexer_advance(lexer, 2, tok);
+		if (rc != 0) {
+			z80ic_lexer_free_tok(tok);
+			return rc;
+		}
+
+		base = 16;
+	}
+
+	p = z80ic_lexer_chars(lexer);
+	while (is_digit(p[1], base)) {
 		rc = z80ic_lexer_advance(lexer, 1, tok);
 		if (rc != EOK) {
 			z80ic_lexer_free_tok(tok);
@@ -1510,17 +1522,31 @@ bool z80ic_lexer_is_resword(z80ic_lexer_toktype_t itt)
 int z80ic_lexer_number_val(z80ic_lexer_tok_t *itok, int32_t *rval)
 {
 	const char *text = itok->text;
+	int base = 10;
+	int digit;
 	int32_t val;
+
+	if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+		base = 16;
+		text += 2;
+	}
 
 	val = 0;
 	while (*text != '\0') {
-		if (*text < '0' || *text > '9')
+		if (!is_digit(*text, base))
 			return EINVAL;
 
-		val = val * 10 + (*text - '0');
+		if (*text >= '0' && *text <= '9')
+			digit = *text - '0';
+		else if (*text >= 'a' && *text <= 'f')
+			digit = *text - 'a' + 10;
+		else
+			digit = *text - 'A' + 10;
+
+		val = val * base + digit;
 		++text;
 	}
 
 	*rval = val;
-	return EOK;
+	return 0;
 }

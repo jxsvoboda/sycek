@@ -4,18 +4,18 @@
 
 proc @_z80_16bit_load_group
 begin
-	ld SP, 4660; /* ld dd, nn */
-	ld IX, 4660;
-	ld IY, 4660;
-	ld HL, (4660);
-	ld SP, (4660); /* ld dd, (nn) */
-	ld IX, (4660);
-	ld IY, (4660);
+	ld SP, 0x1234; /* ld dd, nn */
+	ld IX, 0x1234;
+	ld IY, 0x1234;
+	ld HL, (0x1234);
+	ld SP, (0x1234); /* ld dd, (nn) */
+	ld IX, (0x1234);
+	ld IY, (0x1234);
 
-	ld (4660), HL;
-	ld (4660), SP; /* ld (nn), dd */
-	ld (4660), IX;
-	ld (4660), IY;
+	ld (0x1234), HL;
+	ld (0x1234), SP; /* ld (nn), dd */
+	ld (0x1234), IX;
+	ld (0x1234), IY;
 	ld SP, HL;
 	ld SP, IX;
 	ld SP, IY;

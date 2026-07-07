@@ -17,10 +17,10 @@ begin
 	ld (IY-1), 42;
 	ld A, (BC);
 	ld A, (DE);
-	ld A, (4660); /* 0x1234 */
+	ld A, (0x1234);
 	ld (BC), A;
 	ld (DE), A;
-	ld (4660), A; /* 0x1234 */
+	ld (0x1234), A;
 	ld A, I;
 	ld A, R;
 	ld I, A;
