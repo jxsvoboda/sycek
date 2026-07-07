@@ -10190,6 +10190,51 @@ error:
 	return rc;
 }
 
+/** Parse Z80 IC global declaration.
+ *
+ * @param parser Z80 IC parser
+ * @param rproc Place to store pointer to new procedure
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int z80ic_parser_process_global(z80ic_parser_t *parser,
+    z80ic_global_t **rglobal)
+{
+	z80ic_lexer_tok_t itok;
+	z80ic_global_t *global = NULL;
+	int rc;
+
+	/* global keyword */
+
+	rc = z80ic_parser_match(parser, ztt_global);
+	if (rc != EOK)
+		goto error;
+
+	/* Identifier */
+
+	z80ic_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != ztt_ident) {
+		(void)fprintf(stderr, "Error: ");
+		(void)z80ic_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected identifier.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = z80ic_global_create(itok.text, &global);
+	if (rc != EOK)
+		goto error;
+
+	z80ic_parser_skip(parser);
+
+	*rglobal = global;
+	return EOK;
+error:
+	if (global != NULL)
+		z80ic_global_destroy(global);
+	return rc;
+}
+
 /** Parse Z80 IC procedure declaration.
  *
  * @param parser Z80 IC parser
@@ -10752,6 +10797,7 @@ static int z80ic_parser_process_decln(z80ic_parser_t *parser,
     z80ic_decln_t **rdecln)
 {
 	z80ic_lexer_toktype_t ztt;
+	z80ic_global_t *global;
 	z80ic_proc_t *proc;
 	z80ic_var_t *var;
 	z80ic_decln_t *decln;
@@ -10759,6 +10805,12 @@ static int z80ic_parser_process_decln(z80ic_parser_t *parser,
 
 	ztt = z80ic_parser_next_ttype(parser);
 	switch (ztt) {
+	case ztt_global:
+		rc = z80ic_parser_process_global(parser, &global);
+		if (rc != EOK)
+			goto error;
+		decln = &global->decln;
+		break;
 	case ztt_proc:
 		rc = z80ic_parser_process_proc(parser, &proc);
 		if (rc != EOK)
