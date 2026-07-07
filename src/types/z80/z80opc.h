@@ -218,7 +218,19 @@ enum {
 	z80opc_ret_cc = 0xc0,
 	z80opc_reti = 0xed4du,
 	z80opc_retn = 0xed45u,
-	z80opc_rst_p = 0xc7
+	z80opc_rst_p = 0xc7,
+	z80opc_in_a_in = 0xdb,
+	z80opc_in_r_ic = 0xed40u,
+	z80opc_ini = 0xeda2u,
+	z80opc_inir = 0xedb2u,
+	z80opc_ind = 0xedaau,
+	z80opc_indr = 0xedbau,
+	z80opc_out_in_a = 0xd3,
+	z80opc_out_ic_r = 0xed41u,
+	z80opc_outi = 0xeda3u,
+	z80opc_otir = 0xedb3u,
+	z80opc_outd = 0xedabu,
+	z80opc_otdr = 0xedbbu
 };
 
 #endif

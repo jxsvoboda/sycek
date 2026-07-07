@@ -446,7 +446,7 @@ typedef enum {
 	/** Output A to fixed port */
 	z80i_out_in_a,
 	/** Output register to port (C) */
-	z80i_in_ic_r,
+	z80i_out_ic_r,
 	/** Output, increment */
 	z80i_outi,
 	/** Output, increment, repeat */
@@ -2404,6 +2404,86 @@ typedef struct {
 	/** Restart address */
 	uint8_t p;
 } z80ic_rst_p_t;
+
+/** Z80 IC input from fixed port to A instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_in_a_in_t;
+
+/** Z80 IC input from port (C) to register instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Destination register */
+	z80ic_oper_reg_t *dest;
+} z80ic_in_r_ic_t;
+
+/** Z80 IC input, increment instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ini_t;
+
+/** Z80 IC input, increment, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_inir_t;
+
+/** Z80 IC input, decrement instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_ind_t;
+
+/** Z80 IC input, decrement, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_indr_t;
+
+/** Z80 IC output A to fixed port instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_out_in_a_t;
+
+/** Z80 IC output register to port (C) instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Source register */
+	z80ic_oper_reg_t *src;
+} z80ic_out_ic_r_t;
+
+/** Z80 IC output, increment instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_outi_t;
+
+/** Z80 IC output, increment, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_otir_t;
+
+/** Z80 IC output, decrement instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_outd_t;
+
+/** Z80 IC output, decrement, repeat instruction */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+} z80ic_otdr_t;
 
 /** Z80 IC load register from indirect virtual register pair with displacement
  */

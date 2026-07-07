@@ -2767,6 +2767,152 @@ static int z80_emit_rst_p(z80_emit_t *emit, z80ic_rst_p_t *instr)
 	return z80_emit_opc(emit, opc);
 }
 
+/** Emit binary input from fixed port to A instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_in_a_in(z80_emit_t *emit, z80ic_in_a_in_t *instr)
+{
+	return z80_emit_opc_n(emit, z80opc_in_a_in, instr->imm8);
+}
+
+/** Emit binary input from port (C) to register instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_in_r_ic(z80_emit_t *emit, z80ic_in_r_ic_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_in_r_ic | ((uint8_t)instr->dest->reg << 3);
+	return z80_emit_opc(emit, opc);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ini(z80_emit_t *emit, z80ic_ini_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ini);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_inir(z80_emit_t *emit, z80ic_inir_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_inir);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_ind(z80_emit_t *emit, z80ic_ind_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_ind);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_indr(z80_emit_t *emit, z80ic_indr_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_indr);
+}
+
+/** Emit binary output A to fixed port instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_out_in_a(z80_emit_t *emit, z80ic_out_in_a_t *instr)
+{
+	return z80_emit_opc_n(emit, z80opc_out_in_a, instr->imm8);
+}
+
+/** Emit binary output register to from port (C) instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_out_ic_r(z80_emit_t *emit, z80ic_out_ic_r_t *instr)
+{
+	uint32_t opc;
+
+	opc = z80opc_out_ic_r | ((uint8_t)instr->src->reg << 3);
+	return z80_emit_opc(emit, opc);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_outi(z80_emit_t *emit, z80ic_outi_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_outi);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_otir(z80_emit_t *emit, z80ic_otir_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_otir);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_outd(z80_emit_t *emit, z80ic_outd_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_outd);
+}
+
+/** Emit binary return from NMI instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_otdr(z80_emit_t *emit, z80ic_otdr_t *instr)
+{
+	(void)instr;
+	return z80_emit_opc(emit, z80opc_otdr);
+}
+
 /** Emit binary instruction.
  *
  * @param emit Binary instruction emitter
@@ -3226,6 +3372,30 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 		return z80_emit_retn(emit, (z80ic_retn_t *)instr->ext);
 	case z80i_rst_p:
 		return z80_emit_rst_p(emit, (z80ic_rst_p_t *)instr->ext);
+	case z80i_in_a_in:
+		return z80_emit_in_a_in(emit, (z80ic_in_a_in_t *)instr->ext);
+	case z80i_in_r_ic:
+		return z80_emit_in_r_ic(emit, (z80ic_in_r_ic_t *)instr->ext);
+	case z80i_ini:
+		return z80_emit_ini(emit, (z80ic_ini_t *)instr->ext);
+	case z80i_inir:
+		return z80_emit_inir(emit, (z80ic_inir_t *)instr->ext);
+	case z80i_ind:
+		return z80_emit_ind(emit, (z80ic_ind_t *)instr->ext);
+	case z80i_indr:
+		return z80_emit_indr(emit, (z80ic_indr_t *)instr->ext);
+	case z80i_out_in_a:
+		return z80_emit_out_in_a(emit, (z80ic_out_in_a_t *)instr->ext);
+	case z80i_out_ic_r:
+		return z80_emit_out_ic_r(emit, (z80ic_out_ic_r_t *)instr->ext);
+	case z80i_outi:
+		return z80_emit_outi(emit, (z80ic_outi_t *)instr->ext);
+	case z80i_otir:
+		return z80_emit_otir(emit, (z80ic_otir_t *)instr->ext);
+	case z80i_outd:
+		return z80_emit_outd(emit, (z80ic_outd_t *)instr->ext);
+	case z80i_otdr:
+		return z80_emit_otdr(emit, (z80ic_otdr_t *)instr->ext);
 	default:
 		/* XXX */
 		(void)fprintf(stderr, "Unsupported instruction.\n");
