@@ -91,6 +91,8 @@ void obj_reloc_destroy(obj_reloc_t *reloc)
 static const char *obj_reloc_type_name(obj_reloc_type_t rtype)
 {
 	switch (rtype) {
+	case objr_rj8:
+		return "RJ8";
 	case objr_sa16:
 		return "SA16";
 	case objr_rela16:
