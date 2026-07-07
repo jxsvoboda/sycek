@@ -6,9 +6,12 @@
 GLOBAL _putpixel
 
 ; putpixel(x, y)
-;   BC = x
+;   HL = x
 ;   DE = y
 ._putpixel
+	ld C, L
+	ld B, H
+
 	; DE := y * 32 == y << 5
 	sla E
 	rl D

@@ -45,6 +45,8 @@ typedef struct {
 	void *input_arg;
 	/** Next token */
 	void *tok;
+	/** Current procedure identifier */
+	const char *cur_proc;
 } z80ic_parser_t;
 
 #endif

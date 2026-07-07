@@ -3469,8 +3469,11 @@ static int z80_emit_global(z80_emit_t *emit, z80ic_global_t *global,
 
 	symbol = obj_symbol_find(emit->object, global->ident,
 	    modname);
-	if (symbol == NULL)
+	if (symbol == NULL) {
+		(void)fprintf(stderr, "Symbol '%s' not found.\n",
+		    global->ident);
 		return EINVAL;
+	}
 
 	symbol->binding = objb_global;
 	return EOK;

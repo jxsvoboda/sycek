@@ -476,6 +476,50 @@ static z80ic_cc_t z80ic_parser_ttype_get_cc(z80ic_lexer_toktype_t ztt)
 	}
 }
 
+/** Convert name refrence to symbol name.
+ *
+ * Given that code generator mangles symbols in z80asm-compatible manner,
+ * we must produce compatible symbol names as well.
+ *
+ * @param parser Z80 IC parser
+ * @param nameref Name reference with sigil (@name or %name)
+ * @param rsymname Place to store symbol name.
+ */
+static int z80ic_parser_symname(z80ic_parser_t *parser, const char *nameref,
+    char **rsymname)
+{
+	char *symname;
+	int rv;
+
+	(void)parser;
+
+	if (nameref[0] == '@') {
+		/*
+		 * Global name.
+		 *
+		 * Symbol name is the same without the '@' sigil.
+		 */
+		symname = strdup(nameref + 1);
+	} else if (nameref[0] == '%') {
+		/*
+		 * Local name.
+		 *
+		 * Symbol name is <procedure-name>%name
+		 */
+		rv = asprintf(&symname, "%s%s", parser->cur_proc,
+		    nameref);
+		if (rv < 0)
+			return ENOMEM;
+		printf("Mangled local name '%s'\n", symname);
+	} else {
+		assert(false);
+		return EINVAL;
+	}
+
+	*rsymname = symname;
+	return EOK;
+}
+
 /** Parse Z80 IC 8-bit immediate operand.
  *
  * @param parser Z80 IC parser
@@ -537,12 +581,18 @@ static int z80ic_parser_process_oper_imm16(z80ic_parser_t *parser,
 	z80ic_lexer_tok_t itok;
 	z80ic_oper_imm16_t *imm = NULL;
 	int32_t value;
+	char *symname;
 	int rc;
 
 	z80ic_parser_read_next_tok(parser, &itok);
 	if (itok.ttype == ztt_ident) {
 		/* Symbol reference. */
-		rc = z80ic_oper_imm16_create_symbol(itok.text, &imm);
+		rc = z80ic_parser_symname(parser, itok.text, &symname);
+		if (rc != EOK)
+			return rc;
+
+		rc = z80ic_oper_imm16_create_symbol(symname, &imm);
+		free(symname);
 		if (rc != EOK)
 			return rc;
 
@@ -10153,6 +10203,7 @@ static int z80ic_parser_process_lblock(z80ic_parser_t *parser,
 	z80ic_lexer_toktype_t ztt;
 	z80ic_lexer_tok_t itok;
 	z80ic_instr_t *instr;
+	char *symname;
 	int rc;
 
 	ztt = z80ic_parser_next_ttype(parser);
@@ -10162,7 +10213,12 @@ static int z80ic_parser_process_lblock(z80ic_parser_t *parser,
 			z80ic_parser_read_next_tok(parser, &itok);
 			assert(itok.ttype == ztt_ident);
 
-			rc = z80ic_lblock_append(lblock, itok.text, NULL);
+			rc = z80ic_parser_symname(parser, itok.text, &symname);
+			if (rc != EOK)
+				return rc;
+
+			rc = z80ic_lblock_append(lblock, symname, NULL);
+			free(symname);
 			if (rc != EOK)
 				goto error;
 
@@ -10202,6 +10258,7 @@ static int z80ic_parser_process_global(z80ic_parser_t *parser,
 {
 	z80ic_lexer_tok_t itok;
 	z80ic_global_t *global = NULL;
+	char *symname;
 	int rc;
 
 	/* global keyword */
@@ -10221,7 +10278,12 @@ static int z80ic_parser_process_global(z80ic_parser_t *parser,
 		goto error;
 	}
 
-	rc = z80ic_global_create(itok.text, &global);
+	rc = z80ic_parser_symname(parser, itok.text, &symname);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_global_create(symname, &global);
+	free(symname);
 	if (rc != EOK)
 		goto error;
 
@@ -10252,6 +10314,7 @@ static int z80ic_parser_process_proc(z80ic_parser_t *parser,
 	char *ident = NULL;
 	z80ic_lblock_t *lblock = NULL;
 	int32_t offset;
+	char *symname = NULL;
 	int rc;
 
 	/* proc keyword */
@@ -10275,11 +10338,16 @@ static int z80ic_parser_process_proc(z80ic_parser_t *parser,
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_proc_create(itok.text, lblock, &proc);
+	rc = z80ic_parser_symname(parser, itok.text, &symname);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_proc_create(symname, lblock, &proc);
 	if (rc != EOK)
 		goto error;
 
 	lblock = NULL;
+	parser->cur_proc = symname;
 
 	z80ic_parser_skip(parser);
 
@@ -10371,9 +10439,13 @@ static int z80ic_parser_process_proc(z80ic_parser_t *parser,
 	if (rc != EOK)
 		goto error;
 
+	parser->cur_proc = NULL;
+	free(symname);
 	*rproc = proc;
 	return EOK;
 error:
+	if (symname != NULL)
+		free(symname);
 	if (proc != NULL)
 		z80ic_proc_destroy(proc);
 	if (lblock != NULL)
