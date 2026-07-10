@@ -98,6 +98,20 @@ sources_syc_common = \
     src/z80/varmap.c \
     src/z80/z80ic.c
 
+sources_sydis_common = \
+    src/object/object.c \
+    src/object/reloc.c \
+    src/object/section.c \
+    src/object/symbol.c \
+    src/sydis.c
+
+sources_sydump_common = \
+    src/object/object.c \
+    src/object/reloc.c \
+    src/object/section.c \
+    src/object/symbol.c \
+    src/sydump.c
+
 sources_z80test_common = \
     ext/z80.c \
     src/file_input.c \
@@ -133,6 +147,28 @@ sources_syc_z80 = \
     $(sources_syc_common) \
     $(sources_hcompat)
 
+sources_sydis = \
+    $(sources_sydis_common) \
+    $(sources_hcompat)
+
+sources_sydis_hos = \
+    $(sources_sydis_common)
+
+sources_sydis_z80 = \
+    $(sources_sydis_common) \
+    $(sources_hcompat)
+
+sources_sydump = \
+    $(sources_sydump_common) \
+    $(sources_hcompat)
+
+sources_sydump_hos = \
+    $(sources_sydump_common)
+
+sources_sydump_z80 = \
+    $(sources_sydump_common) \
+    $(sources_hcompat)
+
 sources_z80test = \
     $(sources_z80test_common) \
     $(sources_hcompat)
@@ -154,6 +190,18 @@ mapfile_syc_z80 = syc-z80.map
 syc = ./$(binary_syc)
 sycflags = --lvalue-args --int-promotion --no-tape
 
+binary_sydis = sydis
+binary_sydis_hos = sydis-hos
+binary_sydis_z80 = sydis-z80.bin
+mapfile_sydis_z80 = sydis-z80.map
+sydis = ./$(binary_sydis)
+
+binary_sydump = sydump
+binary_sydump_hos = sydump-hos
+binary_sydump_z80 = sydump-z80.bin
+mapfile_sydump_z80 = sydump-z80.map
+sydump = ./$(binary_sydump)
+
 binary_z80test = z80test
 binary_z80test_hos = z80test-hos
 binary_z80test_z80 = z80test-z80.bin
@@ -167,6 +215,14 @@ objects_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.pp.obj)
 objects_syc = $(sources_syc:.c=.o)
 objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
 objects_syc_z80 = $(sources_syc_z80:.c=.z80.pp.obj)
+
+objects_sydis = $(sources_sydis:.c=.o)
+objects_sydis_hos = $(sources_sydis_hos:.c=.hos.o)
+objects_sydis_z80 = $(sources_sydis_z80:.c=.z80.pp.obj)
+
+objects_sydump = $(sources_sydump:.c=.o)
+objects_sydump_hos = $(sources_sydump_hos:.c=.hos.o)
+objects_sydump_z80 = $(sources_sydump_z80:.c=.z80.pp.obj)
 
 objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
@@ -243,7 +299,8 @@ example_outs = example/lib.o $(example_objs) $(example_bins) \
     $(example_maps) $(example_tzxs) $(example_irs) $(example_vrics) \
     $(example_irirs) $(example_irobjs)
 
-all: $(binary_ccheck) $(binary_syc) $(binary_z80test)
+all: $(binary_ccheck) $(binary_syc) $(binary_sydis) $(binary_sydump) \
+    $(binary_z80test)
 
 $(binary_ccheck): $(objects_ccheck)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
@@ -251,14 +308,23 @@ $(binary_ccheck): $(objects_ccheck)
 $(binary_syc): $(objects_syc)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
+$(binary_sydis): $(objects_sydis)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
+$(binary_sydump): $(objects_sydump)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
 $(binary_z80test): $(objects_z80test)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 $(objects_ccheck): $(headers)
 $(objects_syc): $(headers)
+$(objects_sydis): $(headers)
+$(objects_sydump): $(headers)
 $(objects_z80test): $(headers)
 
-hos: $(binary_ccheck_hos) $(binary_syc_hos) $(binary_z80test_hos)
+hos: $(binary_ccheck_hos) $(binary_syc_hos) $(binary_sydis_hos) \
+    $(binary_sydump_hos) $(binary_z80test_hos)
 
 $(binary_ccheck_hos): $(objects_ccheck_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
@@ -266,11 +332,19 @@ $(binary_ccheck_hos): $(objects_ccheck_hos)
 $(binary_syc_hos): $(objects_syc_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
 
+$(binary_sydis_hos): $(objects_sydis_hos)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
+
+$(binary_sydump_hos): $(objects_sydump_hos)
+	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
+
 $(binary_z80test_hos): $(objects_z80test_hos)
 	$(LD_hos) $(CFLAGS_hos) -o $@ $^ $(LIBS_hos)
 
 $(objects_ccheck_hos): $(headers)
 $(objects_syc_hos): $(headers)
+$(objects_sydis_hos): $(headers)
+$(objects_sydump_hos): $(headers)
 $(objects_z80test_hos): $(headers)
 
 %.hos.o: %.c
@@ -280,17 +354,28 @@ install-hos: hos
 	mkdir -p $(PREFIX_hos)/app
 	$(INSTALL) -T $(binary_ccheck_hos) $(PREFIX_hos)/app/ccheck
 	$(INSTALL) -T $(binary_syc_hos) $(PREFIX_hos)/app/syc
+	$(INSTALL) -T $(binary_sydis_hos) $(PREFIX_hos)/app/sydis
+	$(INSTALL) -T $(binary_sydump_hos) $(PREFIX_hos)/app/sydump
 	$(INSTALL) -T $(binary_z80test_hos) $(PREFIX_hos)/app/z80test
 
 uninstall-hos:
-	rm -f $(PREFIX_hos)/app/ccheck
+	rm -f $(PREFIX_hos)/app/ccheck $(PREFIX_hos)/app/syc \
+	    $(PREFIX_hos)/app/sydis $(PREFIX_hos)/app/sydump \
+	    $(PREFIX_hos)/app/z80test
 
 test-hos: install-hos
 	helenos-test
 
-z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_z80test_z80)
+z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_sydis_z80) \
+    $(binary_sydump_z80) $(binary_z80test_z80)
 
-objects_z80 = $(objecs_ccheck_z80) $(objects_syc_z80) $(objects_z80test_z80)
+objects_z80 = \
+    $(objecs_ccheck_z80) \
+    $(objects_syc_z80) \
+    $(objects_sydis_z80) \
+    $(objects_sydump_z80) \
+    $(objects_z80test_z80)
+
 z80objs: $(objects_z80)
 
 %.z80.pp.c: %.c
@@ -305,16 +390,26 @@ $(binary_ccheck_z80): $(LIBS_z80) $(objects_ccheck_z80)
 $(binary_syc_z80): $(LIBS_z80) $(objects_syc_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $^
 
+$(binary_sydis_z80): $(LIBS_z80) $(objects_sydis_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $^
+
+$(binary_sydump_z80): $(LIBS_z80) $(objects_sydump_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $^
+
 $(binary_z80test_z80): $(LIBS_z80) $(objects_z80test_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $^
 
 $(objects_ccheck_z80): $(headers) $(lib_headers)
 $(objects_syc_z80): $(headers) $(lib_headers)
+$(objects_sydis_z80): $(headers) $(lib_headers)
+$(objects_sydump_z80): $(headers) $(lib_headers)
 $(objects_z80test_z80): $(headers) $(lib_headers)
 
 clean:
 	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_ccheck_z80) \
 	$(objects_syc) $(objects_syc_hos) $(objects_syc_z80) \
+	$(objects_sydis $(objects_sydis_hos) $(objects_sydis_z80) \
+	$(objects_sydump $(objects_sydump_hos) $(objects_sydump_z80) \
 	$(objects_z80test) $(objects_z80test_hos) $(objects_z80test_z80) \
 	$(binary_ccheck) $(binary_ccheck_hos) $(binary_ccheck_z80) \
 	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
@@ -471,6 +566,7 @@ test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     test/selfcheck.out
 test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) \
     $(test_linker_good_z80ts) z80objs
+test_asm: $(test_asm_outs)
 
 test_l: $(test_linker_good_z80ts)
 

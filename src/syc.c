@@ -205,6 +205,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 	comp_module_t *module = NULL;
 	comp_mtype_t mtype;
 	file_input_t finput;
+	bool inf_binary;
 	FILE *f = NULL;
 	FILE *outf = NULL;
 	FILE *mapf = NULL;
@@ -220,6 +221,9 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
+	/* Input is a binary file? */
+	inf_binary = false;
+
 	if (strcmp(ext, ".c") == 0 || strcmp(ext, ".C") == 0) {
 		mtype = cmt_csrc;
 	} else if (strcmp(ext, ".h") == 0 || strcmp(ext, ".H") == 0) {
@@ -230,13 +234,14 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		mtype = cmt_ic;
 	} else if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0) {
 		mtype = cmt_obj;
+		inf_binary = true;
 	} else {
 		(void)fprintf(stderr, "Unknown file extension '%s'.\n", ext);
 		rc = EINVAL;
 		goto error;
 	}
 
-	f = fopen(fname, "rt");
+	f = fopen(fname, inf_binary ? "rb" : "rt");
 	if (f == NULL) {
 		(void)fprintf(stderr, "Cannot open '%s'.\n", fname);
 		rc = ENOENT;

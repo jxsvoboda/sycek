@@ -27,6 +27,7 @@
 #ifndef OBJECT_OBJECT_H
 #define OBJECT_OBJECT_H
 
+#include <stdint.h>
 #include <stdio.h>
 #include <types/object/object.h>
 

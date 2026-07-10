@@ -510,7 +510,6 @@ static int z80ic_parser_symname(z80ic_parser_t *parser, const char *nameref,
 		    nameref);
 		if (rv < 0)
 			return ENOMEM;
-		printf("Mangled local name '%s'\n", symname);
 	} else {
 		assert(false);
 		return EINVAL;
@@ -9855,7 +9854,6 @@ static int z80ic_parser_process_out(z80ic_parser_t *parser,
 
 	return EOK;
 }
-
 
 /** Parse Z80 IC output, increment instruction.
  *

@@ -6,6 +6,7 @@ The available tools are
 
   * `ccheck` a C code style checker
   * `syc` a C compiler for ZX Spectrum, lint / checker, Z80 assembler
+  * `sydump` dumps contents of Sycek object (`.obj`) files
   * `z80test` a simple test harness / Z80 emulator
 
 Sycek is available under an MIT-style license.
