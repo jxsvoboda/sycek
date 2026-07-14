@@ -21,22 +21,18 @@
  */
 
 /*
- * Z80 instruction emitter
+ * Z80 binary instruction emitter
  */
 
-#ifndef TYPES_Z80_EMIT_H
-#define TYPES_Z80_EMIT_H
+#ifndef Z80_DECODE_H
+#define Z80_DECODE_H
 
-/** Z80 binary instruction emitter */
-typedef struct {
-	/** Z80 IC module */
-	struct z80ic_module *ic_module;
-	/** Current IC procedure */
-	struct z80ic_proc *ic_proc;
-	/** Binary object */
-	struct obj_object *object;
-	/** Binary object section */
-	struct obj_section *section;
-} z80_emit_t;
+#include <types/object/object.h>
+#include <types/z80/decode.h>
+#include <types/z80/z80ic.h>
+
+extern int z80_decode_create(z80_decode_t **);
+extern int z80_decode_object(z80_decode_t *, obj_object_t *, z80ic_module_t **);
+extern void z80_decode_destroy(z80_decode_t *);
 
 #endif

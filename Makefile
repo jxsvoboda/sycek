@@ -103,7 +103,9 @@ sources_sydis_common = \
     src/object/reloc.c \
     src/object/section.c \
     src/object/symbol.c \
-    src/sydis.c
+    src/sydis.c \
+    src/z80/decode.c \
+    src/z80/z80ic.c
 
 sources_sydump_common = \
     src/object/object.c \

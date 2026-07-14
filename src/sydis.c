@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <z80/decode.h>
+#include <z80/z80ic.h>
 
 static void print_syntax(void)
 {
@@ -49,6 +51,8 @@ static void print_syntax(void)
 static int disassemble_file(const char *fname)
 {
 	obj_object_t *object = NULL;
+	z80ic_module_t *module = NULL;
+	z80_decode_t *decode = NULL;
 	int rc;
 	FILE *f = NULL;
 	char *ext;
@@ -68,7 +72,6 @@ static int disassemble_file(const char *fname)
 	}
 
 	if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0) {
-		printf("load object..\n");
 		rc = obj_object_load_obj(f, fname, &object);
 		if (rc != EOK)
 			goto error;
@@ -78,12 +81,35 @@ static int disassemble_file(const char *fname)
 		goto error;
 	}
 
-	(void)obj_object_dump(object, stdout);
+	rc = z80_decode_create(&decode);
+	if (rc != EOK)
+		goto error;
 
+	rc = z80_decode_object(decode, object, &module);
+	if (rc != EOK)
+		goto error;
+
+	z80_decode_destroy(decode);
+	decode = NULL;
+
+	obj_object_destroy(object);
+	object = NULL;
+
+	rc = z80ic_module_print(module, stdout);
+	if (rc != EOK)
+		goto error;
+
+	z80ic_module_destroy(module);
 	(void)fclose(f);
 
 	return EOK;
 error:
+	if (module != NULL)
+		z80ic_module_destroy(module);
+	if (object != NULL)
+		obj_object_destroy(object);
+	if (decode != NULL)
+		z80_decode_destroy(decode);
 	if (f != NULL)
 		(void)fclose(f);
 	return rc;

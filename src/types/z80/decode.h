@@ -21,22 +21,26 @@
  */
 
 /*
- * Z80 instruction emitter
+ * Z80 instruction decoder
  */
 
-#ifndef TYPES_Z80_EMIT_H
-#define TYPES_Z80_EMIT_H
+#ifndef TYPES_Z80_DECODE_H
+#define TYPES_Z80_DECODE_H
 
-/** Z80 binary instruction emitter */
+#include <stdint.h>
+
+/** Z80 binary instruction decoder */
 typedef struct {
-	/** Z80 IC module */
-	struct z80ic_module *ic_module;
-	/** Current IC procedure */
-	struct z80ic_proc *ic_proc;
 	/** Binary object */
 	struct obj_object *object;
-	/** Binary object section */
+	/** Z80 IC module */
+	struct z80ic_module *ic_module;
+	/** Section being decoded */
 	struct obj_section *section;
-} z80_emit_t;
+	/** Current section offset */
+	uint32_t offset;
+	/** Remaining number of bytes to decode */
+	uint32_t rem_bytes;
+} z80_decode_t;
 
 #endif
