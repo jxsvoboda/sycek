@@ -1319,16 +1319,16 @@ error:
  */
 static int z80_decode_push_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_push_ix_t *ld = NULL;
+	z80ic_push_ix_t *push = NULL;
 	int rc;
 
 	(void)decode;
 
-	rc = z80ic_push_ix_create(&ld);
+	rc = z80ic_push_ix_create(&push);
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	z80ic_lblock_append(lblock, NULL, &push->instr);
 	return EOK;
 }
 
@@ -1340,16 +1340,16 @@ static int z80_decode_push_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_push_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_push_iy_t *ld = NULL;
+	z80ic_push_iy_t *push = NULL;
 	int rc;
 
 	(void)decode;
 
-	rc = z80ic_push_iy_create(&ld);
+	rc = z80ic_push_iy_create(&push);
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	z80ic_lblock_append(lblock, NULL, &push->instr);
 	return EOK;
 }
 
@@ -1399,16 +1399,16 @@ error:
  */
 static int z80_decode_pop_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_pop_ix_t *ld = NULL;
+	z80ic_pop_ix_t *pop = NULL;
 	int rc;
 
 	(void)decode;
 
-	rc = z80ic_pop_ix_create(&ld);
+	rc = z80ic_pop_ix_create(&pop);
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	z80ic_lblock_append(lblock, NULL, &pop->instr);
 	return EOK;
 }
 
@@ -1420,16 +1420,310 @@ static int z80_decode_pop_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_pop_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_pop_iy_t *ld = NULL;
+	z80ic_pop_iy_t *pop = NULL;
 	int rc;
 
 	(void)decode;
 
-	rc = z80ic_pop_iy_create(&ld);
+	rc = z80ic_pop_iy_create(&pop);
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	z80ic_lblock_append(lblock, NULL, &pop->instr);
+	return EOK;
+}
+
+/** Decode exchange DE with HL.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ex_de_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ex_de_hl_t *ex = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ex_de_hl_create(&ex);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	return EOK;
+}
+
+/** Decode exchange AF with AF'.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ex_af_afp(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ex_af_afp_t *ex = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ex_af_afp_create(&ex);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	return EOK;
+}
+
+/** Decode exchange BC, DE, HL with BC', DE', HL'.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_exx(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_exx_t *exx = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_exx_create(&exx);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &exx->instr);
+	return EOK;
+}
+
+/** Decode exchange (SP) with HL.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ex_isp_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ex_isp_hl_t *ex = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ex_isp_hl_create(&ex);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	return EOK;
+}
+
+/** Decode exchange (SP) with IX.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ex_isp_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ex_isp_ix_t *ex = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ex_isp_ix_create(&ex);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	return EOK;
+}
+
+/** Decode exchange (SP) with IY.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ex_isp_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ex_isp_iy_t *ex = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ex_isp_iy_create(&ex);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	return EOK;
+}
+
+/** Decode load, increment.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ldi(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ldi_t *ldi = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ldi_create(&ldi);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	return EOK;
+}
+
+/** Decode load, increment, repeat.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ldir(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ldir_t *ldir = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ldir_create(&ldir);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ldir->instr);
+	return EOK;
+}
+
+/** Decode load, decrement.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_ldd(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_ldd_t *ldd = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_ldd_create(&ldd);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &ldd->instr);
+	return EOK;
+}
+
+/** Decode load, decrement, repeat.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_lddr(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_lddr_t *lddr = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_lddr_create(&lddr);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &lddr->instr);
+	return EOK;
+}
+
+/** Decode compare, increment.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_cpi(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_cpi_t *cpi = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_cpi_create(&cpi);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &cpi->instr);
+	return EOK;
+}
+
+/** Decode compare, increment, repeat.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_cpir(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_cpir_t *cpir = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_cpir_create(&cpir);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &cpir->instr);
+	return EOK;
+}
+
+/** Decode compare, decrement.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_cpd(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_cpd_t *cpd = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_cpd_create(&cpd);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &cpd->instr);
+	return EOK;
+}
+
+/** Decode compare, decrement, repeat.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_cpdr(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_cpdr_t *cpdr = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_cpdr_create(&cpdr);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &cpdr->instr);
 	return EOK;
 }
 
@@ -1501,6 +1795,8 @@ static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_push_ix(decode, lblock);
 	case z80opc_pop_ix & 0xff:
 		return z80_decode_pop_ix(decode, lblock);
+	case z80opc_ex_isp_hl & 0xff:
+		return z80_decode_ex_isp_ix(decode, lblock);
 	default:
 		printf("Unknown opcode 0xdd%" PRIx8 "\n", b);
 	}
@@ -1534,6 +1830,22 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_ld_i_a(decode, lblock);
 	case z80opc_ld_r_a & 0xff:
 		return z80_decode_ld_r_a(decode, lblock);
+	case z80opc_ldi & 0xff:
+		return z80_decode_ldi(decode, lblock);
+	case z80opc_ldir & 0xff:
+		return z80_decode_ldir(decode, lblock);
+	case z80opc_ldd & 0xff:
+		return z80_decode_ldd(decode, lblock);
+	case z80opc_lddr & 0xff:
+		return z80_decode_lddr(decode, lblock);
+	case z80opc_cpi & 0xff:
+		return z80_decode_cpi(decode, lblock);
+	case z80opc_cpir & 0xff:
+		return z80_decode_cpir(decode, lblock);
+	case z80opc_cpd & 0xff:
+		return z80_decode_cpd(decode, lblock);
+	case z80opc_cpdr & 0xff:
+		return z80_decode_cpdr(decode, lblock);
 	default:
 		printf("Unknown opcode 0xed%" PRIx8 "\n", b);
 	}
@@ -1595,6 +1907,8 @@ static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_push_iy(decode, lblock);
 	case z80opc_pop_iy & 0xff:
 		return z80_decode_pop_iy(decode, lblock);
+	case z80opc_ex_isp_iy & 0xff:
+		return z80_decode_ex_isp_iy(decode, lblock);
 	default:
 		printf("Unknown opcode 0xfd%" PRIx8 "\n", b);
 	}
@@ -1649,6 +1963,14 @@ static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_ld_inn_hl(decode, lblock);
 	case z80opc_ld_sp_hl:
 		return z80_decode_ld_sp_hl(decode, lblock);
+	case z80opc_ex_de_hl:
+		return z80_decode_ex_de_hl(decode, lblock);
+	case z80opc_ex_af_afp:
+		return z80_decode_ex_af_afp(decode, lblock);
+	case z80opc_exx:
+		return z80_decode_exx(decode, lblock);
+	case z80opc_ex_isp_hl:
+		return z80_decode_ex_isp_hl(decode, lblock);
 	default:
 		break;
 	}
