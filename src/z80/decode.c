@@ -118,6 +118,16 @@ static z80ic_dd_t z80_decode_get_dd(uint8_t opc)
 	return (z80ic_dd_t)((opc >> 4) & 0x3);
 }
 
+/** Get pp register from opcode.
+ *
+ * @param opc 8-bit opcode
+ * @return 16-bit qq register
+ */
+static z80ic_pp_t z80_decode_get_pp(uint8_t opc)
+{
+	return (z80ic_pp_t)((opc >> 4) & 0x3);
+}
+
 /** Get qq register from opcode.
  *
  * @param opc 8-bit opcode
@@ -126,6 +136,26 @@ static z80ic_dd_t z80_decode_get_dd(uint8_t opc)
 static z80ic_qq_t z80_decode_get_qq(uint8_t opc)
 {
 	return (z80ic_qq_t)((opc >> 4) & 0x3);
+}
+
+/** Get rr register from opcode.
+ *
+ * @param opc 8-bit opcode
+ * @return 16-bit qq register
+ */
+static z80ic_rr_t z80_decode_get_rr(uint8_t opc)
+{
+	return (z80ic_rr_t)((opc >> 4) & 0x3);
+}
+
+/** Get ss register from opcode.
+ *
+ * @param opc 8-bit opcode
+ * @return 16-bit ss register
+ */
+static z80ic_ss_t z80_decode_get_ss(uint8_t opc)
+{
+	return (z80ic_ss_t)((opc >> 4) & 0x3);
 }
 
 /** Decode 8-bit immediate operand.
@@ -3319,6 +3349,356 @@ static int z80_decode_im_2(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	return EOK;
 }
 
+/** Decode add 16-bit register to HL.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_add_hl_ss(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ss_t ss;
+	z80ic_add_hl_ss_t *add = NULL;
+	z80ic_oper_ss_t *src = NULL;
+	int rc;
+
+	(void)decode;
+
+	ss = z80_decode_get_ss(opc);
+
+	rc = z80ic_add_hl_ss_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(ss, &src);
+	if (rc != EOK)
+		goto error;
+
+	add->src = src;
+
+	z80ic_lblock_append(lblock, NULL, &add->instr);
+	return EOK;
+error:
+	z80ic_oper_ss_destroy(src);
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	return rc;
+}
+
+/** Decode add 16-bit register to HL with carry.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_adc_hl_ss(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ss_t ss;
+	z80ic_adc_hl_ss_t *adc = NULL;
+	z80ic_oper_ss_t *src = NULL;
+	int rc;
+
+	(void)decode;
+
+	ss = z80_decode_get_ss(opc);
+
+	rc = z80ic_adc_hl_ss_create(&adc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(ss, &src);
+	if (rc != EOK)
+		goto error;
+
+	adc->src = src;
+
+	z80ic_lblock_append(lblock, NULL, &adc->instr);
+	return EOK;
+error:
+	z80ic_oper_ss_destroy(src);
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+	return rc;
+}
+
+/** Decode subtract 16-bit register from HL with carry.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sbc_hl_ss(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ss_t ss;
+	z80ic_sbc_hl_ss_t *sbc = NULL;
+	z80ic_oper_ss_t *src = NULL;
+	int rc;
+
+	(void)decode;
+
+	ss = z80_decode_get_ss(opc);
+
+	rc = z80ic_sbc_hl_ss_create(&sbc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(ss, &src);
+	if (rc != EOK)
+		goto error;
+
+	sbc->src = src;
+
+	z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	return EOK;
+error:
+	z80ic_oper_ss_destroy(src);
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+	return rc;
+}
+
+/** Decode add 16-bit register to IX.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_add_ix_pp(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_pp_t pp;
+	z80ic_add_ix_pp_t *add = NULL;
+	z80ic_oper_pp_t *src = NULL;
+	int rc;
+
+	(void)decode;
+
+	pp = z80_decode_get_pp(opc);
+
+	rc = z80ic_add_ix_pp_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_pp_create(pp, &src);
+	if (rc != EOK)
+		goto error;
+
+	add->src = src;
+
+	z80ic_lblock_append(lblock, NULL, &add->instr);
+	return EOK;
+error:
+	z80ic_oper_pp_destroy(src);
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	return rc;
+}
+
+/** Decode add 16-bit register to IY.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_add_iy_rr(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rr_t rr;
+	z80ic_add_iy_rr_t *add = NULL;
+	z80ic_oper_rr_t *src = NULL;
+	int rc;
+
+	(void)decode;
+
+	rr = z80_decode_get_rr(opc);
+
+	rc = z80ic_add_iy_rr_create(&add);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_rr_create(rr, &src);
+	if (rc != EOK)
+		goto error;
+
+	add->src = src;
+
+	z80ic_lblock_append(lblock, NULL, &add->instr);
+	return EOK;
+error:
+	z80ic_oper_rr_destroy(src);
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	return rc;
+}
+
+/** Decode increment 16-bit register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_inc_ss(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ss_t ss;
+	z80ic_inc_ss_t *inc = NULL;
+	z80ic_oper_ss_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	ss = z80_decode_get_ss(opc);
+
+	rc = z80ic_inc_ss_create(&inc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(ss, &dest);
+	if (rc != EOK)
+		goto error;
+
+	inc->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	return EOK;
+error:
+	z80ic_oper_ss_destroy(dest);
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	return rc;
+}
+
+/** Decode increment IX.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_inc_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_inc_ix_t *inc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_inc_ix_create(&inc);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	return EOK;
+}
+
+/** Decode increment IY.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_inc_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_inc_iy_t *inc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_inc_iy_create(&inc);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	return EOK;
+}
+
+/** Decode decrement 16-bit register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_dec_ss(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_ss_t ss;
+	z80ic_dec_ss_t *dec = NULL;
+	z80ic_oper_ss_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	ss = z80_decode_get_ss(opc);
+
+	rc = z80ic_dec_ss_create(&dec);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_ss_create(ss, &dest);
+	if (rc != EOK)
+		goto error;
+
+	dec->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	return EOK;
+error:
+	z80ic_oper_ss_destroy(dest);
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	return rc;
+}
+
+/** Decode decrement IX.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_dec_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_dec_ix_t *dec = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_dec_ix_create(&dec);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	return EOK;
+}
+
+/** Decode decrement IY.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_dec_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_dec_iy_t *dec = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_dec_iy_create(&dec);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	return EOK;
+}
+
 /** Decode one instrucction with CB prefix.
  *
  * @param decode Binary instruction decoder
@@ -3409,12 +3789,18 @@ static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_inc_iixd(decode, lblock);
 	case z80opc_dec_iixd & 0xff:
 		return z80_decode_dec_iixd(decode, lblock);
+	case z80opc_inc_ix & 0xff:
+		return z80_decode_inc_ix(decode, lblock);
+	case z80opc_dec_ix & 0xff:
+		return z80_decode_dec_ix(decode, lblock);
 	default:
 		printf("Unknown opcode 0xdd%" PRIx8 "\n", b);
 	}
 
 	if ((b & 0xc7) == (z80opc_ld_r_iixd & 0xff))
 		return z80_decode_ld_r_iixd(decode, b, lblock);
+	if ((b & 0xcf) == (z80opc_add_ix_pp & 0xff))
+		return z80_decode_add_ix_pp(decode, b, lblock);
 	if ((b & 0xf8) == (z80opc_ld_iixd_r & 0xff))
 		return z80_decode_ld_iixd_r(decode, b, lblock);
 
@@ -3474,6 +3860,10 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_ld_dd_inn(decode, b, lblock);
 	if ((b & 0xcf) == (z80opc_ld_inn_dd & 0xff))
 		return z80_decode_ld_inn_dd(decode, b, lblock);
+	if ((b & 0xcf) == (z80opc_adc_hl_ss & 0xff))
+		return z80_decode_adc_hl_ss(decode, b, lblock);
+	if ((b & 0xcf) == (z80opc_sbc_hl_ss & 0xff))
+		return z80_decode_sbc_hl_ss(decode, b, lblock);
 
 	(void)lblock;
 	return EOK;
@@ -3549,12 +3939,18 @@ static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_inc_iiyd(decode, lblock);
 	case z80opc_dec_iiyd & 0xff:
 		return z80_decode_dec_iiyd(decode, lblock);
+	case z80opc_inc_iy & 0xff:
+		return z80_decode_inc_iy(decode, lblock);
+	case z80opc_dec_iy & 0xff:
+		return z80_decode_dec_iy(decode, lblock);
 	default:
 		printf("Unknown opcode 0xfd%" PRIx8 "\n", b);
 	}
 
 	if ((b & 0xc7) == (z80opc_ld_r_iiyd & 0xff))
 		return z80_decode_ld_r_iiyd(decode, b, lblock);
+	if ((b & 0xcf) == (z80opc_add_iy_rr & 0xff))
+		return z80_decode_add_iy_rr(decode, b, lblock);
 	if ((b & 0xf8) == (z80opc_ld_iiyd_r & 0xff))
 		return z80_decode_ld_iiyd_r(decode, b, lblock);
 
@@ -3673,6 +4069,12 @@ static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_push_qq(decode, b, lblock);
 	if ((b & 0xcf) == z80opc_pop_qq)
 		return z80_decode_pop_qq(decode, b, lblock);
+	if ((b & 0xcf) == z80opc_add_hl_ss)
+		return z80_decode_add_hl_ss(decode, b, lblock);
+	if ((b & 0xcf) == z80opc_inc_ss)
+		return z80_decode_inc_ss(decode, b, lblock);
+	if ((b & 0xcf) == z80opc_dec_ss)
+		return z80_decode_dec_ss(decode, b, lblock);
 	if ((b & 0xc7) == z80opc_ld_r_ihl)
 		return z80_decode_ld_r_ihl(decode, b, lblock);
 	if ((b & 0xc7) == z80opc_ld_r_n)
