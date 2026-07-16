@@ -554,7 +554,7 @@ static int z80ic_parser_process_oper_imm8(z80ic_parser_t *parser,
 		(void)fprintf(stderr, "Error: ");
 		(void)z80ic_parser_dprint_next_tok(parser, stderr);
 		(void)fprintf(stderr, " is out of range of [0, 255].\n");
-		return rc;
+		return EINVAL;
 	}
 
 	rc = z80ic_oper_imm8_create((uint8_t)value, &imm);
@@ -10402,7 +10402,8 @@ static int z80ic_parser_process_proc(z80ic_parser_t *parser,
 				    stderr);
 				(void)fprintf(stderr, " is out of range of "
 				    "[0, 65535].\n");
-				return rc;
+				rc = EINVAL;
+				goto error;
 			}
 
 			z80ic_parser_skip(parser);
