@@ -331,9 +331,9 @@ static int z80_emit_opc_d(z80_emit_t *emit, uint32_t opc, int8_t disp)
 {
 	int rc;
 
-	if ((opc >> 8) == 0xddcbu) {
-		/* Must be encoded as DD CB dd opc. */
-		rc = z80_emit_opc(emit, 0xddcbu);
+	if ((opc >> 8) == 0xddcbu || (opc >> 8) == 0xfdcbu) {
+		/* Must be encoded as DD CB dd opc. or FD CB dd opc. */
+		rc = z80_emit_opc(emit, opc >> 8);
 		if (rc != EOK)
 			return rc;
 
@@ -354,6 +354,7 @@ static int z80_emit_opc_d(z80_emit_t *emit, uint32_t opc, int8_t disp)
 		if (rc != EOK)
 			return rc;
 	}
+
 	return EOK;
 }
 

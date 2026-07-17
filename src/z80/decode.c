@@ -3699,7 +3699,931 @@ static int z80_decode_dec_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	return EOK;
 }
 
-/** Decode one instrucction with CB prefix.
+/** Decode rotate left circular accumulator.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rlca(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rlca_t *rlca = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rlca_create(&rlca);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rlca->instr);
+	return EOK;
+}
+
+/** Decode rotate left accumulator.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rla(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rla_t *rla = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rla_create(&rla);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rla->instr);
+	return EOK;
+}
+
+/** Decode rotate right circular accumulator.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rrca(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rrca_t *rrca = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rrca_create(&rrca);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rrca->instr);
+	return EOK;
+}
+
+/** Decode rotate right accumulator.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rra(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rra_t *rra = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rra_create(&rra);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rra->instr);
+	return EOK;
+}
+
+/** Decode rotate left circular register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rlc_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_rlc_r_t *rlc = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_rlc_r_create(&rlc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rlc->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (rlc != NULL)
+		z80ic_instr_destroy(&rlc->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode rotate left circular (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rlc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rlc_ihl_t *rlc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rlc_ihl_create(&rlc);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	return EOK;
+}
+
+/** Decode rotate left circular (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rlc_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rlc_iixd_t *rlc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rlc_iixd_create(&rlc);
+	if (rc != EOK)
+		return rc;
+
+	rlc->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	return EOK;
+}
+
+/** Decode rotate left circular (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rlc_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rlc_iiyd_t *rlc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rlc_iiyd_create(&rlc);
+	if (rc != EOK)
+		return rc;
+
+	rlc->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	return EOK;
+}
+
+/** Decode rotate left register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rl_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_rl_r_t *rl = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_rl_r_create(&rl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rl->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode rotate left (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rl_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rl_ihl_t *rl = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rl_ihl_create(&rl);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	return EOK;
+}
+
+/** Decode rotate left (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rl_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rl_iixd_t *rl = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rl_iixd_create(&rl);
+	if (rc != EOK)
+		return rc;
+
+	rl->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	return EOK;
+}
+
+/** Decode rotate left (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rl_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rl_iiyd_t *rl = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rl_iiyd_create(&rl);
+	if (rc != EOK)
+		return rc;
+
+	rl->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	return EOK;
+}
+
+/** Decode rotate right circular register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rrc_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_rrc_r_t *rrc = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_rrc_r_create(&rrc);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rrc->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (rrc != NULL)
+		z80ic_instr_destroy(&rrc->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode rotate right circular (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rrc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rrc_ihl_t *rrc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rrc_ihl_create(&rrc);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	return EOK;
+}
+
+/** Decode rotate right circular (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rrc_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rrc_iixd_t *rrc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rrc_iixd_create(&rrc);
+	if (rc != EOK)
+		return rc;
+
+	rrc->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	return EOK;
+}
+
+/** Decode rotate right circular (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rrc_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rrc_iiyd_t *rrc = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rrc_iiyd_create(&rrc);
+	if (rc != EOK)
+		return rc;
+
+	rrc->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	return EOK;
+}
+
+/** Decode rotate right register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rr_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_rr_r_t *rr = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_rr_r_create(&rr);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	rr->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (rr != NULL)
+		z80ic_instr_destroy(&rr->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode rotate right (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rr_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rr_ihl_t *rr = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rr_ihl_create(&rr);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	return EOK;
+}
+
+/** Decode rotate right (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rr_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rr_iixd_t *rr = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rr_iixd_create(&rr);
+	if (rc != EOK)
+		return rc;
+
+	rr->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	return EOK;
+}
+
+/** Decode rotate right (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rr_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_rr_iiyd_t *rr = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rr_iiyd_create(&rr);
+	if (rc != EOK)
+		return rc;
+
+	rr->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	return EOK;
+}
+
+/** Decode shift left arithmetic register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sla_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_sla_r_t *sla = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_sla_r_create(&sla);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	sla->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode shift left arithmetic (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sla_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_sla_ihl_t *sla = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_sla_ihl_create(&sla);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	return EOK;
+}
+
+/** Decode shift left arithmetic (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sla_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_sla_iixd_t *sla = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_sla_iixd_create(&sla);
+	if (rc != EOK)
+		return rc;
+
+	sla->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	return EOK;
+}
+
+/** Decode shift left arithmetic (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sla_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_sla_iiyd_t *sla = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_sla_iiyd_create(&sla);
+	if (rc != EOK)
+		return rc;
+
+	sla->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	return EOK;
+}
+
+/** Decode shift right arithmetic register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sra_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_sra_r_t *sra = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_sra_r_create(&sra);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	sra->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (sra != NULL)
+		z80ic_instr_destroy(&sra->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode shift right arithmetic (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sra_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_sra_ihl_t *sra = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_sra_ihl_create(&sra);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	return EOK;
+}
+
+/** Decode shift right arithmetic (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sra_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_sra_iixd_t *sra = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_sra_iixd_create(&sra);
+	if (rc != EOK)
+		return rc;
+
+	sra->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	return EOK;
+}
+
+/** Decode shift right arithmetic (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_sra_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_sra_iiyd_t *sra = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_sra_iiyd_create(&sra);
+	if (rc != EOK)
+		return rc;
+
+	sra->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	return EOK;
+}
+
+/** Decode shift right logical register.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_srl_r(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_reg_t sreg;
+	z80ic_srl_r_t *srl = NULL;
+	z80ic_oper_reg_t *dest = NULL;
+	int rc;
+
+	(void)decode;
+
+	/*
+	 * NOTE In rotate and shift instructions the register number is
+	 * encoded as sreg!
+	 */
+	sreg = z80_decode_get_sreg(opc);
+
+	rc = z80ic_srl_r_create(&srl);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_oper_reg_create(sreg, &dest);
+	if (rc != EOK)
+		goto error;
+
+	srl->dest = dest;
+
+	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	return EOK;
+error:
+	z80ic_oper_reg_destroy(dest);
+	if (srl != NULL)
+		z80ic_instr_destroy(&srl->instr);
+	return rc;
+
+	(void)lblock;
+	return EOK;
+}
+
+/** Decode shift right logical (HL).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_srl_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_srl_ihl_t *srl = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_srl_ihl_create(&srl);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	return EOK;
+}
+
+/** Decode shift right logical (IX+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_srl_iixd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_srl_iixd_t *srl = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_srl_iixd_create(&srl);
+	if (rc != EOK)
+		return rc;
+
+	srl->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	return EOK;
+}
+
+/** Decode shift right logical (IY+d).
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_srl_iiyd(z80_decode_t *decode, uint8_t disp,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_srl_iiyd_t *srl = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_srl_iiyd_create(&srl);
+	if (rc != EOK)
+		return rc;
+
+	srl->disp = disp;
+
+	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	return EOK;
+}
+
+/** Decode rotate left digit.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rld(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rld_t *rld = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rld_create(&rld);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rld->instr);
+	return EOK;
+}
+
+/** Decode rotate right digit.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_rrd(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_rrd_t *rrd = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_rrd_create(&rrd);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &rrd->instr);
+	return EOK;
+}
+
+/** Decode one instruction with CB prefix.
  *
  * @param decode Binary instruction decoder
  * @param lblock Labeled block to append instructions to
@@ -3711,9 +4635,38 @@ static int z80_decode_cb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	b = z80_decode_get_u8(decode);
 	switch (b) {
+	case z80opc_rlc_ihl & 0xff:
+		return z80_decode_rlc_ihl(decode, lblock);
+	case z80opc_rl_ihl & 0xff:
+		return z80_decode_rl_ihl(decode, lblock);
+	case z80opc_rrc_ihl & 0xff:
+		return z80_decode_rrc_ihl(decode, lblock);
+	case z80opc_rr_ihl & 0xff:
+		return z80_decode_rr_ihl(decode, lblock);
+	case z80opc_sla_ihl & 0xff:
+		return z80_decode_sla_ihl(decode, lblock);
+	case z80opc_sra_ihl & 0xff:
+		return z80_decode_sra_ihl(decode, lblock);
+	case z80opc_srl_ihl & 0xff:
+		return z80_decode_srl_ihl(decode, lblock);
 	default:
 		printf("Unknown opcode 0xcb%" PRIx8 "\n", b);
 	}
+
+	if ((b & 0xf8) == (z80opc_rlc_r & 0xff))
+		return z80_decode_rlc_r(decode, b, lblock);
+	if ((b & 0xf8) == (z80opc_rl_r & 0xff))
+		return z80_decode_rl_r(decode, b, lblock);
+	if ((b & 0xf8) == (z80opc_rrc_r & 0xff))
+		return z80_decode_rrc_r(decode, b, lblock);
+	if ((b & 0xf8) == (z80opc_rr_r & 0xff))
+		return z80_decode_rr_r(decode, b, lblock);
+	if ((b & 0xf8) == (z80opc_sla_r & 0xff))
+		return z80_decode_sla_r(decode, b, lblock);
+	if ((b & 0xf8) == (z80opc_sra_r & 0xff))
+		return z80_decode_sra_r(decode, b, lblock);
+	if ((b & 0xf8) == (z80opc_srl_r & 0xff))
+		return z80_decode_srl_r(decode, b, lblock);
 
 	(void)lblock;
 	return EOK;
@@ -3727,10 +4680,27 @@ static int z80_decode_cb(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_ddcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
+	uint8_t disp;
 	uint8_t b;
 
+	disp = z80_decode_get_u8(decode);
 	b = z80_decode_get_u8(decode);
+
 	switch (b) {
+	case z80opc_rlc_iixd & 0xff:
+		return z80_decode_rlc_iixd(decode, disp, lblock);
+	case z80opc_rl_iixd & 0xff:
+		return z80_decode_rl_iixd(decode, disp, lblock);
+	case z80opc_rrc_iixd & 0xff:
+		return z80_decode_rrc_iixd(decode, disp, lblock);
+	case z80opc_rr_iixd & 0xff:
+		return z80_decode_rr_iixd(decode, disp, lblock);
+	case z80opc_sla_iixd & 0xff:
+		return z80_decode_sla_iixd(decode, disp, lblock);
+	case z80opc_sra_iixd & 0xff:
+		return z80_decode_sra_iixd(decode, disp, lblock);
+	case z80opc_srl_iixd & 0xff:
+		return z80_decode_srl_iixd(decode, disp, lblock);
 	default:
 		printf("Unknown opcode 0xddcb%" PRIx8 "\n", b);
 	}
@@ -3852,6 +4822,10 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_im_1(decode, lblock);
 	case z80opc_im_2 & 0xff:
 		return z80_decode_im_2(decode, lblock);
+	case z80opc_rld & 0xff:
+		return z80_decode_rld(decode, lblock);
+	case z80opc_rrd & 0xff:
+		return z80_decode_rrd(decode, lblock);
 	default:
 		printf("Unknown opcode 0xed%" PRIx8 "\n", b);
 	}
@@ -3877,10 +4851,28 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_fdcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
+	uint8_t disp;
 	uint8_t b;
 
+	disp = z80_decode_get_u8(decode);
 	b = z80_decode_get_u8(decode);
+	printf("disp 0x%02x, opc=0x%02x\n", disp, b);
+
 	switch (b) {
+	case z80opc_rlc_iiyd & 0xff:
+		return z80_decode_rlc_iiyd(decode, disp, lblock);
+	case z80opc_rl_iiyd & 0xff:
+		return z80_decode_rl_iiyd(decode, disp, lblock);
+	case z80opc_rrc_iiyd & 0xff:
+		return z80_decode_rrc_iiyd(decode, disp, lblock);
+	case z80opc_rr_iiyd & 0xff:
+		return z80_decode_rr_iiyd(decode, disp, lblock);
+	case z80opc_sla_iiyd & 0xff:
+		return z80_decode_sla_iiyd(decode, disp, lblock);
+	case z80opc_sra_iiyd & 0xff:
+		return z80_decode_sra_iiyd(decode, disp, lblock);
+	case z80opc_srl_iiyd & 0xff:
+		return z80_decode_srl_iiyd(decode, disp, lblock);
 	default:
 		printf("Unknown opcode 0xfdcb%" PRIx8 "\n", b);
 	}
@@ -4059,6 +5051,14 @@ static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_di(decode, lblock);
 	case z80opc_ei:
 		return z80_decode_ei(decode, lblock);
+	case z80opc_rlca:
+		return z80_decode_rlca(decode, lblock);
+	case z80opc_rla:
+		return z80_decode_rla(decode, lblock);
+	case z80opc_rrca:
+		return z80_decode_rrca(decode, lblock);
+	case z80opc_rra:
+		return z80_decode_rra(decode, lblock);
 	default:
 		break;
 	}
