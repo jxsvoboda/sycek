@@ -2914,6 +2914,17 @@ static int z80_emit_otdr(z80_emit_t *emit, z80ic_otdr_t *instr)
 	return z80_emit_opc(emit, z80opc_otdr);
 }
 
+/** Emit define byte instruction.
+ *
+ * @param emit Binary instruction emitter
+ * @param instr Z80 IC instruction
+ * @return EOK on success or an error code
+ */
+static int z80_emit_defb(z80_emit_t *emit, z80ic_defb_t *instr)
+{
+	return z80_emit_u8(emit, instr->imm8->imm8);
+}
+
 /** Emit binary instruction.
  *
  * @param emit Binary instruction emitter
@@ -3397,6 +3408,8 @@ static int z80_emit_instr(z80_emit_t *emit, z80ic_instr_t *instr)
 		return z80_emit_outd(emit, (z80ic_outd_t *)instr->ext);
 	case z80i_otdr:
 		return z80_emit_otdr(emit, (z80ic_otdr_t *)instr->ext);
+	case z80i_defb:
+		return z80_emit_defb(emit, (z80ic_defb_t *)instr->ext);
 	default:
 		/* XXX */
 		(void)fprintf(stderr, "Unsupported instruction.\n");

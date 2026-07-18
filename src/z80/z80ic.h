@@ -332,6 +332,7 @@ extern int z80ic_sra_vr_create(z80ic_sra_vr_t **);
 extern int z80ic_srl_vr_create(z80ic_srl_vr_t **);
 extern int z80ic_bit_b_vr_create(z80ic_bit_b_vr_t **);
 extern int z80ic_set_b_vr_create(z80ic_set_b_vr_t **);
+extern int z80ic_defb_create(z80ic_defb_t **);
 extern int z80ic_instr_print(z80ic_instr_t *, FILE *);
 extern void z80ic_instr_destroy(z80ic_instr_t *);
 extern int z80ic_oper_imm8_create(uint8_t, z80ic_oper_imm8_t **);

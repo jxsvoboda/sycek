@@ -694,7 +694,10 @@ typedef enum {
 	z80i_res_b_ivrrd,
 
 	/** Jump to address in virtual register pair */
-	z80i_jp_vrr
+	z80i_jp_vrr,
+
+	/** Define byte */
+	z80i_defb
 } z80ic_instr_type_t;
 
 /** Z80 IC register.
@@ -2927,6 +2930,14 @@ typedef struct {
 	/** Source/destination virtual register */
 	z80ic_oper_vr_t *src;
 } z80ic_set_b_vr_t;
+
+/** Z80 IC define byte */
+typedef struct {
+	/** Base object */
+	z80ic_instr_t instr;
+	/** Immediate operand */
+	z80ic_oper_imm8_t *imm8;
+} z80ic_defb_t;
 
 /** Z80 IC labeled block entry */
 typedef struct {
