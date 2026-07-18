@@ -9436,13 +9436,13 @@ static int z80ic_parser_process_reti(z80ic_parser_t *parser,
 static int z80ic_parser_process_retn(z80ic_parser_t *parser,
     z80ic_instr_t **rinstr)
 {
-	z80ic_reti_t *retn;
+	z80ic_retn_t *retn;
 	int rc;
 
 	/* Skip 'retn'. */
 	z80ic_parser_skip(parser);
 
-	rc = z80ic_reti_create(&retn);
+	rc = z80ic_retn_create(&retn);
 	if (rc != EOK)
 		return rc;
 
