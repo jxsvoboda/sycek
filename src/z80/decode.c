@@ -200,6 +200,9 @@ static int z80_decode_imm8(z80_decode_t *decode, z80ic_oper_imm8_t **rimm8)
 	z80ic_oper_imm8_t *imm8;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	value = z80_decode_get_u8(decode);
 
 	rc = z80ic_oper_imm8_create(value, &imm8);
@@ -221,6 +224,9 @@ static int z80_decode_imm16(z80_decode_t *decode, z80ic_oper_imm16_t **rimm16)
 	uint16_t value;
 	z80ic_oper_imm16_t *imm16;
 	int rc;
+
+	if (decode->rem_bytes < 2)
+		return ERANGE;
 
 	value = z80_decode_get_u16le(decode);
 
@@ -381,6 +387,9 @@ static int z80_decode_ld_r_iixd(z80_decode_t *decode, uint8_t opc,
 	z80ic_oper_reg_t *dest = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	dreg = z80_decode_get_dreg(opc);
 	disp = z80_decode_get_u8(decode);
 
@@ -422,6 +431,9 @@ static int z80_decode_ld_r_iiyd(z80_decode_t *decode, uint8_t opc,
 	z80ic_ld_r_iiyd_t *ld = NULL;
 	z80ic_oper_reg_t *dest = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	dreg = z80_decode_get_dreg(opc);
 	disp = z80_decode_get_u8(decode);
@@ -506,6 +518,9 @@ static int z80_decode_ld_iixd_r(z80_decode_t *decode, uint8_t opc,
 	z80ic_oper_reg_t *src = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 	sreg = z80_decode_get_sreg(opc);
 
@@ -547,6 +562,9 @@ static int z80_decode_ld_iiyd_r(z80_decode_t *decode, uint8_t opc,
 	z80ic_ld_iiyd_r_t *ld = NULL;
 	z80ic_oper_reg_t *src = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 	sreg = z80_decode_get_sreg(opc);
@@ -618,6 +636,9 @@ static int z80_decode_ld_iixd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80_decode_imm8(decode, &imm8);
@@ -652,6 +673,9 @@ static int z80_decode_ld_iiyd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_ld_iiyd_n_t *ld = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -1884,6 +1908,9 @@ static int z80_decode_add_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_add_a_iixd_t *add = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_add_a_iixd_create(&add);
@@ -1907,6 +1934,9 @@ static int z80_decode_add_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_add_a_iiyd_t *add = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2025,6 +2055,9 @@ static int z80_decode_adc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_adc_a_iixd_t *adc = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_adc_a_iixd_create(&adc);
@@ -2048,6 +2081,9 @@ static int z80_decode_adc_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_adc_a_iiyd_t *adc = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2166,6 +2202,9 @@ static int z80_decode_sub_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_sub_iixd_t *sub = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_sub_iixd_create(&sub);
@@ -2189,6 +2228,9 @@ static int z80_decode_sub_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_sub_iiyd_t *sub = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2307,6 +2349,9 @@ static int z80_decode_sbc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_sbc_a_iixd_t *sbc = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_sbc_a_iixd_create(&sbc);
@@ -2330,6 +2375,9 @@ static int z80_decode_sbc_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_sbc_a_iiyd_t *sbc = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2448,6 +2496,9 @@ static int z80_decode_and_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_and_iixd_t *and = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_and_iixd_create(&and);
@@ -2471,6 +2522,9 @@ static int z80_decode_and_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_and_iiyd_t *and = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2589,6 +2643,9 @@ static int z80_decode_or_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_or_iixd_t *or = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_or_iixd_create(&or);
@@ -2612,6 +2669,9 @@ static int z80_decode_or_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_or_iiyd_t *or = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2730,6 +2790,9 @@ static int z80_decode_xor_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_xor_iixd_t *xor = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_xor_iixd_create(&xor);
@@ -2753,6 +2816,9 @@ static int z80_decode_xor_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_xor_iiyd_t *xor = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2871,6 +2937,9 @@ static int z80_decode_cp_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_cp_iixd_t *cp = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_cp_iixd_create(&cp);
@@ -2894,6 +2963,9 @@ static int z80_decode_cp_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_cp_iiyd_t *cp = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -2981,6 +3053,9 @@ static int z80_decode_inc_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_inc_iixd_t *inc = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_inc_iixd_create(&inc);
@@ -3004,6 +3079,9 @@ static int z80_decode_inc_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_inc_iiyd_t *inc = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -3091,6 +3169,9 @@ static int z80_decode_dec_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_dec_iixd_t *dec = NULL;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 
 	rc = z80ic_dec_iixd_create(&dec);
@@ -3114,6 +3195,9 @@ static int z80_decode_dec_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	z80ic_dec_iiyd_t *dec = NULL;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 
@@ -5126,6 +5210,9 @@ static int z80_decode_jr_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t em2;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	em2 = z80_decode_get_u8(decode);
 
 	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
@@ -5157,6 +5244,9 @@ static int z80_decode_jr_c_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_oper_imm16_t *imm16 = NULL;
 	uint8_t em2;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	em2 = z80_decode_get_u8(decode);
 
@@ -5190,6 +5280,9 @@ static int z80_decode_jr_nc_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t em2;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	em2 = z80_decode_get_u8(decode);
 
 	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
@@ -5222,6 +5315,9 @@ static int z80_decode_jr_z_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t em2;
 	int rc;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	em2 = z80_decode_get_u8(decode);
 
 	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
@@ -5253,6 +5349,9 @@ static int z80_decode_jr_nz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_oper_imm16_t *imm16 = NULL;
 	uint8_t em2;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	em2 = z80_decode_get_u8(decode);
 
@@ -5348,6 +5447,9 @@ static int z80_decode_djnz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	z80ic_oper_imm16_t *imm16 = NULL;
 	uint8_t em2;
 	int rc;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	em2 = z80_decode_get_u8(decode);
 
@@ -5874,6 +5976,9 @@ static int z80_decode_cb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	b = z80_decode_get_u8(decode);
 	switch (b) {
 	case z80opc_rlc_ihl & 0xff:
@@ -5891,7 +5996,7 @@ static int z80_decode_cb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	case z80opc_srl_ihl & 0xff:
 		return z80_decode_srl_ihl(decode, lblock);
 	default:
-		printf("Unknown opcode 0xcb%" PRIx8 "\n", b);
+		break;
 	}
 
 	if ((b & 0xf8) == (z80opc_rlc_r & 0xff))
@@ -5921,7 +6026,7 @@ static int z80_decode_cb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if ((b & 0xc0) == (z80opc_res_b_r & 0xff))
 		return z80_decode_res_b_r(decode, b, lblock);
 
-	(void)lblock;
+	printf("Unknown opcode 0xcb%" PRIx8 "\n", b);
 	return EOK;
 }
 
@@ -5935,6 +6040,9 @@ static int z80_decode_ddcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	uint8_t disp;
 	uint8_t b;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	disp = z80_decode_get_u8(decode);
 	b = z80_decode_get_u8(decode);
@@ -5955,7 +6063,7 @@ static int z80_decode_ddcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	case z80opc_srl_iixd & 0xff:
 		return z80_decode_srl_iixd(decode, disp, lblock);
 	default:
-		printf("Unknown opcode 0xddcb%" PRIx8 "\n", b);
+		break;
 	}
 
 	if ((b & 0xc7) == (z80opc_bit_b_iixd & 0xff))
@@ -5965,7 +6073,7 @@ static int z80_decode_ddcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if ((b & 0xc7) == (z80opc_res_b_iixd & 0xff))
 		return z80_decode_res_b_iixd(decode, disp, b, lblock);
 
-	(void)lblock;
+	printf("Unknown opcode 0xddcb%" PRIx8 "\n", b);
 	return EOK;
 }
 
@@ -5978,6 +6086,9 @@ static int z80_decode_ddcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	b = z80_decode_get_u8(decode);
 	switch (b) {
@@ -6026,7 +6137,7 @@ static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	case z80opc_jp_ix & 0xff:
 		return z80_decode_jp_ix(decode, lblock);
 	default:
-		printf("Unknown opcode 0xdd%" PRIx8 "\n", b);
+		break;
 	}
 
 	if ((b & 0xc7) == (z80opc_ld_r_iixd & 0xff))
@@ -6036,7 +6147,7 @@ static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if ((b & 0xf8) == (z80opc_ld_iixd_r & 0xff))
 		return z80_decode_ld_iixd_r(decode, b, lblock);
 
-	(void)lblock;
+	printf("Unknown opcode 0xdd%" PRIx8 "\n", b);
 	return EOK;
 }
 
@@ -6049,6 +6160,9 @@ static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	b = z80_decode_get_u8(decode);
 	switch (b) {
@@ -6109,7 +6223,7 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	case z80opc_otdr & 0xff:
 		return z80_decode_otdr(decode, lblock);
 	default:
-		printf("Unknown opcode 0xed%" PRIx8 "\n", b);
+		break;
 	}
 
 	if ((b & 0xcf) == (z80opc_ld_dd_inn & 0xff))
@@ -6125,7 +6239,7 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if ((b & 0xc7) == (z80opc_out_ic_r & 0xff))
 		return z80_decode_out_ic_r(decode, b, lblock);
 
-	(void)lblock;
+	printf("Unknown opcode 0xed%" PRIx8 "\n", b);
 	return EOK;
 }
 
@@ -6140,9 +6254,11 @@ static int z80_decode_fdcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	uint8_t disp;
 	uint8_t b;
 
+	if (decode->rem_bytes < 1)
+		return ERANGE;
+
 	disp = z80_decode_get_u8(decode);
 	b = z80_decode_get_u8(decode);
-	printf("disp 0x%02x, opc=0x%02x\n", disp, b);
 
 	switch (b) {
 	case z80opc_rlc_iiyd & 0xff:
@@ -6160,7 +6276,7 @@ static int z80_decode_fdcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	case z80opc_srl_iiyd & 0xff:
 		return z80_decode_srl_iiyd(decode, disp, lblock);
 	default:
-		printf("Unknown opcode 0xfdcb%" PRIx8 "\n", b);
+		break;
 	}
 
 	if ((b & 0xc7) == (z80opc_bit_b_iiyd & 0xff))
@@ -6170,7 +6286,7 @@ static int z80_decode_fdcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if ((b & 0xc7) == (z80opc_res_b_iiyd & 0xff))
 		return z80_decode_res_b_iiyd(decode, disp, b, lblock);
 
-	(void)lblock;
+	printf("Unknown opcode 0xfdcb%" PRIx8 "\n", b);
 	return EOK;
 }
 
@@ -6183,6 +6299,9 @@ static int z80_decode_fdcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	b = z80_decode_get_u8(decode);
 	switch (b) {
@@ -6231,7 +6350,7 @@ static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	case z80opc_jp_iy & 0xff:
 		return z80_decode_jp_iy(decode, lblock);
 	default:
-		printf("Unknown opcode 0xfd%" PRIx8 "\n", b);
+		break;
 	}
 
 	if ((b & 0xc7) == (z80opc_ld_r_iiyd & 0xff))
@@ -6241,7 +6360,7 @@ static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if ((b & 0xf8) == (z80opc_ld_iiyd_r & 0xff))
 		return z80_decode_ld_iiyd_r(decode, b, lblock);
 
-	(void)lblock;
+	printf("Unknown opcode 0xfd%" PRIx8 "\n", b);
 	return EOK;
 }
 
@@ -6254,6 +6373,9 @@ static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
+
+	if (decode->rem_bytes < 1)
+		return ERANGE;
 
 	b = z80_decode_get_u8(decode);
 
@@ -6455,8 +6577,15 @@ static int z80_decode_range(z80_decode_t *decode, obj_section_t *section,
 
 	while (decode->rem_bytes > 0) {
 		rc = z80_decode_instr(decode, lblock);
+		if (rc == ERANGE)
+			break;
+
 		if (rc != EOK)
 			return rc;
+	}
+
+	if (decode->rem_bytes > 0) {
+		printf("Remaining bytes: %" PRIu32 "\n", decode->rem_bytes);
 	}
 
 	return EOK;

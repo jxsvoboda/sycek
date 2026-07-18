@@ -6,7 +6,8 @@ The available tools are
 
   * `ccheck` a C code style checker
   * `syc` a C compiler for ZX Spectrum, lint / checker, Z80 assembler
-  * `sydump` dumps contents of Sycek object (`.obj`) files
+  * `sydump` dump contents of Sycek object (`.obj`) files
+  * `sydis` disassemble object files
   * `z80test` a simple test harness / Z80 emulator
 
 Sycek is available under an MIT-style license.
@@ -53,6 +54,25 @@ See the section Syc as a checker for details.
 `syc` can compile the entire Sycek code base (syc, ccheck, z80test) for the
 Z80 architecture, albeit the resulting machine code is not 100% functional yet
 (mainly due to unfinished support for memory paging).
+
+sydump
+------
+`sydump` dumps contents of Sycek object (`.obj`) files. It outputs
+hexadecimal dump of binary sections, symbols and relocations.
+
+Example:
+
+    $ ./syc --no-link example/test.c
+    $ ./sydump example/test.obj
+
+sydis
+-----
+`sydis` disassembles instructions from Sycek object files.
+
+Example:
+
+    $ ./syc --no-link example/test.c
+    $ ./sydump example/test.obj
 
 z80test
 -------
