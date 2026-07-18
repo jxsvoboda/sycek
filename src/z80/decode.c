@@ -168,6 +168,16 @@ static z80ic_ss_t z80_decode_get_ss(uint8_t opc)
 	return (z80ic_ss_t)((opc >> 4) & 0x3);
 }
 
+/** Get conditon code from opcode.
+ *
+ * @param opc 8-bit opcode
+ * @return Condition code
+ */
+static z80ic_cc_t z80_decode_get_cc(uint8_t opc)
+{
+	return (z80ic_cc_t)((opc >> 3) & 0x3);
+}
+
 /** Decode 8-bit immediate operand.
  *
  * @param decode Binary instruction decoder
@@ -5029,6 +5039,325 @@ static int z80_decode_res_b_iiyd(z80_decode_t *decode, uint8_t disp,
 	return EOK;
 }
 
+/** Decode jump to address.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jp_nn(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jp_nn_t *jp = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	int rc;
+
+	rc = z80_decode_imm16(decode, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_jp_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	jp->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode conditional jump to address.
+ *
+ * @param decode Binary instruction decoder
+ * @param opc Opcode
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jp_cc_nn(z80_decode_t *decode, uint8_t opc,
+    z80ic_lblock_t *lblock)
+{
+	z80ic_jp_cc_nn_t *jp = NULL;
+	z80ic_cc_t cc;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	int rc;
+
+	cc = z80_decode_get_cc(opc);
+
+	rc = z80_decode_imm16(decode, &imm16);
+	if (rc != EOK)
+		goto error;
+
+	rc = z80ic_jp_cc_nn_create(&jp);
+	if (rc != EOK)
+		goto error;
+
+	jp->cc = cc;
+	jp->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode relative jump.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jr_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jr_e_t *jr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	uint8_t em2;
+	int rc;
+
+	em2 = z80_decode_get_u8(decode);
+
+	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_jr_e_create(&jr);
+	if (rc != EOK)
+		goto error;
+
+	jr->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode relative jump if carry.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jr_c_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jr_c_e_t *jr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	uint8_t em2;
+	int rc;
+
+	em2 = z80_decode_get_u8(decode);
+
+	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_jr_c_e_create(&jr);
+	if (rc != EOK)
+		goto error;
+
+	jr->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode relative jump if not carry.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jr_nc_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jr_nc_e_t *jr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	uint8_t em2;
+	int rc;
+
+	em2 = z80_decode_get_u8(decode);
+
+	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_jr_nc_e_create(&jr);
+	if (rc != EOK)
+		goto error;
+
+	jr->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode relative jump if zero.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jr_z_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jr_z_e_t *jr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	uint8_t em2;
+	int rc;
+
+	em2 = z80_decode_get_u8(decode);
+
+	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_jr_z_e_create(&jr);
+	if (rc != EOK)
+		goto error;
+
+	jr->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode relative jump if not zero.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jr_nz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jr_nz_e_t *jr = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	uint8_t em2;
+	int rc;
+
+	em2 = z80_decode_get_u8(decode);
+
+	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_jr_nz_e_create(&jr);
+	if (rc != EOK)
+		goto error;
+
+	jr->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
+/** Decode jump to HL.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jp_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jp_hl_t *jp = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_jp_hl_create(&jp);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	return EOK;
+}
+
+/** Decode jump to IX.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jp_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jp_ix_t *jp = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_jp_ix_create(&jp);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	return EOK;
+}
+
+/** Decode jump to IY.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_jp_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_jp_iy_t *jp = NULL;
+	int rc;
+
+	(void)decode;
+
+	rc = z80ic_jp_iy_create(&jp);
+	if (rc != EOK)
+		return rc;
+
+	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	return EOK;
+}
+
+/** Decode decrement, jump if not zero.
+ *
+ * @param decode Binary instruction decoder
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_djnz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
+{
+	z80ic_djnz_e_t *djnz = NULL;
+	z80ic_oper_imm16_t *imm16 = NULL;
+	uint8_t em2;
+	int rc;
+
+	em2 = z80_decode_get_u8(decode);
+
+	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	if (rc != EOK)
+		return rc;
+
+	rc = z80ic_djnz_e_create(&djnz);
+	if (rc != EOK)
+		goto error;
+
+	djnz->imm16 = imm16;
+
+	z80ic_lblock_append(lblock, NULL, &djnz->instr);
+	return EOK;
+error:
+	z80ic_oper_imm16_destroy(imm16);
+	return rc;
+}
+
 /** Decode one instruction with CB prefix.
  *
  * @param decode Binary instruction decoder
@@ -5188,6 +5517,8 @@ static int z80_decode_dd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_inc_ix(decode, lblock);
 	case z80opc_dec_ix & 0xff:
 		return z80_decode_dec_ix(decode, lblock);
+	case z80opc_jp_ix & 0xff:
+		return z80_decode_jp_ix(decode, lblock);
 	default:
 		printf("Unknown opcode 0xdd%" PRIx8 "\n", b);
 	}
@@ -5367,6 +5698,8 @@ static int z80_decode_fd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_inc_iy(decode, lblock);
 	case z80opc_dec_iy & 0xff:
 		return z80_decode_dec_iy(decode, lblock);
+	case z80opc_jp_iy & 0xff:
+		return z80_decode_jp_iy(decode, lblock);
 	default:
 		printf("Unknown opcode 0xfd%" PRIx8 "\n", b);
 	}
@@ -5491,6 +5824,22 @@ static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_rrca(decode, lblock);
 	case z80opc_rra:
 		return z80_decode_rra(decode, lblock);
+	case z80opc_jp_nn:
+		return z80_decode_jp_nn(decode, lblock);
+	case z80opc_jr_e:
+		return z80_decode_jr_e(decode, lblock);
+	case z80opc_jr_c_e:
+		return z80_decode_jr_c_e(decode, lblock);
+	case z80opc_jr_nc_e:
+		return z80_decode_jr_nc_e(decode, lblock);
+	case z80opc_jr_z_e:
+		return z80_decode_jr_z_e(decode, lblock);
+	case z80opc_jr_nz_e:
+		return z80_decode_jr_nz_e(decode, lblock);
+	case z80opc_jp_hl:
+		return z80_decode_jp_hl(decode, lblock);
+	case z80opc_djnz_e:
+		return z80_decode_djnz_e(decode, lblock);
 	default:
 		break;
 	}
@@ -5515,6 +5864,8 @@ static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 		return z80_decode_inc_r(decode, b, lblock);
 	if ((b & 0xc7) == z80opc_dec_r)
 		return z80_decode_dec_r(decode, b, lblock);
+	if ((b & 0xc7) == z80opc_jp_cc_nn)
+		return z80_decode_jp_cc_nn(decode, b, lblock);
 	if ((b & 0xf8) == z80opc_ld_ihl_r)
 		return z80_decode_ld_ihl_r(decode, b, lblock);
 	if ((b & 0xf8) == z80opc_add_a_r)
