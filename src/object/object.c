@@ -231,6 +231,10 @@ int obj_object_sort_symbols(obj_object_t *object)
 		symbol = obj_symbol_next(symbol);
 	}
 
+	/* Nothing to do? */
+	if (sym_cnt == 0)
+		return EOK;
+
 	syms = calloc(sym_cnt, sizeof(obj_symbol_t *));
 	if (syms == NULL)
 		return ENOMEM;
