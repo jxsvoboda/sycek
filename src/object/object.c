@@ -29,6 +29,7 @@
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <object/object.h>
 #include <object/reloc.h>
 #include <object/section.h>
@@ -183,6 +184,81 @@ int obj_object_copy(obj_object_t *src, unsigned modidx, obj_object_t *dest)
 		reloc = obj_reloc_next(reloc);
 	}
 
+	return EOK;
+}
+
+/** Comparison function for sorting symbols.
+ *
+ * @param a Pointer to pointer to symbol
+ * @param b Pointer to pointer to symbol
+ * @return -1, 0, +1 if a < b, a == b, a > b, respectively.
+ */
+static int obj_object_symbol_cmp(const void *a, const void *b)
+{
+	const obj_symbol_t *sa = *(const obj_symbol_t **)a;
+	const obj_symbol_t *sb = *(const obj_symbol_t **)b;
+	int rv;
+
+	rv = strcmp(sa->section->name, sb->section->name);
+	if (rv != 0)
+		return rv;
+
+	if (sa->offset < sb->offset)
+		return -1;
+	if (sa->offset > sb->offset)
+		return +1;
+
+	return 0;
+}
+
+/** Sort list of symbols by section name, offset.
+ *
+ * @param object Object
+ * @return EOK on success or an error code
+ */
+int obj_object_sort_symbols(obj_object_t *object)
+{
+	obj_symbol_t *symbol;
+	obj_symbol_t **syms;
+	size_t sym_cnt;
+	size_t i;
+
+	/* Count symbols. */
+	sym_cnt = 0;
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		++sym_cnt;
+		symbol = obj_symbol_next(symbol);
+	}
+
+	syms = calloc(sym_cnt, sizeof(obj_symbol_t *));
+	if (syms == NULL)
+		return ENOMEM;
+
+	/* Write symbol pointers to array. */
+	i = 0;
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		syms[i++] = symbol;
+		symbol = obj_symbol_next(symbol);
+	}
+
+	/* Sort array. */
+	qsort(syms, sym_cnt, sizeof(obj_symbol_t *), obj_object_symbol_cmp);
+
+	/* Unlink symbols from list. */
+	symbol = obj_symbol_first(object);
+	while (symbol != NULL) {
+		list_remove(&symbol->lsymbols);
+		symbol = obj_symbol_first(object);
+	}
+
+	/* Relink symbols in new order. */
+	for (i = 0; i < sym_cnt; i++) {
+		list_append(&syms[i]->lsymbols, &object->symbols);
+	}
+
+	free(syms);
 	return EOK;
 }
 

@@ -330,6 +330,22 @@ obj_reloc_t *obj_reloc_next(obj_reloc_t *cur)
 	return list_get_instance(link, obj_reloc_t, lrelocs);
 }
 
+obj_reloc_t *obj_reloc_find(obj_object_t *object, obj_section_t *section,
+    uint32_t offset)
+{
+	obj_reloc_t *reloc;
+
+	reloc = obj_reloc_first(object);
+	while (reloc != NULL) {
+		if (reloc->section == section && reloc->offset == offset)
+			return reloc;
+
+		reloc = obj_reloc_next(reloc);
+	}
+
+	return NULL;
+}
+
 /** Process RJ8 relocation.
  *
  * @param reloc Relocation

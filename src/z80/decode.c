@@ -223,7 +223,6 @@ error:
 	return rc;
 }
 
-
 /** Decode 8-bit immediate operand.
  *
  * @param decode Binary instruction decoder
@@ -259,16 +258,29 @@ static int z80_decode_imm16(z80_decode_t *decode, z80ic_oper_imm16_t **rimm16)
 {
 	uint16_t value;
 	z80ic_oper_imm16_t *imm16;
+	obj_reloc_t *reloc;
 	int rc;
 
 	if (decode->rem_bytes < 2)
 		return ERANGE;
 
+	reloc = obj_reloc_find(decode->object, decode->section,
+	    decode->offset);
+
 	value = z80_decode_get_u16le(decode);
 
-	rc = z80ic_oper_imm16_create_val(value, &imm16);
-	if (rc != EOK)
-		return rc;
+	if (reloc != NULL) {
+		/* Use symbol + addend from relocation. */
+		rc = z80ic_oper_imm16_create_symoff(reloc->sym_name,
+		    (uint16_t)reloc->addend, &imm16);
+		if (rc != EOK)
+			return rc;
+	} else {
+		/* Use value from section. */
+		rc = z80ic_oper_imm16_create_val(value, &imm16);
+		if (rc != EOK)
+			return rc;
+	}
 
 	*rimm16 = imm16;
 	return EOK;
@@ -6484,7 +6496,6 @@ static int z80_decode_instr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	b = z80_decode_get_u8(decode);
 
-
 	switch (b) {
 	case 0xcb:
 		return z80_decode_cb(decode, lblock);
@@ -6717,6 +6728,64 @@ static int z80_decode_range(z80_decode_t *decode, obj_section_t *section,
 	return EOK;
 }
 
+/** Decode binary instructions and labels from a range of bytes in a section.
+ *
+ * @param decode Binary instruction decoder
+ * @param section Object section
+ * @param lblock Labeled block to append instructions to
+ * @return EOK on success or an error code
+ */
+static int z80_decode_lbl_range(z80_decode_t *decode, obj_section_t *section,
+    uint32_t offset, uint32_t size, z80ic_lblock_t *lblock)
+{
+	uint32_t now;
+	obj_symbol_t *symbol;
+	int rc = EOK;
+
+	symbol = obj_symbol_first(section->object);
+	while (symbol != NULL && (symbol->section != section ||
+	    symbol->size != 0 || symbol->offset < offset)) {
+		symbol = obj_symbol_next(symbol);
+	}
+
+	while (size > 0) {
+		if (symbol != NULL) {
+			/* Decode up to label. */
+			now = symbol->offset - offset;
+			if (size < now)
+				now = size;
+		} else {
+			/* No label. Decode up until the end. */
+			now = size;
+		}
+
+		if (now > 0) {
+			/* Decode instructions. */
+			rc = z80_decode_range(decode, section, offset, now,
+			    lblock);
+
+			if (rc != EOK)
+				return rc;
+		} else {
+			/* Insert label. */
+			rc = z80ic_lblock_append(lblock, symbol->name, NULL);
+			if (rc != EOK)
+				return rc;
+
+			symbol = obj_symbol_next(symbol);
+			while (symbol != NULL && (symbol->section != section ||
+			    symbol->size != 0)) {
+				symbol = obj_symbol_next(symbol);
+			}
+		}
+
+		offset += now;
+		size -= now;
+	}
+
+	return EOK;
+}
+
 /** Decode binary instructions from object.
  *
  * @param decode Binary instruction decoder
@@ -6733,6 +6802,10 @@ int z80_decode_object(z80_decode_t *decode, obj_object_t *object,
 	obj_symbol_t *symbol;
 	int rc;
 
+	rc = obj_object_sort_symbols(object);
+	if (rc != EOK)
+		goto error;
+
 	rc = z80ic_module_create(&icmod);
 	if (rc != EOK)
 		goto error;
@@ -6747,7 +6820,7 @@ int z80_decode_object(z80_decode_t *decode, obj_object_t *object,
 			if (rc != EOK)
 				goto error;
 
-			rc = z80_decode_range(decode, symbol->section,
+			rc = z80_decode_lbl_range(decode, symbol->section,
 			    symbol->offset, symbol->size, lblock);
 			if (rc != EOK)
 				goto error;
