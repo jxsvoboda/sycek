@@ -9484,7 +9484,7 @@ static int z80ic_parser_process_rst(z80ic_parser_t *parser,
 		return rc;
 	}
 
-	if (value < 0 || (value & 0x7) != 0 || (value >> 3) > 7) {
+	if (value < 0 || ((uint32_t)value & 0x7) != 0 || (value >> 3) > 7) {
 		(void)fprintf(stderr, "Error: ");
 		(void)z80ic_parser_dprint_next_tok(parser, stderr);
 		(void)fprintf(stderr, " is not valid (one of 0, 0x8, 0x10, "

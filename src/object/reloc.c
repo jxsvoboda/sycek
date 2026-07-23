@@ -391,7 +391,7 @@ static int obj_reloc_process_rj8(obj_reloc_t *reloc, obj_linker_flags_t lflags)
 	}
 
 	rc = obj_section_write_u8(reloc->section, reloc->offset,
-	    (int8_t)(addr - src_addr));
+	    (uint8_t)(addr - src_addr));
 	if (rc != EOK)
 		return rc;
 

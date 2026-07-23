@@ -178,6 +178,15 @@ void *malloc(size_t size)
 	return NULL;
 }
 
+void qsort(void *base, size_t n, size_t size, int (*compar)(const void *,
+    const void *))
+{
+	(void)base;
+	(void)n;
+	(void)size;
+	(void)compar;
+}
+
 void *realloc(void *ptr, size_t newsize)
 {
 	(void)ptr;

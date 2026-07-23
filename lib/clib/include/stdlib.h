@@ -30,6 +30,7 @@ void *calloc(size_t, size_t);
 void exit(int);
 void free(void *);
 void *malloc(size_t);
+void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
 void *realloc(void *, size_t);
 unsigned long strtoul(const char *, char **, int);
 
