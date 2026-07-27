@@ -68,7 +68,7 @@ static uint8_t z80_decode_get_u8(z80_decode_t *decode)
 	uint8_t b;
 
 	assert(decode->rem_bytes > 0);
-	b = decode->section->data[decode->offset++];
+	b = decode->section->data[(size_t)(decode->offset++)];
 	--decode->rem_bytes;
 
 	return b;
@@ -183,9 +183,9 @@ static z80ic_cc_t z80_decode_get_cc(uint8_t opc)
  * @param opc 8-bit opcode
  * @return Restart point
  */
-static z80ic_cc_t z80_decode_get_p(uint8_t opc)
+static uint8_t z80_decode_get_p(uint8_t opc)
 {
-	return opc & 0x38;
+	return (opc & 0x38);
 }
 
 /** Add defb instruction for unrecognized byte.
@@ -214,7 +214,10 @@ static int z80_decode_defb(z80_decode_t *decode, uint8_t b,
 
 	defb->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &defb->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &defb->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -322,7 +325,10 @@ static int z80_decode_ld_r_r(z80_decode_t *decode, uint8_t opc,
 	ld->dest = dest;
 	ld->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
@@ -330,9 +336,6 @@ error:
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load register from 8-bit immediate.
@@ -368,7 +371,10 @@ static int z80_decode_ld_r_n(z80_decode_t *decode, uint8_t opc,
 	ld->dest = dest;
 	ld->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
@@ -407,16 +413,16 @@ static int z80_decode_ld_r_ihl(z80_decode_t *decode, uint8_t opc,
 
 	ld->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load register from (IX+d).
@@ -430,7 +436,7 @@ static int z80_decode_ld_r_iixd(z80_decode_t *decode, uint8_t opc,
     z80ic_lblock_t *lblock)
 {
 	z80ic_reg_t dreg;
-	uint8_t disp;
+	int8_t disp;
 	z80ic_ld_r_iixd_t *ld = NULL;
 	z80ic_oper_reg_t *dest = NULL;
 	int rc;
@@ -439,7 +445,7 @@ static int z80_decode_ld_r_iixd(z80_decode_t *decode, uint8_t opc,
 		return ERANGE;
 
 	dreg = z80_decode_get_dreg(opc);
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_ld_r_iixd_create(&ld);
 	if (rc != EOK)
@@ -452,16 +458,16 @@ static int z80_decode_ld_r_iixd(z80_decode_t *decode, uint8_t opc,
 	ld->dest = dest;
 	ld->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load register from (IY+d).
@@ -475,7 +481,7 @@ static int z80_decode_ld_r_iiyd(z80_decode_t *decode, uint8_t opc,
     z80ic_lblock_t *lblock)
 {
 	z80ic_reg_t dreg;
-	uint8_t disp;
+	int8_t disp;
 	z80ic_ld_r_iiyd_t *ld = NULL;
 	z80ic_oper_reg_t *dest = NULL;
 	int rc;
@@ -484,7 +490,7 @@ static int z80_decode_ld_r_iiyd(z80_decode_t *decode, uint8_t opc,
 		return ERANGE;
 
 	dreg = z80_decode_get_dreg(opc);
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_ld_r_iiyd_create(&ld);
 	if (rc != EOK)
@@ -497,16 +503,16 @@ static int z80_decode_ld_r_iiyd(z80_decode_t *decode, uint8_t opc,
 	ld->dest = dest;
 	ld->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load (HL) from register.
@@ -538,16 +544,16 @@ static int z80_decode_ld_ihl_r(z80_decode_t *decode, uint8_t opc,
 
 	ld->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load (IX+d) from register.
@@ -561,7 +567,7 @@ static int z80_decode_ld_iixd_r(z80_decode_t *decode, uint8_t opc,
     z80ic_lblock_t *lblock)
 {
 	z80ic_reg_t sreg;
-	uint8_t disp;
+	int8_t disp;
 	z80ic_ld_iixd_r_t *ld = NULL;
 	z80ic_oper_reg_t *src = NULL;
 	int rc;
@@ -569,7 +575,7 @@ static int z80_decode_ld_iixd_r(z80_decode_t *decode, uint8_t opc,
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 	sreg = z80_decode_get_sreg(opc);
 
 	rc = z80ic_ld_iixd_r_create(&ld);
@@ -583,16 +589,16 @@ static int z80_decode_ld_iixd_r(z80_decode_t *decode, uint8_t opc,
 	ld->disp = disp;
 	ld->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load (IY+d) from register.
@@ -606,7 +612,7 @@ static int z80_decode_ld_iiyd_r(z80_decode_t *decode, uint8_t opc,
     z80ic_lblock_t *lblock)
 {
 	z80ic_reg_t sreg;
-	uint8_t disp;
+	int8_t disp;
 	z80ic_ld_iiyd_r_t *ld = NULL;
 	z80ic_oper_reg_t *src = NULL;
 	int rc;
@@ -614,7 +620,7 @@ static int z80_decode_ld_iiyd_r(z80_decode_t *decode, uint8_t opc,
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 	sreg = z80_decode_get_sreg(opc);
 
 	rc = z80ic_ld_iiyd_r_create(&ld);
@@ -628,16 +634,16 @@ static int z80_decode_ld_iiyd_r(z80_decode_t *decode, uint8_t opc,
 	ld->disp = disp;
 	ld->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (ld != NULL)
 		z80ic_instr_destroy(&ld->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode load (HL) from 8-bit immediate.
@@ -662,7 +668,10 @@ static int z80_decode_ld_ihl_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -679,7 +688,7 @@ error:
  */
 static int z80_decode_ld_iixd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_ld_iixd_n_t *ld = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
@@ -687,7 +696,7 @@ static int z80_decode_ld_iixd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80_decode_imm8(decode, &imm8);
 	if (rc != EOK)
@@ -700,7 +709,10 @@ static int z80_decode_ld_iixd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	ld->disp = disp;
 	ld->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -717,7 +729,7 @@ error:
  */
 static int z80_decode_ld_iiyd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_ld_iiyd_n_t *ld = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
@@ -725,7 +737,7 @@ static int z80_decode_ld_iiyd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80_decode_imm8(decode, &imm8);
 	if (rc != EOK)
@@ -738,7 +750,10 @@ static int z80_decode_ld_iiyd_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	ld->disp = disp;
 	ld->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -764,8 +779,15 @@ static int z80_decode_ld_a_ibc(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load A from (DE).
@@ -785,8 +807,15 @@ static int z80_decode_ld_a_ide(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load A from fixed memory location.
@@ -811,10 +840,15 @@ static int z80_decode_ld_a_inn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -835,8 +869,15 @@ static int z80_decode_ld_ibc_a(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load (DE) from A.
@@ -856,8 +897,15 @@ static int z80_decode_ld_ide_a(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load fixed memory location from A.
@@ -882,10 +930,15 @@ static int z80_decode_ld_inn_a(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -906,8 +959,15 @@ static int z80_decode_ld_a_i(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load A from memory refresh register.
@@ -927,8 +987,15 @@ static int z80_decode_ld_a_r(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load interrupt vector register from A.
@@ -948,8 +1015,15 @@ static int z80_decode_ld_i_a(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load memory refresh register from A.
@@ -969,8 +1043,15 @@ static int z80_decode_ld_r_a(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load 16-bit register from immediate.
@@ -1006,7 +1087,10 @@ static int z80_decode_ld_dd_nn(z80_decode_t *decode, uint8_t opc,
 	ld->dest = dest;
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_dd_destroy(dest);
@@ -1038,10 +1122,15 @@ static int z80_decode_ld_ix_nn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1067,10 +1156,15 @@ static int z80_decode_ld_iy_nn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1096,10 +1190,15 @@ static int z80_decode_ld_hl_inn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1136,7 +1235,10 @@ static int z80_decode_ld_dd_inn(z80_decode_t *decode, uint8_t opc,
 	ld->dest = dest;
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_dd_destroy(dest);
@@ -1168,10 +1270,15 @@ static int z80_decode_ld_ix_inn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1197,10 +1304,15 @@ static int z80_decode_ld_iy_inn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1226,10 +1338,15 @@ static int z80_decode_ld_inn_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1266,7 +1383,10 @@ static int z80_decode_ld_inn_dd(z80_decode_t *decode, uint8_t opc,
 	ld->src = src;
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_dd_destroy(src);
@@ -1298,10 +1418,15 @@ static int z80_decode_ld_inn_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1327,10 +1452,15 @@ static int z80_decode_ld_inn_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
 	return rc;
 }
 
@@ -1351,8 +1481,15 @@ static int z80_decode_ld_sp_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load SP from IX.
@@ -1372,8 +1509,15 @@ static int z80_decode_ld_sp_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode load SP from IY.
@@ -1393,8 +1537,15 @@ static int z80_decode_ld_sp_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ld != NULL)
+		z80ic_instr_destroy(&ld->instr);
+	return rc;
 }
 
 /** Decode push register pair.
@@ -1426,7 +1577,10 @@ static int z80_decode_push_qq(z80_decode_t *decode, uint8_t opc,
 
 	push->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &push->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_qq_destroy(src);
@@ -1452,8 +1606,15 @@ static int z80_decode_push_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &push->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	return rc;
 }
 
 /** Decode push IY.
@@ -1473,8 +1634,15 @@ static int z80_decode_push_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &push->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (push != NULL)
+		z80ic_instr_destroy(&push->instr);
+	return rc;
 }
 
 /** Decode pop register pair.
@@ -1506,7 +1674,10 @@ static int z80_decode_pop_qq(z80_decode_t *decode, uint8_t opc,
 
 	push->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &push->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &push->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_qq_destroy(src);
@@ -1532,8 +1703,15 @@ static int z80_decode_pop_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &pop->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (pop != NULL)
+		z80ic_instr_destroy(&pop->instr);
+	return rc;
 }
 
 /** Decode pop IY.
@@ -1553,8 +1731,15 @@ static int z80_decode_pop_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &pop->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &pop->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (pop != NULL)
+		z80ic_instr_destroy(&pop->instr);
+	return rc;
 }
 
 /** Decode exchange DE with HL.
@@ -1574,8 +1759,15 @@ static int z80_decode_ex_de_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ex->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ex != NULL)
+		z80ic_instr_destroy(&ex->instr);
+	return rc;
 }
 
 /** Decode exchange AF with AF'.
@@ -1595,8 +1787,15 @@ static int z80_decode_ex_af_afp(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ex->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ex != NULL)
+		z80ic_instr_destroy(&ex->instr);
+	return rc;
 }
 
 /** Decode exchange BC, DE, HL with BC', DE', HL'.
@@ -1616,8 +1815,15 @@ static int z80_decode_exx(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &exx->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &exx->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (exx != NULL)
+		z80ic_instr_destroy(&exx->instr);
+	return rc;
 }
 
 /** Decode exchange (SP) with HL.
@@ -1637,8 +1843,15 @@ static int z80_decode_ex_isp_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ex->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ex != NULL)
+		z80ic_instr_destroy(&ex->instr);
+	return rc;
 }
 
 /** Decode exchange (SP) with IX.
@@ -1658,8 +1871,15 @@ static int z80_decode_ex_isp_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ex->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ex != NULL)
+		z80ic_instr_destroy(&ex->instr);
+	return rc;
 }
 
 /** Decode exchange (SP) with IY.
@@ -1679,8 +1899,15 @@ static int z80_decode_ex_isp_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ex->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ex->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ex != NULL)
+		z80ic_instr_destroy(&ex->instr);
+	return rc;
 }
 
 /** Decode load, increment.
@@ -1700,8 +1927,15 @@ static int z80_decode_ldi(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ldi->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ldi != NULL)
+		z80ic_instr_destroy(&ldi->instr);
+	return rc;
 }
 
 /** Decode load, increment, repeat.
@@ -1721,8 +1955,15 @@ static int z80_decode_ldir(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ldir->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ldir->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ldir != NULL)
+		z80ic_instr_destroy(&ldir->instr);
+	return rc;
 }
 
 /** Decode load, decrement.
@@ -1742,8 +1983,15 @@ static int z80_decode_ldd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ldd->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ldd->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ldd != NULL)
+		z80ic_instr_destroy(&ldd->instr);
+	return rc;
 }
 
 /** Decode load, decrement, repeat.
@@ -1763,8 +2011,15 @@ static int z80_decode_lddr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &lddr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &lddr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (lddr != NULL)
+		z80ic_instr_destroy(&lddr->instr);
+	return rc;
 }
 
 /** Decode compare, increment.
@@ -1784,8 +2039,15 @@ static int z80_decode_cpi(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &cpi->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cpi->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cpi != NULL)
+		z80ic_instr_destroy(&cpi->instr);
+	return rc;
 }
 
 /** Decode compare, increment, repeat.
@@ -1805,8 +2067,15 @@ static int z80_decode_cpir(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &cpir->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cpir->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cpir != NULL)
+		z80ic_instr_destroy(&cpir->instr);
+	return rc;
 }
 
 /** Decode compare, decrement.
@@ -1826,8 +2095,15 @@ static int z80_decode_cpd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &cpd->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cpd->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cpd != NULL)
+		z80ic_instr_destroy(&cpd->instr);
+	return rc;
 }
 
 /** Decode compare, decrement, repeat.
@@ -1847,8 +2123,15 @@ static int z80_decode_cpdr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &cpdr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cpdr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cpdr != NULL)
+		z80ic_instr_destroy(&cpdr->instr);
+	return rc;
 }
 
 /** Decode add register to A.
@@ -1880,16 +2163,16 @@ static int z80_decode_add_a_r(z80_decode_t *decode, uint8_t opc,
 
 	add->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (add != NULL)
 		z80ic_instr_destroy(&add->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode add 8-bit immediate to A.
@@ -1914,7 +2197,10 @@ static int z80_decode_add_a_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	ld->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -1940,8 +2226,15 @@ static int z80_decode_add_a_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	return rc;
 }
 
 /** Decode add (IX+d) to A.
@@ -1952,14 +2245,14 @@ static int z80_decode_add_a_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_add_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_add_a_iixd_t *add = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_add_a_iixd_create(&add);
 	if (rc != EOK)
@@ -1967,8 +2260,15 @@ static int z80_decode_add_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	add->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	return rc;
 }
 
 /** Decode add (IY+d) to A.
@@ -1979,14 +2279,14 @@ static int z80_decode_add_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_add_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_add_a_iiyd_t *add = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_add_a_iiyd_create(&add);
 	if (rc != EOK)
@@ -1994,8 +2294,15 @@ static int z80_decode_add_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	add->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (add != NULL)
+		z80ic_instr_destroy(&add->instr);
+	return rc;
 }
 
 /** Decode add register to A with carry.
@@ -2027,16 +2334,16 @@ static int z80_decode_adc_a_r(z80_decode_t *decode, uint8_t opc,
 
 	adc->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &adc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (adc != NULL)
 		z80ic_instr_destroy(&adc->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode add 8-bit immediate to A with carry.
@@ -2047,7 +2354,7 @@ error:
  */
 static int z80_decode_adc_a_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_adc_a_n_t *ld = NULL;
+	z80ic_adc_a_n_t *adc = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2055,18 +2362,21 @@ static int z80_decode_adc_a_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_adc_a_n_create(&ld);
+	rc = z80ic_adc_a_n_create(&adc);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	adc->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
 	return rc;
 }
 
@@ -2087,8 +2397,15 @@ static int z80_decode_adc_a_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &adc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+	return rc;
 }
 
 /** Decode add (IX+d) to A with carry.
@@ -2099,14 +2416,14 @@ static int z80_decode_adc_a_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_adc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_adc_a_iixd_t *adc = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_adc_a_iixd_create(&adc);
 	if (rc != EOK)
@@ -2114,8 +2431,15 @@ static int z80_decode_adc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	adc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &adc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+	return rc;
 }
 
 /** Decode add (IY+d) to A with carry.
@@ -2126,14 +2450,14 @@ static int z80_decode_adc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_adc_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_adc_a_iiyd_t *adc = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_adc_a_iiyd_create(&adc);
 	if (rc != EOK)
@@ -2141,8 +2465,15 @@ static int z80_decode_adc_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	adc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &adc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (adc != NULL)
+		z80ic_instr_destroy(&adc->instr);
+	return rc;
 }
 
 /** Decode subtract register.
@@ -2174,16 +2505,16 @@ static int z80_decode_sub_r(z80_decode_t *decode, uint8_t opc,
 
 	sub->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &sub->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (sub != NULL)
 		z80ic_instr_destroy(&sub->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode subtract 8-bit immediate.
@@ -2194,7 +2525,7 @@ error:
  */
 static int z80_decode_sub_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_sub_n_t *ld = NULL;
+	z80ic_sub_n_t *sub = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2202,18 +2533,21 @@ static int z80_decode_sub_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_sub_n_create(&ld);
+	rc = z80ic_sub_n_create(&sub);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	sub->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
 	return rc;
 }
 
@@ -2234,8 +2568,15 @@ static int z80_decode_sub_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &sub->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+	return rc;
 }
 
 /** Decode subtract (IX+d).
@@ -2246,14 +2587,14 @@ static int z80_decode_sub_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_sub_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_sub_iixd_t *sub = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_sub_iixd_create(&sub);
 	if (rc != EOK)
@@ -2261,8 +2602,15 @@ static int z80_decode_sub_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	sub->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sub->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+	return rc;
 }
 
 /** Decode subtract (IY+d).
@@ -2273,14 +2621,14 @@ static int z80_decode_sub_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_sub_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_sub_iiyd_t *sub = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_sub_iiyd_create(&sub);
 	if (rc != EOK)
@@ -2288,8 +2636,15 @@ static int z80_decode_sub_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	sub->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sub->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sub->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sub != NULL)
+		z80ic_instr_destroy(&sub->instr);
+	return rc;
 }
 
 /** Decode subtract register from A with carry.
@@ -2321,16 +2676,16 @@ static int z80_decode_sbc_a_r(z80_decode_t *decode, uint8_t opc,
 
 	sbc->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (sbc != NULL)
 		z80ic_instr_destroy(&sbc->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode subtract 8-bit immediate from A with carry.
@@ -2341,7 +2696,7 @@ error:
  */
 static int z80_decode_sbc_a_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_sbc_a_n_t *ld = NULL;
+	z80ic_sbc_a_n_t *sbc = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2349,18 +2704,21 @@ static int z80_decode_sbc_a_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_sbc_a_n_create(&ld);
+	rc = z80ic_sbc_a_n_create(&sbc);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	sbc->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
 	return rc;
 }
 
@@ -2381,8 +2739,15 @@ static int z80_decode_sbc_a_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+	return rc;
 }
 
 /** Decode subtract (IX+d) from A with carry.
@@ -2393,14 +2758,14 @@ static int z80_decode_sbc_a_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_sbc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_sbc_a_iixd_t *sbc = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_sbc_a_iixd_create(&sbc);
 	if (rc != EOK)
@@ -2408,8 +2773,15 @@ static int z80_decode_sbc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	sbc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+	return rc;
 }
 
 /** Decode subtract (IY+d) from A with carry.
@@ -2420,14 +2792,14 @@ static int z80_decode_sbc_a_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_sbc_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_sbc_a_iiyd_t *sbc = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_sbc_a_iiyd_create(&sbc);
 	if (rc != EOK)
@@ -2435,8 +2807,15 @@ static int z80_decode_sbc_a_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	sbc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sbc != NULL)
+		z80ic_instr_destroy(&sbc->instr);
+	return rc;
 }
 
 /** Decode bitwise AND with register.
@@ -2468,16 +2847,16 @@ static int z80_decode_and_r(z80_decode_t *decode, uint8_t opc,
 
 	and->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &and->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (and != NULL)
 		z80ic_instr_destroy(&and->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode bitwise AND with 8-bit immediate.
@@ -2488,7 +2867,7 @@ error:
  */
 static int z80_decode_and_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_and_n_t *ld = NULL;
+	z80ic_and_n_t *and = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2496,18 +2875,21 @@ static int z80_decode_and_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_and_n_create(&ld);
+	rc = z80ic_and_n_create(&and);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	and->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
 	return rc;
 }
 
@@ -2528,8 +2910,15 @@ static int z80_decode_and_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &and->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
+	return rc;
 }
 
 /** Decode bitwise AND with (IX+d).
@@ -2540,14 +2929,14 @@ static int z80_decode_and_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_and_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_and_iixd_t *and = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_and_iixd_create(&and);
 	if (rc != EOK)
@@ -2555,8 +2944,15 @@ static int z80_decode_and_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	and->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &and->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
+	return rc;
 }
 
 /** Decode bitwise AND with (IY+d).
@@ -2567,14 +2963,14 @@ static int z80_decode_and_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_and_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_and_iiyd_t *and = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_and_iiyd_create(&and);
 	if (rc != EOK)
@@ -2582,8 +2978,15 @@ static int z80_decode_and_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	and->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &and->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &and->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (and != NULL)
+		z80ic_instr_destroy(&and->instr);
+	return rc;
 }
 
 /** Decode bitwise OR with register.
@@ -2615,16 +3018,16 @@ static int z80_decode_or_r(z80_decode_t *decode, uint8_t opc,
 
 	or->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &or->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (or != NULL)
 		z80ic_instr_destroy(&or->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode bitwise OR with 8-bit immediate.
@@ -2635,7 +3038,7 @@ error:
  */
 static int z80_decode_or_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_or_n_t *ld = NULL;
+	z80ic_or_n_t *or = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2643,18 +3046,21 @@ static int z80_decode_or_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_or_n_create(&ld);
+	rc = z80ic_or_n_create(&or);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	or->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
 	return rc;
 }
 
@@ -2675,8 +3081,15 @@ static int z80_decode_or_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &or->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
+	return rc;
 }
 
 /** Decode bitwise OR with (IX+d).
@@ -2687,14 +3100,14 @@ static int z80_decode_or_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_or_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_or_iixd_t *or = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_or_iixd_create(&or);
 	if (rc != EOK)
@@ -2702,8 +3115,15 @@ static int z80_decode_or_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	or->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &or->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
+	return rc;
 }
 
 /** Decode bitwise OR with (IY+d).
@@ -2714,14 +3134,14 @@ static int z80_decode_or_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_or_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_or_iiyd_t *or = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_or_iiyd_create(&or);
 	if (rc != EOK)
@@ -2729,8 +3149,15 @@ static int z80_decode_or_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	or->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &or->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &or->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (or != NULL)
+		z80ic_instr_destroy(&or->instr);
+	return rc;
 }
 
 /** Decode bitwise XOR with register.
@@ -2762,16 +3189,16 @@ static int z80_decode_xor_r(z80_decode_t *decode, uint8_t opc,
 
 	xor->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &xor->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (xor != NULL)
 		z80ic_instr_destroy(&xor->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode bitwise XOR with 8-bit immediate.
@@ -2782,7 +3209,7 @@ error:
  */
 static int z80_decode_xor_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_xor_n_t *ld = NULL;
+	z80ic_xor_n_t *xor = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2790,18 +3217,21 @@ static int z80_decode_xor_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_xor_n_create(&ld);
+	rc = z80ic_xor_n_create(&xor);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	xor->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
 	return rc;
 }
 
@@ -2822,8 +3252,15 @@ static int z80_decode_xor_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &xor->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	return rc;
 }
 
 /** Decode bitwise XOR with (IX+d).
@@ -2834,14 +3271,14 @@ static int z80_decode_xor_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_xor_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_xor_iixd_t *xor = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_xor_iixd_create(&xor);
 	if (rc != EOK)
@@ -2849,8 +3286,15 @@ static int z80_decode_xor_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	xor->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &xor->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	return rc;
 }
 
 /** Decode bitwise XOR with (IY+d).
@@ -2861,14 +3305,14 @@ static int z80_decode_xor_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_xor_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_xor_iiyd_t *xor = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_xor_iiyd_create(&xor);
 	if (rc != EOK)
@@ -2876,8 +3320,15 @@ static int z80_decode_xor_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	xor->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &xor->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &xor->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (xor != NULL)
+		z80ic_instr_destroy(&xor->instr);
+	return rc;
 }
 
 /** Decode compare with register.
@@ -2909,16 +3360,16 @@ static int z80_decode_cp_r(z80_decode_t *decode, uint8_t opc,
 
 	cp->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &cp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (cp != NULL)
 		z80ic_instr_destroy(&cp->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode compare with 8-bit immediate.
@@ -2929,7 +3380,7 @@ error:
  */
 static int z80_decode_cp_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	z80ic_cp_n_t *ld = NULL;
+	z80ic_cp_n_t *cp = NULL;
 	z80ic_oper_imm8_t *imm8 = NULL;
 	int rc;
 
@@ -2937,18 +3388,21 @@ static int z80_decode_cp_n(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		goto error;
 
-	rc = z80ic_cp_n_create(&ld);
+	rc = z80ic_cp_n_create(&cp);
 	if (rc != EOK)
 		goto error;
 
-	ld->imm8 = imm8;
+	cp->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &ld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
-	if (ld != NULL)
-		z80ic_instr_destroy(&ld->instr);
+	if (cp != NULL)
+		z80ic_instr_destroy(&cp->instr);
 	return rc;
 }
 
@@ -2969,8 +3423,15 @@ static int z80_decode_cp_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &cp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cp != NULL)
+		z80ic_instr_destroy(&cp->instr);
+	return rc;
 }
 
 /** Decode compare with (IX+d).
@@ -2981,14 +3442,14 @@ static int z80_decode_cp_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_cp_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_cp_iixd_t *cp = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_cp_iixd_create(&cp);
 	if (rc != EOK)
@@ -2996,8 +3457,15 @@ static int z80_decode_cp_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	cp->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &cp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cp != NULL)
+		z80ic_instr_destroy(&cp->instr);
+	return rc;
 }
 
 /** Decode compare with (IY+d).
@@ -3008,14 +3476,14 @@ static int z80_decode_cp_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_cp_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_cp_iiyd_t *cp = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_cp_iiyd_create(&cp);
 	if (rc != EOK)
@@ -3023,8 +3491,15 @@ static int z80_decode_cp_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	cp->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &cp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cp != NULL)
+		z80ic_instr_destroy(&cp->instr);
+	return rc;
 }
 
 /** Decode increment register.
@@ -3056,16 +3531,16 @@ static int z80_decode_inc_r(z80_decode_t *decode, uint8_t opc,
 
 	inc->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (inc != NULL)
 		z80ic_instr_destroy(&inc->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode increment (HL).
@@ -3085,8 +3560,15 @@ static int z80_decode_inc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	return rc;
 }
 
 /** Decode increment (IX+d).
@@ -3097,14 +3579,14 @@ static int z80_decode_inc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_inc_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_inc_iixd_t *inc = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_inc_iixd_create(&inc);
 	if (rc != EOK)
@@ -3112,8 +3594,15 @@ static int z80_decode_inc_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	inc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	return rc;
 }
 
 /** Decode increment (IY+d).
@@ -3124,14 +3613,14 @@ static int z80_decode_inc_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_inc_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_inc_iiyd_t *inc = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_inc_iiyd_create(&inc);
 	if (rc != EOK)
@@ -3139,8 +3628,15 @@ static int z80_decode_inc_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	inc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	return rc;
 }
 
 /** Decode decrement register.
@@ -3172,16 +3668,16 @@ static int z80_decode_dec_r(z80_decode_t *decode, uint8_t opc,
 
 	dec->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (dec != NULL)
 		z80ic_instr_destroy(&dec->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode decrement (HL).
@@ -3201,8 +3697,15 @@ static int z80_decode_dec_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	return rc;
 }
 
 /** Decode decrement (IX+d).
@@ -3213,14 +3716,14 @@ static int z80_decode_dec_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_dec_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_dec_iixd_t *dec = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_dec_iixd_create(&dec);
 	if (rc != EOK)
@@ -3228,8 +3731,15 @@ static int z80_decode_dec_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	dec->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	return rc;
 }
 
 /** Decode decrement (IY+d).
@@ -3240,14 +3750,14 @@ static int z80_decode_dec_iixd(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_dec_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	z80ic_dec_iiyd_t *dec = NULL;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 
 	rc = z80ic_dec_iiyd_create(&dec);
 	if (rc != EOK)
@@ -3255,8 +3765,15 @@ static int z80_decode_dec_iiyd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	dec->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	return rc;
 }
 
 /** Decode decimal adjust accumulator.
@@ -3276,8 +3793,15 @@ static int z80_decode_daa(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &daa->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &daa->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (daa != NULL)
+		z80ic_instr_destroy(&daa->instr);
+	return rc;
 }
 
 /** Decode complement.
@@ -3297,8 +3821,15 @@ static int z80_decode_cpl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &cpl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &cpl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (cpl != NULL)
+		z80ic_instr_destroy(&cpl->instr);
+	return rc;
 }
 
 /** Decode negate.
@@ -3318,8 +3849,15 @@ static int z80_decode_neg(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &neg->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &neg->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (neg != NULL)
+		z80ic_instr_destroy(&neg->instr);
+	return rc;
 }
 
 /** Decode complement carry flag.
@@ -3339,8 +3877,15 @@ static int z80_decode_ccf(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ccf->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ccf->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ccf != NULL)
+		z80ic_instr_destroy(&ccf->instr);
+	return rc;
 }
 
 /** Decode set carry flag.
@@ -3360,8 +3905,15 @@ static int z80_decode_scf(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &scf->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &scf->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (scf != NULL)
+		z80ic_instr_destroy(&scf->instr);
+	return rc;
 }
 
 /** Decode no operation.
@@ -3381,8 +3933,15 @@ static int z80_decode_nop(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &nop->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &nop->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (nop != NULL)
+		z80ic_instr_destroy(&nop->instr);
+	return rc;
 }
 
 /** Decode halt.
@@ -3402,8 +3961,15 @@ static int z80_decode_halt(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &halt->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &halt->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (halt != NULL)
+		z80ic_instr_destroy(&halt->instr);
+	return rc;
 }
 
 /** Decode disable interrupt.
@@ -3423,8 +3989,15 @@ static int z80_decode_di(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &di->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &di->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (di != NULL)
+		z80ic_instr_destroy(&di->instr);
+	return rc;
 }
 
 /** Decode enable interrupt.
@@ -3444,8 +4017,15 @@ static int z80_decode_ei(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ei->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ei->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ei != NULL)
+		z80ic_instr_destroy(&ei->instr);
+	return rc;
 }
 
 /** Decode set interrupt mode 0.
@@ -3465,8 +4045,15 @@ static int z80_decode_im_0(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &im->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &im->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (im != NULL)
+		z80ic_instr_destroy(&im->instr);
+	return rc;
 }
 
 /** Decode set interrupt mode 1.
@@ -3486,8 +4073,15 @@ static int z80_decode_im_1(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &im->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &im->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (im != NULL)
+		z80ic_instr_destroy(&im->instr);
+	return rc;
 }
 
 /** Decode set interrupt mode 2.
@@ -3507,8 +4101,15 @@ static int z80_decode_im_2(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &im->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &im->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (im != NULL)
+		z80ic_instr_destroy(&im->instr);
+	return rc;
 }
 
 /** Decode add 16-bit register to HL.
@@ -3540,7 +4141,10 @@ static int z80_decode_add_hl_ss(z80_decode_t *decode, uint8_t opc,
 
 	add->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_ss_destroy(src);
@@ -3578,7 +4182,10 @@ static int z80_decode_adc_hl_ss(z80_decode_t *decode, uint8_t opc,
 
 	adc->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &adc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &adc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_ss_destroy(src);
@@ -3616,7 +4223,10 @@ static int z80_decode_sbc_hl_ss(z80_decode_t *decode, uint8_t opc,
 
 	sbc->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sbc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_ss_destroy(src);
@@ -3654,7 +4264,10 @@ static int z80_decode_add_ix_pp(z80_decode_t *decode, uint8_t opc,
 
 	add->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_pp_destroy(src);
@@ -3692,7 +4305,10 @@ static int z80_decode_add_iy_rr(z80_decode_t *decode, uint8_t opc,
 
 	add->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &add->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &add->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_rr_destroy(src);
@@ -3730,7 +4346,10 @@ static int z80_decode_inc_ss(z80_decode_t *decode, uint8_t opc,
 
 	inc->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_ss_destroy(dest);
@@ -3756,8 +4375,15 @@ static int z80_decode_inc_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	return rc;
 }
 
 /** Decode increment IY.
@@ -3777,8 +4403,15 @@ static int z80_decode_inc_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &inc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (inc != NULL)
+		z80ic_instr_destroy(&inc->instr);
+	return rc;
 }
 
 /** Decode decrement 16-bit register.
@@ -3810,7 +4443,10 @@ static int z80_decode_dec_ss(z80_decode_t *decode, uint8_t opc,
 
 	dec->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_ss_destroy(dest);
@@ -3836,8 +4472,15 @@ static int z80_decode_dec_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	return rc;
 }
 
 /** Decode decrement IY.
@@ -3857,8 +4500,15 @@ static int z80_decode_dec_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &dec->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &dec->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (dec != NULL)
+		z80ic_instr_destroy(&dec->instr);
+	return rc;
 }
 
 /** Decode rotate left circular accumulator.
@@ -3878,8 +4528,15 @@ static int z80_decode_rlca(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rlca->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rlca->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rlca != NULL)
+		z80ic_instr_destroy(&rlca->instr);
+	return rc;
 }
 
 /** Decode rotate left accumulator.
@@ -3899,8 +4556,15 @@ static int z80_decode_rla(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rla->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rla->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rla != NULL)
+		z80ic_instr_destroy(&rla->instr);
+	return rc;
 }
 
 /** Decode rotate right circular accumulator.
@@ -3920,8 +4584,15 @@ static int z80_decode_rrca(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rrca->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rrca->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rrca != NULL)
+		z80ic_instr_destroy(&rrca->instr);
+	return rc;
 }
 
 /** Decode rotate right accumulator.
@@ -3941,8 +4612,15 @@ static int z80_decode_rra(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rra->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rra->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rra != NULL)
+		z80ic_instr_destroy(&rra->instr);
+	return rc;
 }
 
 /** Decode rotate left circular register.
@@ -3978,16 +4656,16 @@ static int z80_decode_rlc_r(z80_decode_t *decode, uint8_t opc,
 
 	rlc->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (rlc != NULL)
 		z80ic_instr_destroy(&rlc->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode rotate left circular (HL).
@@ -4007,8 +4685,15 @@ static int z80_decode_rlc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rlc != NULL)
+		z80ic_instr_destroy(&rlc->instr);
+	return rc;
 }
 
 /** Decode rotate left circular (IX+d).
@@ -4017,7 +4702,7 @@ static int z80_decode_rlc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rlc_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rlc_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rlc_iixd_t *rlc = NULL;
@@ -4031,8 +4716,15 @@ static int z80_decode_rlc_iixd(z80_decode_t *decode, uint8_t disp,
 
 	rlc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rlc != NULL)
+		z80ic_instr_destroy(&rlc->instr);
+	return rc;
 }
 
 /** Decode rotate left circular (IY+d).
@@ -4041,7 +4733,7 @@ static int z80_decode_rlc_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rlc_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rlc_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rlc_iiyd_t *rlc = NULL;
@@ -4055,8 +4747,15 @@ static int z80_decode_rlc_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	rlc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rlc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rlc != NULL)
+		z80ic_instr_destroy(&rlc->instr);
+	return rc;
 }
 
 /** Decode rotate left register.
@@ -4092,16 +4791,16 @@ static int z80_decode_rl_r(z80_decode_t *decode, uint8_t opc,
 
 	rl->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (rl != NULL)
 		z80ic_instr_destroy(&rl->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode rotate left (HL).
@@ -4121,8 +4820,15 @@ static int z80_decode_rl_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+	return rc;
 }
 
 /** Decode rotate left (IX+d).
@@ -4131,7 +4837,7 @@ static int z80_decode_rl_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rl_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rl_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rl_iixd_t *rl = NULL;
@@ -4145,8 +4851,15 @@ static int z80_decode_rl_iixd(z80_decode_t *decode, uint8_t disp,
 
 	rl->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+	return rc;
 }
 
 /** Decode rotate left (IY+d).
@@ -4155,7 +4868,7 @@ static int z80_decode_rl_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rl_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rl_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rl_iiyd_t *rl = NULL;
@@ -4169,8 +4882,15 @@ static int z80_decode_rl_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	rl->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rl != NULL)
+		z80ic_instr_destroy(&rl->instr);
+	return rc;
 }
 
 /** Decode rotate right circular register.
@@ -4206,16 +4926,16 @@ static int z80_decode_rrc_r(z80_decode_t *decode, uint8_t opc,
 
 	rrc->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (rrc != NULL)
 		z80ic_instr_destroy(&rrc->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode rotate right circular (HL).
@@ -4235,8 +4955,15 @@ static int z80_decode_rrc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rrc != NULL)
+		z80ic_instr_destroy(&rrc->instr);
+	return rc;
 }
 
 /** Decode rotate right circular (IX+d).
@@ -4245,7 +4972,7 @@ static int z80_decode_rrc_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rrc_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rrc_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rrc_iixd_t *rrc = NULL;
@@ -4259,8 +4986,15 @@ static int z80_decode_rrc_iixd(z80_decode_t *decode, uint8_t disp,
 
 	rrc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rrc != NULL)
+		z80ic_instr_destroy(&rrc->instr);
+	return rc;
 }
 
 /** Decode rotate right circular (IY+d).
@@ -4269,7 +5003,7 @@ static int z80_decode_rrc_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rrc_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rrc_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rrc_iiyd_t *rrc = NULL;
@@ -4283,8 +5017,15 @@ static int z80_decode_rrc_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	rrc->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rrc->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rrc != NULL)
+		z80ic_instr_destroy(&rrc->instr);
+	return rc;
 }
 
 /** Decode rotate right register.
@@ -4320,16 +5061,16 @@ static int z80_decode_rr_r(z80_decode_t *decode, uint8_t opc,
 
 	rr->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (rr != NULL)
 		z80ic_instr_destroy(&rr->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode rotate right (HL).
@@ -4349,8 +5090,15 @@ static int z80_decode_rr_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rr != NULL)
+		z80ic_instr_destroy(&rr->instr);
+	return rc;
 }
 
 /** Decode rotate right (IX+d).
@@ -4359,7 +5107,7 @@ static int z80_decode_rr_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rr_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rr_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rr_iixd_t *rr = NULL;
@@ -4373,8 +5121,15 @@ static int z80_decode_rr_iixd(z80_decode_t *decode, uint8_t disp,
 
 	rr->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rr != NULL)
+		z80ic_instr_destroy(&rr->instr);
+	return rc;
 }
 
 /** Decode rotate right (IY+d).
@@ -4383,7 +5138,7 @@ static int z80_decode_rr_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_rr_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_rr_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_rr_iiyd_t *rr = NULL;
@@ -4397,8 +5152,15 @@ static int z80_decode_rr_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	rr->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &rr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rr != NULL)
+		z80ic_instr_destroy(&rr->instr);
+	return rc;
 }
 
 /** Decode shift left arithmetic register.
@@ -4434,16 +5196,16 @@ static int z80_decode_sla_r(z80_decode_t *decode, uint8_t opc,
 
 	sla->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sla->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (sla != NULL)
 		z80ic_instr_destroy(&sla->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode shift left arithmetic (HL).
@@ -4463,8 +5225,15 @@ static int z80_decode_sla_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sla->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
+	return rc;
 }
 
 /** Decode shift left arithmetic (IX+d).
@@ -4473,7 +5242,7 @@ static int z80_decode_sla_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_sla_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_sla_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_sla_iixd_t *sla = NULL;
@@ -4487,8 +5256,15 @@ static int z80_decode_sla_iixd(z80_decode_t *decode, uint8_t disp,
 
 	sla->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sla->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
+	return rc;
 }
 
 /** Decode shift left arithmetic (IY+d).
@@ -4497,7 +5273,7 @@ static int z80_decode_sla_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_sla_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_sla_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_sla_iiyd_t *sla = NULL;
@@ -4511,8 +5287,15 @@ static int z80_decode_sla_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	sla->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sla->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sla->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sla != NULL)
+		z80ic_instr_destroy(&sla->instr);
+	return rc;
 }
 
 /** Decode shift right arithmetic register.
@@ -4548,16 +5331,16 @@ static int z80_decode_sra_r(z80_decode_t *decode, uint8_t opc,
 
 	sra->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sra->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (sra != NULL)
 		z80ic_instr_destroy(&sra->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode shift right arithmetic (HL).
@@ -4577,8 +5360,15 @@ static int z80_decode_sra_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sra->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sra != NULL)
+		z80ic_instr_destroy(&sra->instr);
+	return rc;
 }
 
 /** Decode shift right arithmetic (IX+d).
@@ -4587,7 +5377,7 @@ static int z80_decode_sra_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_sra_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_sra_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_sra_iixd_t *sra = NULL;
@@ -4601,8 +5391,15 @@ static int z80_decode_sra_iixd(z80_decode_t *decode, uint8_t disp,
 
 	sra->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sra->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sra != NULL)
+		z80ic_instr_destroy(&sra->instr);
+	return rc;
 }
 
 /** Decode shift right arithmetic (IY+d).
@@ -4611,7 +5408,7 @@ static int z80_decode_sra_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_sra_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_sra_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_sra_iiyd_t *sra = NULL;
@@ -4625,8 +5422,15 @@ static int z80_decode_sra_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	sra->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &sra->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &sra->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (sra != NULL)
+		z80ic_instr_destroy(&sra->instr);
+	return rc;
 }
 
 /** Decode shift right logical register.
@@ -4662,16 +5466,16 @@ static int z80_decode_srl_r(z80_decode_t *decode, uint8_t opc,
 
 	srl->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &srl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (srl != NULL)
 		z80ic_instr_destroy(&srl->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode shift right logical (HL).
@@ -4691,8 +5495,15 @@ static int z80_decode_srl_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &srl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (srl != NULL)
+		z80ic_instr_destroy(&srl->instr);
+	return rc;
 }
 
 /** Decode shift right logical (IX+d).
@@ -4701,7 +5512,7 @@ static int z80_decode_srl_ihl(z80_decode_t *decode, z80ic_lblock_t *lblock)
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_srl_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_srl_iixd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_srl_iixd_t *srl = NULL;
@@ -4715,8 +5526,15 @@ static int z80_decode_srl_iixd(z80_decode_t *decode, uint8_t disp,
 
 	srl->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &srl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (srl != NULL)
+		z80ic_instr_destroy(&srl->instr);
+	return rc;
 }
 
 /** Decode shift right logical (IY+d).
@@ -4725,7 +5543,7 @@ static int z80_decode_srl_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_srl_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_srl_iiyd(z80_decode_t *decode, int8_t disp,
     z80ic_lblock_t *lblock)
 {
 	z80ic_srl_iiyd_t *srl = NULL;
@@ -4739,8 +5557,15 @@ static int z80_decode_srl_iiyd(z80_decode_t *decode, uint8_t disp,
 
 	srl->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &srl->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &srl->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (srl != NULL)
+		z80ic_instr_destroy(&srl->instr);
+	return rc;
 }
 
 /** Decode rotate left digit.
@@ -4760,8 +5585,15 @@ static int z80_decode_rld(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rld->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rld->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rld != NULL)
+		z80ic_instr_destroy(&rld->instr);
+	return rc;
 }
 
 /** Decode rotate right digit.
@@ -4781,8 +5613,15 @@ static int z80_decode_rrd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &rrd->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rrd->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rrd != NULL)
+		z80ic_instr_destroy(&rrd->instr);
+	return rc;
 }
 
 /** Decode test bit in register.
@@ -4817,16 +5656,16 @@ static int z80_decode_bit_b_r(z80_decode_t *decode, uint8_t opc,
 	bit->bit = b;
 	bit->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &bit->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (bit != NULL)
 		z80ic_instr_destroy(&bit->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode test bit in (HL).
@@ -4853,8 +5692,15 @@ static int z80_decode_bit_b_ihl(z80_decode_t *decode, uint8_t opc,
 
 	bit->bit = b;
 
-	z80ic_lblock_append(lblock, NULL, &bit->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (bit != NULL)
+		z80ic_instr_destroy(&bit->instr);
+	return rc;
 }
 
 /** Decode test bit in (IX+d).
@@ -4865,7 +5711,7 @@ static int z80_decode_bit_b_ihl(z80_decode_t *decode, uint8_t opc,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_bit_b_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_bit_b_iixd(z80_decode_t *decode, int8_t disp,
     uint8_t opc, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
@@ -4883,8 +5729,15 @@ static int z80_decode_bit_b_iixd(z80_decode_t *decode, uint8_t disp,
 	bit->bit = b;
 	bit->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &bit->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (bit != NULL)
+		z80ic_instr_destroy(&bit->instr);
+	return rc;
 }
 
 /** Decode test bit in (IY+d).
@@ -4895,7 +5748,7 @@ static int z80_decode_bit_b_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_bit_b_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_bit_b_iiyd(z80_decode_t *decode, int8_t disp,
     uint8_t opc, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
@@ -4913,8 +5766,15 @@ static int z80_decode_bit_b_iiyd(z80_decode_t *decode, uint8_t disp,
 	bit->bit = b;
 	bit->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &bit->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &bit->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (bit != NULL)
+		z80ic_instr_destroy(&bit->instr);
+	return rc;
 }
 
 /** Decode set bit in register.
@@ -4949,16 +5809,16 @@ static int z80_decode_set_b_r(z80_decode_t *decode, uint8_t opc,
 	set->bit = b;
 	set->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &set->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &set->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (set != NULL)
 		z80ic_instr_destroy(&set->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode set bit in (HL).
@@ -4985,8 +5845,15 @@ static int z80_decode_set_b_ihl(z80_decode_t *decode, uint8_t opc,
 
 	set->bit = b;
 
-	z80ic_lblock_append(lblock, NULL, &set->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &set->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (set != NULL)
+		z80ic_instr_destroy(&set->instr);
+	return rc;
 }
 
 /** Decode set bit in (IX+d).
@@ -4997,7 +5864,7 @@ static int z80_decode_set_b_ihl(z80_decode_t *decode, uint8_t opc,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_set_b_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_set_b_iixd(z80_decode_t *decode, int8_t disp,
     uint8_t opc, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
@@ -5015,8 +5882,15 @@ static int z80_decode_set_b_iixd(z80_decode_t *decode, uint8_t disp,
 	set->bit = b;
 	set->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &set->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &set->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (set != NULL)
+		z80ic_instr_destroy(&set->instr);
+	return rc;
 }
 
 /** Decode set bit in (IY+d).
@@ -5027,7 +5901,7 @@ static int z80_decode_set_b_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_set_b_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_set_b_iiyd(z80_decode_t *decode, int8_t disp,
     uint8_t opc, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
@@ -5045,8 +5919,15 @@ static int z80_decode_set_b_iiyd(z80_decode_t *decode, uint8_t disp,
 	set->bit = b;
 	set->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &set->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &set->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (set != NULL)
+		z80ic_instr_destroy(&set->instr);
+	return rc;
 }
 
 /** Decode reset bit in register.
@@ -5081,16 +5962,16 @@ static int z80_decode_res_b_r(z80_decode_t *decode, uint8_t opc,
 	res->bit = b;
 	res->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &res->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &res->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (res != NULL)
 		z80ic_instr_destroy(&res->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode reset bit in (HL).
@@ -5117,8 +5998,15 @@ static int z80_decode_res_b_ihl(z80_decode_t *decode, uint8_t opc,
 
 	res->bit = b;
 
-	z80ic_lblock_append(lblock, NULL, &res->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &res->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (res != NULL)
+		z80ic_instr_destroy(&res->instr);
+	return rc;
 }
 
 /** Decode reset bit in (IX+d).
@@ -5129,7 +6017,7 @@ static int z80_decode_res_b_ihl(z80_decode_t *decode, uint8_t opc,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_res_b_iixd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_res_b_iixd(z80_decode_t *decode, int8_t disp,
     uint8_t opc, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
@@ -5147,8 +6035,15 @@ static int z80_decode_res_b_iixd(z80_decode_t *decode, uint8_t disp,
 	res->bit = b;
 	res->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &res->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &res->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (res != NULL)
+		z80ic_instr_destroy(&res->instr);
+	return rc;
 }
 
 /** Decode reset bit in (IY+d).
@@ -5159,7 +6054,7 @@ static int z80_decode_res_b_iixd(z80_decode_t *decode, uint8_t disp,
  * @param lblock Labeled block to append instructions to
  * @return EOK on success or an error code
  */
-static int z80_decode_res_b_iiyd(z80_decode_t *decode, uint8_t disp,
+static int z80_decode_res_b_iiyd(z80_decode_t *decode, int8_t disp,
     uint8_t opc, z80ic_lblock_t *lblock)
 {
 	uint8_t b;
@@ -5177,8 +6072,15 @@ static int z80_decode_res_b_iiyd(z80_decode_t *decode, uint8_t disp,
 	res->bit = b;
 	res->disp = disp;
 
-	z80ic_lblock_append(lblock, NULL, &res->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &res->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (res != NULL)
+		z80ic_instr_destroy(&res->instr);
+	return rc;
 }
 
 /** Decode jump to address.
@@ -5203,10 +6105,15 @@ static int z80_decode_jp_nn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	jp->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
 	return rc;
 }
 
@@ -5238,10 +6145,15 @@ static int z80_decode_jp_cc_nn(z80_decode_t *decode, uint8_t opc,
 	jp->cc = cc;
 	jp->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
 	return rc;
 }
 
@@ -5255,15 +6167,16 @@ static int z80_decode_jr_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	z80ic_jr_e_t *jr = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
-	uint8_t em2;
+	int8_t em2;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	em2 = z80_decode_get_u8(decode);
+	em2 = (int8_t)z80_decode_get_u8(decode);
 
-	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	rc = z80ic_oper_imm16_create_val((uint16_t)(decode->offset + em2),
+	    &imm16);
 	if (rc != EOK)
 		return rc;
 
@@ -5273,10 +6186,15 @@ static int z80_decode_jr_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	jr->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jr != NULL)
+		z80ic_instr_destroy(&jr->instr);
 	return rc;
 }
 
@@ -5290,15 +6208,16 @@ static int z80_decode_jr_c_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	z80ic_jr_c_e_t *jr = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
-	uint8_t em2;
+	int8_t em2;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	em2 = z80_decode_get_u8(decode);
+	em2 = (int8_t)z80_decode_get_u8(decode);
 
-	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	rc = z80ic_oper_imm16_create_val((uint16_t)(decode->offset + em2),
+	    &imm16);
 	if (rc != EOK)
 		return rc;
 
@@ -5308,10 +6227,15 @@ static int z80_decode_jr_c_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	jr->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jr != NULL)
+		z80ic_instr_destroy(&jr->instr);
 	return rc;
 }
 
@@ -5325,15 +6249,16 @@ static int z80_decode_jr_nc_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	z80ic_jr_nc_e_t *jr = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
-	uint8_t em2;
+	int8_t em2;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	em2 = z80_decode_get_u8(decode);
+	em2 = (int8_t)z80_decode_get_u8(decode);
 
-	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	rc = z80ic_oper_imm16_create_val((uint16_t)(decode->offset + em2),
+	    &imm16);
 	if (rc != EOK)
 		return rc;
 
@@ -5343,10 +6268,15 @@ static int z80_decode_jr_nc_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	jr->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jr != NULL)
+		z80ic_instr_destroy(&jr->instr);
 	return rc;
 }
 
@@ -5360,15 +6290,16 @@ static int z80_decode_jr_z_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	z80ic_jr_z_e_t *jr = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
-	uint8_t em2;
+	int8_t em2;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	em2 = z80_decode_get_u8(decode);
+	em2 = (int8_t)z80_decode_get_u8(decode);
 
-	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	rc = z80ic_oper_imm16_create_val((uint16_t)(decode->offset + em2),
+	    &imm16);
 	if (rc != EOK)
 		return rc;
 
@@ -5378,10 +6309,15 @@ static int z80_decode_jr_z_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	jr->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jr != NULL)
+		z80ic_instr_destroy(&jr->instr);
 	return rc;
 }
 
@@ -5395,15 +6331,16 @@ static int z80_decode_jr_nz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	z80ic_jr_nz_e_t *jr = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
-	uint8_t em2;
+	int8_t em2;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	em2 = z80_decode_get_u8(decode);
+	em2 = (int8_t)z80_decode_get_u8(decode);
 
-	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	rc = z80ic_oper_imm16_create_val((uint16_t)(decode->offset + em2),
+	    &imm16);
 	if (rc != EOK)
 		return rc;
 
@@ -5413,10 +6350,15 @@ static int z80_decode_jr_nz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	jr->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &jr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (jr != NULL)
+		z80ic_instr_destroy(&jr->instr);
 	return rc;
 }
 
@@ -5437,8 +6379,15 @@ static int z80_decode_jp_hl(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	return rc;
 }
 
 /** Decode jump to IX.
@@ -5458,8 +6407,15 @@ static int z80_decode_jp_ix(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	return rc;
 }
 
 /** Decode jump to IY.
@@ -5479,8 +6435,15 @@ static int z80_decode_jp_iy(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &jp->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &jp->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (jp != NULL)
+		z80ic_instr_destroy(&jp->instr);
+	return rc;
 }
 
 /** Decode decrement, jump if not zero.
@@ -5493,15 +6456,16 @@ static int z80_decode_djnz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
 	z80ic_djnz_e_t *djnz = NULL;
 	z80ic_oper_imm16_t *imm16 = NULL;
-	uint8_t em2;
+	int8_t em2;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	em2 = z80_decode_get_u8(decode);
+	em2 = (int8_t)z80_decode_get_u8(decode);
 
-	rc = z80ic_oper_imm16_create_val(decode->offset + em2, &imm16);
+	rc = z80ic_oper_imm16_create_val((uint16_t)(decode->offset + em2),
+	    &imm16);
 	if (rc != EOK)
 		return rc;
 
@@ -5511,10 +6475,15 @@ static int z80_decode_djnz_e(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	djnz->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &djnz->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &djnz->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (djnz != NULL)
+		z80ic_instr_destroy(&djnz->instr);
 	return rc;
 }
 
@@ -5540,10 +6509,15 @@ static int z80_decode_call_nn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	call->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &call->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &call->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (call != NULL)
+		z80ic_instr_destroy(&call->instr);
 	return rc;
 }
 
@@ -5575,10 +6549,15 @@ static int z80_decode_call_cc_nn(z80_decode_t *decode, uint8_t opc,
 	call->cc = cc;
 	call->imm16 = imm16;
 
-	z80ic_lblock_append(lblock, NULL, &call->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &call->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm16_destroy(imm16);
+	if (call != NULL)
+		z80ic_instr_destroy(&call->instr);
 	return rc;
 }
 
@@ -5599,8 +6578,15 @@ static int z80_decode_ret(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ret->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+	return rc;
 }
 
 /** Decode conditional return.
@@ -5627,8 +6613,15 @@ static int z80_decode_ret_cc(z80_decode_t *decode, uint8_t opc,
 
 	ret->cc = cc;
 
-	z80ic_lblock_append(lblock, NULL, &ret->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ret->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ret != NULL)
+		z80ic_instr_destroy(&ret->instr);
+	return rc;
 }
 
 /** Decode return from interrupt.
@@ -5648,8 +6641,15 @@ static int z80_decode_reti(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &reti->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &reti->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (reti != NULL)
+		z80ic_instr_destroy(&reti->instr);
+	return rc;
 }
 
 /** Decode return from NMI.
@@ -5669,8 +6669,15 @@ static int z80_decode_retn(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &retn->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &retn->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (retn != NULL)
+		z80ic_instr_destroy(&retn->instr);
+	return rc;
 }
 
 /** Decode restart.
@@ -5697,8 +6704,15 @@ static int z80_decode_rst_p(z80_decode_t *decode, uint8_t opc,
 
 	rst->p = p;
 
-	z80ic_lblock_append(lblock, NULL, &rst->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &rst->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (rst != NULL)
+		z80ic_instr_destroy(&rst->instr);
+	return rc;
 }
 
 /** Decode input from fixed port to A.
@@ -5723,7 +6737,10 @@ static int z80_decode_in_a_in(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	in->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &in->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &in->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -5761,16 +6778,16 @@ static int z80_decode_in_r_ic(z80_decode_t *decode, uint8_t opc,
 
 	in->dest = dest;
 
-	z80ic_lblock_append(lblock, NULL, &in->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &in->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(dest);
 	if (in != NULL)
 		z80ic_instr_destroy(&in->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode input, increment.
@@ -5790,8 +6807,15 @@ static int z80_decode_ini(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ini->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ini->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ini != NULL)
+		z80ic_instr_destroy(&ini->instr);
+	return rc;
 }
 
 /** Decode input, increment, repeat.
@@ -5811,8 +6835,15 @@ static int z80_decode_inir(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &inir->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &inir->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (inir != NULL)
+		z80ic_instr_destroy(&inir->instr);
+	return rc;
 }
 
 /** Decode input, decrement.
@@ -5832,8 +6863,15 @@ static int z80_decode_ind(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &ind->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &ind->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (ind != NULL)
+		z80ic_instr_destroy(&ind->instr);
+	return rc;
 }
 
 /** Decode input, decrement, repeat.
@@ -5853,8 +6891,15 @@ static int z80_decode_indr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &indr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &indr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (indr != NULL)
+		z80ic_instr_destroy(&indr->instr);
+	return rc;
 }
 
 /** Decode output A to fixed port.
@@ -5879,7 +6924,10 @@ static int z80_decode_out_in_a(z80_decode_t *decode, z80ic_lblock_t *lblock)
 
 	out->imm8 = imm8;
 
-	z80ic_lblock_append(lblock, NULL, &out->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &out->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_imm8_destroy(imm8);
@@ -5918,16 +6966,16 @@ static int z80_decode_out_ic_r(z80_decode_t *decode, uint8_t opc,
 
 	out->src = src;
 
-	z80ic_lblock_append(lblock, NULL, &out->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &out->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
 error:
 	z80ic_oper_reg_destroy(src);
 	if (out != NULL)
 		z80ic_instr_destroy(&out->instr);
 	return rc;
-
-	(void)lblock;
-	return EOK;
 }
 
 /** Decode output, increment.
@@ -5947,8 +6995,15 @@ static int z80_decode_outi(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &outi->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &outi->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (outi != NULL)
+		z80ic_instr_destroy(&outi->instr);
+	return rc;
 }
 
 /** Decode output, increment, repeat.
@@ -5968,8 +7023,15 @@ static int z80_decode_otir(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &otir->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &otir->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (otir != NULL)
+		z80ic_instr_destroy(&otir->instr);
+	return rc;
 }
 
 /** Decode output, decrement.
@@ -5989,8 +7051,15 @@ static int z80_decode_outd(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &outd->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &outd->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (outd != NULL)
+		z80ic_instr_destroy(&outd->instr);
+	return rc;
 }
 
 /** Decode output, decrement, repeat.
@@ -6010,8 +7079,15 @@ static int z80_decode_otdr(z80_decode_t *decode, z80ic_lblock_t *lblock)
 	if (rc != EOK)
 		return rc;
 
-	z80ic_lblock_append(lblock, NULL, &otdr->instr);
+	rc = z80ic_lblock_append(lblock, NULL, &otdr->instr);
+	if (rc != EOK)
+		goto error;
+
 	return EOK;
+error:
+	if (otdr != NULL)
+		z80ic_instr_destroy(&otdr->instr);
+	return rc;
 }
 
 /** Decode one instruction with CB prefix.
@@ -6096,14 +7172,14 @@ static int z80_decode_cb(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_ddcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	uint8_t b;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 	b = z80_decode_get_u8(decode);
 
 	switch (b) {
@@ -6343,14 +7419,14 @@ static int z80_decode_ed(z80_decode_t *decode, z80ic_lblock_t *lblock)
  */
 static int z80_decode_fdcb(z80_decode_t *decode, z80ic_lblock_t *lblock)
 {
-	uint8_t disp;
+	int8_t disp;
 	uint8_t b;
 	int rc;
 
 	if (decode->rem_bytes < 1)
 		return ERANGE;
 
-	disp = z80_decode_get_u8(decode);
+	disp = (int8_t)z80_decode_get_u8(decode);
 	b = z80_decode_get_u8(decode);
 
 	switch (b) {
