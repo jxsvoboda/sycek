@@ -2838,6 +2838,25 @@ static void cgen_warn_int_superfluous(cgen_t *cgen, ast_tsbasic_t *tspec)
 	++cgen->warnings;
 }
 
+/** Generate warning: int is signed by default.
+ *
+ * @param cgen Code generator
+ * @param ds Declaration specifier
+ */
+static void cgen_warn_int_signed_by_def(cgen_t *cgen, ast_node_t *ds)
+{
+	ast_tok_t *atok;
+	comp_tok_t *tok;
+
+	atok = ast_tree_first_tok(ds);
+	tok = (comp_tok_t *)atok->data;
+
+	(void)lexer_dprint_tok(&tok->tok, stderr);
+	(void)fprintf(stderr, ": 'int' is signed by default.\n");
+
+	++cgen->warnings;
+}
+
 /** Generate warning: useless type in empty declaration.
  *
  * @param cgen Code generator
@@ -4861,6 +4880,10 @@ static int cgen_dspec_finish(cgen_dspec_t *cgds, cgen_dspec_res_t *dsres)
 				elmtype = cgelm_short;
 			else
 				elmtype = cgelm_int;
+		}
+
+		if (cgds->signed_cnt > 0) {
+			cgen_warn_int_signed_by_def(cgen, cgds->lastds);
 		}
 
 		rc = cgtype_basic_create(elmtype, &btype);

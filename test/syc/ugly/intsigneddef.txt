@@ -1,0 +1,1 @@
+<test/syc/ugly/intsigneddef.c:5:1-6:'signed'>: 'int' is signed by default.
