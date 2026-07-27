@@ -410,13 +410,16 @@ $(objects_z80test_z80): $(headers) $(lib_headers)
 clean:
 	rm -f $(objects_ccheck) $(objects_ccheck_hos) $(objects_ccheck_z80) \
 	$(objects_syc) $(objects_syc_hos) $(objects_syc_z80) \
-	$(objects_sydis $(objects_sydis_hos) $(objects_sydis_z80) \
-	$(objects_sydump $(objects_sydump_hos) $(objects_sydump_z80) \
+	$(objects_sydis) $(objects_sydis_hos) $(objects_sydis_z80) \
+	$(objects_sydump) $(objects_sydump_hos) $(objects_sydump_z80) \
 	$(objects_z80test) $(objects_z80test_hos) $(objects_z80test_z80) \
 	$(binary_ccheck) $(binary_ccheck_hos) $(binary_ccheck_z80) \
 	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
+	$(binary_sydis) $(binary_sydis_hos) $(binary_sydis_z80) \
+	$(binary_sydump) $(binary_sydump_hos) $(binary_sydump_z80) \
 	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
-	$(mapfile_syc_z80) $(mapfile_ccheck_z80) $(mapfile_z80test_z80) \
+	$(mapfile_syc_z80) $(mapfile_sydis_z80) $(mapfile_sydump_z80) \
+	$(mapfile_ccheck_z80) $(mapfile_z80test_z80) \
 	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
 	$(test_asm_outs) $(test_linker_good_outs) \
 \
