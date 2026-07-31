@@ -60,7 +60,7 @@ static int check_file(const char *fname, checker_flags_t flags,
 	checker_mtype_t mtype;
 	char *bkname;
 	const char *ext;
-	file_input_t finput;
+	file_input_t *finput = NULL;
 	FILE *f = NULL;
 
 	ext = strrchr(fname, '.');
@@ -87,9 +87,13 @@ static int check_file(const char *fname, checker_flags_t flags,
 		goto error;
 	}
 
-	file_input_init(&finput, f, fname);
+	rc = file_input_create(f, fname, &finput);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Cannot create file input.\n");
+		goto error;
+	}
 
-	rc = checker_create(&lexer_file_input, &finput, mtype, cfg, &checker);
+	rc = checker_create(&lexer_file_input, finput, mtype, cfg, &checker);
 	if (rc != EOK)
 		goto error;
 
@@ -160,11 +164,13 @@ static int check_file(const char *fname, checker_flags_t flags,
 	}
 
 	checker_destroy(checker);
+	file_input_destroy(finput);
 
 	return EOK;
 error:
 	if (checker != NULL)
 		checker_destroy(checker);
+	file_input_destroy(finput);
 	if (f != NULL)
 		(void)fclose(f);
 	return rc;

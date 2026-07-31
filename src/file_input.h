@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -33,6 +33,7 @@
 
 extern lexer_input_ops_t lexer_file_input;
 
-extern void file_input_init(file_input_t *, FILE *, const char *);
+extern int file_input_create(FILE *, const char *, file_input_t **);
+extern void file_input_destroy(file_input_t *);
 
 #endif

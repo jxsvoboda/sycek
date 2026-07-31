@@ -28,6 +28,7 @@
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static int file_lexer_read(void *, char *, size_t, size_t *, src_pos_t *);
 
@@ -57,9 +58,37 @@ static int file_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	return EOK;
 }
 
-void file_input_init(file_input_t *finput, FILE *f, const char *fname)
+/** Create file input.
+ *
+ * @param f File stream
+ * @param fname File name
+ * @param rfinput Place to store pointer to new file input
+ * @return EOK on success, ENOMEM if out of memory
+ */
+int file_input_create(FILE *f, const char *fname, file_input_t **rfinput)
 {
+	file_input_t *finput = NULL;
+
+	finput = calloc(1, sizeof(file_input_t));
+	if (finput == NULL)
+		return ENOMEM;
+
 	finput->f = f;
 
 	src_pos_set(&finput->cpos, fname, 1, 1);
+
+	*rfinput = finput;
+	return EOK;
+}
+
+/** Destroy file input.
+ *
+ * @param finput File input
+ */
+void file_input_destroy(file_input_t *finput)
+{
+	if (finput == NULL)
+		return;
+
+	free(finput);
 }

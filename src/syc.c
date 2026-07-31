@@ -204,7 +204,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 	int rv;
 	comp_module_t *module = NULL;
 	comp_mtype_t mtype;
-	file_input_t finput;
+	file_input_t *finput = NULL;
 	bool inf_binary;
 	FILE *f = NULL;
 	FILE *outf = NULL;
@@ -269,14 +269,18 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		}
 	}
 
-	file_input_init(&finput, f, fname);
+	rc = file_input_create(f, fname, &finput);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Cannot create file input.\n");
+		goto error;
+	}
 
 	if (mtype == cmt_obj) {
 		rc = comp_module_create_from_obj(comp, fname, &module);
 		if (rc != EOK)
 			goto error;
 	} else {
-		rc = comp_module_create(comp, &lexer_file_input, &finput, mtype,
+		rc = comp_module_create(comp, &lexer_file_input, finput, mtype,
 		    fname, &module);
 		if (rc != EOK)
 			goto error;
@@ -342,6 +346,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
+	file_input_destroy(finput);
 	(void)fclose(f);
 	if (outf != NULL)
 		(void)fclose(outf);
@@ -354,6 +359,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 	return EOK;
 error:
 	comp_module_destroy(module);
+	file_input_destroy(finput);
 	if (f != NULL)
 		(void)fclose(f);
 	if (outf != NULL) {

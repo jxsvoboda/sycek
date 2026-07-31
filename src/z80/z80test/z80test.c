@@ -33,7 +33,7 @@
  */
 
 #include <assert.h>
-#include <errno.h>
+#include <merrno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -941,7 +941,7 @@ static int script_process_cmd(script_t *script)
 static int script_process(const char *fname)
 {
 	scr_lexer_t *lexer = NULL;
-	file_input_t finput;
+	file_input_t *finput = NULL;
 	script_t script;
 	scr_lexer_toktype_t stt;
 	FILE *f;
@@ -954,9 +954,13 @@ static int script_process(const char *fname)
 		goto error;
 	}
 
-	file_input_init(&finput, f, fname);
+	rc = file_input_create(f, fname, &finput);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Error creating file input\n");
+		goto error;
+	}
 
-	rc = scr_lexer_create(&lexer_file_input, &finput, &lexer);
+	rc = scr_lexer_create(&lexer_file_input, finput, &lexer);
 	if (rc != 0)
 		goto error;
 
@@ -973,10 +977,15 @@ static int script_process(const char *fname)
 	}
 
 	scr_lexer_destroy(lexer);
+	file_input_destroy(finput);
+	fclose(f);
 	return 0;
 error:
 	if (lexer != NULL)
 		scr_lexer_destroy(lexer);
+	file_input_destroy(finput);
+	if (f != NULL)
+		fclose(f);
 	return rc;
 }
 
