@@ -189,6 +189,8 @@ typedef enum {
 typedef struct {
 	/** Input buffer */
 	char buf[lexer_buf_size];
+	/** Input position buffer */
+	src_pos_t posbuf[lexer_buf_size];
 	/** Buffer position */
 	size_t buf_pos;
 	/** Number of used bytes in buf */

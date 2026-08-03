@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -27,15 +27,28 @@
 #ifndef TYPES_FILE_INPUT_H
 #define TYPES_FILE_INPUT_H
 
+#include <adt/list.h>
 #include <stdio.h>
 #include <types/src_pos.h>
 
-/** Lexer input from file */
+/** File input stack entry */
 typedef struct {
+	/** Containing file input */
+	struct file_input *finput;
+	/** Link to @c finput->stack */
+	link_t lstack;
 	/** Input file */
 	FILE *f;
 	/** Current source position */
 	src_pos_t cpos;
+} file_input_entry_t;
+
+/** Lexer input from file */
+typedef struct file_input {
+	/** List of @c file_input_entry_t */
+	list_t stack;
+	/** Pointer to top stack entry */
+	file_input_entry_t *top;
 } file_input_t;
 
 #endif

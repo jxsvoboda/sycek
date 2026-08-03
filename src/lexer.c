@@ -81,13 +81,16 @@ static char *lexer_chars(lexer_t *lexer)
 {
 	int rc;
 	size_t nread;
+	size_t i;
 	src_pos_t rpos;
 
-	if (!lexer->in_eof && lexer->buf_used - lexer->buf_pos <
+	while (!lexer->in_eof && lexer->buf_used - lexer->buf_pos <
 	    lexer_buf_low_watermark) {
 		/* Move data to beginning of buffer */
 		memmove(lexer->buf, lexer->buf + lexer->buf_pos,
 		    lexer->buf_used - lexer->buf_pos);
+		memmove(lexer->posbuf, lexer->posbuf + lexer->buf_pos,
+		    (lexer->buf_used - lexer->buf_pos) * sizeof(src_pos_t));
 		lexer->buf_used -= lexer->buf_pos;
 		lexer->buf_pos = 0;
 		/* XX Advance lexer->buf_bpos */
@@ -100,12 +103,20 @@ static char *lexer_chars(lexer_t *lexer)
 			nread = 0;
 			rpos = lexer->pos;
 		}
-		if (nread < lexer_buf_size - lexer->buf_used)
+
+		if (nread == 0)
 			lexer->in_eof = true;
 		if (lexer->buf_used == 0) {
 			lexer->buf_bpos = rpos;
 			lexer->pos = rpos;
 		}
+
+		for (i = 0; i < nread; i++) {
+			lexer->posbuf[lexer->buf_used + i] = rpos;
+			src_pos_fwd_char(&rpos,
+			    lexer->buf[lexer->buf_used + i]);
+		}
+
 		lexer->buf_used += nread;
 		if (lexer->buf_used < lexer_buf_size)
 			lexer->buf[lexer->buf_used] = '\0';
@@ -148,7 +159,12 @@ static bool lexer_is_error(lexer_t *lexer)
  */
 static void lexer_get_pos(lexer_t *lexer, src_pos_t *pos)
 {
-	*pos = lexer->pos;
+	if (lexer->buf_pos < lexer->buf_used) {
+		*pos = lexer->posbuf[lexer->buf_pos];
+	} else if (lexer->buf_used > 0) {
+		*pos = lexer->posbuf[lexer->buf_used - 1];
+		src_pos_fwd_char(pos, lexer->buf[lexer->buf_used - 1]);
+	}
 }
 
 /** Advance lexer read position.
@@ -179,9 +195,12 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 		tok->text[tok->text_size] = p[0];
 		tok->text[tok->text_size + 1] = '\0';
 		tok->text_size++;
+
+		if (lexer->buf_pos < lexer->buf_used)
+			lexer->pos = lexer->posbuf[lexer->buf_pos];
+
 		++lexer->buf_pos;
 		assert(lexer->buf_pos <= lexer_buf_size);
-		src_pos_fwd_char(&lexer->pos, p[0]);
 		--nchars;
 	}
 
