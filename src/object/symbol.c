@@ -260,8 +260,10 @@ int obj_symbol_save_obj(obj_symbol_t *symbol, FILE *outf)
 	sym.section_idx =
 	    host2uint32_t_le(obj_section_get_idx(symbol->section));
 	sym.binding = (uint8_t)symbol->binding;
+	memset(&sym.pad0, 0, sizeof(sym.pad0));
 	sym.offset = host2uint32_t_le(symbol->offset);
 	sym.size = host2uint32_t_le(symbol->size);
+	memset(&sym.pad1, 1, sizeof(sym.pad1));
 
 	nw = fwrite(&sym, 1, sizeof(sym), outf);
 	if (nw != sizeof(sym)) {
