@@ -42,8 +42,7 @@ lexer_input_ops_t lexer_file_input = {
  *
  * @param arg Argument (file_input_t *)
  * @param buf Character buffer
- * @param posbuf Position buffer
- * @param bsize Size of character buffer / position buffer in entries
+ * @param bsize Size of character buffer
  * @param nread Place to store number of characters read.
  * @param bpos Place to store position of the beginning of the buffer
  * @return EOK on success or an error code

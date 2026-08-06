@@ -37,6 +37,7 @@
 #include <object/linker.h>
 #include <object/object.h>
 #include <parser.h>
+#include <preproc.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,7 +83,8 @@ static z80ic_parser_input_ops_t comp_z80ic_parser_input = {
 };
 
 enum {
-	org_default = 0x8000u
+	org_default = 0x8000u,
+	comp_buf_size = 32
 };
 
 /** Return compiler module type as string.
@@ -124,6 +126,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
     comp_module_t **rmodule)
 {
 	comp_module_t *module = NULL;
+	preproc_t *preproc = NULL;
 	lexer_t *lexer = NULL;
 	ir_lexer_t *ir_lexer = NULL;
 	z80ic_lexer_t *ic_lexer = NULL;
@@ -141,6 +144,13 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 		goto error;
 
 	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
+		/* Preprocessor */
+		rc = preproc_create(input_ops, input_arg, &preproc);
+		if (rc != EOK) {
+			assert(rc == ENOMEM);
+			goto error;
+		}
+
 		/* C language lexer */
 		rc = lexer_create(input_ops, input_arg, &lexer);
 		if (rc != EOK) {
@@ -172,6 +182,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	module->comp = comp;
 	list_append(&module->lmods, &comp->mods);
 
+	module->preproc = preproc;
 	module->lexer = lexer;
 	module->ir_lexer = ir_lexer;
 	module->ic_lexer = ic_lexer;
@@ -186,6 +197,8 @@ error:
 	symbols_destroy(symbols);
 	if (lexer != NULL)
 		lexer_destroy(lexer);
+	if (preproc != NULL)
+		preproc_destroy(preproc);
 	if (module != NULL)
 		free(module);
 	return rc;
@@ -271,6 +284,7 @@ void comp_module_destroy(comp_module_t *module)
 	if (module->ast != NULL)
 		ast_tree_destroy(&module->ast->node);
 
+	preproc_destroy(module->preproc);
 	symbols_destroy(module->symbols);
 	ir_module_destroy(module->ir);
 	z80ic_module_destroy(module->vric);
@@ -866,6 +880,55 @@ int comp_save_tape(comp_t *comp, const char *fname)
 		return EINVAL;
 
 	return tape_save_tzx(comp->tape, fname);
+}
+
+/** Dump preprocessed source.
+ *
+ * @param module Compiler module
+ * @param f Output file
+ * @return EOK on success or error code
+ */
+int comp_module_dump_preproc(comp_module_t *module, FILE *f)
+{
+	char buf[comp_buf_size];
+	src_pos_t bpos;
+	size_t nread;
+	size_t i;
+	int rc;
+	int rv;
+
+	switch (module->mtype) {
+	case cmt_csrc:
+	case cmt_chdr:
+		break;
+	case cmt_ir:
+	case cmt_ic:
+	case cmt_obj:
+		(void)fprintf(stderr, "Error: Cannot dump preprocessed source "
+		    "for '%s' file.\n", comp_mtype_str(module->mtype));
+		return EINVAL;
+	}
+
+	while (true) {
+		rc = lexer_preproc_input.read((void *)module->preproc,
+		    buf, 32, &nread, &bpos);
+		if (rc != EOK)
+			return rc;
+
+		/* End of file? */
+		if (nread == 0)
+			break;
+
+		for (i = 0; i < nread; i++) {
+			rv = fputc(buf[i], f);
+			if (rv < 0) {
+				(void)fprintf(stderr, "Error writing output.\n");
+				return EIO;
+			}
+		}
+	}
+
+	return EOK;
 }
 
 /** Dump AST.

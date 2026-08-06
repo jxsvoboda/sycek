@@ -56,6 +56,7 @@ static void print_syntax(void)
 	    "\t--dump-ir Dump intermediate representation\n"
 	    "\t--dump-vric Dump instruction code with virtual registers\n"
 	    "\t--dump-obj Dump binary object\n"
+	    "\t--no-comp Do not compile, stop after preprocessing stage\n"
 	    "\t--no-emit Do not emit binary object, stop after compile stage\n"
 	    "\t--no-link Do not link, stop after binary object emission\n"
 	    "\t--no-tape Do not make a tape image, stop after link stage\n"
@@ -288,6 +289,14 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 
 	comp->cgflags = cgflags;
 
+	if ((flags & compf_no_comp) != compf_none) {
+		/* Dump preprocessed source. */
+		rc = comp_module_dump_preproc(module, stdout);
+		if (rc != EOK)
+			goto error;
+		goto done;
+	}
+
 	if ((flags & compf_dump_ast) != compf_none) {
 		rc = comp_module_dump_ast(module, stdout);
 		if (rc != EOK)
@@ -340,6 +349,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
+done:
 	if (fflush(outf) < 0) {
 		(void)fprintf(stderr, "Error writing to '%s'.\n", outfname);
 		rc = EIO;
@@ -400,6 +410,8 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 	char *progname = NULL;
 	comp_module_t *module;
 
+	if ((flags & compf_no_comp) != compf_none)
+		return EOK;
 	if ((flags & compf_no_emit) != compf_none)
 		return EOK;
 	if ((flags & compf_no_link) != compf_none)
@@ -609,6 +621,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--dump-obj") == 0) {
 			++i;
 			flags |= compf_dump_obj;
+		} else if (strcmp(argv[i], "--no-comp") == 0) {
+			++i;
+			flags |= compf_no_comp;
 		} else if (strcmp(argv[i], "--no-emit") == 0) {
 			++i;
 			flags |= compf_no_emit;

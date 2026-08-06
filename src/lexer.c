@@ -75,6 +75,7 @@ void lexer_destroy(lexer_t *lexer)
  * Returns a pointer into the input buffer, ensuring it contains
  * at least lexer_buf_low_watermark valid characters (unless at EOF).
  *
+ * @param lexer Lexer
  * @return Pointer to characters in input buffer.
  */
 static char *lexer_chars(lexer_t *lexer)
@@ -145,7 +146,7 @@ static bool lexer_is_eof(lexer_t *lexer)
 /** Determine if lexer hit an error.
  *
  * @param lexer Lexer
- * @return @c true iff there are no more characters available
+ * @return @c true iff there was an error while reading input
  */
 static bool lexer_is_error(lexer_t *lexer)
 {

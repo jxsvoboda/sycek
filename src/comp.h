@@ -44,6 +44,7 @@ extern int comp_module_make_ir(comp_module_t *);
 extern int comp_module_make_vric(comp_module_t *);
 extern int comp_module_make_ic(comp_module_t *);
 extern int comp_make_tape(comp_t *, const char *);
+extern int comp_module_dump_preproc(comp_module_t *, FILE *);
 extern int comp_module_dump_ast(comp_module_t *, FILE *);
 extern int comp_module_dump_toks(comp_module_t *, FILE *);
 extern int comp_module_dump_ir(comp_module_t *, FILE *);

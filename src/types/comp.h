@@ -36,6 +36,7 @@
 #include <types/lexer.h>
 #include <types/object/linker.h>
 #include <types/object/object.h>
+#include <types/preproc.h>
 #include <types/symbols.h>
 #include <types/tape/tape.h>
 #include <types/z80/iclexer.h>
@@ -75,6 +76,8 @@ typedef struct comp_module {
 	comp_mtype_t mtype;
 	/** File name */
 	char *fname;
+	/** C preprocessor or @c NULL */
+	preproc_t *preproc;
 	/** C lexer or @c NULL */
 	lexer_t *lexer;
 	/** IR lexer or @c NULL */
@@ -146,12 +149,14 @@ typedef enum {
 	compf_dump_vric = 0x8,
 	/** Dump binary object */
 	compf_dump_obj = 0x10,
+	/** Do not compile, preprocess only */
+	compf_no_comp = 0x20,
 	/** Do not emit binary instructions */
-	compf_no_emit = 0x20,
+	compf_no_emit = 0x40,
 	/** Do not link into an executable */
-	compf_no_link = 0x40,
+	compf_no_link = 0x80,
 	/** Do not make a tape image */
-	compf_no_tape = 0x80
+	compf_no_tape = 0x100
 } comp_flags_t;
 
 #endif
