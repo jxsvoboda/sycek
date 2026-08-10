@@ -26,6 +26,7 @@
 
 #include <adt/list.h>
 #include <assert.h>
+#include <charcls.h>
 #include <lexer.h>
 #include <preproc.h>
 #include <merrno.h>
@@ -42,6 +43,11 @@ lexer_input_ops_t lexer_preproc_input = {
 static preproc_state_entry_t *preproc_push_state(preproc_t *, preproc_state_t);
 static preproc_state_entry_t *preproc_top_state(preproc_t *);
 static void preproc_pop_state(preproc_t *);
+
+enum {
+	/** Size of preprocessor file name buffer. */
+	preproc_fname_buf_size = 512
+};
 
 /** Create preprocessor.
  *
@@ -74,8 +80,6 @@ int preproc_create(lexer_input_ops_t *input_ops, void *input_arg,
 		rc = ENOMEM;
 		goto error;
 	}
-
-	preproc->pluslim = 300;
 
 	*rpreproc = preproc;
 	return EOK;
@@ -281,6 +285,213 @@ static int preproc_advance(preproc_t *preproc, size_t nchars)
 	return EOK;
 }
 
+/** Print source range for diagnostics.
+ *
+ * @param bpos Begin position
+ * @param epos End position
+ * @param f Output file
+ *
+ * @return EOK on success, EIO on I/O error
+ */
+static int preproc_dprint_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
+{
+	int rc;
+
+	if (fprintf(f, "<") < 0)
+		return EIO;
+	rc = src_pos_print_range(bpos, epos, f);
+	if (rc != EOK)
+		return rc;
+
+	if (fprintf(f, ">") < 0)
+		return EIO;
+
+	return EOK;
+}
+
+/** Print error expected <header-name> or "header-name".
+ *
+ * @param preproc Preprocessor
+ */
+static void preproc_error_header_name(preproc_t *preproc)
+{
+	(void)preproc_dprint_range(&preproc->pos, &preproc->pos, stderr);
+	(void)fprintf(stderr, ": Expected <header-name> or \"header-name\".\n");
+}
+
+/** Process whitespace.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_ws(preproc_t *preproc)
+{
+	char *p;
+
+	/* Skip whitespace. */
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+
+		if (p[0] != ' ' && p[0] != '\t')
+			break;
+
+		preproc_advance(preproc, 1);
+	}
+
+	return preproc_is_error(preproc) ? EIO : EOK;
+}
+
+/** Process whitespace + end of line.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_ws_eol(preproc_t *preproc)
+{
+	char *p;
+	int rc;
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		return rc;
+
+	if (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		if (p[0] != '\n') {
+			(void)preproc_dprint_range(&preproc->pos, &preproc->pos,
+			    stderr);
+			(void)fprintf(stderr, ": Unexpected characters "
+			    "at end of line.\n");
+			return EINVAL;
+		}
+	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
+
+	preproc_advance(preproc, 1);
+	return EOK;
+}
+
+/** Process invalid directive and print diagnostics.
+ *
+ * @param preproc Preprocessor
+ */
+static void preproc_process_invalid_directive(preproc_t *preproc)
+{
+	src_pos_t spos;
+	char *p;
+
+	spos = preproc->pos;
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		if (!is_idcnt(p[0]))
+			break;
+
+		preproc_advance(preproc, 1);
+	}
+
+	(void)preproc_dprint_range(&spos, &preproc->pos, stderr);
+	(void)fprintf(stderr, ": Invalid preprocessor directive.\n");
+}
+
+/** Process include directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_include(preproc_t *preproc)
+{
+	char *p;
+	char delim;
+	char *fname;
+	size_t buf_pos;
+	int rc;
+
+	fname = calloc(preproc_fname_buf_size, 1);
+	if (fname == NULL)
+		return ENOMEM;
+
+	preproc_advance(preproc, 7);
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (preproc_is_eof(preproc)) {
+		preproc_error_header_name(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	p = preproc_chars(preproc);
+	switch (p[0]) {
+	case '<':
+		delim = '>';
+		break;
+	case '"':
+		delim = '"';
+		break;
+	default:
+		preproc_error_header_name(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	buf_pos = 0;
+	preproc_advance(preproc, 1);
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		if (p[0] == delim || p[0] == '\n')
+			break;
+
+		if (buf_pos >= preproc_fname_buf_size - 1) {
+			printf("Include filename too long.\n");
+			rc = EINVAL;
+			goto error;
+		}
+
+		fname[buf_pos++] = p[0];
+		preproc_advance(preproc, 1);
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	if (p[0] != delim) {
+		(void)preproc_dprint_range(&preproc->pos, &preproc->pos, stderr);
+		(void)fprintf(stderr, ": Missing terminating '%c' "
+		    "character.\n", delim);
+		rc = EINVAL;
+		goto error;
+	}
+
+	fname[buf_pos] = '\0';
+	preproc_advance(preproc, 1);
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (delim == '>')
+		printf("Include file '%s' with '<>'.\n", fname);
+	else
+		printf("Include file '%s' with '\"\"'.\n", fname);
+
+	free(fname);
+	return EOK;
+error:
+	free(fname);
+	return rc;
+}
+
 /** Process a directive.
  *
  * @param preproc Preprocessor
@@ -289,21 +500,33 @@ static int preproc_advance(preproc_t *preproc, size_t nchars)
 static int preproc_process_directive(preproc_t *preproc)
 {
 	char *p;
+	int rc;
 
-	while (!preproc_is_eof(preproc)) {
-		p = preproc_chars(preproc);
+	/* Skip '#'. */
+	preproc_advance(preproc, 1);
 
-		if (p[0] == '\n') {
-			preproc_advance(preproc, 1);
-			preproc_pop_state(preproc);
-			preproc_push_state(preproc, pps_line_begin);
-			break;
+	/* Skip whitespace. */
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		return rc;
+
+	p = preproc_chars(preproc);
+
+	switch (p[0]) {
+	case 'i':
+		if (p[1] == 'n' && p[2] == 'c' && p[3] == 'l' &&
+		    p[4] == 'u' && p[5] == 'd' && p[6] == 'e' &&
+		    !is_idcnt(p[7])) {
+			rc = preproc_process_include(preproc);
 		}
-
-		preproc_advance(preproc, 1);
+		break;
+	default:
+		printf("Invalid directive.\n");
+		preproc_process_invalid_directive(preproc);
+		rc = EINVAL;
 	}
 
-	return EOK;
+	return rc;
 }
 
 /** Process in line begin state.
@@ -317,14 +540,12 @@ static int preproc_process_line_begin(preproc_t *preproc)
 	size_t ws_cnt;
 	int rc;
 
-	(void)preproc_is_eof;//XXX
-	(void)preproc_is_error;//XXX
 	(void)preproc_get_pos;//XXX
 
 	/* Process whitespace at begining of line. */
 
 	ws_cnt = 0;
-	while (!preproc_is_eof(preproc)) {
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 		if (p[0] != ' ' && p[0] != '\t')
 			break;
@@ -332,6 +553,9 @@ static int preproc_process_line_begin(preproc_t *preproc)
 		++ws_cnt;
 		preproc_advance(preproc, 1);
 	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
 
 	if (preproc_is_eof(preproc))
 		return EOK;
@@ -360,7 +584,7 @@ static int preproc_process_text_line(preproc_t *preproc)
 {
 	char *p;
 
-	while (!preproc_is_eof(preproc)) {
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 
 		preproc->out_buf[preproc->out_buf_used++] = p[0];
@@ -375,6 +599,9 @@ static int preproc_process_text_line(preproc_t *preproc)
 
 		preproc_advance(preproc, 1);
 	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
 
 	return EOK;
 }
@@ -417,18 +644,15 @@ static int preproc_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	size_t nbytes;
 	int rc;
 
-	while (preproc->out_buf_used == 0 && !preproc_is_eof(preproc)) {
+	while (preproc->out_buf_used == 0 && !preproc_is_eof(preproc) &&
+	    !preproc_is_error(preproc)) {
 		rc = preproc_process(preproc);
 		if (rc != EOK)
 			return rc;
-/*
-		if (preproc->pluslim > 0) {
-			--preproc->pluslim;
-			preproc->out_buf[preproc->out_buf_used++] = '+';
-		} else {
-			break;
-		}*/
 	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
 
 	if (bsize < preproc->out_buf_used)
 		nbytes = bsize;

@@ -67,7 +67,6 @@ typedef struct preproc {
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */
 	src_pos_t out_buf_pos;
-	int pluslim;
 } preproc_t;
 
 /** C preprocessor state */
