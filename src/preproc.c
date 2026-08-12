@@ -242,21 +242,6 @@ static bool preproc_is_error(preproc_t *preproc)
 	return preproc->in_error;
 }
 
-/** Get current preprocessor position in source code.
- *
- * @param preproc Preprocessor
- * @param pos Place to store position
- */
-static void preproc_get_pos(preproc_t *preproc, src_pos_t *pos)
-{
-	if (preproc->buf_pos < preproc->buf_used) {
-		*pos = preproc->posbuf[preproc->buf_pos];
-	} else if (preproc->buf_used > 0) {
-		*pos = preproc->posbuf[preproc->buf_used - 1];
-		src_pos_fwd_char(pos, preproc->buf[preproc->buf_used - 1]);
-	}
-}
-
 /** Advance preprocessor read position.
  *
  * Advance read position by a certain amount of characters
@@ -274,10 +259,11 @@ static int preproc_advance(preproc_t *preproc, size_t nchars)
 		p = preproc_chars(preproc);
 		(void)p;
 
-		if (preproc->buf_pos < preproc->buf_used)
-			preproc->pos = preproc->posbuf[preproc->buf_pos];
-
 		++preproc->buf_pos;
+		if (preproc->buf_pos < preproc->buf_used) {
+			preproc->pos = preproc->posbuf[preproc->buf_pos];
+		}
+
 		assert(preproc->buf_pos <= preproc_buf_size);
 		--nchars;
 	}
@@ -540,8 +526,6 @@ static int preproc_process_line_begin(preproc_t *preproc)
 	size_t ws_cnt;
 	int rc;
 
-	(void)preproc_get_pos;//XXX
-
 	/* Process whitespace at begining of line. */
 
 	ws_cnt = 0;
@@ -587,17 +571,20 @@ static int preproc_process_text_line(preproc_t *preproc)
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 
-		preproc->out_buf[preproc->out_buf_used++] = p[0];
+		if (preproc->out_buf_used == 0)
+			preproc->out_buf_pos = preproc->pos;
+
+		preproc->out_buf[preproc->out_buf_used] = p[0];
+		preproc->out_posbuf[preproc->out_buf_used] = preproc->pos;
+		++preproc->out_buf_used;
+		preproc_advance(preproc, 1);
 		if (preproc->out_buf_used >= preproc_out_buf_size)
 			break;
 		if (p[0] == '\n') {
-			preproc_advance(preproc, 1);
 			preproc_pop_state(preproc);
 			preproc_push_state(preproc, pps_line_begin);
 			break;
 		}
-
-		preproc_advance(preproc, 1);
 	}
 
 	if (preproc_is_error(preproc))
@@ -660,9 +647,15 @@ static int preproc_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 		nbytes = preproc->out_buf_used;
 
 	memcpy(buf, preproc->out_buf, nbytes);
-	preproc->out_buf_used = 0;
-	*bpos = preproc->out_buf_pos;
+	preproc->out_buf_used -= nbytes;
+
+	*bpos = preproc->out_posbuf[0];
 	*nread = nbytes;
+
+	memcpy(preproc->out_buf, preproc->out_buf + nbytes,
+	    preproc->out_buf_used);
+	memcpy(preproc->out_posbuf, preproc->out_posbuf + nbytes,
+	    preproc->out_buf_used * sizeof(src_pos_t));
 
 	return EOK;
 }

@@ -63,6 +63,8 @@ typedef struct preproc {
 	src_pos_t buf_bpos;
 	/** Output buffer */
 	char out_buf[preproc_out_buf_size];
+	/** Output position buffer */
+	src_pos_t out_posbuf[preproc_out_buf_size];
 	/** Number of used bytes in out_buf */
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */

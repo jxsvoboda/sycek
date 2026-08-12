@@ -152,7 +152,8 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 		}
 
 		/* C language lexer */
-		rc = lexer_create(input_ops, input_arg, &lexer);
+		rc = lexer_create(&lexer_preproc_input,
+		    (void *)preproc, &lexer);
 		if (rc != EOK) {
 			assert(rc == ENOMEM);
 			goto error;
@@ -445,6 +446,9 @@ static int comp_module_lex(comp_module_t *module)
 		rc = lexer_get_tok(module->lexer, &tok);
 		if (rc != EOK)
 			return rc;
+
+		if (tok.ttype == ltt_error)
+			return EIO;
 
 		rc = comp_module_append(module, &tok);
 		if (rc != EOK) {
