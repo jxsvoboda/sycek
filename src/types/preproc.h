@@ -28,6 +28,8 @@
 #define TYPES_PREPROC_H
 
 #include <adt/list.h>
+#include <stdio.h>
+#include <types/file_input.h>
 #include <types/linput.h>
 #include <types/preproc.h>
 
@@ -37,28 +39,16 @@ enum {
 	preproc_out_buf_size = 32
 };
 
+struct preproc_input;
+
 /** C preprocessor */
 typedef struct preproc {
-	/** Input ops */
-	lexer_input_ops_t *input_ops;
-	/** Argument to input ops */
-	void *input_arg;
+	/** Input stack (list of preproc_input_t */
+	list_t inputs;
 	/** State stack (list of preproc_state_entry_t */
 	list_t states;
-	/** Input buffer */
-	char buf[preproc_buf_size];
-	/** Input position buffer */
-	src_pos_t posbuf[lexer_buf_size];
-	/** Buffer position */
-	size_t buf_pos;
-	/** Number of used bytes in buf */
-	size_t buf_used;
-	/** Current position */
-	src_pos_t pos;
-	/** EOF hit in input */
-	bool in_eof;
-	/** Error hit in input */
-	bool in_error;
+	/** Current input */
+	struct preproc_input *cur;
 	/** Position of beginning of input buffer */
 	src_pos_t buf_bpos;
 	/** Output buffer */
@@ -70,6 +60,36 @@ typedef struct preproc {
 	/** Position of beginning of output buffer */
 	src_pos_t out_buf_pos;
 } preproc_t;
+
+/** C preprocessor input stack entry */
+typedef struct preproc_input {
+	/** Containing C preprocessor */
+	preproc_t *preproc;
+	/** Link to @c preproc->inputs */
+	link_t linputs;
+	/** Input file */
+	FILE *in_file;
+	/** File input */
+	file_input_t *finput;
+	/** Input ops */
+	lexer_input_ops_t *input_ops;
+	/** Argument to input ops */
+	void *input_arg;
+	/** EOF hit in input */
+	bool in_eof;
+	/** Error hit in input */
+	bool in_error;
+	/** Input buffer */
+	char buf[preproc_buf_size];
+	/** Input position buffer */
+	src_pos_t posbuf[lexer_buf_size];
+	/** Buffer position */
+	size_t buf_pos;
+	/** Number of used bytes in buf */
+	size_t buf_used;
+	/** Current position */
+	src_pos_t pos;
+} preproc_input_t;
 
 /** C preprocessor state */
 typedef enum {
@@ -88,5 +108,13 @@ typedef struct {
 	/** State */
 	preproc_state_t state;
 } preproc_state_entry_t;
+
+/** Include type (angle brackets or quotes) */
+typedef enum {
+	/** Include with angled brackets */
+	pit_angled,
+	/** Include with quotes */
+	pit_quoted
+} preproc_include_type_t;
 
 #endif

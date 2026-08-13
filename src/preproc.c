@@ -27,6 +27,7 @@
 #include <adt/list.h>
 #include <assert.h>
 #include <charcls.h>
+#include <file_input.h>
 #include <lexer.h>
 #include <preproc.h>
 #include <merrno.h>
@@ -40,6 +41,9 @@ lexer_input_ops_t lexer_preproc_input = {
 	.read = preproc_lexer_read
 };
 
+static int preproc_push_input(preproc_t *, FILE *, file_input_t *,
+    lexer_input_ops_t *, void *);
+static void preproc_pop_input(preproc_t *);
 static preproc_state_entry_t *preproc_push_state(preproc_t *, preproc_state_t);
 static preproc_state_entry_t *preproc_top_state(preproc_t *);
 static void preproc_pop_state(preproc_t *);
@@ -70,10 +74,12 @@ int preproc_create(lexer_input_ops_t *input_ops, void *input_arg,
 		goto error;
 	}
 
-	preproc->input_ops = input_ops;
-	preproc->input_arg = input_arg;
-
+	list_initialize(&preproc->inputs);
 	list_initialize(&preproc->states);
+
+	rc = preproc_push_input(preproc, NULL, NULL, input_ops, input_arg);
+	if (rc != EOK)
+		goto error;
 
 	entry = preproc_push_state(preproc, pps_line_begin);
 	if (entry == NULL) {
@@ -84,8 +90,7 @@ int preproc_create(lexer_input_ops_t *input_ops, void *input_arg,
 	*rpreproc = preproc;
 	return EOK;
 error:
-	if (preproc != NULL)
-		free(preproc);
+	preproc_destroy(preproc);
 	return rc;
 }
 
@@ -107,6 +112,9 @@ void preproc_destroy(preproc_t *preproc)
 		entry = preproc_top_state(preproc);
 	}
 
+	while (preproc->cur != NULL)
+		preproc_pop_input(preproc);
+
 	free(preproc);
 }
 
@@ -124,6 +132,58 @@ static preproc_state_entry_t *preproc_top_state(preproc_t *preproc)
 		return NULL;
 
 	return list_get_instance(link, preproc_state_entry_t, lstates);
+}
+
+/** Push entry to preprocessor input stack.
+ *
+ * @param preproc Preprocessor
+ * @param file Input file or @c NULL
+ * @param finput File input or @c NULL
+ * @param input_ops Input operations
+ * @param input_arg Argument to input ops
+ * @return EOK on success, ENOMEM if out of memory
+ */
+static int preproc_push_input(preproc_t *preproc, FILE *file,
+    file_input_t *finput, lexer_input_ops_t *input_ops, void *input_arg)
+{
+	preproc_input_t *input;
+
+	input = calloc(1, sizeof(preproc_input_t));
+	if (input == NULL)
+		return ENOMEM;
+
+	input->in_file = file;
+	input->finput = finput;
+	input->input_ops = input_ops;
+	input->input_arg = input_arg;
+	list_append(&input->linputs, &preproc->inputs);
+
+	preproc->cur = input;
+	return EOK;
+}
+
+/** Pop entry from preprocessor input stack.
+ *
+ * @param preproc Preprocessor
+ */
+static void preproc_pop_input(preproc_t *preproc)
+{
+	link_t *link;
+
+	list_remove(&preproc->cur->linputs);
+	if (preproc->cur->finput != NULL)
+		file_input_destroy(preproc->cur->finput);
+	if (preproc->cur->in_file != NULL)
+		(void)fclose(preproc->cur->in_file);
+	free(preproc->cur);
+
+	link = list_last(&preproc->inputs);
+	if (link != NULL) {
+		preproc->cur = list_get_instance(link, preproc_input_t,
+		    linputs);
+	} else {
+		preproc->cur = NULL;
+	}
 }
 
 /** Push state entry to preprocessor state stack.
@@ -174,46 +234,49 @@ static char *preproc_chars(preproc_t *preproc)
 	size_t i;
 	src_pos_t rpos;
 
-	while (!preproc->in_eof && preproc->buf_used - preproc->buf_pos <
-	    preproc_buf_low_watermark) {
+	while (!preproc->cur->in_eof && preproc->cur->buf_used -
+	    preproc->cur->buf_pos < preproc_buf_low_watermark) {
 		/* Move data to beginning of buffer */
-		memmove(preproc->buf, preproc->buf + preproc->buf_pos,
-		    preproc->buf_used - preproc->buf_pos);
-		memmove(preproc->posbuf, preproc->posbuf + preproc->buf_pos,
-		    (preproc->buf_used - preproc->buf_pos) * sizeof(src_pos_t));
-		preproc->buf_used -= preproc->buf_pos;
-		preproc->buf_pos = 0;
+		memmove(preproc->cur->buf,
+		    preproc->cur->buf + preproc->cur->buf_pos,
+		    preproc->cur->buf_used - preproc->cur->buf_pos);
+		memmove(preproc->cur->posbuf, preproc->cur->posbuf +
+		    preproc->cur->buf_pos,
+		    (preproc->cur->buf_used - preproc->cur->buf_pos) *
+		    sizeof(src_pos_t));
+		preproc->cur->buf_used -= preproc->cur->buf_pos;
+		preproc->cur->buf_pos = 0;
 		/* XX Advance preproc->buf_bpos */
 
-		rc = preproc->input_ops->read(preproc->input_arg, preproc->buf +
-		    preproc->buf_used, preproc_buf_size - preproc->buf_used,
-		    &nread, &rpos);
+		rc = preproc->cur->input_ops->read(preproc->cur->input_arg,
+		    preproc->cur->buf + preproc->cur->buf_used,
+		    preproc_buf_size - preproc->cur->buf_used, &nread, &rpos);
 		if (rc != EOK) {
-			preproc->in_error = true;
+			preproc->cur->in_error = true;
 			nread = 0;
-			rpos = preproc->pos;
+			rpos = preproc->cur->pos;
 		}
 
 		if (nread == 0)
-			preproc->in_eof = true;
-		if (preproc->buf_used == 0) {
+			preproc->cur->in_eof = true;
+		if (preproc->cur->buf_used == 0) {
 			preproc->buf_bpos = rpos;
-			preproc->pos = rpos;
+			preproc->cur->pos = rpos;
 		}
 
 		for (i = 0; i < nread; i++) {
-			preproc->posbuf[preproc->buf_used + i] = rpos;
+			preproc->cur->posbuf[preproc->cur->buf_used + i] = rpos;
 			src_pos_fwd_char(&rpos,
-			    preproc->buf[preproc->buf_used + i]);
+			    preproc->cur->buf[preproc->cur->buf_used + i]);
 		}
 
-		preproc->buf_used += nread;
-		if (preproc->buf_used < preproc_buf_size)
-			preproc->buf[preproc->buf_used] = '\0';
+		preproc->cur->buf_used += nread;
+		if (preproc->cur->buf_used < preproc_buf_size)
+			preproc->cur->buf[preproc->cur->buf_used] = '\0';
 	}
 
-	assert(preproc->buf_pos < preproc_buf_size);
-	return preproc->buf + preproc->buf_pos;
+	assert(preproc->cur->buf_pos < preproc_buf_size);
+	return preproc->cur->buf + preproc->cur->buf_pos;
 }
 
 /** Determine if preprocessor is at end of file.
@@ -229,7 +292,7 @@ static bool preproc_is_eof(preproc_t *preproc)
 	lc = preproc_chars(preproc);
 	(void) lc;
 
-	return preproc->buf_pos == preproc->buf_used;
+	return preproc->cur->buf_pos == preproc->cur->buf_used;
 }
 
 /** Determine if preprocessor hit an error.
@@ -239,7 +302,7 @@ static bool preproc_is_eof(preproc_t *preproc)
  */
 static bool preproc_is_error(preproc_t *preproc)
 {
-	return preproc->in_error;
+	return preproc->cur->in_error;
 }
 
 /** Advance preprocessor read position.
@@ -259,12 +322,13 @@ static int preproc_advance(preproc_t *preproc, size_t nchars)
 		p = preproc_chars(preproc);
 		(void)p;
 
-		++preproc->buf_pos;
-		if (preproc->buf_pos < preproc->buf_used) {
-			preproc->pos = preproc->posbuf[preproc->buf_pos];
+		++preproc->cur->buf_pos;
+		if (preproc->cur->buf_pos < preproc->cur->buf_used) {
+			preproc->cur->pos =
+			    preproc->cur->posbuf[preproc->cur->buf_pos];
 		}
 
-		assert(preproc->buf_pos <= preproc_buf_size);
+		assert(preproc->cur->buf_pos <= preproc_buf_size);
 		--nchars;
 	}
 
@@ -301,7 +365,8 @@ static int preproc_dprint_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
  */
 static void preproc_error_header_name(preproc_t *preproc)
 {
-	(void)preproc_dprint_range(&preproc->pos, &preproc->pos, stderr);
+	(void)preproc_dprint_range(&preproc->cur->pos, &preproc->cur->pos,
+	    stderr);
 	(void)fprintf(stderr, ": Expected <header-name> or \"header-name\".\n");
 }
 
@@ -344,8 +409,8 @@ static int preproc_process_ws_eol(preproc_t *preproc)
 	if (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 		if (p[0] != '\n') {
-			(void)preproc_dprint_range(&preproc->pos, &preproc->pos,
-			    stderr);
+			(void)preproc_dprint_range(&preproc->cur->pos,
+			    &preproc->cur->pos, stderr);
 			(void)fprintf(stderr, ": Unexpected characters "
 			    "at end of line.\n");
 			return EINVAL;
@@ -362,13 +427,14 @@ static int preproc_process_ws_eol(preproc_t *preproc)
 /** Process invalid directive and print diagnostics.
  *
  * @param preproc Preprocessor
+ * @return EOK on success or an error code
  */
-static void preproc_process_invalid_directive(preproc_t *preproc)
+static int preproc_process_invalid_directive(preproc_t *preproc)
 {
-	src_pos_t spos;
+	// src_pos_t spos;
 	char *p;
 
-	spos = preproc->pos;
+	// spos = preproc->cur->pos;
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 		if (!is_idcnt(p[0]))
@@ -377,8 +443,63 @@ static void preproc_process_invalid_directive(preproc_t *preproc)
 		preproc_advance(preproc, 1);
 	}
 
-	(void)preproc_dprint_range(&spos, &preproc->pos, stderr);
-	(void)fprintf(stderr, ": Invalid preprocessor directive.\n");
+	//(void)preproc_dprint_range(&spos, &preproc->cur->pos, stderr);
+	//(void)fprintf(stderr, ": Invalid preprocessor directive.\n");
+
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		if (p[0] == '\n')
+			break;
+
+		preproc_advance(preproc, 1);
+	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
+
+	return EOK;
+}
+
+/** Include a file.
+ *
+ * @param preproc Preprocessor
+ * @param inctype Include type (angle brackets or quotes)
+ * @param file_name Include file name
+ * @return EOK on success or an error code
+ */
+static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
+    const char *file_name)
+{
+	FILE *file = NULL;
+	file_input_t *finput = NULL;
+	int rc;
+
+	(void)inctype;
+
+	file = fopen(file_name, "rt");
+	if (file == NULL) {
+		printf("File '%s' not found.\n", file_name);
+		rc = ENOENT;
+		goto error;
+	}
+
+	rc = file_input_create(file, file_name, &finput);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_push_input(preproc, file, finput, &lexer_file_input,
+	    (void *)finput);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (finput != NULL)
+		file_input_destroy(finput);
+	if (file != NULL)
+		(void)fclose(file);
+
+	return rc;
 }
 
 /** Process include directive.
@@ -452,7 +573,8 @@ static int preproc_process_include(preproc_t *preproc)
 	}
 
 	if (p[0] != delim) {
-		(void)preproc_dprint_range(&preproc->pos, &preproc->pos, stderr);
+		(void)preproc_dprint_range(&preproc->cur->pos,
+		    &preproc->cur->pos, stderr);
 		(void)fprintf(stderr, ": Missing terminating '%c' "
 		    "character.\n", delim);
 		rc = EINVAL;
@@ -466,10 +588,10 @@ static int preproc_process_include(preproc_t *preproc)
 	if (rc != EOK)
 		goto error;
 
-	if (delim == '>')
-		printf("Include file '%s' with '<>'.\n", fname);
-	else
-		printf("Include file '%s' with '\"\"'.\n", fname);
+	rc = preproc_include(preproc, delim == '>' ? pit_angled : pit_quoted,
+	    fname);
+	if (rc != EOK)
+		goto error;
 
 	free(fname);
 	return EOK;
@@ -503,16 +625,14 @@ static int preproc_process_directive(preproc_t *preproc)
 		if (p[1] == 'n' && p[2] == 'c' && p[3] == 'l' &&
 		    p[4] == 'u' && p[5] == 'd' && p[6] == 'e' &&
 		    !is_idcnt(p[7])) {
-			rc = preproc_process_include(preproc);
+			return preproc_process_include(preproc);
 		}
 		break;
 	default:
-		printf("Invalid directive.\n");
-		preproc_process_invalid_directive(preproc);
-		rc = EINVAL;
+		break;
 	}
 
-	return rc;
+	return preproc_process_invalid_directive(preproc);
 }
 
 /** Process in line begin state.
@@ -572,10 +692,10 @@ static int preproc_process_text_line(preproc_t *preproc)
 		p = preproc_chars(preproc);
 
 		if (preproc->out_buf_used == 0)
-			preproc->out_buf_pos = preproc->pos;
+			preproc->out_buf_pos = preproc->cur->pos;
 
 		preproc->out_buf[preproc->out_buf_used] = p[0];
-		preproc->out_posbuf[preproc->out_buf_used] = preproc->pos;
+		preproc->out_posbuf[preproc->out_buf_used] = preproc->cur->pos;
 		++preproc->out_buf_used;
 		preproc_advance(preproc, 1);
 		if (preproc->out_buf_used >= preproc_out_buf_size)
@@ -631,14 +751,20 @@ static int preproc_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	size_t nbytes;
 	int rc;
 
-	while (preproc->out_buf_used == 0 && !preproc_is_eof(preproc) &&
+	while (preproc->out_buf_used == 0 && preproc->cur != NULL &&
 	    !preproc_is_error(preproc)) {
+		if (preproc_is_eof(preproc)) {
+			preproc_pop_input(preproc);
+			if (preproc->cur == NULL)
+				break;
+		}
+
 		rc = preproc_process(preproc);
 		if (rc != EOK)
 			return rc;
 	}
 
-	if (preproc_is_error(preproc))
+	if (preproc->cur != NULL && preproc_is_error(preproc))
 		return EIO;
 
 	if (bsize < preproc->out_buf_used)
