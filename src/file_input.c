@@ -24,14 +24,12 @@
  * Lexer input from file
  */
 
-#include <assert.h>
 #include <file_input.h>
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-static void file_input_pop(file_input_t *);
 static int file_lexer_read(void *, char *, size_t, size_t *, src_pos_t *);
 
 lexer_input_ops_t lexer_file_input = {
@@ -54,27 +52,16 @@ static int file_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	size_t i;
 	size_t nr;
 
-	*nread = 0;
+	nr = fread(buf, 1, bsize, finput->f);
+	if (ferror(finput->f) != 0)
+		return EIO;
 
-	while (*nread == 0 && finput->top != NULL) {
-		*bpos = finput->top->cpos;
+	*nread = nr;
+	*bpos = finput->cpos;
 
-		nr = fread(buf + *nread, 1, bsize - *nread, finput->top->f);
-		if (ferror(finput->top->f) != 0)
-			return EIO;
-
-		/* Advance source position */
-		for (i = 0; i < nr; i++)
-			src_pos_fwd_char(&finput->top->cpos, buf[*nread + i]);
-
-		*nread += nr;
-
-		if (*nread == bsize)
-			break;
-
-		/* End of file - pop it off the stack. */
-		file_input_pop(finput);
-	}
+	/* Advance source position */
+	for (i = 0; i < nr; i++)
+		src_pos_fwd_char(&finput->cpos, buf[i]);
 
 	return EOK;
 }
@@ -89,74 +76,17 @@ static int file_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 int file_input_create(FILE *f, const char *fname, file_input_t **rfinput)
 {
 	file_input_t *finput = NULL;
-	int rc;
 
 	finput = calloc(1, sizeof(file_input_t));
 	if (finput == NULL)
 		return ENOMEM;
 
-	list_initialize(&finput->stack);
+	finput->f = f;
 
-	rc = file_input_push(finput, f, fname);
-	if (rc != EOK) {
-		free(finput);
-		return rc;
-	}
+	src_pos_set(&finput->cpos, fname, 1, 1);
 
 	*rfinput = finput;
 	return EOK;
-}
-
-/** Push new file to file input stack.
- *
- * @param finput File input
- * @param f File stream
- * @param fname File name
- * @return EOK on success, ENOMEM if out of memory
- */
-int file_input_push(file_input_t *finput, FILE *f, const char *fname)
-{
-	file_input_entry_t *entry;
-
-	entry = calloc(1, sizeof(file_input_entry_t));
-	if (entry == NULL)
-		return ENOMEM;
-
-	entry->f = f;
-	src_pos_set(&entry->cpos, fname, 1, 1);
-
-	list_append(&entry->lstack, &finput->stack);
-	finput->top = entry;
-	return EOK;
-}
-
-/** Get topmost file input entry.
- *
- * @param finput File input
- * @return Topmost etry or @c NULL if the stack is empty.
- */
-static file_input_entry_t *file_input_get_top(file_input_t *finput)
-{
-	link_t *link;
-
-	link = list_last(&finput->stack);
-	if (link != NULL) {
-		return list_get_instance(link, file_input_entry_t, lstack);
-	} else {
-		return NULL;
-	}
-}
-
-/** Remove topmost file input stack entry.
- *
- * @param finput File input
- */
-static void file_input_pop(file_input_t *finput)
-{
-	list_remove(&finput->top->lstack);
-	free(finput->top);
-
-	finput->top = file_input_get_top(finput);
 }
 
 /** Destroy file input.
@@ -167,9 +97,6 @@ void file_input_destroy(file_input_t *finput)
 {
 	if (finput == NULL)
 		return;
-
-	while (finput->top != NULL)
-		file_input_pop(finput);
 
 	free(finput);
 }

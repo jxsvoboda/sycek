@@ -34,7 +34,6 @@
 extern lexer_input_ops_t lexer_file_input;
 
 extern int file_input_create(FILE *, const char *, file_input_t **);
-extern int file_input_push(file_input_t *, FILE *, const char *);
 extern void file_input_destroy(file_input_t *);
 
 #endif
