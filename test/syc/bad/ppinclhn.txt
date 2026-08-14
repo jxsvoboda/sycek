@@ -1,0 +1,1 @@
+<test/syc/bad/ppinclhn.c:4:10>: Expected <header-name> or "header-name".

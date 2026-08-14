@@ -1,0 +1,7 @@
+mapfile "ppinclude.map";
+ldbin "ppinclude.bin", 0x8000;
+
+/* verify that all three variables are present */
+verify word ptr (@_before), 0;
+verify word ptr (@_after), 0;
+verify word ptr (@_included), 0;

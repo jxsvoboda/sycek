@@ -1,0 +1,1 @@
+<test/syc/bad/ppmisstermqchar.c:4:16>: Missing terminating '"' character.

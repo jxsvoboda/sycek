@@ -67,6 +67,8 @@ typedef struct preproc_input {
 	preproc_t *preproc;
 	/** Link to @c preproc->inputs */
 	link_t linputs;
+	/** Input file name */
+	char *in_fname;
 	/** Input file */
 	FILE *in_file;
 	/** File input */

@@ -73,6 +73,7 @@ sources_syc_common = \
     src/object/reloc.c \
     src/object/section.c \
     src/object/symbol.c \
+    src/pathname.c \
     src/preproc.c \
     src/scope.c \
     src/syc.c \

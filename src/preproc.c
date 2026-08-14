@@ -29,6 +29,7 @@
 #include <charcls.h>
 #include <file_input.h>
 #include <lexer.h>
+#include <pathname.h>
 #include <preproc.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -41,7 +42,7 @@ lexer_input_ops_t lexer_preproc_input = {
 	.read = preproc_lexer_read
 };
 
-static int preproc_push_input(preproc_t *, FILE *, file_input_t *,
+static int preproc_push_input(preproc_t *, const char *, FILE *, file_input_t *,
     lexer_input_ops_t *, void *);
 static void preproc_pop_input(preproc_t *);
 static preproc_state_entry_t *preproc_push_state(preproc_t *, preproc_state_t);
@@ -55,14 +56,15 @@ enum {
 
 /** Create preprocessor.
  *
+ * @param fname File name
  * @param input_ops Input ops
  * @param input_arg Argument to input_ops
  * @param rpreproc Place to store new preprocessor.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int preproc_create(lexer_input_ops_t *input_ops, void *input_arg,
-    preproc_t **rpreproc)
+int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
+    void *input_arg, preproc_t **rpreproc)
 {
 	preproc_t *preproc = NULL;
 	preproc_state_entry_t *entry;
@@ -77,7 +79,8 @@ int preproc_create(lexer_input_ops_t *input_ops, void *input_arg,
 	list_initialize(&preproc->inputs);
 	list_initialize(&preproc->states);
 
-	rc = preproc_push_input(preproc, NULL, NULL, input_ops, input_arg);
+	rc = preproc_push_input(preproc, fname, NULL, NULL, input_ops,
+	    input_arg);
 	if (rc != EOK)
 		goto error;
 
@@ -137,13 +140,14 @@ static preproc_state_entry_t *preproc_top_state(preproc_t *preproc)
 /** Push entry to preprocessor input stack.
  *
  * @param preproc Preprocessor
+ * @param fname Input file name or @c NULL
  * @param file Input file or @c NULL
  * @param finput File input or @c NULL
  * @param input_ops Input operations
  * @param input_arg Argument to input ops
  * @return EOK on success, ENOMEM if out of memory
  */
-static int preproc_push_input(preproc_t *preproc, FILE *file,
+static int preproc_push_input(preproc_t *preproc, const char *fname, FILE *file,
     file_input_t *finput, lexer_input_ops_t *input_ops, void *input_arg)
 {
 	preproc_input_t *input;
@@ -151,6 +155,14 @@ static int preproc_push_input(preproc_t *preproc, FILE *file,
 	input = calloc(1, sizeof(preproc_input_t));
 	if (input == NULL)
 		return ENOMEM;
+
+	if (fname != NULL) {
+		input->in_fname = strdup(fname);
+		if (input->in_fname == NULL) {
+			free(input);
+			return ENOMEM;
+		}
+	}
 
 	input->in_file = file;
 	input->finput = finput;
@@ -175,6 +187,8 @@ static void preproc_pop_input(preproc_t *preproc)
 		file_input_destroy(preproc->cur->finput);
 	if (preproc->cur->in_file != NULL)
 		(void)fclose(preproc->cur->in_file);
+	if (preproc->cur->in_fname != NULL)
+		free(preproc->cur->in_fname);
 	free(preproc->cur);
 
 	link = list_last(&preproc->inputs);
@@ -472,13 +486,27 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 {
 	FILE *file = NULL;
 	file_input_t *finput = NULL;
+	char *dirname = NULL;
+	char *hdrname = NULL;
 	int rc;
+
+	dirname = pathname_get_dirname(preproc->cur->in_fname);
+	if (dirname == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	hdrname = pathname_compose(dirname, file_name);
+	if (hdrname == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
 
 	(void)inctype;
 
-	file = fopen(file_name, "rt");
+	file = fopen(hdrname, "rt");
 	if (file == NULL) {
-		printf("File '%s' not found.\n", file_name);
+		printf("File '%s' not found.\n", hdrname);
 		rc = ENOENT;
 		goto error;
 	}
@@ -487,13 +515,19 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 	if (rc != EOK)
 		goto error;
 
-	rc = preproc_push_input(preproc, file, finput, &lexer_file_input,
-	    (void *)finput);
+	rc = preproc_push_input(preproc, file_name, file, finput,
+	    &lexer_file_input, (void *)finput);
 	if (rc != EOK)
 		goto error;
 
+	free(dirname);
+	free(hdrname);
 	return EOK;
 error:
+	if (hdrname != NULL)
+		free(hdrname);
+	if (dirname != NULL)
+		free(dirname);
 	if (finput != NULL)
 		file_input_destroy(finput);
 	if (file != NULL)

@@ -21,19 +21,16 @@
  */
 
 /*
- * C preprocessor
+ * Pathname manipulation
  */
 
-#ifndef PREPROC_H
-#define PREPROC_H
+#ifndef PATHNAME_H
+#define PATHNAME_H
 
-#include <types/lexer.h>
-#include <types/preproc.h>
+#include <stdbool.h>
 
-extern lexer_input_ops_t lexer_preproc_input;
-
-extern int preproc_create(const char *, lexer_input_ops_t *, void *,
-    preproc_t **);
-extern void preproc_destroy(preproc_t *);
+extern char *pathname_get_dirname(const char *);
+extern bool pathname_is_absolute(const char *);
+extern char *pathname_compose(const char *, const char *);
 
 #endif

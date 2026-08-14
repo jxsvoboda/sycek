@@ -1,0 +1,1 @@
+<test/syc/bad/ppunexpcharseol.c:5:18>: Unexpected characters at end of line.

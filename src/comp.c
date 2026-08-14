@@ -145,7 +145,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 
 	if (mtype == cmt_csrc || mtype == cmt_chdr)  {
 		/* Preprocessor */
-		rc = preproc_create(input_ops, input_arg, &preproc);
+		rc = preproc_create(fname, input_ops, input_arg, &preproc);
 		if (rc != EOK) {
 			assert(rc == ENOMEM);
 			goto error;
