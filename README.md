@@ -289,10 +289,8 @@ Supported features not related to language coverage:
  * Large stack frames (i.e. containing more than 128 bytes of virtual register
    storage)
 
-syc only starts after preprocessing stage (i.e. there must not be any
-preprocessor directives in the C source file) and outputs a .tzx tape
-image file that can be loaded into an emulator or played to a real
-Spectrum.
+By default Sycek compiles, links and generates a .tzx tape image file that can
+be loaded into an emulator or played to a real Spectrum.
 
 With the `--no-tape` option this last step is skipped and Syc produces
 a .bin binary and a .map file. When invoked with `--no-link`, it produces an
@@ -385,6 +383,7 @@ program in various compilation stages to the standard output:
  * `--dump-ir` Dump intermediate representation
  * `--dump-vric` Dump instruction code before register allocation
  * `--dump-obj` Dump compiled object contents before linking
+ * `--no-comp` Stop before compiling, dump preprocessed source code.
  * `--no-emit` Stop before emitting binary instructions, output an assembly
    file instead (`.asm`).
  * `--no-link` Stop before assembly and linking, output an object file

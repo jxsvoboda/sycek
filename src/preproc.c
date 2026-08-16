@@ -474,27 +474,20 @@ static int preproc_process_invalid_directive(preproc_t *preproc)
 	return EOK;
 }
 
-/** Include a file.
+/** Look for an included file relative to the specified directory.
  *
  * @param preproc Preprocessor
- * @param inctype Include type (angle brackets or quotes)
+ * @param dirname Directory relative to which to look for the file
  * @param file_name Include file name
  * @return EOK on success or an error code
  */
-static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
+static int preproc_include_from_dir(preproc_t *preproc, const char *dirname,
     const char *file_name)
 {
 	FILE *file = NULL;
 	file_input_t *finput = NULL;
-	char *dirname = NULL;
 	char *hdrname = NULL;
 	int rc;
-
-	dirname = pathname_get_dirname(preproc->cur->in_fname);
-	if (dirname == NULL) {
-		rc = ENOMEM;
-		goto error;
-	}
 
 	hdrname = pathname_compose(dirname, file_name);
 	if (hdrname == NULL) {
@@ -502,11 +495,9 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 		goto error;
 	}
 
-	(void)inctype;
-
 	file = fopen(hdrname, "rt");
 	if (file == NULL) {
-		printf("File '%s' not found.\n", hdrname);
+		printf("not found\n");
 		rc = ENOENT;
 		goto error;
 	}
@@ -520,18 +511,58 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 	if (rc != EOK)
 		goto error;
 
-	free(dirname);
 	free(hdrname);
 	return EOK;
 error:
 	if (hdrname != NULL)
 		free(hdrname);
-	if (dirname != NULL)
-		free(dirname);
 	if (finput != NULL)
 		file_input_destroy(finput);
 	if (file != NULL)
 		(void)fclose(file);
+
+	return rc;
+}
+
+/** Include a file.
+ *
+ * @param preproc Preprocessor
+ * @param inctype Include type (angle brackets or quotes)
+ * @param file_name Include file name
+ * @return EOK on success or an error code
+ */
+static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
+    const char *file_name)
+{
+	char *dirname = NULL;
+	int rc;
+
+	/* For #include "header" look in the source C file's directory. */
+	if (inctype == pit_quoted) {
+		dirname = pathname_get_dirname(preproc->cur->in_fname);
+		if (dirname == NULL) {
+			rc = ENOMEM;
+			goto error;
+		}
+
+		rc = preproc_include_from_dir(preproc, dirname, file_name);
+		if (rc != EOK && rc != ENOENT)
+			goto error;
+
+		free(dirname);
+		dirname = NULL;
+		return EOK;
+	}
+
+	/* Always look in the compiler's include directory list. */
+	rc = preproc_include_from_dir(preproc, "./lib/clib/include", file_name);
+	if (rc != EOK)
+		goto error;
+
+	return EOK;
+error:
+	if (dirname != NULL)
+		free(dirname);
 
 	return rc;
 }
