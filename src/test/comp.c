@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -49,7 +49,7 @@ static int test_comp_string(const char *str)
 
 	str_input_init(&sinput, str);
 
-	rc = comp_create(&comp);
+	rc = comp_create(NULL, &comp);
 	if (rc != EOK)
 		return rc;
 

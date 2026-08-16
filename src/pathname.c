@@ -71,6 +71,34 @@ bool pathname_is_absolute(const char *pathname)
 	return pathname[0] == '/';
 }
 
+/** Determine if pathname is basic name without directory components.
+ *
+ * @param pathname Pathname
+ * @return @c true iff pathname does not contain directory components
+ */
+bool pathname_is_basic(const char *pathname)
+{
+	return strchr(pathname, '/') == NULL;
+}
+
+/** Determine if pathname exists.
+ *
+ * @param pathname Pathname
+ * @return @c true iff pathname does not contain directory components
+ */
+bool pathname_exists(const char *pathname)
+{
+	FILE *f;
+
+	/* This is not accurate, but it is portable. */
+	f = fopen(pathname, "rb");
+	if (f == NULL)
+		return false;
+
+	(void)fclose(f);
+	return true;
+}
+
 /** Compose two paths together.
  *
  * If @a sub is relative, it is resolved relative to @a base. If @a sub
@@ -95,4 +123,67 @@ char *pathname_compose(const char *base, const char *sub)
 		return NULL;
 
 	return pathname;
+}
+
+/** Determine directory from which the executable was run.
+ *
+ * @param cmd Command used to run executable.
+ * @param path_var Contents of PATH environment variable or @c NULL
+ * @return Newly allocated string or @c NULL if executable directory
+ *         cannot be determined.
+ */
+char *pathname_get_execdir(const char *cmd, const char *path_var)
+{
+	char *dpath;
+	char *p;
+	char *sep;
+	char *exepath;
+	char *dirname;
+
+	if (!pathname_is_basic(cmd)) {
+		/*
+		 * Command is a relative or absolute pathname. Simply
+		 * extract the directory name.
+		 */
+		return pathname_get_dirname(cmd);
+	}
+
+	if (path_var == NULL)
+		return NULL;
+
+	/* For each component of PATH look for 'cmd' in that directory. */
+
+	dpath = strdup(path_var);
+	if (dpath == NULL)
+		return NULL;
+
+	p = dpath;
+	while (p[0] != '\0') {
+		sep = strchr(p, ':');
+		if (sep != NULL)
+			sep[0] = '\0';
+
+		exepath = pathname_compose(p, cmd);
+		if (exepath == NULL) {
+			free(dpath);
+			return NULL;
+		}
+
+		/* More accurately we would test if it is executable. */
+		if (pathname_exists(exepath)) {
+			dirname = strdup(p);
+			free(dpath);
+			free(exepath);
+			return dirname;
+		}
+
+		free(exepath);
+
+		if (sep == NULL)
+			break;
+
+		p = sep + 1;
+	}
+
+	return NULL;
 }

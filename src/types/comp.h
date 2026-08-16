@@ -104,6 +104,8 @@ typedef struct comp_module {
 
 /** Compiler */
 typedef struct comp {
+	/** Base directory from which compiler files are located. */
+	char *base_dir;
 	/** Modules (comp_module_t) */
 	list_t mods;
 	/** Code generator flags */

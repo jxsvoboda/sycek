@@ -59,6 +59,8 @@ typedef struct preproc {
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */
 	src_pos_t out_buf_pos;
+	/** Directory for standard includes. */
+	char *incldir;
 } preproc_t;
 
 /** C preprocessor input stack entry */

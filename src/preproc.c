@@ -118,7 +118,30 @@ void preproc_destroy(preproc_t *preproc)
 	while (preproc->cur != NULL)
 		preproc_pop_input(preproc);
 
+	if (preproc->incldir != NULL)
+		free(preproc->incldir);
+
 	free(preproc);
+}
+
+/** Set include directory for standard headers.
+ *
+ * @param preproc Preprocessor
+ * @param dir Dirctory
+ * @return EOK on success or an error code
+ */
+int preproc_set_incldir(preproc_t *preproc, const char *dir)
+{
+	char *ddir;
+
+	ddir = strdup(dir);
+	if (ddir == NULL)
+		return ENOMEM;
+
+	if (preproc->incldir != NULL)
+		free(preproc->incldir);
+	preproc->incldir = ddir;
+	return EOK;
 }
 
 /** Return current preprocessor state entry (from top of state stack).
@@ -535,6 +558,7 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
     const char *file_name)
 {
 	char *dirname = NULL;
+	const char *incldir;
 	int rc;
 
 	/* For #include "header" look in the source C file's directory. */
@@ -554,8 +578,13 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 		return EOK;
 	}
 
+	if (preproc->incldir != NULL)
+		incldir = preproc->incldir;
+	else
+		incldir = "./lib/clib/include";
+
 	/* Always look in the compiler's include directory list. */
-	rc = preproc_include_from_dir(preproc, "./lib/clib/include", file_name);
+	rc = preproc_include_from_dir(preproc, incldir, file_name);
 	if (rc != EOK)
 		goto error;
 

@@ -31,6 +31,9 @@
 
 extern char *pathname_get_dirname(const char *);
 extern bool pathname_is_absolute(const char *);
+extern bool pathname_is_basic(const char *);
+extern bool pathname_exists(const char *);
 extern char *pathname_compose(const char *, const char *);
+extern char *pathname_get_execdir(const char *, const char *);
 
 #endif

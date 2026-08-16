@@ -37,6 +37,7 @@
 #include <object/linker.h>
 #include <object/object.h>
 #include <parser.h>
+#include <pathname.h>
 #include <preproc.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -131,6 +132,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	ir_lexer_t *ir_lexer = NULL;
 	z80ic_lexer_t *ic_lexer = NULL;
 	symbols_t *symbols = NULL;
+	char *incldir = NULL;
 	int rc;
 
 	module = calloc(1, sizeof(comp_module_t));
@@ -150,6 +152,22 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 			assert(rc == ENOMEM);
 			goto error;
 		}
+
+		if (comp->base_dir != NULL) {
+			incldir = pathname_compose(comp->base_dir,
+			    "lib/clib/include");
+			if (incldir == NULL) {
+				rc = ENOMEM;
+				goto error;
+			}
+
+			rc = preproc_set_incldir(preproc, incldir);
+			if (rc != EOK)
+				goto error;
+		}
+
+		free(incldir);
+		incldir = NULL;
 
 		/* C language lexer */
 		rc = lexer_create(&lexer_preproc_input,
@@ -196,6 +214,8 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	return EOK;
 error:
 	symbols_destroy(symbols);
+	if (incldir != NULL)
+		free(incldir);
 	if (lexer != NULL)
 		lexer_destroy(lexer);
 	if (preproc != NULL)
@@ -389,11 +409,13 @@ static void comp_remove_token(comp_tok_t *tok)
 
 /** Create compiler.
  *
+ * @param base_dir Base directory from which compiler files are located
+ *        or @c NULL
  * @param rcomp Place to store new compiler.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int comp_create(comp_t **rcomp)
+int comp_create(const char *base_dir, comp_t **rcomp)
 {
 	comp_t *comp = NULL;
 	int rc;
@@ -404,10 +426,18 @@ int comp_create(comp_t **rcomp)
 		goto error;
 	}
 
+	comp->base_dir = strdup(base_dir);
+	if (comp->base_dir == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
 	list_initialize(&comp->mods);
 	*rcomp = comp;
 	return EOK;
 error:
+	if (comp != NULL)
+		free(comp);
 	return rc;
 }
 
@@ -427,6 +457,8 @@ void comp_destroy(comp_t *comp)
 
 	obj_object_destroy(comp->linked_object);
 	tape_destroy(comp->tape);
+	if (comp->base_dir != NULL)
+		free(comp->base_dir);
 	free(comp);
 }
 

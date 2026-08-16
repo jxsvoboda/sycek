@@ -535,6 +535,8 @@ error:
 	return rc;
 }
 
+#include <pathname.h>
+
 int main(int argc, char *argv[])
 {
 	int rc;
@@ -545,6 +547,7 @@ int main(int argc, char *argv[])
 	obj_linker_flags_t lflags = lf_none;
 	comp_t *comp = NULL;
 	const char *outfname = NULL;
+	char *execdir;
 
 	if (argc < 2) {
 		print_syntax();
@@ -662,12 +665,16 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	rc = comp_create(&comp);
+	execdir = pathname_get_execdir(argv[0], getenv("PATH"));
+
+	rc = comp_create(execdir, &comp);
 	if (rc != EOK) {
+		free(execdir);
 		(void)fprintf(stderr, "Failed creating compiler.\n");
 		return 1;
 	}
 
+	free(execdir);
 	comp->lflags = lflags;
 
 	while (i < argc) {
