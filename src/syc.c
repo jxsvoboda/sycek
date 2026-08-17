@@ -30,6 +30,7 @@
 #include <merrno.h>
 #include <object/linker.h>
 #include <parser.h>
+#include <pathname.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,6 +61,7 @@ static void print_syntax(void)
 	    "\t--no-emit Do not emit binary object, stop after compile stage\n"
 	    "\t--no-link Do not link, stop after binary object emission\n"
 	    "\t--no-tape Do not make a tape image, stop after link stage\n"
+	    "\t--no-stdlib Do not implicitly link with standard libraries\n"
 	    "\t--out=<fname> Output file name\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
@@ -447,7 +449,7 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 		}
 	}
 
-	rc = comp_link(comp, outf);
+	rc = comp_link(comp, flags, outf);
 	if (rc != EOK)
 		goto error;
 
@@ -636,6 +638,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-tape") == 0) {
 			++i;
 			flags |= compf_no_tape;
+		} else if (strcmp(argv[i], "--no-stdlib") == 0) {
+			++i;
+			flags |= compf_no_stdlib;
 		} else if (strcmp(argv[i], "--lvalue-args") == 0) {
 			++i;
 			cgflags |= cgf_lvalue_args;

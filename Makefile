@@ -39,6 +39,8 @@ LIBS_z80 = lib/clib/src/stubs.z80.pp.obj
 
 bkqual = $$(date '+%Y-%m-%d')
 
+compiler_z80 = $(syc) $(LIBS_z80)
+
 sources_common = \
     src/ast.c \
     src/file_input.c \
@@ -388,20 +390,20 @@ z80objs: $(objects_z80)
 %.z80.pp.obj: %.z80.pp.c $(syc)
 	$(syc) $(sycflags) --no-link --fatal-warn $<
 
-$(binary_ccheck_z80): $(LIBS_z80) $(objects_ccheck_z80)
-	$(syc) --no-tape --no-link-range-error --out=$@ $^
+$(binary_ccheck_z80): $(compiler_z80) $(objects_ccheck_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_ccheck_z80)
 
-$(binary_syc_z80): $(LIBS_z80) $(objects_syc_z80)
-	$(syc) --no-tape --no-link-range-error --out=$@ $^
+$(binary_syc_z80): $(compiler_z80) $(objects_syc_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_syc_z80)
 
-$(binary_sydis_z80): $(LIBS_z80) $(objects_sydis_z80)
-	$(syc) --no-tape --no-link-range-error --out=$@ $^
+$(binary_sydis_z80): $(compiler_z80) $(objects_sydis_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_sydis_z80)
 
-$(binary_sydump_z80): $(LIBS_z80) $(objects_sydump_z80)
-	$(syc) --no-tape --no-link-range-error --out=$@ $^
+$(binary_sydump_z80): $(compiler_z80) $(objects_sydump_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_sydump_z80)
 
-$(binary_z80test_z80): $(LIBS_z80) $(objects_z80test_z80)
-	$(syc) --no-tape --no-link-range-error --out=$@ $^
+$(binary_z80test_z80): $(compiler_z80) $(objects_z80test_z80)
+	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_z80test_z80)
 
 $(objects_ccheck_z80): $(headers) $(lib_headers)
 $(objects_syc_z80): $(headers) $(lib_headers)
@@ -509,7 +511,7 @@ test/syc/good/%.obj: test/syc/good/%.c $(syc)
 	$(syc) $(sycflags) --no-link $<
 
 test/syc/good/%.bin: test/syc/good/%.c $(syc)
-	$(syc) $(sycflags) $<
+	$(syc) $(sycflags) --no-stdlib $<
 
 test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
 	cd test/syc/good && ../../../$(z80test) -s ../../../$< >../../../$@ || (rm ../../../$@ ; false)
@@ -527,7 +529,7 @@ test/linker/good/local/%.obj: test/linker/good/local/%.c
 	$(syc) $(sycflags) --no-link $<
 
 test/linker/good/local/test.bin: test/linker/good/local/a.obj test/linker/good/local/b.obj
-	$(syc) $(sycflags) --out=$@ $^
+	$(syc) $(sycflags) --no-stdlib --out=$@ $^
 
 test/linker/good/local/test-z80t.txt: test/linker/good/local/test.scr test/linker/good/local/test.bin $(z80test)
 	cd test/linker/good/local && ../../../../$(z80test) -s ../../../../$< >../../../../$@ || (rm ../../../../$@ ; false)

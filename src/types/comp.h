@@ -158,7 +158,9 @@ typedef enum {
 	/** Do not link into an executable */
 	compf_no_link = 0x80,
 	/** Do not make a tape image */
-	compf_no_tape = 0x100
+	compf_no_tape = 0x100,
+	/** Do not implicitly link with standard libraries */
+	compf_no_stdlib = 0x200
 } comp_flags_t;
 
 #endif

@@ -821,20 +821,68 @@ error:
 	return rc;
 }
 
+/** Add standard library to compilation (if desired).
+ *
+ * @param comp Compiler
+ * @param flags Compiler flags
+ * @return EOK on success or an error code
+ */
+static int comp_add_stdlib(comp_t *comp, comp_flags_t flags)
+{
+	comp_module_t *lmodule;
+	char *libname = NULL;
+	int rc;
+
+	if ((flags & compf_no_stdlib) != compf_none)
+		return EOK;
+
+	if (comp->base_dir == NULL) {
+		(void)fprintf(stderr, "Cannot determine standard library "
+		    "path.\n");
+		rc = ENOENT;
+		goto error;
+	}
+
+	libname = pathname_compose(comp->base_dir,
+	    "lib/clib/src/stubs.z80.pp.obj");
+	if (libname == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	rc = comp_module_create_from_obj(comp, libname, &lmodule);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Cannot load '%s'.\n", libname);
+		goto error;
+	}
+
+	free(libname);
+	return EOK;
+error:
+	if (libname != NULL)
+		free(libname);
+	return rc;
+}
+
 /** Perform linking.
  *
  * @param comp Compiler
+ * @param flags Compiler flags
  * @param outf Output file (for writing linked binary) or @c NULL
  * @return EOK on success or an error code
  */
-int comp_link(comp_t *comp, FILE *outf)
+int comp_link(comp_t *comp, comp_flags_t flags, FILE *outf)
 {
 	int rc;
 	obj_linker_t *linker = NULL;
 	comp_module_t *module;
 
 	if (comp->linked_object != NULL)
-		return EOK;
+		goto error;
+
+	rc = comp_add_stdlib(comp, flags);
+	if (rc != EOK)
+		goto error;
 
 	rc = obj_linker_create(comp->lflags, &linker);
 	if (rc != EOK)

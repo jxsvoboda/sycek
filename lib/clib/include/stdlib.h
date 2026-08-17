@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@ void abort(void);
 void *calloc(size_t, size_t);
 void exit(int);
 void free(void *);
+char *getenv(const char *);
 void *malloc(size_t);
 void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
 void *realloc(void *, size_t);

@@ -125,6 +125,12 @@ int getc(FILE *f)
 	return EOF;
 }
 
+char *getenv(const char *name)
+{
+	(void)name;
+	return NULL;
+}
+
 int putchar(int c)
 {
 	(void)c;

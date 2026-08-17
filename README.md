@@ -390,6 +390,7 @@ program in various compilation stages to the standard output:
    instead (`.obj`).
  * `--no-tape` Stop before creating tape image, output a binary executable
    file instead (`.bin`).
+ * `--no-stdlib` Do not implicitly link with standard libraries.
 
 The following code generation options are available:
 

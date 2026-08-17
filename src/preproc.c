@@ -348,10 +348,8 @@ static bool preproc_is_error(preproc_t *preproc)
  *
  * @param preproc Preprocessor
  * @param nchars Number of characters to advance
- *
- * @return EOK on success or non-zero error code
  */
-static int preproc_advance(preproc_t *preproc, size_t nchars)
+static void preproc_advance(preproc_t *preproc, size_t nchars)
 {
 	char *p;
 
@@ -368,8 +366,6 @@ static int preproc_advance(preproc_t *preproc, size_t nchars)
 		assert(preproc->cur->buf_pos <= preproc_buf_size);
 		--nchars;
 	}
-
-	return EOK;
 }
 
 /** Print source range for diagnostics.
@@ -520,7 +516,6 @@ static int preproc_include_from_dir(preproc_t *preproc, const char *dirname,
 
 	file = fopen(hdrname, "rt");
 	if (file == NULL) {
-		printf("not found\n");
 		rc = ENOENT;
 		goto error;
 	}
@@ -652,7 +647,7 @@ static int preproc_process_include(preproc_t *preproc)
 			break;
 
 		if (buf_pos >= preproc_fname_buf_size - 1) {
-			printf("Include filename too long.\n");
+			(void)fprintf(stderr, "Include filename too long.\n");
 			rc = EINVAL;
 			goto error;
 		}
@@ -767,7 +762,8 @@ static int preproc_process_line_begin(preproc_t *preproc)
 	} else {
 		/* Text line. */
 		preproc_pop_state(preproc);
-		preproc_push_state(preproc, pps_text_line);
+		if (preproc_push_state(preproc, pps_text_line) == NULL)
+			return ENOMEM;
 	}
 
 	return EOK;
@@ -796,7 +792,8 @@ static int preproc_process_text_line(preproc_t *preproc)
 			break;
 		if (p[0] == '\n') {
 			preproc_pop_state(preproc);
-			preproc_push_state(preproc, pps_line_begin);
+			if (preproc_push_state(preproc, pps_line_begin) == NULL)
+				return ENOMEM;
 			break;
 		}
 	}

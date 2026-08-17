@@ -978,14 +978,14 @@ static int script_process(const char *fname)
 
 	scr_lexer_destroy(lexer);
 	file_input_destroy(finput);
-	fclose(f);
+	(void)fclose(f);
 	return 0;
 error:
 	if (lexer != NULL)
 		scr_lexer_destroy(lexer);
 	file_input_destroy(finput);
 	if (f != NULL)
-		fclose(f);
+		(void)fclose(f);
 	return rc;
 }
 

@@ -47,7 +47,7 @@ char *pathname_get_dirname(const char *pathname)
 
 	sep = strrchr(pathname, '/');
 	if (sep != NULL) {
-		off = sep - pathname;
+		off = (size_t)(sep - pathname);
 		dirname = malloc(off + 1);
 		if (dirname == NULL)
 			return NULL;
