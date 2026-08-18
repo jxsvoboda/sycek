@@ -45,9 +45,10 @@ lexer_input_ops_t lexer_preproc_input = {
 static int preproc_push_input(preproc_t *, const char *, FILE *, file_input_t *,
     lexer_input_ops_t *, void *);
 static void preproc_pop_input(preproc_t *);
-static preproc_state_entry_t *preproc_push_state(preproc_t *, preproc_state_t);
-static preproc_state_entry_t *preproc_top_state(preproc_t *);
-static void preproc_pop_state(preproc_t *);
+static preproc_condition_t *preproc_push_condition(preproc_t *,
+    src_pos_t *, src_pos_t *);
+static preproc_condition_t *preproc_top_condition(preproc_t *);
+static void preproc_pop_condition(preproc_t *);
 static preproc_macro_t *preproc_macro_first(preproc_t *);
 static void preproc_macro_remove(preproc_macro_t *);
 
@@ -72,7 +73,6 @@ int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
     void *input_arg, preproc_t **rpreproc)
 {
 	preproc_t *preproc = NULL;
-	preproc_state_entry_t *entry;
 	int rc;
 
 	preproc = calloc(1, sizeof(preproc_t));
@@ -82,7 +82,7 @@ int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
 	}
 
 	list_initialize(&preproc->inputs);
-	list_initialize(&preproc->states);
+	list_initialize(&preproc->conditions);
 	list_initialize(&preproc->macros);
 
 	rc = preproc_push_input(preproc, fname, NULL, NULL, input_ops,
@@ -90,11 +90,7 @@ int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
 	if (rc != EOK)
 		goto error;
 
-	entry = preproc_push_state(preproc, pps_line_begin);
-	if (entry == NULL) {
-		rc = ENOMEM;
-		goto error;
-	}
+	preproc->state = pps_line_begin;
 
 	*rpreproc = preproc;
 	return EOK;
@@ -109,17 +105,17 @@ error:
  */
 void preproc_destroy(preproc_t *preproc)
 {
-	preproc_state_entry_t *entry;
+	preproc_condition_t *condition;
 	preproc_macro_t *macro;
 
 	if (preproc == NULL)
 		return;
 
-	entry = preproc_top_state(preproc);
-	while (entry != NULL) {
-		preproc_pop_state(preproc);
+	condition = preproc_top_condition(preproc);
+	while (condition != NULL) {
+		preproc_pop_condition(preproc);
 
-		entry = preproc_top_state(preproc);
+		condition = preproc_top_condition(preproc);
 	}
 
 	while (preproc->cur != NULL)
@@ -157,20 +153,20 @@ int preproc_set_incldir(preproc_t *preproc, const char *dir)
 	return EOK;
 }
 
-/** Return current preprocessor state entry (from top of state stack).
+/** Return innermost preprocessor condition directive.
  *
  * @param preproc Preprocessor
- * @return Topmost state entry or @c NULL if there are none
+ * @return Topmost condition or @c NULL if there are none
  */
-static preproc_state_entry_t *preproc_top_state(preproc_t *preproc)
+static preproc_condition_t *preproc_top_condition(preproc_t *preproc)
 {
 	link_t *link;
 
-	link = list_first(&preproc->states);
+	link = list_first(&preproc->conditions);
 	if (link == NULL)
 		return NULL;
 
-	return list_get_instance(link, preproc_state_entry_t, lstates);
+	return list_get_instance(link, preproc_condition_t, lconditions);
 }
 
 /** Push entry to preprocessor input stack.
@@ -236,37 +232,40 @@ static void preproc_pop_input(preproc_t *preproc)
 	}
 }
 
-/** Push state entry to preprocessor state stack.
+/** Push condition to preprocessor condition stack.
  *
  * @param preproc Preprocessor
- * @param state Preprocessor state
- * @return New state entry (the user may need to fill in details)
+ * @param bpos Position of the beginning
+ * @param epos Position of the end
+ * @return New condition or @c NULL if out of memory
  */
-static preproc_state_entry_t *preproc_push_state(preproc_t *preproc,
-    preproc_state_t state)
+static preproc_condition_t *preproc_push_condition(preproc_t *preproc,
+    src_pos_t *bpos, src_pos_t *epos)
 {
-	preproc_state_entry_t *entry;
+	preproc_condition_t *condition;
 
-	entry = calloc(1, sizeof(preproc_state_entry_t));
-	if (entry == NULL)
+	condition = calloc(1, sizeof(preproc_condition_t));
+	if (condition == NULL)
 		return NULL;
 
-	entry->state = state;
-	list_append(&entry->lstates, &preproc->states);
-	return entry;
+	condition->preproc = preproc;
+	list_append(&condition->lconditions, &preproc->conditions);
+	condition->bpos = *bpos;
+	condition->epos = *epos;
+	return condition;
 }
 
-/** Pop state entry from preprocessor state stack.
+/** Pop condition from preprocessor condition stack.
  *
  * @param preproc Preprocessor
  */
-static void preproc_pop_state(preproc_t *preproc)
+static void preproc_pop_condition(preproc_t *preproc)
 {
-	preproc_state_entry_t *entry;
+	preproc_condition_t *condition;
 
-	entry = preproc_top_state(preproc);
-	list_remove(&entry->lstates);
-	free(entry);
+	condition = preproc_top_condition(preproc);
+	list_remove(&condition->lconditions);
+	free(condition);
 }
 
 /** Add new preprocessor macro.
@@ -606,6 +605,20 @@ static int preproc_process_invalid_directive(preproc_t *preproc)
 	return EOK;
 }
 
+static int preproc_end_of_file_checks(preproc_t *preproc)
+{
+	preproc_condition_t *cond;
+
+	cond = preproc_top_condition(preproc);
+	if (cond != NULL) {
+		(void)preproc_dprint_range(&cond->bpos, &cond->epos, stderr);
+		(void)fprintf(stderr, ": Unterminated #if/#ifdef/#ifndef.\n");
+		return EINVAL;
+	}
+
+	return EOK;
+}
+
 /** Look for an included file relative to the specified directory.
  *
  * @param preproc Preprocessor
@@ -802,6 +815,142 @@ error:
 	return rc;
 }
 
+/** Process endif directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_endif(preproc_t *preproc)
+{
+	preproc_condition_t *cond;
+	src_pos_t bpos;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 5);
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	cond = preproc_top_condition(preproc);
+	if (cond == NULL) {
+		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
+		fprintf(stderr, ": Unmatched #endif.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	preproc_pop_condition(preproc);
+	return EOK;
+error:
+	return rc;
+}
+
+/** Process ifdef directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_ifdef(preproc_t *preproc)
+{
+	char *macro_name = NULL;
+	preproc_condition_t *cond;
+	src_pos_t bpos;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 5);
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (preproc_is_eof(preproc)) {
+		preproc_error_macro_name(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	rc = preproc_process_macro_name(preproc, &macro_name);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	cond = preproc_push_condition(preproc, &bpos, &preproc->cur->pos);
+	if (cond == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	free(macro_name);
+	return EOK;
+error:
+	if (macro_name != NULL)
+		free(macro_name);
+	return rc;
+}
+
+/** Process ifndef directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_ifndef(preproc_t *preproc)
+{
+	char *macro_name = NULL;
+	preproc_condition_t *cond;
+	src_pos_t bpos;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 6);
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (preproc_is_eof(preproc)) {
+		preproc_error_macro_name(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	rc = preproc_process_macro_name(preproc, &macro_name);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	cond = preproc_push_condition(preproc, &bpos, &preproc->cur->pos);
+	if (cond == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	free(macro_name);
+	return EOK;
+error:
+	if (macro_name != NULL)
+		free(macro_name);
+	return rc;
+}
+
 /** Process include directive.
  *
  * @param preproc Preprocessor
@@ -976,7 +1125,21 @@ static int preproc_process_directive(preproc_t *preproc)
 			return preproc_process_define(preproc);
 		}
 		break;
+	case 'e':
+		if (p[1] == 'n' && p[2] == 'd' && p[3] == 'i' &&
+		    p[4] == 'f' && !is_idcnt(p[5])) {
+			return preproc_process_endif(preproc);
+		}
+		break;
 	case 'i':
+		if (p[1] == 'f' && p[2] == 'd' && p[3] == 'e' &&
+		    p[4] == 'f' && !is_idcnt(p[5])) {
+			return preproc_process_ifdef(preproc);
+		}
+		if (p[1] == 'f' && p[2] == 'n' && p[3] == 'd' &&
+		    p[4] == 'e' && p[5] == 'f' && !is_idcnt(p[6])) {
+			return preproc_process_ifndef(preproc);
+		}
 		if (p[1] == 'n' && p[2] == 'c' && p[3] == 'l' &&
 		    p[4] == 'u' && p[5] == 'd' && p[6] == 'e' &&
 		    !is_idcnt(p[7])) {
@@ -1033,9 +1196,7 @@ static int preproc_process_line_begin(preproc_t *preproc)
 			return rc;
 	} else {
 		/* Text line. */
-		preproc_pop_state(preproc);
-		if (preproc_push_state(preproc, pps_text_line) == NULL)
-			return ENOMEM;
+		preproc->state = pps_text_line;
 	}
 
 	return EOK;
@@ -1063,9 +1224,7 @@ static int preproc_process_text_line(preproc_t *preproc)
 		if (preproc->out_buf_used >= preproc_out_buf_size)
 			break;
 		if (p[0] == '\n') {
-			preproc_pop_state(preproc);
-			if (preproc_push_state(preproc, pps_line_begin) == NULL)
-				return ENOMEM;
+			preproc->state = pps_line_begin;
 			break;
 		}
 	}
@@ -1085,10 +1244,7 @@ static int preproc_process_text_line(preproc_t *preproc)
  */
 static int preproc_process(preproc_t *preproc)
 {
-	preproc_state_entry_t *entry;
-
-	entry = preproc_top_state(preproc);
-	switch (entry->state) {
+	switch (preproc->state) {
 	case pps_line_begin:
 		return preproc_process_line_begin(preproc);
 	case pps_text_line:
@@ -1116,7 +1272,12 @@ static int preproc_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 
 	while (preproc->out_buf_used == 0 && preproc->cur != NULL &&
 	    !preproc_is_error(preproc)) {
+		/* Reached end of file. */
 		if (preproc_is_eof(preproc)) {
+			rc = preproc_end_of_file_checks(preproc);
+			if (rc != EOK)
+				return rc;
+
 			preproc_pop_input(preproc);
 			if (preproc->cur == NULL)
 				break;

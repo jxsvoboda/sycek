@@ -426,10 +426,12 @@ int comp_create(const char *base_dir, comp_t **rcomp)
 		goto error;
 	}
 
-	comp->base_dir = strdup(base_dir);
-	if (comp->base_dir == NULL) {
-		rc = ENOMEM;
-		goto error;
+	if (base_dir != NULL) {
+		comp->base_dir = strdup(base_dir);
+		if (comp->base_dir == NULL) {
+			rc = ENOMEM;
+			goto error;
+		}
 	}
 
 	list_initialize(&comp->mods);

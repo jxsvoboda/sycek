@@ -1,0 +1,1 @@
+<test/syc/bad/ppuntermifndef.c:5:2-10>: Unterminated #if/#ifdef/#ifndef.

@@ -32,6 +32,7 @@
 #include <types/file_input.h>
 #include <types/linput.h>
 #include <types/preproc.h>
+#include <types/src_pos.h>
 
 enum {
 	preproc_buf_size = 32,
@@ -41,12 +42,20 @@ enum {
 
 struct preproc_input;
 
+/** C preprocessor state */
+typedef enum {
+	/** At beginning of line (or after whitespace) */
+	pps_line_begin,
+	/** Inside a line of text */
+	pps_text_line
+} preproc_state_t;
+
 /** C preprocessor */
 typedef struct preproc {
 	/** Input stack (list of preproc_input_t */
 	list_t inputs;
-	/** State stack (list of preproc_state_entry_t */
-	list_t states;
+	/** Preprocessor state */
+	preproc_state_t state;
 	/** Current input */
 	struct preproc_input *cur;
 	/** Position of beginning of input buffer */
@@ -61,6 +70,8 @@ typedef struct preproc {
 	src_pos_t out_buf_pos;
 	/** Directory for standard includes. */
 	char *incldir;
+	/** Condition stack (list of preproc_condition_t) */
+	list_t conditions;
 	/** Preprocessor macros (list of preproc_macro_t) */
 	list_t macros;
 } preproc_t;
@@ -97,23 +108,17 @@ typedef struct preproc_input {
 	src_pos_t pos;
 } preproc_input_t;
 
-/** C preprocessor state */
-typedef enum {
-	/** At beginning of line (or after whitespace) */
-	pps_line_begin,
-	/** Inside a line of text */
-	pps_text_line
-} preproc_state_t;
-
-/** C preprocessor state stack entry */
+/** C preprocessor condition stack entry */
 typedef struct {
 	/** Containing preprocessor */
 	struct preproc *preproc;
 	/** Link to @c preproc->states */
-	link_t lstates;
-	/** State */
-	preproc_state_t state;
-} preproc_state_entry_t;
+	link_t lconditions;
+	/** Beginning of conditional directive */
+	src_pos_t bpos;
+	/** End of conditional directive */
+	src_pos_t epos;
+} preproc_condition_t;
 
 /** C preprocessor macro */
 typedef struct {
