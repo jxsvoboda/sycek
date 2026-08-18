@@ -53,6 +53,7 @@ static preproc_macro_t *preproc_macro_first(preproc_t *);
 static void preproc_macro_remove(preproc_macro_t *);
 static preproc_macro_t *preproc_macro_find(preproc_t *, const char *);
 static int preproc_skip_to_end_of_line(preproc_t *);
+static int preproc_dump_to_end_of_line(preproc_t *, FILE *);
 
 enum {
 	/** Size of preprocessor file name buffer. */
@@ -711,6 +712,36 @@ static int preproc_skip_to_end_of_line(preproc_t *preproc)
 	return EOK;
 }
 
+/** Dump input until end of line.
+ *
+ * @param preproc Preprocessor
+ * @param outf Output file
+ * @return EOK on success or an error code.
+ */
+static int preproc_dump_to_end_of_line(preproc_t *preproc, FILE *outf)
+{
+	char *p;
+	char c;
+	int rv;
+
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		c = p[0];
+		preproc_advance(preproc, 1);
+		rv = fputc(c, outf);
+		if (rv < 0)
+			return EIO;
+
+		if (c == '\n')
+			break;
+	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
+
+	return EOK;
+}
+
 /** Include a file.
  *
  * @param preproc Preprocessor
@@ -955,6 +986,39 @@ static int preproc_process_endif(preproc_t *preproc)
 
 	preproc->skipping = cond->was_skipping;
 	preproc_pop_condition(preproc);
+	preproc->state = pps_line_begin;
+	return EOK;
+error:
+	return rc;
+}
+
+/** Process error directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_error(preproc_t *preproc)
+{
+	src_pos_t bpos;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 5);
+
+	if (preproc->skipping) {
+		rc = preproc_skip_to_end_of_line(preproc);
+		if (rc != EOK)
+			return rc;
+	} else {
+		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
+		(void)fprintf(stderr, ": #error");
+
+		(void)preproc_dump_to_end_of_line(preproc, stderr);
+
+		rc = EINVAL;
+		goto error;
+	}
+
 	preproc->state = pps_line_begin;
 	return EOK;
 error:
@@ -1314,6 +1378,10 @@ static int preproc_process_directive(preproc_t *preproc)
 		    p[4] == 'f' && !is_idcnt(p[5])) {
 			return preproc_process_endif(preproc);
 		}
+		if (p[1] == 'r' && p[2] == 'r' && p[3] == 'o' &&
+		    p[4] == 'r' && !is_idcnt(p[5])) {
+			return preproc_process_error(preproc);
+		}
 		break;
 	case 'i':
 		if (p[1] == 'f' && p[2] == 'd' && p[3] == 'e' &&
@@ -1394,6 +1462,7 @@ static int preproc_process_line_begin(preproc_t *preproc)
 static int preproc_process_text_line(preproc_t *preproc)
 {
 	char *p;
+	char c;
 	int rc;
 
 	if (preproc->skipping) {
@@ -1407,6 +1476,7 @@ static int preproc_process_text_line(preproc_t *preproc)
 
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
+		c = p[0];
 
 		if (preproc->out_buf_used == 0)
 			preproc->out_buf_pos = preproc->cur->pos;
@@ -1415,12 +1485,13 @@ static int preproc_process_text_line(preproc_t *preproc)
 		preproc->out_posbuf[preproc->out_buf_used] = preproc->cur->pos;
 		++preproc->out_buf_used;
 		preproc_advance(preproc, 1);
-		if (preproc->out_buf_used >= preproc_out_buf_size)
-			break;
-		if (p[0] == '\n') {
+		if (c == '\n') {
 			preproc->state = pps_line_begin;
 			break;
 		}
+
+		if (preproc->out_buf_used >= preproc_out_buf_size)
+			break;
 	}
 
 	if (preproc_is_error(preproc))

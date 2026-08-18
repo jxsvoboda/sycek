@@ -8,6 +8,8 @@
 #ifndef FOO
 This line is skipped.
 
+#error This is ignored.
+
 /* Extra characters are ignored when skipping. */
 #ifdef A B
 #endif X
