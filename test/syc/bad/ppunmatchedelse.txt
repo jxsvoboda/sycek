@@ -1,0 +1,1 @@
+<test/syc/bad/ppunmatchedelse.c:5:2-6>: Unmatched #else.

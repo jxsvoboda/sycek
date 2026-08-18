@@ -868,6 +868,59 @@ error:
 	return rc;
 }
 
+/** Process else directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_else(preproc_t *preproc)
+{
+	preproc_condition_t *cond;
+	src_pos_t bpos;
+	int rc;
+
+	bpos = preproc->cur->pos;
+	preproc_advance(preproc, 4);
+
+	if (preproc->skipping) {
+		rc = preproc_skip_to_end_of_line(preproc);
+		if (rc != EOK)
+			return rc;
+	} else {
+		rc = preproc_process_ws_eol(preproc);
+		if (rc != EOK)
+			goto error;
+	}
+
+	cond = preproc_top_condition(preproc);
+	if (cond == NULL) {
+		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
+		(void)fprintf(stderr, ": Unmatched #else.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (cond->has_else) {
+		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
+		(void)fprintf(stderr, ": Second #else for condition "
+		    "starting at ");
+		(void)preproc_dprint_range(&cond->bpos, &cond->epos, stderr);
+		(void)fprintf(stderr, ".\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	cond->has_else = true;
+	cond->else_bpos = bpos;
+	cond->else_epos = preproc->cur->pos;
+
+	preproc->skipping = !preproc->skipping;
+	preproc->state = pps_line_begin;
+	return EOK;
+error:
+	return rc;
+}
+
 /** Process endif directive.
  *
  * @param preproc Preprocessor
@@ -895,7 +948,7 @@ static int preproc_process_endif(preproc_t *preproc)
 	cond = preproc_top_condition(preproc);
 	if (cond == NULL) {
 		(void)preproc_dprint_range(&bpos, &preproc->cur->pos, stderr);
-		fprintf(stderr, ": Unmatched #endif.\n");
+		(void)fprintf(stderr, ": Unmatched #endif.\n");
 		rc = EINVAL;
 		goto error;
 	}
@@ -1253,6 +1306,10 @@ static int preproc_process_directive(preproc_t *preproc)
 		}
 		break;
 	case 'e':
+		if (p[1] == 'l' && p[2] == 's' && p[3] == 'e' &&
+		    !is_idcnt(p[4])) {
+			return preproc_process_else(preproc);
+		}
 		if (p[1] == 'n' && p[2] == 'd' && p[3] == 'i' &&
 		    p[4] == 'f' && !is_idcnt(p[5])) {
 			return preproc_process_endif(preproc);

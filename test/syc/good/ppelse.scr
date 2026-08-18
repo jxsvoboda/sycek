@@ -1,0 +1,5 @@
+mapfile "ppelse.map";
+ldbin "ppelse.bin", 0x8000;
+
+/* variable should contain 2 */
+verify word ptr (@_x), 2;

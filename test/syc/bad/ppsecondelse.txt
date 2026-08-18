@@ -1,0 +1,1 @@
+<test/syc/bad/ppsecondelse.c:8:2-9:1>: Second #else for condition starting at <test/syc/bad/ppsecondelse.c:6:2-7:1>.

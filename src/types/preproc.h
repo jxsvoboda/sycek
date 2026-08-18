@@ -120,6 +120,12 @@ typedef struct {
 	src_pos_t bpos;
 	/** End of conditional directive */
 	src_pos_t epos;
+	/** Encountered an else directive */
+	bool has_else;
+	/** Beginning of else directive */
+	src_pos_t else_bpos;
+	/** End of else directive */
+	src_pos_t else_epos;
 	/** Preprocessor was skipping before entering this condition. */
 	bool was_skipping;
 } preproc_condition_t;
