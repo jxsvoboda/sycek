@@ -1,0 +1,5 @@
+/*
+ * Invalid preprocessor directive.
+ */
+
+#boo

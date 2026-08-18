@@ -28,6 +28,7 @@
 #define TYPES_PREPROC_H
 
 #include <adt/list.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <types/file_input.h>
 #include <types/linput.h>
@@ -47,7 +48,9 @@ typedef enum {
 	/** At beginning of line (or after whitespace) */
 	pps_line_begin,
 	/** Inside a line of text */
-	pps_text_line
+	pps_text_line,
+	/** Copying a pragma directive */
+	pps_copy_pragma
 } preproc_state_t;
 
 /** C preprocessor */
@@ -70,6 +73,8 @@ typedef struct preproc {
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */
 	src_pos_t out_buf_pos;
+	/** Position while copying '#pragma' */
+	uint8_t pragma_pos;
 	/** Directory for standard includes. */
 	char *incldir;
 	/** Condition stack (list of preproc_condition_t) */

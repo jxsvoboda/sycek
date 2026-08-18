@@ -477,6 +477,35 @@ static void preproc_advance(preproc_t *preproc, size_t nchars)
 	}
 }
 
+/** Determine if output buffer has available space.
+ *
+ * @param preproc Preprocessor
+ * @return @c true iff output buffer has available space.
+ */
+static bool preproc_out_buf_avail(preproc_t *preproc)
+{
+	return preproc->out_buf_used < preproc_out_buf_size;
+}
+
+/** Insert character to preprocessor output buffer.
+ *
+ * @param preproc Preprocessor
+ * @param c Character
+ * @param pos Character source code position
+ * @return EOK on success or an error code.
+ */
+static void preproc_out_buf_insert(preproc_t *preproc, char c, src_pos_t *pos)
+{
+	if (preproc->out_buf_used == 0)
+		preproc->out_buf_pos = preproc->cur->pos;
+
+	assert(preproc_out_buf_avail(preproc));
+
+	preproc->out_buf[preproc->out_buf_used] = c;
+	preproc->out_posbuf[preproc->out_buf_used] = *pos;
+	++preproc->out_buf_used;
+}
+
 /** Print source range for diagnostics.
  *
  * @param bpos Begin position
@@ -584,7 +613,7 @@ static int preproc_process_ws_eol(preproc_t *preproc)
  */
 static int preproc_process_invalid_directive(preproc_t *preproc)
 {
-	// src_pos_t spos;
+	src_pos_t spos;
 	char *p;
 	int rc;
 
@@ -597,7 +626,7 @@ static int preproc_process_invalid_directive(preproc_t *preproc)
 		return EOK;
 	}
 
-	// spos = preproc->cur->pos;
+	 spos = preproc->cur->pos;
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 		if (!is_idcnt(p[0]))
@@ -606,8 +635,8 @@ static int preproc_process_invalid_directive(preproc_t *preproc)
 		preproc_advance(preproc, 1);
 	}
 
-	//(void)preproc_dprint_range(&spos, &preproc->cur->pos, stderr);
-	//(void)fprintf(stderr, ": Invalid preprocessor directive.\n");
+	(void)preproc_dprint_range(&spos, &preproc->cur->pos, stderr);
+	(void)fprintf(stderr, ": Invalid preprocessor directive.\n");
 
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
@@ -1283,6 +1312,31 @@ error:
 	return rc;
 }
 
+/** Process pragma directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_pragma(preproc_t *preproc)
+{
+	int rc;
+
+	preproc_advance(preproc, 6);
+
+	if (preproc->skipping) {
+		rc = preproc_skip_to_end_of_line(preproc);
+		if (rc != EOK)
+			return rc;
+
+		preproc->state = pps_line_begin;
+		return EOK;
+	}
+
+	preproc->state = pps_copy_pragma;
+	preproc->pragma_pos = 0;
+	return EOK;
+}
+
 /** Process undef directive.
  *
  * @param preproc Preprocessor
@@ -1398,6 +1452,12 @@ static int preproc_process_directive(preproc_t *preproc)
 			return preproc_process_include(preproc);
 		}
 		break;
+	case 'p':
+		if (p[1] == 'r' && p[2] == 'a' && p[3] == 'g' &&
+		    p[4] == 'm' && p[5] == 'a' && !is_idcnt(p[6])) {
+			return preproc_process_pragma(preproc);
+		}
+		break;
 	case 'u':
 		if (p[1] == 'n' && p[2] == 'd' && p[3] == 'e' &&
 		    p[4] == 'f' && !is_idcnt(p[5])) {
@@ -1478,24 +1538,47 @@ static int preproc_process_text_line(preproc_t *preproc)
 		p = preproc_chars(preproc);
 		c = p[0];
 
-		if (preproc->out_buf_used == 0)
-			preproc->out_buf_pos = preproc->cur->pos;
+		preproc_out_buf_insert(preproc, c, &preproc->cur->pos);
 
-		preproc->out_buf[preproc->out_buf_used] = p[0];
-		preproc->out_posbuf[preproc->out_buf_used] = preproc->cur->pos;
-		++preproc->out_buf_used;
 		preproc_advance(preproc, 1);
 		if (c == '\n') {
 			preproc->state = pps_line_begin;
 			break;
 		}
 
-		if (preproc->out_buf_used >= preproc_out_buf_size)
+		if (!preproc_out_buf_avail(preproc))
 			break;
 	}
 
 	if (preproc_is_error(preproc))
 		return EIO;
+
+	return EOK;
+}
+
+/** Process in copy pragma state.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_copy_pragma(preproc_t *preproc)
+{
+	const char *pragma = "#pragma";
+
+	assert(!preproc->skipping);
+
+	while (preproc->pragma_pos < 7) {
+		preproc_out_buf_insert(preproc, pragma[preproc->pragma_pos],
+		    &preproc->cur->pos);
+		++preproc->pragma_pos;
+
+		if (!preproc_out_buf_avail(preproc))
+			break;
+	}
+
+	if (preproc->pragma_pos >= 7) {
+		preproc->state = pps_text_line;
+	}
 
 	return EOK;
 }
@@ -1514,6 +1597,8 @@ static int preproc_process(preproc_t *preproc)
 		return preproc_process_line_begin(preproc);
 	case pps_text_line:
 		return preproc_process_text_line(preproc);
+	case pps_copy_pragma:
+		return preproc_process_copy_pragma(preproc);
 	}
 
 	return EINVAL;

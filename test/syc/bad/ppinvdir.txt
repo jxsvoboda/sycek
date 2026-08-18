@@ -1,0 +1,1 @@
+<test/syc/bad/ppinvdir.c:5:2-5>: Invalid preprocessor directive.
