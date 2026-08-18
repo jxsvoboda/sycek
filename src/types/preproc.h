@@ -56,6 +56,8 @@ typedef struct preproc {
 	list_t inputs;
 	/** Preprocessor state */
 	preproc_state_t state;
+	/** Currently skipping due to false condition. */
+	bool skipping;
 	/** Current input */
 	struct preproc_input *cur;
 	/** Position of beginning of input buffer */
@@ -118,6 +120,8 @@ typedef struct {
 	src_pos_t bpos;
 	/** End of conditional directive */
 	src_pos_t epos;
+	/** Preprocessor was skipping before entering this condition. */
+	bool was_skipping;
 } preproc_condition_t;
 
 /** C preprocessor macro */

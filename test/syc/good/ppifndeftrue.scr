@@ -1,0 +1,5 @@
+mapfile "ppifndeftrue.map";
+ldbin "ppifndeftrue.bin", 0x8000;
+
+/* variable should exist */
+ld word ptr (@_x), 0;
