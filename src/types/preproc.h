@@ -61,6 +61,8 @@ typedef struct preproc {
 	src_pos_t out_buf_pos;
 	/** Directory for standard includes. */
 	char *incldir;
+	/** Preprocessor macros (list of preproc_macro_t) */
+	list_t macros;
 } preproc_t;
 
 /** C preprocessor input stack entry */
@@ -112,6 +114,16 @@ typedef struct {
 	/** State */
 	preproc_state_t state;
 } preproc_state_entry_t;
+
+/** C preprocessor macro */
+typedef struct {
+	/** Containing preprocessor */
+	struct preproc *preproc;
+	/** Link to @c preproc->macros */
+	link_t lmacros;
+	/** Macro name */
+	char *name;
+} preproc_macro_t;
 
 /** Include type (angle brackets or quotes) */
 typedef enum {

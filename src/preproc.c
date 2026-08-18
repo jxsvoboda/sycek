@@ -48,10 +48,15 @@ static void preproc_pop_input(preproc_t *);
 static preproc_state_entry_t *preproc_push_state(preproc_t *, preproc_state_t);
 static preproc_state_entry_t *preproc_top_state(preproc_t *);
 static void preproc_pop_state(preproc_t *);
+static preproc_macro_t *preproc_macro_first(preproc_t *);
+static void preproc_macro_remove(preproc_macro_t *);
 
 enum {
 	/** Size of preprocessor file name buffer. */
-	preproc_fname_buf_size = 512
+	preproc_fname_buf_size = 512,
+
+	/** Size of macro name buffer. */
+	preproc_macro_name_buf_size = 128
 };
 
 /** Create preprocessor.
@@ -78,6 +83,7 @@ int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
 
 	list_initialize(&preproc->inputs);
 	list_initialize(&preproc->states);
+	list_initialize(&preproc->macros);
 
 	rc = preproc_push_input(preproc, fname, NULL, NULL, input_ops,
 	    input_arg);
@@ -104,6 +110,7 @@ error:
 void preproc_destroy(preproc_t *preproc)
 {
 	preproc_state_entry_t *entry;
+	preproc_macro_t *macro;
 
 	if (preproc == NULL)
 		return;
@@ -117,6 +124,12 @@ void preproc_destroy(preproc_t *preproc)
 
 	while (preproc->cur != NULL)
 		preproc_pop_input(preproc);
+
+	macro = preproc_macro_first(preproc);
+	while (macro != NULL) {
+		preproc_macro_remove(macro);
+		macro = preproc_macro_first(preproc);
+	}
 
 	if (preproc->incldir != NULL)
 		free(preproc->incldir);
@@ -254,6 +267,95 @@ static void preproc_pop_state(preproc_t *preproc)
 	entry = preproc_top_state(preproc);
 	list_remove(&entry->lstates);
 	free(entry);
+}
+
+/** Add new preprocessor macro.
+ *
+ * @param preproc Preprocessor
+ * @param name Macro name
+ * @return EOK on success or an error code.
+ */
+static int preproc_macro_add(preproc_t *preproc, const char *name)
+{
+	preproc_macro_t *macro;
+
+	macro = calloc(1, sizeof(preproc_macro_t));
+	if (macro == NULL)
+		return ENOMEM;
+
+	macro->name = strdup(name);
+	if (macro->name == NULL) {
+		free(macro);
+		return ENOMEM;
+	}
+
+	macro->preproc = preproc;
+	list_append(&macro->lmacros, &preproc->macros);
+	return EOK;
+}
+
+/** Return fist preprocessor macro.
+ *
+ * @param preproc Preprocessor
+ * @return First macro or @c NULL if there are none
+ */
+static preproc_macro_t *preproc_macro_first(preproc_t *preproc)
+{
+	link_t *link;
+
+	link = list_first(&preproc->macros);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_macro_t, lmacros);
+}
+
+/** Return next preprocessor macro.
+ *
+ * @param cur Current macro
+ * @return First macro or @c NULL if @a cur was the last.
+ */
+static preproc_macro_t *preproc_macro_next(preproc_macro_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lmacros, &cur->preproc->macros);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_macro_t, lmacros);
+}
+
+/** Find preprocessor macro by name.
+ *
+ * @param preproc Preprocessor
+ * @param name Macro name
+ * @return Macro or @c NULL if not found.
+ */
+static preproc_macro_t *preproc_macro_find(preproc_t *preproc, const char *name)
+{
+	preproc_macro_t *macro;
+
+	macro = preproc_macro_first(preproc);
+	while (macro != NULL) {
+		if (strcmp(macro->name, name) == 0)
+			return macro;
+
+		macro = preproc_macro_next(macro);
+	}
+
+	return NULL;
+}
+
+/** Remove preprocessor macro.
+ *
+ * @param macro Preprocessor macro
+ */
+static void preproc_macro_remove(preproc_macro_t *macro)
+{
+	list_remove(&macro->lmacros);
+	free(macro->name);
+	free(macro);
 }
 
 /** Get valid pointer to characters in input buffer.
@@ -401,6 +503,17 @@ static void preproc_error_header_name(preproc_t *preproc)
 	(void)preproc_dprint_range(&preproc->cur->pos, &preproc->cur->pos,
 	    stderr);
 	(void)fprintf(stderr, ": Expected <header-name> or \"header-name\".\n");
+}
+
+/** Print error expected macro name.
+ *
+ * @param preproc Preprocessor
+ */
+static void preproc_error_macro_name(preproc_t *preproc)
+{
+	(void)preproc_dprint_range(&preproc->cur->pos, &preproc->cur->pos,
+	    stderr);
+	(void)fprintf(stderr, ": Expected macro name.\n");
 }
 
 /** Process whitespace.
@@ -591,6 +704,104 @@ error:
 	return rc;
 }
 
+/** Process macro name.
+ *
+ * @param preproc Preprocessor
+ * @param rname Place to store pointer to newly allocated macro name.
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_macro_name(preproc_t *preproc, char **rname)
+{
+	char *p;
+	char *macro_name;
+	size_t buf_pos;
+	int rc;
+
+	macro_name = calloc(preproc_macro_name_buf_size, 1);
+	if (macro_name == NULL)
+		return ENOMEM;
+
+	if (preproc_is_eof(preproc) || preproc_is_error(preproc)) {
+		rc = EINVAL;
+		goto error;
+	}
+
+	buf_pos = 0;
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		if (!is_idcnt(p[0]))
+			break;
+
+		if (buf_pos >= preproc_macro_name_buf_size - 1) {
+			(void)fprintf(stderr, "Macro name too long.\n");
+			rc = EINVAL;
+			goto error;
+		}
+
+		macro_name[buf_pos++] = p[0];
+		preproc_advance(preproc, 1);
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	macro_name[buf_pos] = '\0';
+	*rname = macro_name;
+	return EOK;
+error:
+	free(macro_name);
+	return rc;
+}
+
+/** Process define directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_define(preproc_t *preproc)
+{
+	char *macro_name = NULL;
+	int rc;
+
+	preproc_advance(preproc, 6);
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (preproc_is_eof(preproc)) {
+		preproc_error_macro_name(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	rc = preproc_process_macro_name(preproc, &macro_name);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_macro_add(preproc, macro_name);
+	if (rc != EOK)
+		goto error;
+
+	free(macro_name);
+	return EOK;
+error:
+	if (macro_name != NULL)
+		free(macro_name);
+	return rc;
+}
+
 /** Process include directive.
  *
  * @param preproc Preprocessor
@@ -689,6 +900,55 @@ error:
 	return rc;
 }
 
+/** Process undef directive.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_undef(preproc_t *preproc)
+{
+	char *macro_name = NULL;
+	preproc_macro_t *macro;
+	int rc;
+
+	preproc_advance(preproc, 5);
+
+	rc = preproc_process_ws(preproc);
+	if (rc != EOK)
+		goto error;
+
+	if (preproc_is_eof(preproc)) {
+		preproc_error_macro_name(preproc);
+		rc = EINVAL;
+		goto error;
+	}
+
+	if (preproc_is_error(preproc)) {
+		rc = EIO;
+		goto error;
+	}
+
+	rc = preproc_process_macro_name(preproc, &macro_name);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_process_ws_eol(preproc);
+	if (rc != EOK)
+		goto error;
+
+	macro = preproc_macro_find(preproc, macro_name);
+	if (macro != NULL) {
+		preproc_macro_remove(macro);
+	}
+
+	free(macro_name);
+	return EOK;
+error:
+	if (macro_name != NULL)
+		free(macro_name);
+	return rc;
+}
+
 /** Process a directive.
  *
  * @param preproc Preprocessor
@@ -710,11 +970,23 @@ static int preproc_process_directive(preproc_t *preproc)
 	p = preproc_chars(preproc);
 
 	switch (p[0]) {
+	case 'd':
+		if (p[1] == 'e' && p[2] == 'f' && p[3] == 'i' &&
+		    p[4] == 'n' && p[5] == 'e' && !is_idcnt(p[6])) {
+			return preproc_process_define(preproc);
+		}
+		break;
 	case 'i':
 		if (p[1] == 'n' && p[2] == 'c' && p[3] == 'l' &&
 		    p[4] == 'u' && p[5] == 'd' && p[6] == 'e' &&
 		    !is_idcnt(p[7])) {
 			return preproc_process_include(preproc);
+		}
+		break;
+	case 'u':
+		if (p[1] == 'n' && p[2] == 'd' && p[3] == 'e' &&
+		    p[4] == 'f' && !is_idcnt(p[5])) {
+			return preproc_process_undef(preproc);
 		}
 		break;
 	default:
