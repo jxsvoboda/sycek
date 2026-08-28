@@ -143,7 +143,22 @@ typedef struct {
 	link_t lmacros;
 	/** Macro name */
 	char *name;
+	/** Replacement text */
+	char *replacement;
 } preproc_macro_t;
+
+/** Replacement list buffer.
+ *
+ * Used to hold replacement list while it's being processed.
+ */
+typedef struct {
+	/** Replacement list buffer. */
+	char *buf;
+	/** Buffer allocation size. */
+	size_t buf_alloc_size;
+	/** Number of used bytes in buffer. */
+	size_t buf_used;
+} preproc_rlist_buf_t;
 
 /** Include type (angle brackets or quotes) */
 typedef enum {

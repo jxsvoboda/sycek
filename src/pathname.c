@@ -185,5 +185,6 @@ char *pathname_get_execdir(const char *cmd, const char *path_var)
 		p = sep + 1;
 	}
 
+	free(dpath);
 	return NULL;
 }

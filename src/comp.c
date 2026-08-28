@@ -879,8 +879,10 @@ int comp_link(comp_t *comp, comp_flags_t flags, FILE *outf)
 	obj_linker_t *linker = NULL;
 	comp_module_t *module;
 
-	if (comp->linked_object != NULL)
+	if (comp->linked_object != NULL) {
+		rc = EINVAL;
 		goto error;
+	}
 
 	rc = comp_add_stdlib(comp, flags);
 	if (rc != EOK)

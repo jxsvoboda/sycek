@@ -277,9 +277,11 @@ static void preproc_pop_condition(preproc_t *preproc)
  *
  * @param preproc Preprocessor
  * @param name Macro name
+ * @param replacement Replacement text
  * @return EOK on success or an error code.
  */
-static int preproc_macro_add(preproc_t *preproc, const char *name)
+static int preproc_macro_add(preproc_t *preproc, const char *name,
+    const char *replacement)
 {
 	preproc_macro_t *macro;
 
@@ -289,6 +291,13 @@ static int preproc_macro_add(preproc_t *preproc, const char *name)
 
 	macro->name = strdup(name);
 	if (macro->name == NULL) {
+		free(macro);
+		return ENOMEM;
+	}
+
+	macro->replacement = strdup(replacement);
+	if (macro->replacement == NULL) {
+		free(macro->name);
 		free(macro);
 		return ENOMEM;
 	}
@@ -359,6 +368,7 @@ static void preproc_macro_remove(preproc_macro_t *macro)
 {
 	list_remove(&macro->lmacros);
 	free(macro->name);
+	free(macro->replacement);
 	free(macro);
 }
 
@@ -566,11 +576,14 @@ static void preproc_error_condition(preproc_t *preproc)
 /** Process whitespace.
  *
  * @param preproc Preprocessor
+ * @param rws Place to store @c true iff any whitespace characters were
+ *            processed or @c NULL if not interested.
  * @return EOK on success or an error code.
  */
-static int preproc_process_ws(preproc_t *preproc)
+static int preproc_process_ws(preproc_t *preproc, bool *rws)
 {
 	char *p;
+	bool ws = false;
 
 	/* Skip whitespace. */
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
@@ -580,7 +593,11 @@ static int preproc_process_ws(preproc_t *preproc)
 			break;
 
 		preproc_advance(preproc, 1);
+		ws = true;
 	}
+
+	if (rws != NULL)
+		*rws = ws;
 
 	return preproc_is_error(preproc) ? EIO : EOK;
 }
@@ -595,7 +612,7 @@ static int preproc_process_ws_eol(preproc_t *preproc)
 	char *p;
 	int rc;
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		return rc;
 
@@ -620,6 +637,7 @@ static int preproc_process_ws_eol(preproc_t *preproc)
 /** Process condition expression.
  *
  * @param preproc Preprocessor
+ * @param rresult Place to store result
  * @return EOK on success or an error code.
  */
 static int preproc_process_condition(preproc_t *preproc, bool *rresult)
@@ -646,6 +664,130 @@ static int preproc_process_condition(preproc_t *preproc, bool *rresult)
 	return EINVAL;
 }
 
+/** Create preprocessor macro replacement list buffer.
+ *
+ * @param rbuf Place to store pointer to replacement list buffer.
+ * @return @c EOK on success, @c ENOMEM if out of memory.
+ */
+static int preproc_rlist_buf_create(preproc_rlist_buf_t **rbuf)
+{
+	preproc_rlist_buf_t *buf;
+
+	buf = calloc(1, sizeof(preproc_rlist_buf_t));
+	if (buf == NULL)
+		return ENOMEM;
+
+	buf->buf_alloc_size = 32;
+	buf->buf = malloc(buf->buf_alloc_size);
+	if (buf->buf == NULL) {
+		free(buf);
+		return ENOMEM;
+	}
+
+	buf->buf_used = 0;
+	*rbuf = buf;
+	return EOK;
+}
+
+/** Destroy preprocessor macro replacement list buffer.
+ *
+ * @param buf Replacement list buffer
+ */
+static void preproc_rlist_buf_destroy(preproc_rlist_buf_t *buf)
+{
+	if (buf->buf != NULL)
+		free(buf->buf);
+	free(buf);
+}
+
+/** Append character to preprocessor macro replacement list buffer.
+ *
+ * @param buf Replacement list buffer
+ */
+static int preproc_rlist_buf_append(preproc_rlist_buf_t *buf, char c)
+{
+	char *newbuf;
+
+	if (buf->buf_used >= buf->buf_alloc_size) {
+		newbuf = realloc(buf->buf, buf->buf_alloc_size * 2);
+		if (newbuf == NULL)
+			return ENOMEM;
+
+		buf->buf = newbuf;
+		buf->buf_alloc_size = buf->buf_alloc_size * 2;
+	}
+
+	buf->buf[buf->buf_used++] = c;
+	return EOK;
+}
+
+/** Process replacement list.
+ *
+ * @param preproc Preprocessor
+ * @param rreplacement Place to store new replacement string.
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_replacement_list(preproc_t *preproc,
+    char **rreplacement)
+{
+	char *p;
+	preproc_rlist_buf_t *rlist = NULL;
+	bool ws;
+	int rc;
+
+	rc = preproc_rlist_buf_create(&rlist);
+	if (rc != EOK)
+		goto error;
+
+	/* Ignore whitespace at beginning of replacement list. */
+	rc = preproc_process_ws(preproc, NULL);
+	if (rc != EOK)
+		goto error;
+
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		rc = preproc_process_ws(preproc, &ws);
+		if (rc != EOK)
+			goto error;
+
+		while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+			p = preproc_chars(preproc);
+			if (p[0] == ' ' || p[0] == '\t' || p[0] == '\n')
+				break;
+
+			if (ws) {
+				rc = preproc_rlist_buf_append(rlist, ' ');
+				if (rc != EOK)
+					goto error;
+				ws = false;
+			}
+
+			rc = preproc_rlist_buf_append(rlist, p[0]);
+			if (rc != EOK)
+				goto error;
+			preproc_advance(preproc, 1);
+		}
+
+		if (preproc_is_eof(preproc) || preproc_is_error(preproc))
+			break;
+
+		p = preproc_chars(preproc);
+		if (p[0] == '\n')
+			break;
+	}
+
+	rc = preproc_rlist_buf_append(rlist, '\0');
+	if (rc != EOK)
+		goto error;
+
+	*rreplacement = rlist->buf;
+	rlist->buf = NULL;
+	preproc_rlist_buf_destroy(rlist);
+	return EOK;
+error:
+	if (rlist != NULL)
+		preproc_rlist_buf_destroy(rlist);
+	return rc;
+}
 
 /** Process invalid directive and print diagnostics.
  *
@@ -667,7 +809,7 @@ static int preproc_process_invalid_directive(preproc_t *preproc)
 		return EOK;
 	}
 
-	 spos = preproc->cur->pos;
+	spos = preproc->cur->pos;
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 		if (!is_idcnt(p[0]))
@@ -920,8 +1062,12 @@ error:
 static int preproc_process_define(preproc_t *preproc)
 {
 	char *macro_name = NULL;
+	char *replacement = NULL;
+	preproc_macro_t *old_macro;
+	src_pos_t spos;
 	int rc;
 
+	spos = preproc->cur->pos;
 	preproc_advance(preproc, 6);
 
 	if (preproc->skipping) {
@@ -933,7 +1079,7 @@ static int preproc_process_define(preproc_t *preproc)
 		return EOK;
 	}
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -952,20 +1098,39 @@ static int preproc_process_define(preproc_t *preproc)
 	if (rc != EOK)
 		goto error;
 
-	rc = preproc_process_ws_eol(preproc);
+	rc = preproc_process_replacement_list(preproc, &replacement);
 	if (rc != EOK)
 		goto error;
 
-	rc = preproc_macro_add(preproc, macro_name);
-	if (rc != EOK)
-		goto error;
+	/* Macro already exists? */
+	old_macro = preproc_macro_find(preproc, macro_name);
+	if (old_macro != NULL) {
+		/* If the replacement list is different, generate error. */
+		if (strcmp(replacement, old_macro->replacement) != 0) {
+			(void)preproc_dprint_range(&spos,
+			    &preproc->cur->pos, stderr);
+			(void)fprintf(stderr, ": Macro '%s' redefined "
+			    "with different replacement list.\n", macro_name);
+			rc = EINVAL;
+			goto error;
+		}
+	}
+
+	if (old_macro == NULL) {
+		rc = preproc_macro_add(preproc, macro_name, replacement);
+		if (rc != EOK)
+			goto error;
+	}
 
 	preproc->state = pps_line_begin;
 	free(macro_name);
+	free(replacement);
 	return EOK;
 error:
 	if (macro_name != NULL)
 		free(macro_name);
+	if (replacement != NULL)
+		free(replacement);
 	return rc;
 }
 
@@ -990,7 +1155,7 @@ static int preproc_process_elif(preproc_t *preproc)
 		if (rc != EOK)
 			return rc;
 	} else {
-		rc = preproc_process_ws(preproc);
+		rc = preproc_process_ws(preproc, NULL);
 		if (rc != EOK)
 			goto error;
 
@@ -1050,7 +1215,6 @@ static int preproc_process_elif(preproc_t *preproc)
 error:
 	return rc;
 }
-
 
 /** Process else directive.
  *
@@ -1209,7 +1373,7 @@ static int preproc_process_if(preproc_t *preproc)
 		return EOK;
 	}
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -1279,7 +1443,7 @@ static int preproc_process_ifdef(preproc_t *preproc)
 		return EOK;
 	}
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -1354,7 +1518,7 @@ static int preproc_process_ifndef(preproc_t *preproc)
 		return EOK;
 	}
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -1425,7 +1589,7 @@ static int preproc_process_include(preproc_t *preproc)
 	if (fname == NULL)
 		return ENOMEM;
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -1552,7 +1716,7 @@ static int preproc_process_undef(preproc_t *preproc)
 		return EOK;
 	}
 
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
 
@@ -1603,7 +1767,7 @@ static int preproc_process_directive(preproc_t *preproc)
 	preproc_advance(preproc, 1);
 
 	/* Skip whitespace. */
-	rc = preproc_process_ws(preproc);
+	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		return rc;
 
