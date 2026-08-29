@@ -37,7 +37,9 @@
 
 enum {
 	preproc_buf_size = 32,
+	preproc_xbuf_size = 32,
 	preproc_buf_low_watermark = 16,
+	preproc_xbuf_low_watermark = 16,
 	preproc_out_buf_size = 32
 };
 
@@ -69,6 +71,7 @@ typedef struct preproc {
 	char out_buf[preproc_out_buf_size];
 	/** Output position buffer */
 	src_pos_t out_posbuf[preproc_out_buf_size];
+	bool out_eof;
 	/** Number of used bytes in out_buf */
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */
@@ -81,6 +84,18 @@ typedef struct preproc {
 	list_t conditions;
 	/** Preprocessor macros (list of preproc_macro_t) */
 	list_t macros;
+	/** Expansion buffer */
+	char xbuf[preproc_xbuf_size];
+	/** Expansion position buffer */
+	src_pos_t xposbuf[preproc_xbuf_size];
+	/** Expansion buffer read position */
+	size_t xbuf_pos;
+	/** Number of used bytes in xbuf */
+	size_t xbuf_used;
+	/** Expander hit end of line. */
+	bool expand_eol;
+	/** Error hit in expander input. */
+	bool xbuf_in_error;
 } preproc_t;
 
 /** C preprocessor input stack entry */
@@ -106,8 +121,8 @@ typedef struct preproc_input {
 	/** Input buffer */
 	char buf[preproc_buf_size];
 	/** Input position buffer */
-	src_pos_t posbuf[lexer_buf_size];
-	/** Buffer position */
+	src_pos_t posbuf[preproc_buf_size];
+	/** Input buffer position */
 	size_t buf_pos;
 	/** Number of used bytes in buf */
 	size_t buf_used;
