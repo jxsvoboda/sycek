@@ -86,7 +86,6 @@ int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
 	}
 
 	list_initialize(&preproc->inputs);
-	list_initialize(&preproc->conditions);
 	list_initialize(&preproc->macros);
 
 	rc = preproc_push_input(preproc, fname, NULL, NULL, input_ops,
@@ -109,18 +108,10 @@ error:
  */
 void preproc_destroy(preproc_t *preproc)
 {
-	preproc_condition_t *condition;
 	preproc_macro_t *macro;
 
 	if (preproc == NULL)
 		return;
-
-	condition = preproc_top_condition(preproc);
-	while (condition != NULL) {
-		preproc_pop_condition(preproc);
-
-		condition = preproc_top_condition(preproc);
-	}
 
 	while (preproc->cur != NULL)
 		preproc_pop_input(preproc);
@@ -166,7 +157,7 @@ static preproc_condition_t *preproc_top_condition(preproc_t *preproc)
 {
 	link_t *link;
 
-	link = list_last(&preproc->conditions);
+	link = list_last(&preproc->cur->conditions);
 	if (link == NULL)
 		return NULL;
 
@@ -205,6 +196,7 @@ static int preproc_push_input(preproc_t *preproc, const char *fname, FILE *file,
 	input->input_ops = input_ops;
 	input->input_arg = input_arg;
 	list_append(&input->linputs, &preproc->inputs);
+	list_initialize(&input->conditions);
 
 	preproc->cur = input;
 	return EOK;
@@ -216,7 +208,18 @@ static int preproc_push_input(preproc_t *preproc, const char *fname, FILE *file,
  */
 static void preproc_pop_input(preproc_t *preproc)
 {
+	preproc_condition_t *condition;
 	link_t *link;
+
+	if (preproc == NULL)
+		return;
+
+	condition = preproc_top_condition(preproc);
+	while (condition != NULL) {
+		preproc_pop_condition(preproc);
+
+		condition = preproc_top_condition(preproc);
+	}
 
 	list_remove(&preproc->cur->linputs);
 	if (preproc->cur->finput != NULL)
@@ -254,7 +257,7 @@ static preproc_condition_t *preproc_push_condition(preproc_t *preproc,
 		return NULL;
 
 	condition->preproc = preproc;
-	list_append(&condition->lconditions, &preproc->conditions);
+	list_append(&condition->lconditions, &preproc->cur->conditions);
 	condition->bpos = *bpos;
 	condition->epos = *epos;
 	condition->was_skipping = was_skipping;
@@ -1979,7 +1982,7 @@ static int preproc_process_line_begin(preproc_t *preproc)
 		return EIO;
 
 	if (preproc_is_eof(preproc)) {
-		preproc->out_eof = true;
+		preproc->cur->out_eof = true;
 		return EOK;
 	}
 
@@ -2147,7 +2150,7 @@ static int preproc_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 	while (preproc->out_buf_used == 0 && preproc->cur != NULL &&
 	    !preproc_is_error(preproc)) {
 		/* Reached end of file. */
-		if (preproc->out_eof) {
+		if (preproc->cur->out_eof) {
 			rc = preproc_end_of_file_checks(preproc);
 			if (rc != EOK)
 				return rc;

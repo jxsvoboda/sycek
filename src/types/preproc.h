@@ -71,7 +71,6 @@ typedef struct preproc {
 	char out_buf[preproc_out_buf_size];
 	/** Output position buffer */
 	src_pos_t out_posbuf[preproc_out_buf_size];
-	bool out_eof;
 	/** Number of used bytes in out_buf */
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */
@@ -80,8 +79,6 @@ typedef struct preproc {
 	uint8_t pragma_pos;
 	/** Directory for standard includes. */
 	char *incldir;
-	/** Condition stack (list of preproc_condition_t) */
-	list_t conditions;
 	/** Preprocessor macros (list of preproc_macro_t) */
 	list_t macros;
 	/** Expansion buffer */
@@ -116,6 +113,8 @@ typedef struct preproc_input {
 	void *input_arg;
 	/** EOF hit in input */
 	bool in_eof;
+	/** Done processing this file */
+	bool out_eof;
 	/** Error hit in input */
 	bool in_error;
 	/** Input buffer */
@@ -128,6 +127,8 @@ typedef struct preproc_input {
 	size_t buf_used;
 	/** Current position */
 	src_pos_t pos;
+	/** Condition stack (list of preproc_condition_t) */
+	list_t conditions;
 } preproc_input_t;
 
 /** C preprocessor condition stack entry */
