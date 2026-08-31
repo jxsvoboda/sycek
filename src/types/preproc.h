@@ -34,11 +34,10 @@
 #include <types/input_buf.h>
 #include <types/linput.h>
 #include <types/preproc.h>
+#include <types/preproc/expander.h>
 #include <types/src_pos.h>
 
 enum {
-	preproc_xbuf_size = 32,
-	preproc_xbuf_low_watermark = 16,
 	preproc_out_buf_size = 32
 };
 
@@ -51,7 +50,9 @@ typedef enum {
 	/** Inside a line of text */
 	pps_text_line,
 	/** Copying a pragma directive */
-	pps_copy_pragma
+	pps_copy_pragma,
+	/** Inside pragma text */
+	pps_pragma_text
 } preproc_state_t;
 
 /** C preprocessor */
@@ -80,18 +81,10 @@ typedef struct preproc {
 	char *incldir;
 	/** Preprocessor macros (list of preproc_macro_t) */
 	list_t macros;
-	/** Expansion buffer */
-	char xbuf[preproc_xbuf_size];
-	/** Expansion position buffer */
-	src_pos_t xposbuf[preproc_xbuf_size];
-	/** Expansion buffer read position */
-	size_t xbuf_pos;
-	/** Number of used bytes in xbuf */
-	size_t xbuf_used;
-	/** Expander hit end of line. */
-	bool expand_eol;
-	/** Error hit in expander input. */
-	bool xbuf_in_error;
+	/** Macro expander. */
+	preproc_expander_t *expander;
+	/** Buffoer for input from expander */
+	input_buf_t *xbuf;
 } preproc_t;
 
 /** C preprocessor input stack entry */

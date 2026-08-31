@@ -32,6 +32,7 @@
 #include <lexer.h>
 #include <pathname.h>
 #include <preproc.h>
+#include <preproc/expander.h>
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdlib.h>
@@ -43,7 +44,6 @@ lexer_input_ops_t lexer_preproc_input = {
 	.read = preproc_lexer_read
 };
 
-static int preproc_expand_process(preproc_t *);
 static int preproc_push_input(preproc_t *, const char *, FILE *, file_input_t *,
     lexer_input_ops_t *, void *);
 static void preproc_pop_input(preproc_t *);
@@ -125,6 +125,12 @@ void preproc_destroy(preproc_t *preproc)
 
 	if (preproc->incldir != NULL)
 		free(preproc->incldir);
+
+	if (preproc->xbuf != NULL)
+		input_buf_destroy(preproc->xbuf);
+
+	if (preproc->expander != NULL)
+		preproc_expander_destroy(preproc->expander);
 
 	free(preproc);
 }
@@ -445,124 +451,6 @@ static void preproc_advance(preproc_t *preproc, size_t nchars)
 static bool preproc_out_buf_avail(preproc_t *preproc)
 {
 	return preproc->out_buf_used < preproc_out_buf_size;
-}
-
-/** Get valid pointer to characters in expansion buffer.
- *
- * Returns a pointer into the expansion buffer, ensuring it contains
- * at least lexer_buf_low_watermark valid characters (unless at EOF).
- *
- * @param preproc Preprocessor
- * @return Pointer to characters in input buffer.
- */
-static char *preproc_xbuf_chars(preproc_t *preproc)
-{
-	int rc;
-
-	while (!preproc->expand_eol && !preproc_is_eof(preproc) &&
-	    preproc->xbuf_used - preproc->xbuf_pos < preproc_xbuf_low_watermark) {
-		/* Move data to beginning of buffer */
-		memmove(preproc->xbuf,
-		    preproc->xbuf + preproc->xbuf_pos,
-		    preproc->xbuf_used - preproc->xbuf_pos);
-		memmove(preproc->xposbuf, preproc->xposbuf +
-		    preproc->xbuf_pos,
-		    (preproc->xbuf_used - preproc->xbuf_pos) *
-		    sizeof(src_pos_t));
-		preproc->xbuf_used -= preproc->xbuf_pos;
-		preproc->xbuf_pos = 0;
-		/* XX Advance preproc->buf_bpos */
-
-		/* Do some expanding */
-		rc = preproc_expand_process(preproc);
-		if (rc != EOK) {
-			preproc->xbuf_in_error = true;
-			break;
-		}
-
-		if (preproc->xbuf_used < preproc_xbuf_size)
-			preproc->xbuf[preproc->xbuf_used] = '\0';
-	}
-
-	if (preproc->xbuf_pos < preproc->xbuf_used) {
-		preproc->cur->pos =
-		    preproc->xposbuf[preproc->xbuf_pos];
-	}
-	return preproc->xbuf + preproc->xbuf_pos;
-}
-
-/** Determine if preprocessor is at end of file.
- *
- * @param preproc Preprocessor
- * @return @c true iff there are no more characters available
- */
-static bool preproc_xbuf_is_eof(preproc_t *preproc)
-{
-	char *lc;
-
-	/* Make sure buffer is filled, if possible */
-	lc = preproc_xbuf_chars(preproc);
-	(void) lc;
-
-	return preproc->xbuf_pos == preproc->xbuf_used;
-}
-
-/** Determine if preprocessor expander hit an error.
- *
- * @param preproc Preprocessor
- * @return @c true iff there was an error while reading input
- */
-static bool preproc_xbuf_is_error(preproc_t *preproc)
-{
-	return preproc->xbuf_in_error;
-}
-
-/** Advance preprocessor expansion buffer read position.
- *
- * Advance read position by a certain amount of characters
- *
- * @param preproc Preprocessor
- * @param nchars Number of characters to advance
- */
-static void preproc_xbuf_advance(preproc_t *preproc, size_t nchars)
-{
-	char *p;
-
-	while (!preproc_xbuf_is_eof(preproc) &&
-	    !preproc_is_error(preproc) && nchars > 0) {
-		p = preproc_xbuf_chars(preproc);
-		(void)p;
-
-		++preproc->xbuf_pos;
-		assert(preproc->xbuf_pos <= preproc_xbuf_size);
-		--nchars;
-	}
-}
-
-/** Determine if expansion buffer has available space.
- *
- * @param preproc Preprocessor
- * @return @c true iff expansion buffer has available space.
- */
-static bool preproc_xbuf_avail(preproc_t *preproc)
-{
-	return preproc->xbuf_used < preproc_xbuf_size;
-}
-
-/** Insert character to preprocessor expansion buffer.
- *
- * @param preproc Preprocessor
- * @param c Character
- * @param pos Character source code position
- * @return EOK on success or an error code.
- */
-static void preproc_xbuf_insert(preproc_t *preproc, char c, src_pos_t *pos)
-{
-	assert(preproc_xbuf_avail(preproc));
-
-	preproc->xbuf[preproc->xbuf_used] = c;
-	preproc->xposbuf[preproc->xbuf_used] = *pos;
-	++preproc->xbuf_used;
 }
 
 /** Insert character to preprocessor output buffer.
@@ -1942,7 +1830,18 @@ static int preproc_process_line_begin(preproc_t *preproc)
 	} else {
 		/* Text line. */
 		preproc->state = pps_text_line;
-		preproc->expand_eol = false;
+
+		rc = preproc_expander_create(preproc->cur->inbuf,
+		    &preproc->expander);
+		if (rc != EOK)
+			return rc;
+
+		assert(preproc->xbuf == NULL);
+
+		rc = input_buf_create(&preproc_expander_input,
+		    (void *)preproc->expander, &preproc->xbuf);
+		if (rc != EOK)
+			return rc;
 	}
 
 	return EOK;
@@ -1955,10 +1854,10 @@ static int preproc_process_line_begin(preproc_t *preproc)
  */
 static int preproc_process_text_line(preproc_t *preproc)
 {
-	char *p;
 	char c;
-	int rc;
+	char *p;
 	src_pos_t pos;
+	int rc;
 
 	if (preproc->skipping) {
 		rc = preproc_skip_to_end_of_line(preproc);
@@ -1966,18 +1865,23 @@ static int preproc_process_text_line(preproc_t *preproc)
 			return rc;
 
 		preproc->state = pps_line_begin;
+		input_buf_destroy(preproc->xbuf);
+		preproc->xbuf = NULL;
+
+		preproc_expander_destroy(preproc->expander);
+		preproc->expander = NULL;
 		return EOK;
 	}
 
-	while (!preproc_xbuf_is_eof(preproc) &&
-	    !preproc_xbuf_is_error(preproc)) {
-		p = preproc_xbuf_chars(preproc);
+	while (!input_buf_is_eof(preproc->xbuf) &&
+	    !input_buf_is_error(preproc->xbuf)) {
+		p = input_buf_chars(preproc->xbuf, &preproc->cur->pos);
 		c = p[0];
-		pos = preproc->xposbuf[preproc->xbuf_pos];
+		pos = preproc->cur->pos;
 
 		preproc_out_buf_insert(preproc, c, &pos);
 
-		preproc_xbuf_advance(preproc, 1);
+		input_buf_advance(preproc->xbuf, 1, &preproc->cur->pos);
 		if (c == '\n') {
 			preproc->state = pps_line_begin;
 			break;
@@ -1987,11 +1891,17 @@ static int preproc_process_text_line(preproc_t *preproc)
 			break;
 	}
 
-	if (preproc_xbuf_is_eof(preproc))
-		preproc->state = pps_line_begin;
-
-	if (preproc_xbuf_is_error(preproc))
+	if (input_buf_is_error(preproc->xbuf))
 		return EIO;
+
+	if (input_buf_is_eof(preproc->xbuf)) {
+		preproc->state = pps_line_begin;
+		input_buf_destroy(preproc->xbuf);
+		preproc->xbuf = NULL;
+
+		preproc_expander_destroy(preproc->expander);
+		preproc->expander = NULL;
+	}
 
 	return EOK;
 }
@@ -2017,8 +1927,55 @@ static int preproc_process_copy_pragma(preproc_t *preproc)
 	}
 
 	if (preproc->pragma_pos >= 7) {
-		preproc->state = pps_text_line;
+		preproc->state = pps_pragma_text;
 	}
+
+	return EOK;
+}
+
+/** Process in pragma text state.
+ *
+ * @param preproc Preprocessor
+ * @return EOK on success or an error code.
+ */
+static int preproc_process_pragma_text(preproc_t *preproc)
+{
+	char c;
+	char *p;
+	src_pos_t pos;
+	int rc;
+
+	if (preproc->skipping) {
+		rc = preproc_skip_to_end_of_line(preproc);
+		if (rc != EOK)
+			return rc;
+
+		preproc->state = pps_line_begin;
+		return EOK;
+	}
+
+	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
+		p = preproc_chars(preproc);
+		c = p[0];
+		pos = preproc->cur->pos;
+
+		preproc_out_buf_insert(preproc, c, &pos);
+
+		preproc_advance(preproc, 1);
+		if (c == '\n') {
+			preproc->state = pps_line_begin;
+			break;
+		}
+
+		if (!preproc_out_buf_avail(preproc))
+			break;
+	}
+
+	if (preproc_is_error(preproc))
+		return EIO;
+
+	if (preproc_is_eof(preproc))
+		preproc->state = pps_line_begin;
 
 	return EOK;
 }
@@ -2039,43 +1996,11 @@ static int preproc_process(preproc_t *preproc)
 		return preproc_process_text_line(preproc);
 	case pps_copy_pragma:
 		return preproc_process_copy_pragma(preproc);
+	case pps_pragma_text:
+		return preproc_process_pragma_text(preproc);
 	}
 
 	return EINVAL;
-}
-
-/** Do some expansion.
- *
- * This may or may not write data to the expansion buffer.
- *
- * @param preproc Preprocessor
- * @return EOK on success or an error code
- */
-static int preproc_expand_process(preproc_t *preproc)
-{
-	char c;
-	char *p;
-
-	while (!preproc->expand_eol && !preproc_is_eof(preproc) &&
-	    !preproc_is_error(preproc)) {
-		p = preproc_chars(preproc);
-		c = p[0];
-
-		preproc_xbuf_insert(preproc, c, &preproc->cur->pos);
-
-		preproc_advance(preproc, 1);
-		if (c == '\n') {
-			preproc->expand_eol = true;
-			break;
-		}
-
-		if (!preproc_xbuf_avail(preproc))
-			break;
-	}
-
-	if (preproc_is_error(preproc))
-		return EIO;
-	return EOK;
 }
 
 /** Lexer input from preprocessor.

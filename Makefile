@@ -78,6 +78,7 @@ sources_syc_common = \
     src/object/symbol.c \
     src/pathname.c \
     src/preproc.c \
+    src/preproc/expander.c \
     src/scope.c \
     src/syc.c \
     src/symbols.c \
