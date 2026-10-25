@@ -31,8 +31,8 @@
 #include <input_buf.h>
 #include <lexer.h>
 #include <pathname.h>
-#include <preproc.h>
 #include <preproc/expander.h>
+#include <preproc/preproc.h>
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdlib.h>
