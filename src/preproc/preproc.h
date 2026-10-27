@@ -36,5 +36,6 @@ extern int preproc_create(const char *, lexer_input_ops_t *, void *,
     preproc_t **);
 extern void preproc_destroy(preproc_t *);
 extern int preproc_set_incldir(preproc_t *, const char *);
+extern preproc_macro_t *preproc_macro_find(preproc_t *, const char *);
 
 #endif

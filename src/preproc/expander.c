@@ -25,10 +25,13 @@
  */
 
 #include <assert.h>
+#include <charcls.h>
 #include <input_buf.h>
 #include <lexer.h>
 #include <preproc/expander.h>
+#include <preproc/invoker.h>
 #include <merrno.h>
+#include <preproc/preproc.h>
 #include <src_pos.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,12 +46,14 @@ static int preproc_expander_process(preproc_expander_t *);
 
 /** Create preprocessor macro expander.
  *
+ * @param preproc Preprocessor
  * @param inbuf Input buffer
  * @param rexpander Place to store new preprocessor macro expander.
  *
  * @return EOK on success, ENOMEM if out of memory
  */
-int preproc_expander_create(input_buf_t *inbuf, preproc_expander_t **rexpander)
+int preproc_expander_create(preproc_t *preproc, input_buf_t *inbuf,
+    preproc_expander_t **rexpander)
 {
 	preproc_expander_t *expander = NULL;
 	int rc;
@@ -59,7 +64,9 @@ int preproc_expander_create(input_buf_t *inbuf, preproc_expander_t **rexpander)
 		goto error;
 	}
 
+	expander->preproc = preproc;
 	expander->inbuf = inbuf;
+	expander->state = ppes_scan;
 
 	*rexpander = expander;
 	return EOK;
@@ -76,6 +83,11 @@ void preproc_expander_destroy(preproc_expander_t *expander)
 {
 	if (expander == NULL)
 		return;
+
+	if (expander->minbuf != NULL)
+		input_buf_destroy(expander->minbuf);
+	if (expander->invoker != NULL)
+		preproc_invoker_destroy(expander->invoker);
 
 	free(expander);
 }
@@ -110,14 +122,50 @@ static void preproc_expander_buf_insert(preproc_expander_t *expander, char c,
 	++expander->out_buf_used;
 }
 
-/** Do some expansion.
+/** Handle identifier found in the input stream.
+ *
+ * @param expander Macro expander
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_handle_ident(preproc_expander_t *expander)
+{
+	preproc_macro_t *macro;
+	int rc;
+
+	macro = preproc_macro_find(expander->preproc, expander->ident_buf);
+
+	if (macro != NULL) {
+		/* Defined macro. */
+		rc = preproc_invoker_create(macro, &expander->invoker);
+		if (rc != EOK)
+			return rc;
+
+		rc = input_buf_create(&preproc_invoker_input,
+		    expander->invoker, &expander->minbuf);
+		if (rc != EOK) {
+			preproc_invoker_destroy(expander->invoker);
+			expander->invoker = false;
+			return rc;
+		}
+
+		expander->state = ppes_macro;
+	} else {
+		/* Unknown idntifier. */
+		expander->state = ppes_unkident;
+		expander->ident_buf_off = 0;
+	}
+
+	return EOK;
+}
+
+/** Do some expansion in scan state.
  *
  * This may or may not write data to the expander output buffer.
  *
  * @param expander Preprocessor expander
  * @return EOK on success or an error code
  */
-static int preproc_expander_process(preproc_expander_t *expander)
+static int preproc_expander_process_scan(preproc_expander_t *expander)
 {
 	char c;
 	char *p;
@@ -126,6 +174,12 @@ static int preproc_expander_process(preproc_expander_t *expander)
 	    !input_buf_is_error(expander->inbuf)) {
 		p = input_buf_chars(expander->inbuf, &expander->pos);
 		c = p[0];
+
+		if (is_idbegin(c)) {
+			expander->state = ppes_ident;
+			expander->ident_buf_used = 0;
+			break;
+		}
 
 		preproc_expander_buf_insert(expander, c, &expander->pos);
 
@@ -147,6 +201,154 @@ static int preproc_expander_process(preproc_expander_t *expander)
 		return EIO;
 
 	return EOK;
+}
+
+/** Do some expansion in identifier state.
+ *
+ * This may or may not write data to the expander output buffer.
+ *
+ * @param expander Preprocessor expander
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_process_ident(preproc_expander_t *expander)
+{
+	char c;
+	char *p;
+	int rc;
+	src_pos_t pos;
+
+	while (!expander->expand_eol && !input_buf_is_eof(expander->inbuf) &&
+	    !input_buf_is_error(expander->inbuf)) {
+		p = input_buf_chars(expander->inbuf, &pos);
+		c = p[0];
+
+		if (!is_idcnt(c)) {
+			expander->ident_buf[expander->ident_buf_used] = '\0';
+			rc = preproc_expander_handle_ident(expander);
+			if (rc != EOK)
+				return rc;
+			break;
+		}
+
+		if (expander->ident_buf_used ==
+		    preproc_expander_ident_buf_size - 1) {
+			/* Identifier too long. */
+			expander->state = ppes_unkident;
+			expander->ident_buf_off = 0;
+			break;
+		}
+
+		expander->ident_buf[expander->ident_buf_used++] = c;
+
+		input_buf_advance(expander->inbuf, 1, &pos);
+		if (c == '\n') {
+			expander->expand_eol = true;
+			break;
+		}
+
+		if (!preproc_expander_buf_avail(expander))
+			break;
+	}
+
+	if (input_buf_is_eof(expander->inbuf)) {
+		expander->expand_eol = true;
+	}
+
+	if (input_buf_is_error(expander->inbuf))
+		return EIO;
+
+	return EOK;
+}
+
+/** Do some expansion in unknown identifier dumping state.
+ *
+ * This may or may not write data to the expander output buffer.
+ *
+ * @param expander Preprocessor expander
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_process_unkident(preproc_expander_t *expander)
+{
+	char c;
+
+	while (expander->ident_buf_off < expander->ident_buf_used) {
+		c = expander->ident_buf[expander->ident_buf_off++];
+
+		preproc_expander_buf_insert(expander, c, &expander->pos);
+		src_pos_fwd_char(&expander->pos, c);
+
+		if (!preproc_expander_buf_avail(expander))
+			break;
+	}
+
+	if (expander->ident_buf_off >= expander->ident_buf_used)
+		expander->state = ppes_scan;
+
+	return EOK;
+}
+
+/** Do some expansion in macro invoking state.
+ *
+ * This may or may not write data to the expander output buffer.
+ *
+ * @param expander Preprocessor expander
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_process_macro(preproc_expander_t *expander)
+{
+	char c;
+	char *p;
+
+	while (!input_buf_is_eof(expander->minbuf) &&
+	    !input_buf_is_error(expander->minbuf)) {
+		p = input_buf_chars(expander->minbuf, &expander->pos);
+		c = p[0];
+
+		preproc_expander_buf_insert(expander, c, &expander->pos);
+
+		input_buf_advance(expander->minbuf, 1, &expander->pos);
+
+		if (!preproc_expander_buf_avail(expander))
+			break;
+	}
+
+	if (input_buf_is_eof(expander->minbuf)) {
+		input_buf_destroy(expander->minbuf);
+		expander->minbuf = NULL;
+
+		preproc_invoker_destroy(expander->invoker);
+		expander->invoker = NULL;
+
+		expander->state = ppes_scan;
+	}
+
+	if (input_buf_is_error(expander->inbuf))
+		return EIO;
+
+	return EOK;
+}
+
+/** Do some expansion.
+ *
+ * This may or may not write data to the expander output buffer.
+ *
+ * @param expander Preprocessor expander
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_process(preproc_expander_t *expander)
+{
+	switch (expander->state) {
+	case ppes_scan:
+		return preproc_expander_process_scan(expander);
+	case ppes_ident:
+		return preproc_expander_process_ident(expander);
+	case ppes_unkident:
+		return preproc_expander_process_unkident(expander);
+	case ppes_macro:
+		return preproc_expander_process_macro(expander);
+	}
+
+	return EINVAL;
 }
 
 /** Read input from preprocessor expander.

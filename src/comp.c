@@ -38,7 +38,7 @@
 #include <object/object.h>
 #include <parser.h>
 #include <pathname.h>
-#include <preproc.h>
+#include <preproc/preproc.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>

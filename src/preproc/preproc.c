@@ -53,7 +53,6 @@ static preproc_condition_t *preproc_top_condition(preproc_t *);
 static void preproc_pop_condition(preproc_t *);
 static preproc_macro_t *preproc_macro_first(preproc_t *);
 static void preproc_macro_remove(preproc_macro_t *);
-static preproc_macro_t *preproc_macro_find(preproc_t *, const char *);
 static int preproc_skip_to_end_of_line(preproc_t *);
 static int preproc_dump_to_end_of_line(preproc_t *, FILE *);
 
@@ -371,7 +370,7 @@ static preproc_macro_t *preproc_macro_next(preproc_macro_t *cur)
  * @param name Macro name
  * @return Macro or @c NULL if not found.
  */
-static preproc_macro_t *preproc_macro_find(preproc_t *preproc, const char *name)
+preproc_macro_t *preproc_macro_find(preproc_t *preproc, const char *name)
 {
 	preproc_macro_t *macro;
 
@@ -1831,7 +1830,7 @@ static int preproc_process_line_begin(preproc_t *preproc)
 		/* Text line. */
 		preproc->state = pps_text_line;
 
-		rc = preproc_expander_create(preproc->cur->inbuf,
+		rc = preproc_expander_create(preproc, preproc->cur->inbuf,
 		    &preproc->expander);
 		if (rc != EOK)
 			return rc;

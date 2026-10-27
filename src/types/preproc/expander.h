@@ -29,12 +29,24 @@
 
 #include <stddef.h>
 #include <types/input_buf.h>
-#include <types/linput.h>
 #include <types/src_pos.h>
 
 enum {
-	preproc_expander_buf_size = 32
+	preproc_expander_buf_size = 32,
+	preproc_expander_ident_buf_size = 32
 };
+
+/** Preprocessor macro expander state */
+typedef enum {
+	/** Scanning for identifiers */
+	ppes_scan,
+	/** Found an identifier */
+	ppes_ident,
+	/** Dumping unknown identifier */
+	ppes_unkident,
+	/** Invoking a macro */
+	ppes_macro
+} preproc_exp_state_t;
 
 /** C preprocessor macro expander */
 typedef struct preproc_expander {
@@ -54,6 +66,18 @@ typedef struct preproc_expander {
 	src_pos_t out_buf_pos;
 	/** Expander hit end of line. */
 	bool expand_eol;
+	/** Macro invoker. */
+	struct preproc_invoker *invoker;
+	/** Macro input buffer. */
+	input_buf_t *minbuf;
+	/** Expander state. */
+	preproc_exp_state_t state;
+	/** Identifier buffer */
+	char ident_buf[preproc_expander_ident_buf_size];
+	/** Number of used bytes in identifier buffer */
+	size_t ident_buf_used;
+	/** Offset in identifier buffer when outputting unkown ident. */
+	size_t ident_buf_off;
 } preproc_expander_t;
 
 #endif
