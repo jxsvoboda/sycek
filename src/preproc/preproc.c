@@ -302,11 +302,12 @@ static void preproc_pop_condition(preproc_t *preproc)
  *
  * @param preproc Preprocessor
  * @param name Macro name
+ * @param rpos Starting position of replacement list
  * @param replacement Replacement text
  * @return EOK on success or an error code.
  */
 static int preproc_macro_add(preproc_t *preproc, const char *name,
-    const char *replacement)
+    src_pos_t *rpos, const char *replacement)
 {
 	preproc_macro_t *macro;
 
@@ -328,6 +329,7 @@ static int preproc_macro_add(preproc_t *preproc, const char *name,
 	}
 
 	macro->preproc = preproc;
+	macro->rpos = *rpos;
 	list_append(&macro->lmacros, &preproc->macros);
 	return EOK;
 }
@@ -679,11 +681,12 @@ static int preproc_rlist_buf_append(preproc_rlist_buf_t *buf, char c)
 /** Process replacement list.
  *
  * @param preproc Preprocessor
+ * @parma rpos Place to store starting position of replacement list
  * @param rreplacement Place to store new replacement string.
  * @return EOK on success or an error code.
  */
 static int preproc_process_replacement_list(preproc_t *preproc,
-    char **rreplacement)
+    src_pos_t *rpos, char **rreplacement)
 {
 	char *p;
 	preproc_rlist_buf_t *rlist = NULL;
@@ -698,6 +701,8 @@ static int preproc_process_replacement_list(preproc_t *preproc,
 	rc = preproc_process_ws(preproc, NULL);
 	if (rc != EOK)
 		goto error;
+
+	*rpos = preproc->cur->pos;
 
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		rc = preproc_process_ws(preproc, &ws);
@@ -1020,6 +1025,7 @@ static int preproc_process_define(preproc_t *preproc)
 	char *replacement = NULL;
 	preproc_macro_t *old_macro;
 	src_pos_t spos;
+	src_pos_t rpos;
 	int rc;
 
 	spos = preproc->cur->pos;
@@ -1053,7 +1059,7 @@ static int preproc_process_define(preproc_t *preproc)
 	if (rc != EOK)
 		goto error;
 
-	rc = preproc_process_replacement_list(preproc, &replacement);
+	rc = preproc_process_replacement_list(preproc, &rpos, &replacement);
 	if (rc != EOK)
 		goto error;
 
@@ -1072,7 +1078,7 @@ static int preproc_process_define(preproc_t *preproc)
 	}
 
 	if (old_macro == NULL) {
-		rc = preproc_macro_add(preproc, macro_name, replacement);
+		rc = preproc_macro_add(preproc, macro_name, &rpos, replacement);
 		if (rc != EOK)
 			goto error;
 	}

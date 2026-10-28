@@ -141,6 +141,8 @@ typedef struct {
 	link_t lmacros;
 	/** Macro name */
 	char *name;
+	/** Starting position of replacement text. */
+	src_pos_t rpos;
 	/** Replacement text */
 	char *replacement;
 } preproc_macro_t;

@@ -60,6 +60,7 @@ int preproc_invoker_create(preproc_macro_t *macro, preproc_invoker_t **rinvoker)
 	}
 
 	invoker->macro = macro;
+	invoker->pos = macro->rpos;
 
 	*rinvoker = invoker;
 	return EOK;
@@ -124,8 +125,8 @@ static int preproc_invoker_process(preproc_invoker_t *invoker)
 	while (invoker->macro->replacement[invoker->macro_off] != '\0') {
 		c = invoker->macro->replacement[invoker->macro_off++];
 
-		/// XXX set invoker->pos!!!
 		preproc_invoker_buf_insert(invoker, c, &invoker->pos);
+		src_pos_fwd_char(&invoker->pos, c);
 
 		if (!preproc_invoker_buf_avail(invoker))
 			break;
