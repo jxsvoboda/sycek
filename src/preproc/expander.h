@@ -30,7 +30,7 @@
 #include <types/input_buf.h>
 #include <types/lexer.h>
 #include <types/preproc/expander.h>
-#include <types/preproc.h>
+#include <types/preproc/preproc.h>
 
 extern lexer_input_ops_t preproc_expander_input;
 

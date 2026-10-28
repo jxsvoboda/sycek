@@ -28,7 +28,7 @@
 #define PREPROC_H
 
 #include <types/lexer.h>
-#include <types/preproc.h>
+#include <types/preproc/preproc.h>
 
 extern lexer_input_ops_t lexer_preproc_input;
 

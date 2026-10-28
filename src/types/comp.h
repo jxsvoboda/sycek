@@ -36,7 +36,7 @@
 #include <types/lexer.h>
 #include <types/object/linker.h>
 #include <types/object/object.h>
-#include <types/preproc.h>
+#include <types/preproc/preproc.h>
 #include <types/symbols.h>
 #include <types/tape/tape.h>
 #include <types/z80/iclexer.h>

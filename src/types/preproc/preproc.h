@@ -24,8 +24,8 @@
  * C preprocessor
  */
 
-#ifndef TYPES_PREPROC_H
-#define TYPES_PREPROC_H
+#ifndef TYPES_PREPROC_PREPROC_H
+#define TYPES_PREPROC_PREPROC_H
 
 #include <adt/list.h>
 #include <stdint.h>
@@ -33,7 +33,6 @@
 #include <types/file_input.h>
 #include <types/input_buf.h>
 #include <types/linput.h>
-#include <types/preproc.h>
 #include <types/preproc/expander.h>
 #include <types/src_pos.h>
 
@@ -134,7 +133,7 @@ typedef struct {
 } preproc_condition_t;
 
 /** C preprocessor macro */
-typedef struct {
+typedef struct preproc_macro {
 	/** Containing preprocessor */
 	struct preproc *preproc;
 	/** Link to @c preproc->macros */

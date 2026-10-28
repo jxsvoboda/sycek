@@ -39,7 +39,7 @@ typedef struct preproc_invoker {
 	/** Preprocessor */
 	struct preproc *preproc;
 	/** Macro being invoked */
-	preproc_macro_t *macro;
+	struct preproc_macro *macro;
 	/** Offset in the macro */
 	size_t macro_off;
 	/** Current position */
