@@ -125,15 +125,17 @@ char *input_buf_chars(input_buf_t *inbuf, src_pos_t *pos)
 			inbuf->buf[inbuf->buf_used] = '\0';
 	}
 
-	assert(inbuf->buf_pos < input_buf_size);
+	if (inbuf->buf_pos >= input_buf_size)
+		return NULL;
 
 	if (inbuf->buf_pos < inbuf->buf_used) {
 		inbuf->pos =
 		    inbuf->posbuf[inbuf->buf_pos];
 	}
 
-	if (pos != NULL)
-		*pos = inbuf->pos;
+	if (pos != NULL) {
+		*pos = inbuf->posbuf[inbuf->buf_pos];
+	}
 
 	return inbuf->buf + inbuf->buf_pos;
 }
@@ -164,6 +166,21 @@ bool input_buf_is_error(input_buf_t *inbuf)
 	return inbuf->in_error;
 }
 
+/** Get current lexer position in source code.
+ *
+ * @param inbuf Input buffer
+ * @param pos Place to store position
+ */
+void input_buf_get_pos(input_buf_t *inbuf, src_pos_t *pos)
+{
+	if (inbuf->buf_pos < inbuf->buf_used) {
+		*pos = inbuf->posbuf[inbuf->buf_pos];
+	} else if (inbuf->buf_used > 0) {
+		*pos = inbuf->posbuf[inbuf->buf_used - 1];
+		src_pos_fwd_char(pos, inbuf->buf[inbuf->buf_used - 1]);
+	}
+}
+
 /** Advance input buffer read position.
  *
  * Advance read position by a certain amount of characters
@@ -175,7 +192,7 @@ void input_buf_advance(input_buf_t *inbuf, size_t nchars, src_pos_t *pos)
 {
 	char *p;
 
-	while (!input_buf_is_eof(inbuf) && !input_buf_is_error(inbuf) &&
+	while (!input_buf_is_eof(inbuf) && /* !input_buf_is_error(inbuf) && */
 	    nchars > 0) {
 		p = input_buf_chars(inbuf, pos);
 		(void)p;

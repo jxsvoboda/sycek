@@ -35,6 +35,7 @@ extern void input_buf_destroy(input_buf_t *);
 extern char *input_buf_chars(input_buf_t *, src_pos_t *);
 extern bool input_buf_is_eof(input_buf_t *);
 extern bool input_buf_is_error(input_buf_t *);
+extern void input_buf_get_pos(input_buf_t *, src_pos_t *);
 extern void input_buf_advance(input_buf_t *, size_t, src_pos_t *);
 
 #endif

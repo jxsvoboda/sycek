@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <charcls.h>
+#include <input_buf.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <src_pos.h>
@@ -47,6 +48,7 @@
 int lexer_create(lexer_input_ops_t *ops, void *arg, lexer_t **rlexer)
 {
 	lexer_t *lexer;
+	int rc;
 
 	lexer = calloc(1, sizeof(lexer_t));
 	if (lexer == NULL)
@@ -54,6 +56,13 @@ int lexer_create(lexer_input_ops_t *ops, void *arg, lexer_t **rlexer)
 
 	lexer->input_ops = ops;
 	lexer->input_arg = arg;
+
+	rc = input_buf_create(ops, arg, &lexer->inbuf);
+	if (rc != EOK) {
+		free(lexer);
+		return rc;
+	}
+
 	*rlexer = lexer;
 	return EOK;
 }
@@ -67,6 +76,7 @@ void lexer_destroy(lexer_t *lexer)
 	if (lexer == NULL)
 		return;
 
+	input_buf_destroy(lexer->inbuf);
 	free(lexer);
 }
 
@@ -80,51 +90,7 @@ void lexer_destroy(lexer_t *lexer)
  */
 static char *lexer_chars(lexer_t *lexer)
 {
-	int rc;
-	size_t nread;
-	size_t i;
-	src_pos_t rpos;
-
-	while (!lexer->in_eof && lexer->buf_used - lexer->buf_pos <
-	    lexer_buf_low_watermark) {
-		/* Move data to beginning of buffer */
-		memmove(lexer->buf, lexer->buf + lexer->buf_pos,
-		    lexer->buf_used - lexer->buf_pos);
-		memmove(lexer->posbuf, lexer->posbuf + lexer->buf_pos,
-		    (lexer->buf_used - lexer->buf_pos) * sizeof(src_pos_t));
-		lexer->buf_used -= lexer->buf_pos;
-		lexer->buf_pos = 0;
-		/* XX Advance lexer->buf_bpos */
-
-		rc = lexer->input_ops->read(lexer->input_arg, lexer->buf +
-		    lexer->buf_used, lexer_buf_size - lexer->buf_used,
-		    &nread, &rpos);
-		if (rc != EOK) {
-			lexer->in_error = true;
-			nread = 0;
-			rpos = lexer->pos;
-		}
-
-		if (nread == 0)
-			lexer->in_eof = true;
-		if (lexer->buf_used == 0) {
-			lexer->buf_bpos = rpos;
-			lexer->pos = rpos;
-		}
-
-		for (i = 0; i < nread; i++) {
-			lexer->posbuf[lexer->buf_used + i] = rpos;
-			src_pos_fwd_char(&rpos,
-			    lexer->buf[lexer->buf_used + i]);
-		}
-
-		lexer->buf_used += nread;
-		if (lexer->buf_used < lexer_buf_size)
-			lexer->buf[lexer->buf_used] = '\0';
-	}
-
-	assert(lexer->buf_pos < lexer_buf_size);
-	return lexer->buf + lexer->buf_pos;
+	return input_buf_chars(lexer->inbuf, &lexer->pos);
 }
 
 /** Determine if lexer is at end of file.
@@ -134,13 +100,7 @@ static char *lexer_chars(lexer_t *lexer)
  */
 static bool lexer_is_eof(lexer_t *lexer)
 {
-	char *lc;
-
-	/* Make sure buffer is filled, if possible */
-	lc = lexer_chars(lexer);
-	(void) lc;
-
-	return lexer->buf_pos == lexer->buf_used;
+	return input_buf_is_eof(lexer->inbuf);
 }
 
 /** Determine if lexer hit an error.
@@ -150,7 +110,7 @@ static bool lexer_is_eof(lexer_t *lexer)
  */
 static bool lexer_is_error(lexer_t *lexer)
 {
-	return lexer->in_error;
+	return input_buf_is_error(lexer->inbuf);
 }
 
 /** Get current lexer position in source code.
@@ -160,12 +120,7 @@ static bool lexer_is_error(lexer_t *lexer)
  */
 static void lexer_get_pos(lexer_t *lexer, src_pos_t *pos)
 {
-	if (lexer->buf_pos < lexer->buf_used) {
-		*pos = lexer->posbuf[lexer->buf_pos];
-	} else if (lexer->buf_used > 0) {
-		*pos = lexer->posbuf[lexer->buf_used - 1];
-		src_pos_fwd_char(pos, lexer->buf[lexer->buf_used - 1]);
-	}
+	input_buf_get_pos(lexer->inbuf, pos);
 }
 
 /** Advance lexer read position.
@@ -197,11 +152,7 @@ static int lexer_advance(lexer_t *lexer, size_t nchars, lexer_tok_t *tok)
 		tok->text[tok->text_size + 1] = '\0';
 		tok->text_size++;
 
-		if (lexer->buf_pos < lexer->buf_used)
-			lexer->pos = lexer->posbuf[lexer->buf_pos];
-
-		++lexer->buf_pos;
-		assert(lexer->buf_pos <= lexer_buf_size);
+		input_buf_advance(lexer->inbuf, 1, &lexer->pos);
 		--nchars;
 	}
 

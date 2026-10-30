@@ -46,6 +46,7 @@ sources_common = \
     src/file_input.c \
     src/str_input.c \
     src/charcls.c \
+    src/input_buf.c \
     src/lexer.c \
     src/parser.c \
     src/src_pos.c
@@ -66,7 +67,6 @@ sources_syc_common = \
     src/cgrec.c \
     src/cgtype.c \
     src/comp.c \
-    src/input_buf.c \
     src/ir.c \
     src/irlexer.c \
     src/irparser.c \
