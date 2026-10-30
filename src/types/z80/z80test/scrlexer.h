@@ -29,13 +29,9 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "types/input_buf.h"
 #include "types/linput.h"
 #include "src_pos.h"
-
-enum {
-	scr_lexer_buf_size = 32,
-	scr_lexer_buf_low_watermark = 16
-};
 
 /** Script token type */
 typedef enum {
@@ -110,19 +106,9 @@ typedef struct {
 /** Script Lexer */
 typedef struct scr_lexer {
 	/** Input buffer */
-	char buf[scr_lexer_buf_size];
-	/** Buffer position */
-	size_t buf_pos;
-	/** Number of used bytes in buf */
-	size_t buf_used;
-	/** Position of start of input buffer */
-	src_pos_t buf_bpos;
+	input_buf_t *inbuf;
 	/** Current position */
 	src_pos_t pos;
-	/** EOF hit in input */
-	bool in_eof;
-	/** I/O error hit in input */
-	bool in_error;
 	/** Input ops */
 	lexer_input_ops_t *input_ops;
 	/** Input argument */

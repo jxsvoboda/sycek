@@ -27,11 +27,12 @@
  */
 
 #include <assert.h>
-#include <errno.h>
+#include <merrno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "input_buf.h"
 #include "src_pos.h"
 #include "scrlexer.h"
 
@@ -46,6 +47,7 @@
 int scr_lexer_create(lexer_input_ops_t *ops, void *arg, scr_lexer_t **rlexer)
 {
 	scr_lexer_t *lexer;
+	int rc;
 
 	lexer = calloc(1, sizeof(scr_lexer_t));
 	if (lexer == NULL)
@@ -53,6 +55,13 @@ int scr_lexer_create(lexer_input_ops_t *ops, void *arg, scr_lexer_t **rlexer)
 
 	lexer->input_ops = ops;
 	lexer->input_arg = arg;
+
+	rc = input_buf_create(ops, arg, &lexer->inbuf);
+	if (rc != EOK) {
+		free(lexer);
+		return rc;
+	}
+
 	*rlexer = lexer;
 	return 0;
 }
@@ -66,6 +75,7 @@ void scr_lexer_destroy(scr_lexer_t *lexer)
 	if (lexer == NULL)
 		return;
 
+	input_buf_destroy(lexer->inbuf);
 	free(lexer);
 }
 
@@ -202,40 +212,7 @@ static bool is_bad_ctrl(char c)
  */
 static char *scr_lexer_chars(scr_lexer_t *lexer)
 {
-	int rc;
-	size_t nread;
-	src_pos_t rpos;
-
-	if (!lexer->in_eof && lexer->buf_used - lexer->buf_pos <
-	    scr_lexer_buf_low_watermark) {
-		/* Move data to beginning of buffer */
-		memmove(lexer->buf, lexer->buf + lexer->buf_pos,
-		    lexer->buf_used - lexer->buf_pos);
-		lexer->buf_used -= lexer->buf_pos;
-		lexer->buf_pos = 0;
-		/* XX Advance lexer->buf_bpos */
-
-		rc = lexer->input_ops->read(lexer->input_arg, lexer->buf +
-		    lexer->buf_used, scr_lexer_buf_size - lexer->buf_used,
-		    &nread, &rpos);
-		if (rc != 0) {
-			lexer->in_error = true;
-			nread = 0;
-			rpos = lexer->pos;
-		}
-		if (nread < scr_lexer_buf_size - lexer->buf_used)
-			lexer->in_eof = true;
-		if (lexer->buf_used == 0) {
-			lexer->buf_bpos = rpos;
-			lexer->pos = rpos;
-		}
-		lexer->buf_used += nread;
-		if (lexer->buf_used < scr_lexer_buf_size)
-			lexer->buf[lexer->buf_used] = '\0';
-	}
-
-	assert(lexer->buf_pos < scr_lexer_buf_size);
-	return lexer->buf + lexer->buf_pos;
+	return input_buf_chars(lexer->inbuf, &lexer->pos);
 }
 
 /** Determine if lexer is at end of file.
@@ -245,13 +222,7 @@ static char *scr_lexer_chars(scr_lexer_t *lexer)
  */
 static bool scr_lexer_is_eof(scr_lexer_t *lexer)
 {
-	char *lc;
-
-	/* Make sure buffer is filled, if possible */
-	lc = scr_lexer_chars(lexer);
-	(void) lc;
-
-	return lexer->buf_pos == lexer->buf_used;
+	return input_buf_is_eof(lexer->inbuf);
 }
 
 /** Determine if lexer enocuntered an I/O error.
@@ -261,7 +232,7 @@ static bool scr_lexer_is_eof(scr_lexer_t *lexer)
  */
 static bool scr_lexer_is_error(scr_lexer_t *lexer)
 {
-	return lexer->in_error;
+	return input_buf_is_error(lexer->inbuf);
 }
 
 /** Get current lexer position in source code.
@@ -271,7 +242,7 @@ static bool scr_lexer_is_error(scr_lexer_t *lexer)
  */
 static void scr_lexer_get_pos(scr_lexer_t *lexer, src_pos_t *pos)
 {
-	*pos = lexer->pos;
+	input_buf_get_pos(lexer->inbuf, pos);
 }
 
 /** Advance lexer read position.
@@ -302,9 +273,8 @@ static int scr_lexer_advance(scr_lexer_t *lexer, size_t nchars, scr_lexer_tok_t 
 		tok->text[tok->text_size] = p[0];
 		tok->text[tok->text_size + 1] = '\0';
 		tok->text_size++;
-		++lexer->buf_pos;
-		assert(lexer->buf_pos <= scr_lexer_buf_size);
-		src_pos_fwd_char(&lexer->pos, p[0]);
+
+		input_buf_advance(lexer->inbuf, 1, &lexer->pos);
 		--nchars;
 	}
 

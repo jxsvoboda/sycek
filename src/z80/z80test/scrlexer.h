@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <types/z80/z80test/scrlexer.h>
+#include <types/input_buf.h>
 #include <types/linput.h>
 
 extern int scr_lexer_create(lexer_input_ops_t *, void *, scr_lexer_t **);

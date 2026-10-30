@@ -124,6 +124,7 @@ sources_sydump_common = \
 sources_z80test_common = \
     ext/z80.c \
     src/file_input.c \
+    src/input_buf.c \
     src/src_pos.c \
     src/z80/z80test/scrlexer.c \
     src/z80/z80test/symbols.c \
