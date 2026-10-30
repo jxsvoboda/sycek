@@ -243,7 +243,7 @@ static bool ir_lexer_is_error(ir_lexer_t *lexer)
  */
 static void ir_lexer_get_pos(ir_lexer_t *lexer, src_pos_t *pos)
 {
-	*pos = lexer->pos;
+	input_buf_get_pos(lexer->inbuf, pos);
 }
 
 /** Advance lexer read position.
