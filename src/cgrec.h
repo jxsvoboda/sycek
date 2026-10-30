@@ -31,7 +31,7 @@
 #include <stdint.h>
 #include <types/cgrec.h>
 #include <types/cgtype.h>
-#include <types/ir.h>
+#include <types/ir/ir.h>
 
 extern int cgen_records_create(cgen_records_t **);
 extern void cgen_records_destroy(cgen_records_t *);

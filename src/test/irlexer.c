@@ -24,7 +24,7 @@
  * Test IR lexer
  */
 
-#include <irlexer.h>
+#include <ir/irlexer.h>
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdbool.h>

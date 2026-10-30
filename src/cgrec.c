@@ -26,7 +26,7 @@
 
 #include <cgrec.h>
 #include <cgtype.h>
-#include <ir.h>
+#include <ir/ir.h>
 #include <merrno.h>
 #include <stdbool.h>
 #include <stdlib.h>

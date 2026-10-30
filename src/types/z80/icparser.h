@@ -27,7 +27,7 @@
 #ifndef TYPES_Z80_ICPARSER_H
 #define TYPES_Z80_ICPARSER_H
 
-#include <types/irlexer.h>
+#include <types/ir/irlexer.h>
 
 /** Z80 IC parser input ops */
 typedef struct {

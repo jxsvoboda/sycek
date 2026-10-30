@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,13 +24,13 @@
  * IR Lexer (lexical analyzer)
  */
 
-#ifndef IRLEXER_H
-#define IRLEXER_H
+#ifndef IR_IRLEXER_H
+#define IR_IRLEXER_H
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <types/irlexer.h>
+#include <types/ir/irlexer.h>
 #include <types/linput.h>
 
 extern int ir_lexer_create(lexer_input_ops_t *, void *, ir_lexer_t **);

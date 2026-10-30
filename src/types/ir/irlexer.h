@@ -24,8 +24,8 @@
  * IR Lexer (lexical analyzer)
  */
 
-#ifndef TYPES_IRLEXER_H
-#define TYPES_IRLEXER_H
+#ifndef TYPES_IR_IRLEXER_H
+#define TYPES_IR_IRLEXER_H
 
 #include <stdbool.h>
 #include <stddef.h>

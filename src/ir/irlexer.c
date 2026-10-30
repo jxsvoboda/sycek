@@ -29,7 +29,7 @@
 #include <assert.h>
 #include <input_buf.h>
 #include <inttypes.h>
-#include <irlexer.h>
+#include <ir/irlexer.h>
 #include <merrno.h>
 #include <src_pos.h>
 #include <stdbool.h>

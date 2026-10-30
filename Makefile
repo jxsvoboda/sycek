@@ -67,9 +67,9 @@ sources_syc_common = \
     src/cgrec.c \
     src/cgtype.c \
     src/comp.c \
-    src/ir.c \
-    src/irlexer.c \
-    src/irparser.c \
+    src/ir/ir.c \
+    src/ir/irlexer.c \
+    src/ir/irparser.c \
     src/labels.c \
     src/object/linker.c \
     src/object/object.c \

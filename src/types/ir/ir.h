@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,8 +24,8 @@
  * Intermediate Representation
  */
 
-#ifndef TYPES_IR_H
-#define TYPES_IR_H
+#ifndef TYPES_IR_IR_H
+#define TYPES_IR_IR_H
 
 #include <adt/list.h>
 #include <stdint.h>

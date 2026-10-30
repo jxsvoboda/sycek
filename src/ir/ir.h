@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,14 +24,14 @@
  * Intermediate Representation
  */
 
-#ifndef IR_H
-#define IR_H
+#ifndef IR_IR_H
+#define IR_IR_H
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <types/ir.h>
+#include <types/ir/ir.h>
 
 extern int ir_module_create(ir_module_t **);
 extern void ir_module_append(ir_module_t *, ir_decln_t *);

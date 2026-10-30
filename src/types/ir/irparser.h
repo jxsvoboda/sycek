@@ -24,10 +24,10 @@
  * IR Parser
  */
 
-#ifndef TYPES_IRPARSER_H
-#define TYPES_IRPARSER_H
+#ifndef TYPES_IR_IRPARSER_H
+#define TYPES_IR_IRPARSER_H
 
-#include <types/irlexer.h>
+#include <types/ir/irlexer.h>
 
 /** IR parser input ops */
 typedef struct {

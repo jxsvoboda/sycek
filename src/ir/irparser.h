@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,11 +24,11 @@
  * IR parser
  */
 
-#ifndef IRPARSER_H
-#define IRPARSER_H
+#ifndef IR_IRPARSER_H
+#define IR_IRPARSER_H
 
-#include <types/ir.h>
-#include <types/irparser.h>
+#include <types/ir/ir.h>
+#include <types/ir/irparser.h>
 
 extern int ir_parser_create(ir_parser_input_ops_t *, void *, ir_parser_t **);
 extern void ir_parser_destroy(ir_parser_t *);

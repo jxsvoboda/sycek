@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -25,7 +25,7 @@
  */
 
 #include <assert.h>
-#include <ir.h>
+#include <ir/ir.h>
 #include <merrno.h>
 #include <stdio.h>
 #include <string.h>

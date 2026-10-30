@@ -29,9 +29,9 @@
 #include <ast.h>
 #include <cgen.h>
 #include <comp.h>
-#include <ir.h>
-#include <irlexer.h>
-#include <irparser.h>
+#include <ir/ir.h>
+#include <ir/irlexer.h>
+#include <ir/irparser.h>
 #include <lexer.h>
 #include <merrno.h>
 #include <object/linker.h>

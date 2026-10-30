@@ -25,10 +25,10 @@
  */
 
 #include <assert.h>
-#include <ir.h>
 #include <inttypes.h>
-#include <irparser.h>
-#include <irlexer.h>
+#include <ir/ir.h>
+#include <ir/irlexer.h>
+#include <ir/irparser.h>
 #include <merrno.h>
 #include <stdint.h>
 #include <stdio.h>

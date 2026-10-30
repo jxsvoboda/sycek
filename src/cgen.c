@@ -36,7 +36,7 @@
 #include <cgen.h>
 #include <cgtype.h>
 #include <inttypes.h>
-#include <ir.h>
+#include <ir/ir.h>
 #include <labels.h>
 #include <lexer.h>
 #include <merrno.h>

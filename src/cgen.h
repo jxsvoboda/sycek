@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,7 @@
 
 #include <types/ast.h>
 #include <types/cgen.h>
-#include <types/ir.h>
+#include <types/ir/ir.h>
 #include <types/parser.h>
 #include <types/symbols.h>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,7 +24,7 @@
  * Test instruction selection
  */
 
-#include <ir.h>
+#include <ir/ir.h>
 #include <merrno.h>
 #include <test/z80/isel.h>
 #include <z80/isel.h>

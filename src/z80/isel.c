@@ -27,7 +27,7 @@
  */
 
 #include <assert.h>
-#include <ir.h>
+#include <ir/ir.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>
