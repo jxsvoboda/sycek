@@ -918,11 +918,13 @@ static int preproc_dump_to_end_of_line(preproc_t *preproc, FILE *outf)
  *
  * @param preproc Preprocessor
  * @param inctype Include type (angle brackets or quotes)
+ * @param spos Start position (for diagnostics)
+ * @param epos End position (for diagnostics)
  * @param file_name Include file name
  * @return EOK on success or an error code
  */
 static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
-    const char *file_name)
+    src_pos_t *spos, src_pos_t *epos, const char *file_name)
 {
 	char *dirname = NULL;
 	const char *incldir;
@@ -940,9 +942,11 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 		if (rc != EOK && rc != ENOENT)
 			goto error;
 
-		free(dirname);
-		dirname = NULL;
-		return EOK;
+		if (rc == EOK) {
+			free(dirname);
+			dirname = NULL;
+			return EOK;
+		}
 	}
 
 	if (preproc->incldir != NULL)
@@ -952,8 +956,11 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 
 	/* Always look in the compiler's include directory list. */
 	rc = preproc_include_from_dir(preproc, incldir, file_name);
-	if (rc != EOK)
+	if (rc != EOK) {
+		(void)preproc_dprint_range(spos, epos, stderr);
+		fprintf(stderr, ": header %s not found.\n", file_name);
 		goto error;
+	}
 
 	return EOK;
 error:
@@ -1533,6 +1540,8 @@ static int preproc_process_include(preproc_t *preproc)
 	char delim;
 	char *fname;
 	size_t buf_pos;
+	src_pos_t spos;
+	src_pos_t epos;
 	int rc;
 
 	preproc_advance(preproc, 7);
@@ -1564,6 +1573,8 @@ static int preproc_process_include(preproc_t *preproc)
 		rc = EIO;
 		goto error;
 	}
+
+	spos = preproc->cur->pos;
 
 	p = preproc_chars(preproc);
 	switch (p[0]) {
@@ -1601,6 +1612,8 @@ static int preproc_process_include(preproc_t *preproc)
 		goto error;
 	}
 
+	epos = preproc->cur->pos;
+
 	if (p[0] != delim) {
 		(void)preproc_dprint_range(&preproc->cur->pos,
 		    &preproc->cur->pos, stderr);
@@ -1618,7 +1631,7 @@ static int preproc_process_include(preproc_t *preproc)
 		goto error;
 
 	rc = preproc_include(preproc, delim == '>' ? pit_angled : pit_quoted,
-	    fname);
+	    &spos, &epos, fname);
 	if (rc != EOK)
 		goto error;
 

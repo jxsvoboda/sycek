@@ -1,0 +1,1 @@
+<test/syc/bad/ppnostdhdr.c:5:10-18>: header phony.h not found.
