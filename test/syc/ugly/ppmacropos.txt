@@ -1,0 +1,1 @@
+<test/syc/ugly/ppmacropos.c:5:13-18:num:123456>: Warning: Constant should be long.

@@ -979,7 +979,7 @@ int comp_save_tape(comp_t *comp, const char *fname)
 int comp_module_dump_preproc(comp_module_t *module, FILE *f)
 {
 	char buf[comp_buf_size];
-	src_pos_t bpos;
+	src_pos_t posbuf[comp_buf_size];
 	size_t nread;
 	size_t i;
 	int rc;
@@ -999,7 +999,7 @@ int comp_module_dump_preproc(comp_module_t *module, FILE *f)
 
 	while (true) {
 		rc = lexer_preproc_input.read((void *)module->preproc,
-		    buf, 32, &nread, &bpos);
+		    buf, posbuf, 32, &nread);
 		if (rc != EOK)
 			return rc;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -32,7 +32,7 @@
 
 /** Lexer input ops */
 typedef struct {
-	int (*read)(void *, char *, size_t, size_t *, src_pos_t *);
+	int (*read)(void *, char *, src_pos_t *, size_t, size_t *);
 } lexer_input_ops_t;
 
 #endif

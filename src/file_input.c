@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static int file_lexer_read(void *, char *, size_t, size_t *, src_pos_t *);
+static int file_lexer_read(void *, char *, src_pos_t *, size_t, size_t *);
 
 lexer_input_ops_t lexer_file_input = {
 	.read = file_lexer_read
@@ -40,13 +40,14 @@ lexer_input_ops_t lexer_file_input = {
  *
  * @param arg Argument (file_input_t *)
  * @param buf Character buffer
- * @param bsize Size of character buffer
+ * @param posbuf Position buffer
+ * @param bsize Size of character/position buffer
  * @param nread Place to store number of characters read.
  * @param bpos Place to store position of the beginning of the buffer
  * @return EOK on success or an error code
  */
-static int file_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
-    src_pos_t *bpos)
+static int file_lexer_read(void *arg, char *buf, src_pos_t *posbuf,
+    size_t bsize, size_t *nread)
 {
 	file_input_t *finput = (file_input_t *)arg;
 	size_t i;
@@ -57,11 +58,12 @@ static int file_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 		return EIO;
 
 	*nread = nr;
-	*bpos = finput->cpos;
 
 	/* Advance source position */
-	for (i = 0; i < nr; i++)
+	for (i = 0; i < nr; i++) {
+		posbuf[i] = finput->cpos;
 		src_pos_fwd_char(&finput->cpos, buf[i]);
+	}
 
 	return EOK;
 }

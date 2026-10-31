@@ -31,15 +31,15 @@
 #include <string.h>
 #include <str_input.h>
 
-static int str_lexer_read(void *, char *, size_t, size_t *, src_pos_t *);
+static int str_lexer_read(void *, char *, src_pos_t *, size_t, size_t *);
 
 lexer_input_ops_t lexer_str_input = {
 	.read = str_lexer_read
 };
 
 /** Lexer input form a string constant. */
-static int str_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
-    src_pos_t *bpos)
+static int str_lexer_read(void *arg, char *buf, src_pos_t *posbuf,
+    size_t bsize, size_t *nread)
 {
 	str_input_t *sinput = (str_input_t *)arg;
 	size_t len;
@@ -51,11 +51,12 @@ static int str_lexer_read(void *arg, char *buf, size_t bsize, size_t *nread,
 
 	memcpy(buf, sinput->str + sinput->pos, len);
 	*nread = len;
-	*bpos = sinput->cpos;
 
 	/* Advance source position */
-	for (i = 0; i < len; i++)
+	for (i = 0; i < len; i++) {
+		posbuf[i] = sinput->cpos;
 		src_pos_fwd_char(&sinput->cpos, sinput->str[sinput->pos++]);
+	}
 
 	return EOK;
 }

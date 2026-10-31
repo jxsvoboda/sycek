@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int preproc_expander_read(void *, char *, size_t, size_t *, src_pos_t *);
+static int preproc_expander_read(void *, char *, src_pos_t *, size_t, size_t *);
 
 lexer_input_ops_t preproc_expander_input = {
 	.read = preproc_expander_read
@@ -355,13 +355,13 @@ static int preproc_expander_process(preproc_expander_t *expander)
  *
  * @param arg Argument (preproc_t *)
  * @param buf Character buffer
- * @param bsize Size of character buffer
+ * @parma posbuf Position buffer
+ * @param bsize Size of character/position buffer
  * @param nread Place to store number of characters read.
- * @param bpos Place to store position of the beginning of the buffer
  * @return EOK on success or an error code
  */
-static int preproc_expander_read(void *arg, char *buf, size_t bsize,
-    size_t *nread, src_pos_t *bpos)
+static int preproc_expander_read(void *arg, char *buf, src_pos_t *posbuf,
+    size_t bsize, size_t *nread)
 {
 	preproc_expander_t *expander = (preproc_expander_t *)arg;
 	size_t nbytes;
@@ -383,9 +383,9 @@ static int preproc_expander_read(void *arg, char *buf, size_t bsize,
 		nbytes = expander->out_buf_used;
 
 	memcpy(buf, expander->out_buf, nbytes);
+	memcpy(posbuf, expander->out_posbuf, nbytes * sizeof(src_pos_t));
 	expander->out_buf_used -= nbytes;
 
-	*bpos = expander->out_posbuf[0];
 	*nread = nbytes;
 
 	memcpy(expander->out_buf, expander->out_buf + nbytes,

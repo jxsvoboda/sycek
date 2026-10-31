@@ -83,8 +83,6 @@ char *input_buf_chars(input_buf_t *inbuf, src_pos_t *pos)
 {
 	int rc;
 	size_t nread;
-	size_t i;
-	src_pos_t rpos;
 
 	while (!inbuf->in_eof && inbuf->buf_used -
 	    inbuf->buf_pos < input_buf_low_watermark) {
@@ -102,23 +100,15 @@ char *input_buf_chars(input_buf_t *inbuf, src_pos_t *pos)
 
 		rc = inbuf->input_ops->read(inbuf->input_arg,
 		    inbuf->buf + inbuf->buf_used,
-		    input_buf_size - inbuf->buf_used, &nread, &rpos);
+		    inbuf->posbuf + inbuf->buf_used,
+		    input_buf_size - inbuf->buf_used, &nread);
 		if (rc != EOK) {
 			inbuf->in_error = true;
 			nread = 0;
-			rpos = inbuf->pos;
 		}
 
 		if (nread == 0)
 			inbuf->in_eof = true;
-		if (inbuf->buf_used == 0)
-			inbuf->pos = rpos;
-
-		for (i = 0; i < nread; i++) {
-			inbuf->posbuf[inbuf->buf_used + i] = rpos;
-			src_pos_fwd_char(&rpos,
-			    inbuf->buf[inbuf->buf_used + i]);
-		}
 
 		inbuf->buf_used += nread;
 		if (inbuf->buf_used < input_buf_size)
