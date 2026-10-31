@@ -60,6 +60,8 @@ static void *comp_parser_tok_data(void *, void *);
 static comp_tok_t *comp_module_first_tok(comp_module_t *);
 static comp_tok_t *comp_next_tok(comp_tok_t *);
 static void comp_remove_token(comp_tok_t *);
+static comp_incldir_t *comp_incldir_first(comp_t *);
+static comp_incldir_t *comp_incldir_next(comp_incldir_t *);
 
 static parser_input_ops_t comp_parser_input = {
 	.read_tok = comp_parser_read_tok,
@@ -133,6 +135,7 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 	z80ic_lexer_t *ic_lexer = NULL;
 	symbols_t *symbols = NULL;
 	char *incldir = NULL;
+	comp_incldir_t *idir;
 	int rc;
 
 	module = calloc(1, sizeof(comp_module_t));
@@ -164,6 +167,15 @@ int comp_module_create(comp_t *comp, lexer_input_ops_t *input_ops,
 			rc = preproc_set_incldir(preproc, incldir);
 			if (rc != EOK)
 				goto error;
+		}
+
+		idir = comp_incldir_first(comp);
+		while (idir != NULL) {
+			rc = preproc_add_incldir(preproc, idir->dirname);
+			if (rc != EOK)
+				goto error;
+
+			idir = comp_incldir_next(idir);
 		}
 
 		free(incldir);
@@ -435,6 +447,7 @@ int comp_create(const char *base_dir, comp_t **rcomp)
 	}
 
 	list_initialize(&comp->mods);
+	list_initialize(&comp->incldirs);
 	*rcomp = comp;
 	return EOK;
 error:
@@ -443,6 +456,77 @@ error:
 	return rc;
 }
 
+/** Add include directory to list of include directories.
+ *
+ * @param comp Compiler
+ * @param dir Directory
+ * @return EOK on success, ENOMEM if out of memory.
+ */
+int comp_incldir_add(comp_t *comp, const char *dir)
+{
+	comp_incldir_t *incldir;
+	char *ddir;
+
+	incldir = calloc(1, sizeof(comp_incldir_t));
+	if (incldir == NULL)
+		return ENOMEM;
+
+	ddir = strdup(dir);
+	if (ddir == NULL) {
+		free(incldir);
+		return ENOMEM;
+	}
+
+	incldir->comp = comp;
+	incldir->dirname = ddir;
+	list_append(&incldir->lincldirs, &comp->incldirs);
+	return EOK;
+}
+
+/** Return fist compiler include directory.
+ *
+ * @param comp Compiler
+ * @return First include directory or @c NULL if there are none
+ */
+static comp_incldir_t *comp_incldir_first(comp_t *comp)
+{
+	link_t *link;
+
+	link = list_first(&comp->incldirs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, comp_incldir_t, lincldirs);
+}
+
+/** Return next compiler include directory.
+ *
+ * @param cur Current include directory
+ * @return First include directory or @c NULL if @a cur was the last.
+ */
+static comp_incldir_t *comp_incldir_next(comp_incldir_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lincldirs, &cur->comp->incldirs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, comp_incldir_t, lincldirs);
+}
+
+/** Remove include directory.
+ *
+ * @param incldir Include directory
+ */
+static void comp_incldir_remove(comp_incldir_t *incldir)
+{
+	list_remove(&incldir->lincldirs);
+	free(incldir->dirname);
+	free(incldir);
+}
+
+
 /** Destroy compiler.
  *
  * @param comp Compiler
@@ -450,11 +534,18 @@ error:
 void comp_destroy(comp_t *comp)
 {
 	comp_module_t *module;
+	comp_incldir_t *incldir;
 
 	module = comp_module_first(comp);
 	while (module != NULL) {
 		comp_module_destroy(module);
 		module = comp_module_first(comp);
+	}
+
+	incldir = comp_incldir_first(comp);
+	while (incldir != NULL) {
+		comp_incldir_remove(incldir);
+		incldir = comp_incldir_first(comp);
 	}
 
 	obj_object_destroy(comp->linked_object);

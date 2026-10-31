@@ -62,6 +62,7 @@ static void print_syntax(void)
 	    "\t--no-link Do not link, stop after binary object emission\n"
 	    "\t--no-tape Do not make a tape image, stop after link stage\n"
 	    "\t--no-stdlib Do not implicitly link with standard libraries\n"
+	    "\t--incl=<dir> Add standard header include directory\n"
 	    "\t--out=<fname> Output file name\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
@@ -549,6 +550,7 @@ int main(int argc, char *argv[])
 	obj_linker_flags_t lflags = lf_none;
 	comp_t *comp = NULL;
 	const char *outfname = NULL;
+	const char *incldir;
 	char *execdir;
 
 	if (argc < 2) {
@@ -609,6 +611,17 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
+	execdir = pathname_get_execdir(argv[0], getenv("PATH"));
+
+	rc = comp_create(execdir, &comp);
+	if (rc != EOK) {
+		free(execdir);
+		(void)fprintf(stderr, "Failed creating compiler.\n");
+		return 1;
+	}
+
+	free(execdir);
+
 	i = 1;
 	while (argc > i && argv[i][0] == '-') {
 		if (strcmp(argv[i], "--dump-ast") == 0) {
@@ -653,6 +666,14 @@ int main(int argc, char *argv[])
 		} else if (strncmp(argv[i], "--out=", strlen("--out=")) == 0) {
 			outfname = argv[i] + strlen("--out=");
 			++i;
+		} else if (strncmp(argv[i], "--incl=", strlen("--incl=")) == 0) {
+			incldir = argv[i] + strlen("--incl=");
+			rc = comp_incldir_add(comp, incldir);
+			if (rc != EOK) {
+				comp_destroy(comp);
+				return 1;
+			}
+			++i;
 		} else if (strcmp(argv[i], "--no-link-range-error") == 0) {
 			++i;
 			lflags |= lf_no_range_error;
@@ -661,25 +682,17 @@ int main(int argc, char *argv[])
 			break;
 		} else {
 			(void)fprintf(stderr, "Invalid option.\n");
+			comp_destroy(comp);
 			return 1;
 		}
 	}
 
 	if (argc <= i) {
 		(void)fprintf(stderr, "Argument missing.\n");
+		comp_destroy(comp);
 		return 1;
 	}
 
-	execdir = pathname_get_execdir(argv[0], getenv("PATH"));
-
-	rc = comp_create(execdir, &comp);
-	if (rc != EOK) {
-		free(execdir);
-		(void)fprintf(stderr, "Failed creating compiler.\n");
-		return 1;
-	}
-
-	free(execdir);
 	comp->lflags = lflags;
 
 	while (i < argc) {

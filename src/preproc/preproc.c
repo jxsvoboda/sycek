@@ -27,6 +27,7 @@
 #include <adt/list.h>
 #include <assert.h>
 #include <charcls.h>
+#include <merrno.h>
 #include <file_input.h>
 #include <input_buf.h>
 #include <lexer.h>
@@ -53,6 +54,8 @@ static preproc_condition_t *preproc_top_condition(preproc_t *);
 static void preproc_pop_condition(preproc_t *);
 static preproc_macro_t *preproc_macro_first(preproc_t *);
 static void preproc_macro_remove(preproc_macro_t *);
+static preproc_incldir_t *preproc_incldir_first(preproc_t *);
+static void preproc_incldir_remove(preproc_incldir_t *);
 static int preproc_skip_to_end_of_line(preproc_t *);
 static int preproc_dump_to_end_of_line(preproc_t *, FILE *);
 
@@ -87,6 +90,7 @@ int preproc_create(const char *fname, lexer_input_ops_t *input_ops,
 
 	list_initialize(&preproc->inputs);
 	list_initialize(&preproc->macros);
+	list_initialize(&preproc->incldirs);
 
 	rc = preproc_push_input(preproc, fname, NULL, NULL, input_ops,
 	    input_arg);
@@ -109,6 +113,7 @@ error:
 void preproc_destroy(preproc_t *preproc)
 {
 	preproc_macro_t *macro;
+	preproc_incldir_t *incldir;
 
 	if (preproc == NULL)
 		return;
@@ -124,6 +129,12 @@ void preproc_destroy(preproc_t *preproc)
 
 	if (preproc->incldir != NULL)
 		free(preproc->incldir);
+
+	incldir = preproc_incldir_first(preproc);
+	while (incldir != NULL) {
+		preproc_incldir_remove(incldir);
+		incldir = preproc_incldir_first(preproc);
+	}
 
 	if (preproc->xbuf != NULL)
 		input_buf_destroy(preproc->xbuf);
@@ -151,6 +162,33 @@ int preproc_set_incldir(preproc_t *preproc, const char *dir)
 	if (preproc->incldir != NULL)
 		free(preproc->incldir);
 	preproc->incldir = ddir;
+	return EOK;
+}
+
+/** Add additional include directory for standard headers.
+ *
+ * @param preproc Preprocessor
+ * @param dir Dirctory
+ * @return EOK on success or an error code
+ */
+int preproc_add_incldir(preproc_t *preproc, const char *dir)
+{
+	preproc_incldir_t *incldir;
+	char *ddir;
+
+	incldir = calloc(1, sizeof(preproc_incldir_t));
+	if (incldir == NULL)
+		return ENOMEM;
+
+	ddir = strdup(dir);
+	if (ddir == NULL) {
+		free(incldir);
+		return ENOMEM;
+	}
+
+	incldir->preproc = preproc;
+	incldir->dirname = ddir;
+	list_append(&incldir->lincldirs, &preproc->incldirs);
 	return EOK;
 }
 
@@ -397,6 +435,49 @@ static void preproc_macro_remove(preproc_macro_t *macro)
 	free(macro->name);
 	free(macro->replacement);
 	free(macro);
+}
+
+/** Return fist preprocessor include directory.
+ *
+ * @param preproc Preprocessor
+ * @return First include directory or @c NULL if there are none
+ */
+static preproc_incldir_t *preproc_incldir_first(preproc_t *preproc)
+{
+	link_t *link;
+
+	link = list_first(&preproc->incldirs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_incldir_t, lincldirs);
+}
+
+/** Return next preprocessor include directory.
+ *
+ * @param cur Current include directory
+ * @return First include directory or @c NULL if @a cur was the last.
+ */
+static preproc_incldir_t *preproc_incldir_next(preproc_incldir_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->lincldirs, &cur->preproc->incldirs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_incldir_t, lincldirs);
+}
+
+/** Remove include directory.
+ *
+ * @param incldir Include directory
+ */
+static void preproc_incldir_remove(preproc_incldir_t *incldir)
+{
+	list_remove(&incldir->lincldirs);
+	free(incldir->dirname);
+	free(incldir);
 }
 
 /** Get valid pointer to characters in input buffer.
@@ -928,6 +1009,7 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 {
 	char *dirname = NULL;
 	const char *incldir;
+	preproc_incldir_t *idir;
 	int rc;
 
 	/* For #include "header" look in the source C file's directory. */
@@ -942,17 +1024,31 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 		if (rc != EOK && rc != ENOENT)
 			goto error;
 
-		if (rc == EOK) {
-			free(dirname);
-			dirname = NULL;
+		free(dirname);
+		dirname = NULL;
+
+		if (rc == EOK)
 			return EOK;
-		}
 	}
 
 	if (preproc->incldir != NULL)
 		incldir = preproc->incldir;
 	else
 		incldir = "./lib/clib/include";
+
+	/* Look in all user-specified standard include directories. */
+	idir = preproc_incldir_first(preproc);
+	while (idir != NULL) {
+		rc = preproc_include_from_dir(preproc, idir->dirname,
+		    file_name);
+		if (rc != EOK && rc != ENOENT)
+			goto error;
+
+		if (rc == EOK)
+			return EOK;
+
+		idir = preproc_incldir_next(idir);
+	}
 
 	/* Always look in the compiler's include directory list. */
 	rc = preproc_include_from_dir(preproc, incldir, file_name);

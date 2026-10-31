@@ -32,6 +32,7 @@
 #include <types/lexer.h>
 
 extern int comp_create(const char *, comp_t **);
+extern int comp_incldir_add(comp_t *, const char *);
 extern int comp_module_create(comp_t *, lexer_input_ops_t *, void *,
     comp_mtype_t, const char *, comp_module_t **);
 extern int comp_module_create_from_obj(comp_t *, const char *,

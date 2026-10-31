@@ -54,6 +54,16 @@ typedef enum {
 	pps_pragma_text
 } preproc_state_t;
 
+/** C preprocessor include directory */
+typedef struct {
+	/** Containing preprocessor */
+	struct preproc *preproc;
+	/** Link to @c preproc->incldirs */
+	link_t lincldirs;
+	/** Directory name */
+	char *dirname;
+} preproc_incldir_t;
+
 /** C preprocessor */
 typedef struct preproc {
 	/** Input stack (list of preproc_input_t */
@@ -78,6 +88,8 @@ typedef struct preproc {
 	uint8_t pragma_pos;
 	/** Directory for standard includes. */
 	char *incldir;
+	/** Additional directories for standard includes. */
+	list_t incldirs;
 	/** Preprocessor macros (list of preproc_macro_t) */
 	list_t macros;
 	/** Macro expander. */

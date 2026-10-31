@@ -102,12 +102,24 @@ typedef struct comp_module {
 	obj_object_t *object;
 } comp_module_t;
 
+/** Compiler include directory */
+typedef struct {
+	/** Containing compiler */
+	struct comp *comp;
+	/** Link to @c comp->incldirs */
+	link_t lincldirs;
+	/** Directory name */
+	char *dirname;
+} comp_incldir_t;
+
 /** Compiler */
 typedef struct comp {
 	/** Base directory from which compiler files are located. */
 	char *base_dir;
 	/** Modules (comp_module_t) */
 	list_t mods;
+	/** Include directories (comp_incldir_t) */
+	list_t incldirs;
 	/** Code generator flags */
 	cgen_flags_t cgflags;
 	/** Linker flags */
