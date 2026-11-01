@@ -24,7 +24,9 @@
  * C preprocessor macro invoker
  */
 
+#include <adt/list.h>
 #include <assert.h>
+#include <charcls.h>
 #include <input_buf.h>
 #include <lexer.h>
 #include <preproc/invoker.h>
@@ -40,6 +42,10 @@ lexer_input_ops_t preproc_invoker_input = {
 };
 
 static int preproc_invoker_process(preproc_invoker_t *);
+static int preproc_invoker_arg_insert(preproc_invoker_t *, const char *,
+    const char *);
+static preproc_inv_arg_t *preproc_invoker_arg_find(preproc_invoker_t *,
+    const char *);
 
 /** Create preprocessor macro invoker.
  *
@@ -61,6 +67,11 @@ int preproc_invoker_create(preproc_macro_t *macro, preproc_invoker_t **rinvoker)
 
 	invoker->macro = macro;
 	invoker->pos = macro->rpos;
+	list_initialize(&invoker->args);
+
+	rc = preproc_invoker_arg_insert(invoker, "A", "a");
+	if (rc != EOK)
+		goto error;
 
 	*rinvoker = invoker;
 	return EOK;
@@ -111,19 +122,27 @@ static void preproc_invoker_buf_insert(preproc_invoker_t *invoker, char c,
 	++invoker->out_buf_used;
 }
 
-/** Do some macro invoking.
+/** Do some macro invoking in scanning state.
  *
  * This may or may not write data to the invoker output buffer.
  *
  * @param invoker Preprocessor invoker
  * @return EOK on success or an error code
  */
-static int preproc_invoker_process(preproc_invoker_t *invoker)
+static int preproc_invoker_process_scan(preproc_invoker_t *invoker)
 {
 	char c;
 
 	while (invoker->macro->replacement[invoker->macro_off] != '\0') {
-		c = invoker->macro->replacement[invoker->macro_off++];
+		c = invoker->macro->replacement[invoker->macro_off];
+
+		if (is_idbegin(c)) {
+			invoker->state = ppis_ident;
+			invoker->ident_buf_used = 0;
+			break;
+		}
+
+		++invoker->macro_off;
 
 		preproc_invoker_buf_insert(invoker, c, &invoker->pos);
 		src_pos_fwd_char(&invoker->pos, c);
@@ -133,6 +152,155 @@ static int preproc_invoker_process(preproc_invoker_t *invoker)
 	}
 
 	return EOK;
+}
+
+/** Handle identifier found in the input stream.
+ *
+ * @param invoker Macro invoker
+ * @return EOK on success or an error code
+ */
+static int preproc_invoker_handle_ident(preproc_invoker_t *invoker)
+{
+	preproc_inv_arg_t *arg;
+
+	printf("preproc_invoker_handle_ident: ident='%s'\n", invoker->ident_buf);
+	arg = preproc_invoker_arg_find(invoker, invoker->ident_buf);
+
+	if (arg != NULL) {
+		printf("set ppis_argument state\n");
+		invoker->state = ppis_argument;
+		invoker->arg_ptr = arg;
+		invoker->arg_off = 0;
+	} else {
+		printf("unknown ident\n");
+		/* Unknown idntifier. */
+		invoker->state = ppis_unkident;
+		invoker->ident_buf_off = 0;
+	}
+
+	return EOK;
+}
+
+/** Do some macro invoking in identifier state.
+ *
+ * This may or may not write data to the invoker output buffer.
+ *
+ * @param invoker Preprocessor invoker
+ * @return EOK on success or an error code
+ */
+static int preproc_invoker_process_ident(preproc_invoker_t *invoker)
+{
+	char c;
+	int rc;
+
+	printf("preproc_invoker_process_ident\n");
+	while (true) {
+		c = invoker->macro->replacement[invoker->macro_off];
+
+		if (!is_idcnt(c)) {
+			invoker->ident_buf[invoker->ident_buf_used] = '\0';
+			rc = preproc_invoker_handle_ident(invoker);
+			if (rc != EOK)
+				return rc;
+			break;
+		}
+
+		if (invoker->ident_buf_used ==
+		    preproc_invoker_ident_buf_size - 1) {
+			/* Identifier too long. */
+			invoker->state = ppis_unkident;
+			invoker->ident_buf_off = 0;
+			break;
+		}
+
+		invoker->ident_buf[invoker->ident_buf_used++] = c;
+		++invoker->macro_off;
+		src_pos_fwd_char(&invoker->pos, c);
+
+		if (!preproc_invoker_buf_avail(invoker))
+			break;
+	}
+
+	return EOK;
+}
+
+/** Do some macro invoking in unknown identifier dumping state.
+ *
+ * This may or may not write data to the expander output buffer.
+ *
+ * @param invoker Preprocessor macro invoker
+ * @return EOK on success or an error code
+ */
+static int preproc_invoker_process_unkident(preproc_invoker_t *invoker)
+{
+	char c;
+
+	while (invoker->ident_buf_off < invoker->ident_buf_used) {
+		c = invoker->ident_buf[invoker->ident_buf_off++];
+
+		preproc_invoker_buf_insert(invoker, c, &invoker->pos);
+
+		if (!preproc_invoker_buf_avail(invoker))
+			break;
+	}
+
+	if (invoker->ident_buf_off >= invoker->ident_buf_used)
+		invoker->state = ppis_scan;
+
+	return EOK;
+}
+
+/** Do some macro invoking in unknown argument state.
+ *
+ * This may or may not write data to the expander output buffer.
+ *
+ * @param invoker Preprocessor macro invoker
+ * @return EOK on success or an error code
+ */
+static int preproc_invoker_process_argument(preproc_invoker_t *invoker)
+{
+	char c;
+
+	printf("invoker_process_argument\n");
+	while (true) {
+		c = invoker->arg_ptr->text[invoker->arg_off];
+		if (c == '\0')
+			break;
+
+		++invoker->arg_off;
+		preproc_invoker_buf_insert(invoker, c, &invoker->pos);
+
+		if (!preproc_invoker_buf_avail(invoker))
+			break;
+	}
+
+	if (c == '\0')
+		invoker->state = ppis_scan;
+
+	return EOK;
+}
+
+/** Do some macro invoking.
+ *
+ * This may or may not write data to the invoker output buffer.
+ *
+ * @param invoker Preprocessor macro invoker
+ * @return EOK on success or an error code
+ */
+static int preproc_invoker_process(preproc_invoker_t *invoker)
+{
+	switch (invoker->state) {
+	case ppis_scan:
+		return preproc_invoker_process_scan(invoker);
+	case ppis_ident:
+		return preproc_invoker_process_ident(invoker);
+	case ppis_unkident:
+		return preproc_invoker_process_unkident(invoker);
+	case ppis_argument:
+		return preproc_invoker_process_argument(invoker);
+	}
+
+	return EINVAL;
 }
 
 /** Read input from preprocessor invoker.
@@ -151,9 +319,8 @@ static int preproc_invoker_read(void *arg, char *buf, src_pos_t *posbuf,
 	size_t nbytes;
 	int rc;
 
-	/// XXX Is this necessary?
-	while (invoker->macro->replacement[invoker->macro_off] != '\0' &&
-	    preproc_invoker_buf_avail(invoker)) {
+	while ((invoker->macro->replacement[invoker->macro_off] != '\0' ||
+	    invoker->state != ppis_scan) && preproc_invoker_buf_avail(invoker)) {
 		rc = preproc_invoker_process(invoker);
 		if (rc != EOK)
 			return rc;
@@ -176,4 +343,87 @@ static int preproc_invoker_read(void *arg, char *buf, src_pos_t *posbuf,
 	    invoker->out_buf_used * sizeof(src_pos_t));
 
 	return EOK;
+}
+
+static int preproc_invoker_arg_insert(preproc_invoker_t *invoker,
+    const char *name, const char *text)
+{
+	preproc_inv_arg_t *arg;
+
+	arg = calloc(1, sizeof(preproc_inv_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->name = strdup(name);
+	if (arg->name == NULL)
+		goto error;
+
+	arg->text = strdup(text);
+	if (arg->text == NULL)
+		goto error;
+
+	arg->invoker = invoker;
+	list_append(&arg->largs, &invoker->args);
+	return EOK;
+error:
+	if (arg->name != NULL)
+		free(arg->name);
+	free(arg);
+	return ENOMEM;
+}
+
+/** Return fist preprocessor macro argument.
+ *
+ * @param invoker Preprocessor macro invoker
+ * @return First argument or @c NULL if there are none
+ */
+static preproc_inv_arg_t *preproc_invoker_arg_first(preproc_invoker_t *invoker)
+{
+	link_t *link;
+
+	link = list_first(&invoker->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_inv_arg_t, largs);
+}
+
+/** Return next preprocessor macro argument.
+ *
+ * @param cur Current argument
+ * @return Next argument or @c NULL if @a cur was the last.
+ */
+static preproc_inv_arg_t *preproc_invoker_arg_next(preproc_inv_arg_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->largs, &cur->invoker->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_inv_arg_t, largs);
+}
+
+/** Find preprocessor macro argument by name.
+ *
+ * @param invoker Preprocessor macro invoker
+ * @param name Argument name
+ * @return Argument or @c NULL if not found
+ */
+static preproc_inv_arg_t *preproc_invoker_arg_find(preproc_invoker_t *invoker,
+    const char *name)
+{
+	preproc_inv_arg_t *arg;
+
+	arg = preproc_invoker_arg_first(invoker);
+	while (arg != NULL) {
+		printf("arg->name=%s\n", arg->name);
+		printf("name=%s\n", name);
+		if (strcmp(arg->name, name) == 0)
+			return arg;
+
+		arg = preproc_invoker_arg_next(arg);
+	}
+
+	return NULL;
 }

@@ -144,6 +144,16 @@ typedef struct {
 	bool was_skipping;
 } preproc_condition_t;
 
+/** C preprocessor macro argument */
+typedef struct preproc_macro_arg {
+	/** Containing macro */
+	struct preproc_macro *macro;
+	/** Link to @c macro->args */
+	link_t largs;
+	/** Argument name */
+	char *name;
+} preproc_macro_arg_t;
+
 /** C preprocessor macro */
 typedef struct preproc_macro {
 	/** Containing preprocessor */
@@ -152,6 +162,8 @@ typedef struct preproc_macro {
 	link_t lmacros;
 	/** Macro name */
 	char *name;
+	/** Arguments (preproc_macro_arg_t) */
+	list_t args;
 	/** Starting position of replacement text. */
 	src_pos_t rpos;
 	/** Replacement text */

@@ -1,0 +1,1 @@
+<test/syc/bad/ppdefargunexp.c:5:12>: expected ',' or ')'.

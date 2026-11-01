@@ -27,12 +27,38 @@
 #ifndef TYPES_PREPROC_INVOKER_H
 #define TYPES_PREPROC_INVOKER_H
 
+#include <adt/list.h>
 #include <stddef.h>
 #include <types/src_pos.h>
 
 enum {
-	preproc_invoker_buf_size = 32
+	preproc_invoker_buf_size = 32,
+	preproc_invoker_ident_buf_size = 32
 };
+
+/** Preprocessor macro invoker state */
+typedef enum {
+	/** Scanning for identifiers */
+	ppis_scan,
+	/** Found an identifier */
+	ppis_ident,
+	/** Dumping unknown identifier */
+	ppis_unkident,
+	/** Replacing macro argument */
+	ppis_argument
+} preproc_inv_state_t;
+
+/** Preprocessor macro argument */
+typedef struct {
+	/** Containing preprocessor macro invoker */
+	struct preproc_invoker *invoker;
+	/** Link to @c invoker->args */
+	link_t largs;
+	/** Argument name */
+	char *name;
+	/** Argument text */
+	char *text;
+} preproc_inv_arg_t;
 
 /** C preprocessor macro invoker */
 typedef struct preproc_invoker {
@@ -40,6 +66,8 @@ typedef struct preproc_invoker {
 	struct preproc *preproc;
 	/** Macro being invoked */
 	struct preproc_macro *macro;
+	/** Marco arguments (preproc_inv_arg_t) */
+	list_t args;
 	/** Offset in the macro */
 	size_t macro_off;
 	/** Current position */
@@ -52,6 +80,18 @@ typedef struct preproc_invoker {
 	size_t out_buf_used;
 	/** Position of beginning of output buffer */
 	src_pos_t out_buf_pos;
+	/** Invoker state. */
+	preproc_inv_state_t state;
+	/** Identifier buffer */
+	char ident_buf[preproc_invoker_ident_buf_size];
+	/** Number of used bytes in identifier buffer */
+	size_t ident_buf_used;
+	/** Offset in identifier buffer when outputting unkown ident. */
+	size_t ident_buf_off;
+	/** Argument being expanded. */
+	preproc_inv_arg_t *arg_ptr;
+	/** Offset in argument when outputting argument text. */
+	size_t arg_off;
 } preproc_invoker_t;
 
 #endif

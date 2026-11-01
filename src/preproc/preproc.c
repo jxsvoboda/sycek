@@ -53,7 +53,10 @@ static preproc_condition_t *preproc_push_condition(preproc_t *,
 static preproc_condition_t *preproc_top_condition(preproc_t *);
 static void preproc_pop_condition(preproc_t *);
 static preproc_macro_t *preproc_macro_first(preproc_t *);
-static void preproc_macro_remove(preproc_macro_t *);
+static void preproc_macro_destroy(preproc_macro_t *);
+static preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *);
+static preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *);
+static void preproc_macro_arg_destroy(preproc_macro_arg_t *);
 static preproc_incldir_t *preproc_incldir_first(preproc_t *);
 static void preproc_incldir_remove(preproc_incldir_t *);
 static int preproc_skip_to_end_of_line(preproc_t *);
@@ -63,8 +66,8 @@ enum {
 	/** Size of preprocessor file name buffer. */
 	preproc_fname_buf_size = 512,
 
-	/** Size of macro name buffer. */
-	preproc_macro_name_buf_size = 128
+	/** Size of identifier buffer. */
+	preproc_ident_buf_size = 128
 };
 
 /** Create preprocessor.
@@ -123,7 +126,7 @@ void preproc_destroy(preproc_t *preproc)
 
 	macro = preproc_macro_first(preproc);
 	while (macro != NULL) {
-		preproc_macro_remove(macro);
+		preproc_macro_destroy(macro);
 		macro = preproc_macro_first(preproc);
 	}
 
@@ -336,16 +339,15 @@ static void preproc_pop_condition(preproc_t *preproc)
 	free(condition);
 }
 
-/** Add new preprocessor macro.
+/** Create new preprocessor macro.
  *
  * @param preproc Preprocessor
  * @param name Macro name
- * @param rpos Starting position of replacement list
- * @param replacement Replacement text
+ * @param rmacro Place to store pointer to new macro
  * @return EOK on success or an error code.
  */
-static int preproc_macro_add(preproc_t *preproc, const char *name,
-    src_pos_t *rpos, const char *replacement)
+static int preproc_macro_create(preproc_t *preproc, const char *name,
+    preproc_macro_t **rmacro)
 {
 	preproc_macro_t *macro;
 
@@ -359,16 +361,28 @@ static int preproc_macro_add(preproc_t *preproc, const char *name,
 		return ENOMEM;
 	}
 
-	macro->replacement = strdup(replacement);
-	if (macro->replacement == NULL) {
-		free(macro->name);
-		free(macro);
-		return ENOMEM;
-	}
-
 	macro->preproc = preproc;
-	macro->rpos = *rpos;
+	list_initialize(&macro->args);
 	list_append(&macro->lmacros, &preproc->macros);
+	*rmacro = macro;
+	return EOK;
+}
+
+/** Set macro replacement text.
+ *
+ * @param macro Preprocessor macro
+ * @param rpos Source code position of replacement text
+ * @param replacement Replacement text
+ * @return EOK on success or an error code.
+ */
+static int preproc_macro_set_replacement(preproc_macro_t *macro,
+    src_pos_t *rpos, const char *replacement)
+{
+	macro->replacement = strdup(replacement);
+	if (macro->replacement == NULL)
+		return ENOMEM;
+
+	macro->rpos = *rpos;
 	return EOK;
 }
 
@@ -391,7 +405,7 @@ static preproc_macro_t *preproc_macro_first(preproc_t *preproc)
 /** Return next preprocessor macro.
  *
  * @param cur Current macro
- * @return First macro or @c NULL if @a cur was the last.
+ * @return Next macro or @c NULL if @a cur was the last.
  */
 static preproc_macro_t *preproc_macro_next(preproc_macro_t *cur)
 {
@@ -429,12 +443,120 @@ preproc_macro_t *preproc_macro_find(preproc_t *preproc, const char *name)
  *
  * @param macro Preprocessor macro
  */
-static void preproc_macro_remove(preproc_macro_t *macro)
+static void preproc_macro_destroy(preproc_macro_t *macro)
 {
+	preproc_macro_arg_t *arg;
+
 	list_remove(&macro->lmacros);
+
+	//XXX !!!
+	(void)preproc_macro_arg_next;
+	arg = preproc_macro_arg_first(macro);
+	while (arg != NULL) {
+		preproc_macro_arg_destroy(arg);
+		arg = preproc_macro_arg_first(macro);
+	}
+
 	free(macro->name);
 	free(macro->replacement);
 	free(macro);
+}
+
+/** Add new preprocessor macro argument.
+ *
+ * @param macro Preprocessor macro
+ * @param name Argument name
+ * @return EOK on success or an error code.
+ */
+static int preproc_macro_arg_add(preproc_macro_t *macro, const char *name)
+{
+	preproc_macro_arg_t *arg;
+
+	arg = calloc(1, sizeof(preproc_macro_arg_t));
+	if (arg == NULL)
+		return ENOMEM;
+
+	arg->name = strdup(name);
+	if (arg->name == NULL) {
+		free(arg);
+		return ENOMEM;
+	}
+
+	arg->macro = macro;
+	list_append(&arg->largs, &macro->args);
+	return EOK;
+}
+
+/** Return fist preprocessor macro argument.
+ *
+ * @param macro Preprocessor macro
+ * @return First argument or @c NULL if there are none
+ */
+static preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *macro)
+{
+	link_t *link;
+
+	link = list_first(&macro->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_macro_arg_t, largs);
+}
+
+/** Return next preprocessor macro argument.
+ *
+ * @param cur Current argument
+ * @return Next argument or @c NULL if @a cur was the last.
+ */
+static preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->largs, &cur->macro->args);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, preproc_macro_arg_t, largs);
+}
+
+/** Destroy macro argument.
+ *
+ * @param arg Macro argument
+ */
+static void preproc_macro_arg_destroy(preproc_macro_arg_t *arg)
+{
+	list_remove(&arg->largs);
+	free(arg);
+}
+
+/** Compare macro argument lists.
+ *
+ * @param ma First macro
+ * @param mb Second macro
+ * @return Zero if argument lists are the same, non-zero if they are different.
+ */
+static int preproc_macro_args_cmp(preproc_macro_t *ma,
+    preproc_macro_t *mb)
+{
+	preproc_macro_arg_t *arg_a;
+	preproc_macro_arg_t *arg_b;
+
+	arg_a = preproc_macro_arg_first(ma);
+	arg_b = preproc_macro_arg_first(mb);
+
+	while (arg_a != NULL && arg_b != NULL) {
+		if (strcmp(arg_a->name, arg_b->name) != 0)
+			return 1;
+
+		arg_a = preproc_macro_arg_next(arg_a);
+		arg_b = preproc_macro_arg_next(arg_b);
+	}
+
+	/* Different number of arguments? */
+	if (arg_a != NULL || arg_b != NULL)
+		return 1;
+
+	return 0;
 }
 
 /** Return fist preprocessor include directory.
@@ -1066,21 +1188,21 @@ error:
 	return rc;
 }
 
-/** Process macro name.
+/** Process identifier.
  *
  * @param preproc Preprocessor
- * @param rname Place to store pointer to newly allocated macro name.
+ * @param rident Place to store pointer to newly allocated identifier.
  * @return EOK on success or an error code.
  */
-static int preproc_process_macro_name(preproc_t *preproc, char **rname)
+static int preproc_process_ident(preproc_t *preproc, char **rident)
 {
 	char *p;
-	char *macro_name;
+	char *ident;
 	size_t buf_pos;
 	int rc;
 
-	macro_name = calloc(preproc_macro_name_buf_size, 1);
-	if (macro_name == NULL)
+	ident = calloc(preproc_ident_buf_size, 1);
+	if (ident == NULL)
 		return ENOMEM;
 
 	if (preproc_is_eof(preproc) || preproc_is_error(preproc)) {
@@ -1094,13 +1216,13 @@ static int preproc_process_macro_name(preproc_t *preproc, char **rname)
 		if (!is_idcnt(p[0]))
 			break;
 
-		if (buf_pos >= preproc_macro_name_buf_size - 1) {
-			(void)fprintf(stderr, "Macro name too long.\n");
+		if (buf_pos >= preproc_ident_buf_size - 1) {
+			(void)fprintf(stderr, "Identifier too long.\n");
 			rc = EINVAL;
 			goto error;
 		}
 
-		macro_name[buf_pos++] = p[0];
+		ident[buf_pos++] = p[0];
 		preproc_advance(preproc, 1);
 	}
 
@@ -1109,12 +1231,76 @@ static int preproc_process_macro_name(preproc_t *preproc, char **rname)
 		goto error;
 	}
 
-	macro_name[buf_pos] = '\0';
-	*rname = macro_name;
+	ident[buf_pos] = '\0';
+	*rident = ident;
 	return EOK;
 error:
-	free(macro_name);
+	free(ident);
 	return rc;
+}
+
+/** Process macro arguments in macro defintion.
+ *
+ * @param preproc Preprocessor
+ * @param macro Preprocessor macro
+ * @return EOK on success or an error code
+ */
+static int preproc_process_macro_args(preproc_t *preproc,
+    preproc_macro_t *macro)
+{
+	char *p;
+	char *arg_name;
+	int rc;
+
+	rc = preproc_process_ws(preproc, NULL);
+	if (rc != EOK)
+		return rc;
+
+	p = preproc_chars(preproc);
+	if (p[0] != '(') {
+		/* Macro has no arguments. */
+		return EOK;
+	}
+
+	preproc_advance(preproc, 1);
+
+	while (true) {
+		rc = preproc_process_ws(preproc, NULL);
+		if (rc != EOK)
+			return rc;
+
+		rc = preproc_process_ident(preproc, &arg_name);
+		if (rc != EOK)
+			return rc;
+
+		rc = preproc_macro_arg_add(macro, arg_name);
+		if (rc != EOK) {
+			free(arg_name);
+			return rc;
+		}
+
+		free(arg_name);
+
+		rc = preproc_process_ws(preproc, NULL);
+		if (rc != EOK)
+			return rc;
+
+		p = preproc_chars(preproc);
+		if (p[0] == ')')
+			break;
+
+		if (p[0] != ',') {
+			(void)preproc_dprint_range(&preproc->cur->pos,
+			    &preproc->cur->pos, stderr);
+			fprintf(stderr, ": expected ',' or ')'.\n");
+			return EINVAL;
+		}
+
+		preproc_advance(preproc, 1);
+	}
+
+	preproc_advance(preproc, 1);
+	return EOK;
 }
 
 /** Process define directive.
@@ -1127,6 +1313,7 @@ static int preproc_process_define(preproc_t *preproc)
 	char *macro_name = NULL;
 	char *replacement = NULL;
 	preproc_macro_t *old_macro;
+	preproc_macro_t *macro = NULL;
 	src_pos_t spos;
 	src_pos_t rpos;
 	int rc;
@@ -1158,7 +1345,18 @@ static int preproc_process_define(preproc_t *preproc)
 		goto error;
 	}
 
-	rc = preproc_process_macro_name(preproc, &macro_name);
+	rc = preproc_process_ident(preproc, &macro_name);
+	if (rc != EOK)
+		goto error;
+
+	/* Macro already exists? */
+	old_macro = preproc_macro_find(preproc, macro_name);
+
+	rc = preproc_macro_create(preproc, macro_name, &macro);
+	if (rc != EOK)
+		goto error;
+
+	rc = preproc_process_macro_args(preproc, macro);
 	if (rc != EOK)
 		goto error;
 
@@ -1166,9 +1364,17 @@ static int preproc_process_define(preproc_t *preproc)
 	if (rc != EOK)
 		goto error;
 
-	/* Macro already exists? */
-	old_macro = preproc_macro_find(preproc, macro_name);
 	if (old_macro != NULL) {
+		/* If the argument list is different, generate error. */
+		if (preproc_macro_args_cmp(macro, old_macro) != 0) {
+			(void)preproc_dprint_range(&spos,
+			    &preproc->cur->pos, stderr);
+			(void)fprintf(stderr, ": Macro '%s' redefined "
+			    "with different argument list.\n", macro_name);
+			rc = EINVAL;
+			goto error;
+		}
+
 		/* If the replacement list is different, generate error. */
 		if (strcmp(replacement, old_macro->replacement) != 0) {
 			(void)preproc_dprint_range(&spos,
@@ -1178,10 +1384,12 @@ static int preproc_process_define(preproc_t *preproc)
 			rc = EINVAL;
 			goto error;
 		}
-	}
 
-	if (old_macro == NULL) {
-		rc = preproc_macro_add(preproc, macro_name, &rpos, replacement);
+		/* The macro is already defined. */
+		preproc_macro_destroy(macro);
+		macro = NULL;
+	} else {
+		rc = preproc_macro_set_replacement(macro, &rpos, replacement);
 		if (rc != EOK)
 			goto error;
 	}
@@ -1191,6 +1399,8 @@ static int preproc_process_define(preproc_t *preproc)
 	free(replacement);
 	return EOK;
 error:
+	if (macro != NULL)
+		preproc_macro_destroy(macro);
 	if (macro_name != NULL)
 		free(macro_name);
 	if (replacement != NULL)
@@ -1522,7 +1732,7 @@ static int preproc_process_ifdef(preproc_t *preproc)
 		goto error;
 	}
 
-	rc = preproc_process_macro_name(preproc, &macro_name);
+	rc = preproc_process_ident(preproc, &macro_name);
 	if (rc != EOK)
 		goto error;
 
@@ -1597,7 +1807,7 @@ static int preproc_process_ifndef(preproc_t *preproc)
 		goto error;
 	}
 
-	rc = preproc_process_macro_name(preproc, &macro_name);
+	rc = preproc_process_ident(preproc, &macro_name);
 	if (rc != EOK)
 		goto error;
 
@@ -1801,7 +2011,7 @@ static int preproc_process_undef(preproc_t *preproc)
 		goto error;
 	}
 
-	rc = preproc_process_macro_name(preproc, &macro_name);
+	rc = preproc_process_ident(preproc, &macro_name);
 	if (rc != EOK)
 		goto error;
 
@@ -1811,7 +2021,7 @@ static int preproc_process_undef(preproc_t *preproc)
 
 	macro = preproc_macro_find(preproc, macro_name);
 	if (macro != NULL) {
-		preproc_macro_remove(macro);
+		preproc_macro_destroy(macro);
 	}
 
 	free(macro_name);
