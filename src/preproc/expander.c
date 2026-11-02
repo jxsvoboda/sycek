@@ -122,6 +122,225 @@ static void preproc_expander_buf_insert(preproc_expander_t *expander, char c,
 	++expander->out_buf_used;
 }
 
+/** Skip whitespace.
+ *
+ * @param expander Preprocessor expander
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_skip_ws(preproc_expander_t *expander)
+{
+	char c;
+	char *p;
+
+	while (!expander->expand_eol && !input_buf_is_eof(expander->inbuf) &&
+	    !input_buf_is_error(expander->inbuf)) {
+		p = input_buf_chars(expander->inbuf, &expander->pos);
+		c = p[0];
+
+		if (c != ' ' && c != '\t') {
+			break;
+		}
+
+		input_buf_advance(expander->inbuf, 1, &expander->pos);
+	}
+
+	if (input_buf_is_error(expander->inbuf))
+		return EIO;
+
+	return EOK;
+}
+
+/** Process actual macro parameter.
+ *
+ * @param expander Preprocessor expander
+ * @param rtext Place to store pointer to newly allocated argument text
+ *
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_process_macro_arg(preproc_expander_t *expander,
+    char **rtext)
+{
+	char *p;
+	char *text_buf;
+	size_t text_buf_size;
+	size_t text_buf_pos;
+	unsigned parlvl;
+	char *b;
+
+	text_buf_size = 16;
+	text_buf = malloc(text_buf_size);
+	if (text_buf == NULL)
+		return ENOMEM;
+
+	/* Parenthesis level. */
+	parlvl = 0;
+
+	text_buf_pos = 0;
+	while (!expander->expand_eol && !input_buf_is_eof(expander->inbuf) &&
+	    !input_buf_is_error(expander->inbuf)) {
+		p = input_buf_chars(expander->inbuf, &expander->pos);
+
+		if (parlvl == 0 && (p[0] == ',' || p[0] == ')')) {
+			/* Argument terminator. */
+			break;
+		}
+
+		if (text_buf_pos >= text_buf_size - 1) {
+			text_buf_size *= 2;
+			b = realloc(text_buf, text_buf_size);
+			if (b == NULL) {
+				free(text_buf);
+				return ENOMEM;
+			}
+
+			text_buf = b;
+		}
+
+		text_buf[text_buf_pos++] = p[0];
+
+		switch (p[0]) {
+		case '(':
+			++parlvl;
+			break;
+		case ')':
+			--parlvl;
+			break;
+		default:
+			break;
+		}
+
+		input_buf_advance(expander->inbuf, 1, &expander->pos);
+	}
+
+	text_buf[text_buf_pos] = '\0';
+
+	if (input_buf_is_error(expander->inbuf)) {
+		free(text_buf);
+		return EIO;
+	}
+
+	*rtext = text_buf;
+	return EOK;
+}
+
+/** Process actual macro parameters.
+ *
+ * @param expander Preprocessor expander
+ * @param macro Preprocessor macro
+ * @param invoker Macro invoker
+ *
+ * @return EOK on success or an error code
+ */
+static int preproc_expander_process_macro_args(preproc_expander_t *expander,
+    preproc_macro_t *macro, preproc_invoker_t *invoker)
+{
+	char *p;
+	int rc;
+	preproc_macro_arg_t *arg;
+	src_pos_t pos;
+	char *argval;
+
+	arg = preproc_macro_arg_first(macro);
+
+	/* Macro has no arguments? */
+	if (arg == NULL) {
+		/* Nothing to do. */
+		return EOK;
+	}
+
+	/* Opening '('. */
+
+	rc = preproc_expander_skip_ws(expander);
+	if (rc != EOK)
+		return rc;
+
+	if (input_buf_is_error(expander->inbuf))
+		return EINVAL;
+
+	if (input_buf_is_eof(expander->inbuf)) {
+		printf("expected '('\n");
+		return EINVAL;
+	}
+
+	p = input_buf_chars(expander->inbuf, &pos);
+	if (p[0] != '(') {
+		printf("expected '('\n");
+		return EINVAL;
+	}
+
+	input_buf_advance(expander->inbuf, 1, &expander->pos);
+
+	while (arg != NULL) {
+		rc = preproc_expander_skip_ws(expander);
+		if (rc != EOK)
+			return rc;
+
+		rc = preproc_expander_process_macro_arg(expander, &argval);
+		if (rc != EOK)
+			return rc;
+
+		rc = preproc_invoker_arg_insert(invoker, arg->name,
+		    argval);
+		if (rc != EOK) {
+			free(argval);
+			return rc;
+		}
+
+		free(argval);
+		arg = preproc_macro_arg_next(arg);
+
+		p = input_buf_chars(expander->inbuf, &pos);
+		if (p[0] == ')')
+			break;
+
+		if (arg == NULL)
+			break;
+
+		if (p[0] != ',') {
+			printf("',' expected\n");
+			return EINVAL;
+		}
+
+		input_buf_advance(expander->inbuf, 1, &expander->pos);
+	}
+
+	if (arg != NULL) {
+		(void)preproc_dprint_range(&expander->pos, &expander->pos,
+		    stderr);
+		(void)fprintf(stderr, ": Too few arguments to macro '%s'.\n",
+		    macro->name);
+		return EINVAL;
+	}
+
+	/* Closing ')'. */
+
+	rc = preproc_expander_skip_ws(expander);
+	if (rc != EOK)
+		return rc;
+
+	if (input_buf_is_error(expander->inbuf))
+		return EINVAL;
+
+	if (input_buf_is_eof(expander->inbuf)) {
+		(void)preproc_dprint_range(&expander->pos, &expander->pos,
+		    stderr);
+		(void)fprintf(stderr, ": ')' expected.\n");
+		return EINVAL;
+	}
+
+	p = input_buf_chars(expander->inbuf, &pos);
+	if (p[0] != ')') {
+		(void)preproc_dprint_range(&expander->pos, &expander->pos,
+		    stderr);
+		(void)fprintf(stderr, ": ')' expected.\n");
+		return EINVAL;
+	}
+
+	input_buf_advance(expander->inbuf, 1, &expander->pos);
+
+	return EOK;
+}
+
 /** Handle identifier found in the input stream.
  *
  * @param expander Macro expander
@@ -140,11 +359,20 @@ static int preproc_expander_handle_ident(preproc_expander_t *expander)
 		if (rc != EOK)
 			return rc;
 
+		/* Process macro arguments */
+		rc = preproc_expander_process_macro_args(expander, macro,
+		    expander->invoker);
+		if (rc != EOK) {
+			preproc_invoker_destroy(expander->invoker);
+			expander->invoker = NULL;
+			return rc;
+		}
+
 		rc = input_buf_create(&preproc_invoker_input,
 		    expander->invoker, &expander->minbuf);
 		if (rc != EOK) {
 			preproc_invoker_destroy(expander->invoker);
-			expander->invoker = false;
+			expander->invoker = NULL;
 			return rc;
 		}
 

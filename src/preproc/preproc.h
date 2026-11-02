@@ -35,8 +35,11 @@ extern lexer_input_ops_t lexer_preproc_input;
 extern int preproc_create(const char *, lexer_input_ops_t *, void *,
     preproc_t **);
 extern void preproc_destroy(preproc_t *);
+extern int preproc_dprint_range(src_pos_t *, src_pos_t *, FILE *);
 extern int preproc_set_incldir(preproc_t *, const char *);
 extern int preproc_add_incldir(preproc_t *, const char *);
 extern preproc_macro_t *preproc_macro_find(preproc_t *, const char *);
+extern preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *);
+extern preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *);
 
 #endif

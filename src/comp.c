@@ -526,7 +526,6 @@ static void comp_incldir_remove(comp_incldir_t *incldir)
 	free(incldir);
 }
 
-
 /** Destroy compiler.
  *
  * @param comp Compiler

@@ -1,0 +1,4 @@
+mapfile "ppmacropararg.map";
+ldbin "ppmacropararg.bin", 0x8000;
+
+verify word ptr (@_i), 16;

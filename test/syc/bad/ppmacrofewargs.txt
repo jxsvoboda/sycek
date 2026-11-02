@@ -1,0 +1,1 @@
+<test/syc/bad/ppmacrofewargs.c:7:12>: Too few arguments to macro 'X'.

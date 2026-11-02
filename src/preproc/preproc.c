@@ -54,8 +54,6 @@ static preproc_condition_t *preproc_top_condition(preproc_t *);
 static void preproc_pop_condition(preproc_t *);
 static preproc_macro_t *preproc_macro_first(preproc_t *);
 static void preproc_macro_destroy(preproc_macro_t *);
-static preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *);
-static preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *);
 static void preproc_macro_arg_destroy(preproc_macro_arg_t *);
 static preproc_incldir_t *preproc_incldir_first(preproc_t *);
 static void preproc_incldir_remove(preproc_incldir_t *);
@@ -449,8 +447,6 @@ static void preproc_macro_destroy(preproc_macro_t *macro)
 
 	list_remove(&macro->lmacros);
 
-	//XXX !!!
-	(void)preproc_macro_arg_next;
 	arg = preproc_macro_arg_first(macro);
 	while (arg != NULL) {
 		preproc_macro_arg_destroy(arg);
@@ -492,7 +488,7 @@ static int preproc_macro_arg_add(preproc_macro_t *macro, const char *name)
  * @param macro Preprocessor macro
  * @return First argument or @c NULL if there are none
  */
-static preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *macro)
+preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *macro)
 {
 	link_t *link;
 
@@ -508,7 +504,7 @@ static preproc_macro_arg_t *preproc_macro_arg_first(preproc_macro_t *macro)
  * @param cur Current argument
  * @return Next argument or @c NULL if @a cur was the last.
  */
-static preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *cur)
+preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *cur)
 {
 	link_t *link;
 
@@ -526,6 +522,7 @@ static preproc_macro_arg_t *preproc_macro_arg_next(preproc_macro_arg_t *cur)
 static void preproc_macro_arg_destroy(preproc_macro_arg_t *arg)
 {
 	list_remove(&arg->largs);
+	free(arg->name);
 	free(arg);
 }
 
@@ -684,7 +681,7 @@ static void preproc_out_buf_insert(preproc_t *preproc, char c, src_pos_t *pos)
  *
  * @return EOK on success, EIO on I/O error
  */
-static int preproc_dprint_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
+int preproc_dprint_range(src_pos_t *bpos, src_pos_t *epos, FILE *f)
 {
 	int rc;
 
@@ -1044,7 +1041,7 @@ static int preproc_include_from_dir(preproc_t *preproc, const char *dirname,
 	if (rc != EOK)
 		goto error;
 
-	rc = preproc_push_input(preproc, file_name, file, finput,
+	rc = preproc_push_input(preproc, hdrname, file, finput,
 	    &lexer_file_input, (void *)finput);
 	if (rc != EOK)
 		goto error;
@@ -1251,10 +1248,6 @@ static int preproc_process_macro_args(preproc_t *preproc,
 	char *p;
 	char *arg_name;
 	int rc;
-
-	rc = preproc_process_ws(preproc, NULL);
-	if (rc != EOK)
-		return rc;
 
 	p = preproc_chars(preproc);
 	if (p[0] != '(') {

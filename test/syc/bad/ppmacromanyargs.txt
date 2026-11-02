@@ -1,0 +1,1 @@
+<test/syc/bad/ppmacromanyargs.c:7:12>: ')' expected.

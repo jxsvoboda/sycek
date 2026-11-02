@@ -36,5 +36,7 @@ extern lexer_input_ops_t preproc_invoker_input;
 
 extern int preproc_invoker_create(preproc_macro_t *, preproc_invoker_t **);
 extern void preproc_invoker_destroy(preproc_invoker_t *);
+extern int preproc_invoker_arg_insert(preproc_invoker_t *, const char *,
+    const char *);
 
 #endif

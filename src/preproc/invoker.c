@@ -42,10 +42,10 @@ lexer_input_ops_t preproc_invoker_input = {
 };
 
 static int preproc_invoker_process(preproc_invoker_t *);
-static int preproc_invoker_arg_insert(preproc_invoker_t *, const char *,
-    const char *);
+static preproc_inv_arg_t *preproc_invoker_arg_first(preproc_invoker_t *);
 static preproc_inv_arg_t *preproc_invoker_arg_find(preproc_invoker_t *,
     const char *);
+static void preproc_invoker_arg_destroy(preproc_inv_arg_t *);
 
 /** Create preprocessor macro invoker.
  *
@@ -86,8 +86,16 @@ error:
  */
 void preproc_invoker_destroy(preproc_invoker_t *invoker)
 {
+	preproc_inv_arg_t *arg;
+
 	if (invoker == NULL)
 		return;
+
+	arg = preproc_invoker_arg_first(invoker);
+	while (arg != NULL) {
+		preproc_invoker_arg_destroy(arg);
+		arg = preproc_invoker_arg_first(invoker);
+	}
 
 	free(invoker);
 }
@@ -163,16 +171,13 @@ static int preproc_invoker_handle_ident(preproc_invoker_t *invoker)
 {
 	preproc_inv_arg_t *arg;
 
-	printf("preproc_invoker_handle_ident: ident='%s'\n", invoker->ident_buf);
 	arg = preproc_invoker_arg_find(invoker, invoker->ident_buf);
 
 	if (arg != NULL) {
-		printf("set ppis_argument state\n");
 		invoker->state = ppis_argument;
 		invoker->arg_ptr = arg;
 		invoker->arg_off = 0;
 	} else {
-		printf("unknown ident\n");
 		/* Unknown idntifier. */
 		invoker->state = ppis_unkident;
 		invoker->ident_buf_off = 0;
@@ -193,7 +198,6 @@ static int preproc_invoker_process_ident(preproc_invoker_t *invoker)
 	char c;
 	int rc;
 
-	printf("preproc_invoker_process_ident\n");
 	while (true) {
 		c = invoker->macro->replacement[invoker->macro_off];
 
@@ -261,7 +265,6 @@ static int preproc_invoker_process_argument(preproc_invoker_t *invoker)
 {
 	char c;
 
-	printf("invoker_process_argument\n");
 	while (true) {
 		c = invoker->arg_ptr->text[invoker->arg_off];
 		if (c == '\0')
@@ -345,7 +348,15 @@ static int preproc_invoker_read(void *arg, char *buf, src_pos_t *posbuf,
 	return EOK;
 }
 
-static int preproc_invoker_arg_insert(preproc_invoker_t *invoker,
+/** Insert macro argument into macro invoker.
+ *
+ * @param invoker Preprocessor macro invoker
+ * @param name Argument name
+ * @param text Argument text
+ *
+ * @return EOK on success or an error code
+ */
+int preproc_invoker_arg_insert(preproc_invoker_t *invoker,
     const char *name, const char *text)
 {
 	preproc_inv_arg_t *arg;
@@ -417,8 +428,6 @@ static preproc_inv_arg_t *preproc_invoker_arg_find(preproc_invoker_t *invoker,
 
 	arg = preproc_invoker_arg_first(invoker);
 	while (arg != NULL) {
-		printf("arg->name=%s\n", arg->name);
-		printf("name=%s\n", name);
 		if (strcmp(arg->name, name) == 0)
 			return arg;
 
@@ -426,4 +435,16 @@ static preproc_inv_arg_t *preproc_invoker_arg_find(preproc_invoker_t *invoker,
 	}
 
 	return NULL;
+}
+
+/** Destroy preprocessor macro argument.
+ *
+ * @param invoker Preprocessor macro invoker
+ */
+static void preproc_invoker_arg_destroy(preproc_inv_arg_t *arg)
+{
+	list_remove(&arg->largs);
+	free(arg->name);
+	free(arg->text);
+	free(arg);
 }
