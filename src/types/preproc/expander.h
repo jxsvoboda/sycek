@@ -68,6 +68,10 @@ typedef struct preproc_expander {
 	bool expand_eol;
 	/** Macro invoker. */
 	struct preproc_invoker *invoker;
+	/** Nester expander input buffer. */
+	input_buf_t *nxinbuf;
+	/** Nested expander. */
+	struct preproc_expander *nexpand;
 	/** Macro input buffer. */
 	input_buf_t *minbuf;
 	/** Expander state. */

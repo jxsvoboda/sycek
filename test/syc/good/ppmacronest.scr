@@ -1,0 +1,4 @@
+mapfile "ppmacronest.map";
+ldbin "ppmacronest.bin", 0x8000;
+
+verify word ptr (@_i), 3;

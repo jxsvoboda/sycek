@@ -84,6 +84,10 @@ void preproc_expander_destroy(preproc_expander_t *expander)
 	if (expander == NULL)
 		return;
 
+	if (expander->nexpand != NULL)
+		preproc_expander_destroy(expander->nexpand);
+	if (expander->nxinbuf != NULL)
+		input_buf_destroy(expander->nxinbuf);
 	if (expander->minbuf != NULL)
 		input_buf_destroy(expander->minbuf);
 	if (expander->invoker != NULL)
@@ -369,8 +373,30 @@ static int preproc_expander_handle_ident(preproc_expander_t *expander)
 		}
 
 		rc = input_buf_create(&preproc_invoker_input,
-		    expander->invoker, &expander->minbuf);
+		    expander->invoker, &expander->nxinbuf);
 		if (rc != EOK) {
+			preproc_invoker_destroy(expander->invoker);
+			expander->invoker = NULL;
+			return rc;
+		}
+
+		rc = preproc_expander_create(expander->preproc,
+		    expander->nxinbuf, &expander->nexpand);
+		if (rc != EOK) {
+			input_buf_destroy(expander->nxinbuf);
+			expander->nxinbuf = NULL;
+			preproc_invoker_destroy(expander->invoker);
+			expander->invoker = NULL;
+			return rc;
+		}
+
+		rc = input_buf_create(&preproc_expander_input,
+		    expander->nexpand, &expander->minbuf);
+		if (rc != EOK) {
+			preproc_expander_destroy(expander->nexpand);
+			expander->nexpand = NULL;
+			input_buf_destroy(expander->nxinbuf);
+			expander->nxinbuf = NULL;
 			preproc_invoker_destroy(expander->invoker);
 			expander->invoker = NULL;
 			return rc;
@@ -479,7 +505,10 @@ static int preproc_expander_process_ident(preproc_expander_t *expander)
 	}
 
 	if (input_buf_is_eof(expander->inbuf)) {
-		expander->expand_eol = true;
+		expander->ident_buf[expander->ident_buf_used] = '\0';
+		rc = preproc_expander_handle_ident(expander);
+		if (rc != EOK)
+			return rc;
 	}
 
 	if (input_buf_is_error(expander->inbuf))
@@ -543,6 +572,12 @@ static int preproc_expander_process_macro(preproc_expander_t *expander)
 	if (input_buf_is_eof(expander->minbuf)) {
 		input_buf_destroy(expander->minbuf);
 		expander->minbuf = NULL;
+
+		preproc_expander_destroy(expander->nexpand);
+		expander->nexpand = NULL;
+
+		input_buf_destroy(expander->nxinbuf);
+		expander->nxinbuf = NULL;
 
 		preproc_invoker_destroy(expander->invoker);
 		expander->invoker = NULL;
