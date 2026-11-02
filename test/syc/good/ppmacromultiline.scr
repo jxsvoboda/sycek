@@ -1,0 +1,4 @@
+mapfile "ppmacromultiline.map";
+ldbin "ppmacromultiline.bin", 0x8000;
+
+verify word ptr (@_i), 42;

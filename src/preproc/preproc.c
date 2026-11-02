@@ -746,10 +746,14 @@ static int preproc_process_ws(preproc_t *preproc, bool *rws)
 	while (!preproc_is_eof(preproc) && !preproc_is_error(preproc)) {
 		p = preproc_chars(preproc);
 
-		if (p[0] != ' ' && p[0] != '\t')
+		if (p[0] == '\\' && p[1] == '\n') {
+			preproc_advance(preproc, 2);
+		} else if (p[0] == ' ' || p[0] == '\t') {
+			preproc_advance(preproc, 1);
+		} else {
 			break;
+		}
 
-		preproc_advance(preproc, 1);
 		ws = true;
 	}
 
