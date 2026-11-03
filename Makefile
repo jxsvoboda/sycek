@@ -33,9 +33,9 @@ LIBS_hos = $(LIBS)
 PREFIX_hos = `helenos-bld-config --install-dir`
 INSTALL = install
 
-CPP_z80 = gcc
-CPPFLAGS_z80 = -nostdinc -E -I lib/clib/include -I src -I src/hcompat
-LIBS_z80 = lib/clib/src/stubs.z80.pp.obj
+CC_z80 = sync
+CFLAGS_z80 = --incl=lib/clib/include --incl=src --incl=src/hcompat
+LIBS_z80 = lib/clib/src/stubs.obj
 
 bkqual = $$(date '+%Y-%m-%d')
 
@@ -220,23 +220,23 @@ z80test = ./$(binary_z80test)
 
 objects_ccheck_hos = $(sources_ccheck_hos:.c=.hos.o)
 objects_ccheck = $(sources_ccheck:.c=.o)
-objects_ccheck_z80 = $(sources_ccheck_z80:.c=.z80.pp.obj)
+objects_ccheck_z80 = $(sources_ccheck_z80:.c=.obj)
 
 objects_syc = $(sources_syc:.c=.o)
 objects_syc_hos = $(sources_syc_hos:.c=.hos.o)
-objects_syc_z80 = $(sources_syc_z80:.c=.z80.pp.obj)
+objects_syc_z80 = $(sources_syc_z80:.c=.obj)
 
 objects_sydis = $(sources_sydis:.c=.o)
 objects_sydis_hos = $(sources_sydis_hos:.c=.hos.o)
-objects_sydis_z80 = $(sources_sydis_z80:.c=.z80.pp.obj)
+objects_sydis_z80 = $(sources_sydis_z80:.c=.obj)
 
 objects_sydump = $(sources_sydump:.c=.o)
 objects_sydump_hos = $(sources_sydump_hos:.c=.hos.o)
-objects_sydump_z80 = $(sources_sydump_z80:.c=.z80.pp.obj)
+objects_sydump_z80 = $(sources_sydump_z80:.c=.obj)
 
 objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
-objects_z80test_z80 = $(sources_z80test_z80:.c=.z80.pp.obj)
+objects_z80test_z80 = $(sources_z80test_z80:.c=.obj)
 
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h src/*/*/*/*.h)
 lib_headers = $(wildcard lib/clib/include/*.h)
@@ -388,11 +388,8 @@ objects_z80 = \
 
 z80objs: $(objects_z80)
 
-%.z80.pp.c: %.c
-	$(CPP_z80) $(CPPFLAGS_z80) $< >$@ || rm -f $@
-
-%.z80.pp.obj: %.z80.pp.c $(syc)
-	$(syc) $(sycflags) --no-link --fatal-warn $<
+%.obj: %.c $(syc)
+	$(syc) $(sycflags) $(CFLAGS_z80) --no-link --fatal-warn $<
 
 $(binary_ccheck_z80): $(compiler_z80) $(objects_ccheck_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_ccheck_z80)

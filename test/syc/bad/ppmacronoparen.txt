@@ -1,0 +1,1 @@
+<test/syc/bad/ppmacronoparen.c:8:10>: '(' expected.

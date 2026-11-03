@@ -1,0 +1,1 @@
+<test/syc/bad/ppmacronopareneof.c:8:9>: '(' expected.

@@ -133,19 +133,19 @@ static void preproc_expander_buf_insert(preproc_expander_t *expander, char c,
  */
 static int preproc_expander_skip_ws(preproc_expander_t *expander)
 {
-	char c;
 	char *p;
 
 	while (!expander->expand_eol && !input_buf_is_eof(expander->inbuf) &&
 	    !input_buf_is_error(expander->inbuf)) {
 		p = input_buf_chars(expander->inbuf, &expander->pos);
-		c = p[0];
 
-		if (c != ' ' && c != '\t') {
+		if (p[0] == '\\' && p[1] == '\n') {
+			input_buf_advance(expander->inbuf, 2, &expander->pos);
+		} else if (p[0] == ' ' || p[0] == '\t') {
+			input_buf_advance(expander->inbuf, 1, &expander->pos);
+		} else {
 			break;
 		}
-
-		input_buf_advance(expander->inbuf, 1, &expander->pos);
 	}
 
 	if (input_buf_is_error(expander->inbuf))
@@ -170,6 +170,7 @@ static int preproc_expander_process_macro_arg(preproc_expander_t *expander,
 	size_t text_buf_pos;
 	unsigned parlvl;
 	char *b;
+	char c;
 
 	text_buf_size = 16;
 	text_buf = malloc(text_buf_size);
@@ -183,7 +184,6 @@ static int preproc_expander_process_macro_arg(preproc_expander_t *expander,
 	while (!expander->expand_eol && !input_buf_is_eof(expander->inbuf) &&
 	    !input_buf_is_error(expander->inbuf)) {
 		p = input_buf_chars(expander->inbuf, &expander->pos);
-
 		if (parlvl == 0 && (p[0] == ',' || p[0] == ')')) {
 			/* Argument terminator. */
 			break;
@@ -200,7 +200,8 @@ static int preproc_expander_process_macro_arg(preproc_expander_t *expander,
 			text_buf = b;
 		}
 
-		text_buf[text_buf_pos++] = p[0];
+		c = (p[0] == '\n') ? ' ' : p[0];
+		text_buf[text_buf_pos++] = c;
 
 		switch (p[0]) {
 		case '(':
@@ -262,13 +263,17 @@ static int preproc_expander_process_macro_args(preproc_expander_t *expander,
 		return EINVAL;
 
 	if (input_buf_is_eof(expander->inbuf)) {
-		printf("expected '('\n");
+		(void)preproc_dprint_range(&expander->pos, &expander->pos,
+		    stderr);
+		(void)fprintf(stderr, ": '(' expected.\n");
 		return EINVAL;
 	}
 
 	p = input_buf_chars(expander->inbuf, &pos);
 	if (p[0] != '(') {
-		printf("expected '('\n");
+		(void)preproc_dprint_range(&expander->pos, &expander->pos,
+		    stderr);
+		(void)fprintf(stderr, ": '(' expected.\n");
 		return EINVAL;
 	}
 
@@ -301,7 +306,9 @@ static int preproc_expander_process_macro_args(preproc_expander_t *expander,
 			break;
 
 		if (p[0] != ',') {
-			printf("',' expected\n");
+			(void)preproc_dprint_range(&expander->pos,
+			    &expander->pos, stderr);
+			(void)fprintf(stderr, ": ')' expected.\n");
 			return EINVAL;
 		}
 

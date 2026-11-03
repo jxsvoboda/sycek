@@ -821,7 +821,7 @@ static int preproc_process_condition(preproc_t *preproc, bool *rresult)
 		return EOK;
 	}
 
-	fprintf(stderr, "Invalid conditional expression.\n");
+	(void)fprintf(stderr, "Invalid conditional expression.\n");
 	return EINVAL;
 }
 
@@ -1177,7 +1177,7 @@ static int preproc_include(preproc_t *preproc, preproc_include_type_t inctype,
 	rc = preproc_include_from_dir(preproc, incldir, file_name);
 	if (rc != EOK) {
 		(void)preproc_dprint_range(spos, epos, stderr);
-		fprintf(stderr, ": header %s not found.\n", file_name);
+		(void)fprintf(stderr, ": header %s not found.\n", file_name);
 		goto error;
 	}
 
@@ -1289,7 +1289,7 @@ static int preproc_process_macro_args(preproc_t *preproc,
 		if (p[0] != ',') {
 			(void)preproc_dprint_range(&preproc->cur->pos,
 			    &preproc->cur->pos, stderr);
-			fprintf(stderr, ": expected ',' or ')'.\n");
+			(void)fprintf(stderr, ": expected ',' or ')'.\n");
 			return EINVAL;
 		}
 
@@ -2205,7 +2205,12 @@ static int preproc_process_text_line(preproc_t *preproc)
 		input_buf_advance(preproc->xbuf, 1, &preproc->cur->pos);
 		if (c == '\n') {
 			preproc->state = pps_line_begin;
-			break;
+			input_buf_destroy(preproc->xbuf);
+			preproc->xbuf = NULL;
+
+			preproc_expander_destroy(preproc->expander);
+			preproc->expander = NULL;
+			return EOK;
 		}
 
 		if (!preproc_out_buf_avail(preproc))

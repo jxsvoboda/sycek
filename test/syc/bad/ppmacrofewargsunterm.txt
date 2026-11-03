@@ -1,0 +1,1 @@
+<test/syc/bad/ppmacrofewargsunterm.c:8:12>: ')' expected.

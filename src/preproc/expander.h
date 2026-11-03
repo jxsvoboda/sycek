@@ -34,7 +34,7 @@
 
 extern lexer_input_ops_t preproc_expander_input;
 
-extern int preproc_expander_create(preproc_t *preproc, input_buf_t *,
+extern int preproc_expander_create(preproc_t *, input_buf_t *,
     preproc_expander_t **);
 extern void preproc_expander_destroy(preproc_expander_t *);
 
