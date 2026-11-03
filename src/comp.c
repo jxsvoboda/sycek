@@ -936,7 +936,7 @@ static int comp_add_stdlib(comp_t *comp, comp_flags_t flags)
 	}
 
 	libname = pathname_compose(comp->base_dir,
-	    "lib/clib/src/stubs.z80.pp.obj");
+	    "lib/clib/src/stubs.obj");
 	if (libname == NULL) {
 		rc = ENOMEM;
 		goto error;
