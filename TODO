@@ -1,0 +1,104 @@
+ -fanalyzer -Wno-analyzer-null-dereference
+ - Alternative tokens (<% %> <: :> %: %:%:)
+    - this with iso646.h is a replacement for trigraphs
+ - auto storage class
+
+two nested compound init {} blocks
+overlong lines
+producing overlong line (\n( -> ((
+function ident starting on new line
+(a)*(b) vs (a) *(b) -- only big problem in macros
+
+(a)*(b);
+
+
+TODO
+====
+
+struct decl in declaration statement
+------------------------------------
+ void foo(void)
+- {
+-   struct foo; // this is valid but we cannot parse it
+- }
+  - here the parser deliberately does not parse 'abstract' declarators
+    as that would lead to misparsing some expressions (e.g. a[i]) in
+    ccheck. Would need to only enable this in syc and prevent or solve
+    misparse
+
+Add check for empty block
+-------------------------
+while (xxx) {
+}
+problem: if branches containing just a comment may have no statements
+if (something) {
+	/* Nothing to do */
+} else {
+	do_something()
+}
+
+check: non-static declaration follows static
+multiline non-parenthesized blocks (e.g. broken up line, comment+statement...)
+if (foo)
+    /* comment */
+    do_something();
+
+#define in non-toplevel scope?
+void foo(void)
+{
+#define macro ...
+}
+
+detect function arguments with const specifier that are not a pointer or array
+void foo(const int x);
+
+default should be the last case
+statement may fall through
+no break in last case
+
+Performance (Syc)
+=================
+ - radix tree to speed up scope_lookup_local()
+   - accounts for ~80% of time spent on large source files
+
+TODO Syc diagnostics
+====================
+* defining reserved identifier / tag
+* unneeded return at end of function
+* missing return at end of non-void function
+* using result of '=' for anything else but a = b = c
+* not ignoring result of combined assignment (+=, *=, etc)
+* *(ptr+int) vs. ptr[int]?
+* (*p). vs p-> ?
+
+* Variable or function defined non-static, but not declared
+
+* typedef outside of header file
+* struct/union definition outside of header file
+* extern storage class outside of header file
+* extern storage class used in non-global scope (e.g. in a static inline
+  function)
+* static inline outside of header file
+* non-extern variable declaration in header file
+* non-(static inline) function definition in header file
+* non-static function declared oustide of header file
+  declaration and definition)
+* superfluous 'argument not used' silencer '(void)arg;'
+* auto storage class is implicit
+
+* header is not properly guarded
+* header guard mismatch
+* header guard conflict
+* cyclic header dependency
+* header included multiple times in the same source file
+
+* Variable not used since previous declaration (@declaration/definition)
+* struct/union/enum/function not used since previous declaration
+  in the same source file [need to look at which file code comes from]
+
+Advanced syc diagnostics / static checks (difficult)
+====================================================
+* header file included, but not used
+* header file not self-contained
+* include what you use
+* resource leak analysis (e.g. async_get_call() / async_answer())

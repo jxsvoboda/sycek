@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#
+# Check copyright and C style of modified files.
+#
+
+function check_file_copy()
+{
+	fname="$1"
+
+	grep 'Copyright 2026 Jiri Svoboda' "$fname" >/dev/null
+	ret="$?"
+	if [ "$ret" != 0 ] ; then
+		echo "$fname: Missing correct copyright"
+	fi
+}
+
+filelist="$(git diff --name-only HEAD)"
+for file in $filelist ; do
+	check_file_copy "$file"
+done
+
+for file in $filelist ; do
+	ccheck "$file"
+done
