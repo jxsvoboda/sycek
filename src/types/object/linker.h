@@ -39,6 +39,14 @@ typedef enum {
 	lf_no_range_error = 0x1
 } obj_linker_flags_t;
 
+/** Object linker target type */
+typedef enum {
+	/** Executable */
+	ltgt_exe,
+	/** Library */
+	ltgt_lib
+} obj_linker_tgt_type_t;
+
 /** Object linker source */
 typedef struct {
 	/** Containing linker */
@@ -59,6 +67,8 @@ typedef struct obj_linker {
 	uint32_t org;
 	/** Destination object */
 	obj_object_t *dest;
+	/** Target type */
+	obj_linker_tgt_type_t tgt_type;
 } obj_linker_t;
 
 #endif

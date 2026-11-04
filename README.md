@@ -340,6 +340,18 @@ then link them together:
     $ ./syc --no-link b.c
     $ ./syc --out=out.tzx a.obj b.obj
 
+Libraries
+---------
+Syc can produce a (static) library (`.lib`) file. A library file is
+essentially an object file comprising multiple modules. To produce
+a library use the `--outtype=lib` parameter.
+
+    $ ./syc --outtype=lib --out=my.lib a.c b.c
+
+To link with a library, simply provide it as source file on the command line.
+
+    $ ./syc --out=out.tzx my.lib foo.c
+
 Using Syc as an assembler
 -------------------------
 You can pass an assembler file to Syc as input, in a similar fashion to

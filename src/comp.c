@@ -446,6 +446,7 @@ int comp_create(const char *base_dir, comp_t **rcomp)
 		}
 	}
 
+	comp->outtype = cot_app;
 	list_initialize(&comp->mods);
 	list_initialize(&comp->incldirs);
 	*rcomp = comp;
@@ -928,6 +929,9 @@ static int comp_add_stdlib(comp_t *comp, comp_flags_t flags)
 	if ((flags & compf_no_stdlib) != compf_none)
 		return EOK;
 
+	if (comp->outtype == cot_library)
+		return EOK;
+
 	if (comp->base_dir == NULL) {
 		(void)fprintf(stderr, "Cannot determine standard library "
 		    "path.\n");
@@ -956,6 +960,16 @@ error:
 	return rc;
 }
 
+/** Set compiler output type.
+ *
+ * @param comp Compiler
+ * @param outtype Output type
+ */
+void comp_set_outtype(comp_t *comp, comp_outtype_t outtype)
+{
+	comp->outtype = outtype;
+}
+
 /** Perform linking.
  *
  * @param comp Compiler
@@ -982,6 +996,9 @@ int comp_link(comp_t *comp, comp_flags_t flags, FILE *outf)
 	if (rc != EOK)
 		goto error;
 
+	if (comp->outtype == cot_library)
+		obj_linker_set_tgt_type(linker, ltgt_lib);
+
 	/* Add objects from all modules as sources. */
 	module = comp_module_first(comp);
 	while (module != NULL) {
@@ -1006,9 +1023,15 @@ int comp_link(comp_t *comp, comp_flags_t flags, FILE *outf)
 		(void)obj_object_dump(comp->linked_object, stdout);
 
 	if (outf != NULL) {
-		rc = obj_object_save_bin(comp->linked_object, outf);
-		if (rc != EOK)
-			goto error;
+		if (comp->outtype == cot_app) {
+			rc = obj_object_save_bin(comp->linked_object, outf);
+			if (rc != EOK)
+				goto error;
+		} else {
+			rc = obj_object_save_obj(comp->linked_object, outf);
+			if (rc != EOK)
+				goto error;
+		}
 	}
 
 	obj_linker_destroy(linker);

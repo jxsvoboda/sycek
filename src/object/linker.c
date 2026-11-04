@@ -52,6 +52,7 @@ int obj_linker_create(obj_linker_flags_t lflags, obj_linker_t **rlinker)
 	if (linker == NULL)
 		return ENOMEM;
 
+	linker->tgt_type = ltgt_exe;
 	linker->flags = lflags;
 	list_initialize(&linker->sources);
 	*rlinker = linker;
@@ -76,6 +77,17 @@ void obj_linker_destroy(obj_linker_t *linker)
 	}
 
 	free(linker);
+}
+
+/** Set linker target type.
+ *
+ * @param linker Linker
+ * @param tgt_type Target type
+ */
+void obj_linker_set_tgt_type(obj_linker_t *linker,
+    obj_linker_tgt_type_t tgt_type)
+{
+	linker->tgt_type = tgt_type;
 }
 
 /** Add source object to linker.
@@ -206,6 +218,10 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 		section = obj_section_next(section);
 	}
 
+	/* Skip the rest of procesing for libraries. */
+	if (linker->tgt_type == ltgt_lib)
+		goto finish;
+
 	/* Process relocations. */
 	reloc = obj_reloc_first(dest);
 	while (reloc != NULL) {
@@ -242,6 +258,7 @@ int obj_linker_link(obj_linker_t *linker, obj_object_t **rdest)
 		section = obj_section_next(section);
 	}
 
+finish:
 	*rdest = dest;
 	return EOK;
 error:

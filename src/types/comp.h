@@ -112,6 +112,14 @@ typedef struct {
 	char *dirname;
 } comp_incldir_t;
 
+/** Compiler output type */
+typedef enum {
+	/** Application */
+	cot_app,
+	/** Library */
+	cot_library
+} comp_outtype_t;
+
 /** Compiler */
 typedef struct comp {
 	/** Base directory from which compiler files are located. */
@@ -124,6 +132,8 @@ typedef struct comp {
 	cgen_flags_t cgflags;
 	/** Linker flags */
 	obj_linker_flags_t lflags;
+	/** Output type */
+	comp_outtype_t outtype;
 	/** Linked object */
 	obj_object_t *linked_object;
 	/** Tape image */

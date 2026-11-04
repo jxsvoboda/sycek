@@ -64,6 +64,7 @@ static void print_syntax(void)
 	    "\t--no-stdlib Do not implicitly link with standard libraries\n"
 	    "\t--incl=<dir> Add standard header include directory\n"
 	    "\t--out=<fname> Output file name\n"
+	    "\t--outtype={app|lib} Output type (default: app)\n"
 	    "code generation options:\n"
 	    "\t--lvalue-args Make function arguments writable/addressable\n"
 	    "\t--int-promotion Enable integer promotion\n"
@@ -161,11 +162,12 @@ error:
  *
  * @param infname Input file name
  * @param flags Compiler flags
+ * @param outtype Compiler output type
  * @param routfname Place to store pointer to output file name.
  * @return EOK on success or an error code
  */
 static int construct_outfname(const char *infname, comp_flags_t flags,
-    char **routfname)
+    comp_outtype_t outtype, char **routfname)
 {
 	int rc;
 
@@ -178,9 +180,15 @@ static int construct_outfname(const char *infname, comp_flags_t flags,
 		if (rc != EOK)
 			goto error;
 	} else if ((flags & compf_no_tape) != compf_none) {
-		rc = ext_replace(infname, "bin", routfname);
-		if (rc != EOK)
-			goto error;
+		if (outtype == cot_app) {
+			rc = ext_replace(infname, "bin", routfname);
+			if (rc != EOK)
+				goto error;
+		} else {
+			rc = ext_replace(infname, "lib", routfname);
+			if (rc != EOK)
+				goto error;
+		}
 	} else {
 		rc = ext_replace(infname, "tzx", routfname);
 		if (rc != EOK)
@@ -236,7 +244,8 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		mtype = cmt_ir;
 	} else if (strcmp(ext, ".asm") == 0 || strcmp(ext, ".ASM") == 0) {
 		mtype = cmt_ic;
-	} else if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0) {
+	} else if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0 ||
+	    strcmp(ext, ".lib") == 0 || strcmp(ext, ".LIB") == 0) {
 		mtype = cmt_obj;
 		inf_binary = true;
 	} else {
@@ -252,7 +261,7 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 		goto error;
 	}
 
-	rc = construct_outfname(fname, flags, &outfname);
+	rc = construct_outfname(fname, flags, comp->outtype, &outfname);
 	if (rc != EOK)
 		goto error;
 
@@ -430,7 +439,8 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 			goto error;
 		}
 
-		rc = construct_outfname(module->fname, flags, &outfname);
+		rc = construct_outfname(module->fname, flags, comp->outtype,
+		    &outfname);
 		if (rc != EOK)
 			goto error;
 	} else {
@@ -538,8 +548,6 @@ error:
 	return rc;
 }
 
-#include <pathname.h>
-
 int main(int argc, char *argv[])
 {
 	int rc;
@@ -547,6 +555,8 @@ int main(int argc, char *argv[])
 	int i;
 	comp_flags_t flags = compf_none;
 	cgen_flags_t cgflags = cgf_none;
+	char *outtstr;
+	comp_outtype_t outtype;
 	obj_linker_flags_t lflags = lf_none;
 	comp_t *comp = NULL;
 	const char *outfname = NULL;
@@ -665,6 +675,21 @@ int main(int argc, char *argv[])
 			cgflags |= cgf_fatal_warn;
 		} else if (strncmp(argv[i], "--out=", strlen("--out=")) == 0) {
 			outfname = argv[i] + strlen("--out=");
+			++i;
+		} else if (strncmp(argv[i], "--outtype=",
+		    strlen("--outtype=")) == 0) {
+			outtstr = argv[i] + strlen("--outtype=");
+			if (strcmp(outtstr, "app") == 0) {
+				outtype = cot_app;
+			} else if (strcmp(outtstr, "lib") == 0) {
+				outtype = cot_library;
+				flags |= compf_no_tape;
+			} else {
+				(void)fprintf(stderr, "Invalid output type.\n");
+				comp_destroy(comp);
+				return 1;
+			}
+			comp_set_outtype(comp, outtype);
 			++i;
 		} else if (strncmp(argv[i], "--incl=", strlen("--incl=")) == 0) {
 			incldir = argv[i] + strlen("--incl=");
