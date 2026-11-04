@@ -67,7 +67,8 @@ static int dump_obj_file(const char *fname)
 		goto error;
 	}
 
-	if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0) {
+	if (strcmp(ext, ".obj") == 0 || strcmp(ext, ".OBJ") == 0 ||
+	    strcmp(ext, ".lib") == 0 || strcmp(ext, ".LIB") == 0) {
 		rc = obj_object_load_obj(f, fname, &object);
 		if (rc != EOK)
 			goto error;

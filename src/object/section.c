@@ -109,8 +109,8 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
 	int rc;
 	size_t i;
 
-	rc = fprintf(outf, "  Section: %s (length: %u bytes base:0x%x)\n",
-	    section->name, section->len, section->base_addr);
+	rc = fprintf(outf, "  Section: %s [%s] (length: %u bytes base:0x%x)\n",
+	    section->name, section->modname, section->len, section->base_addr);
 	if (rc < 0)
 		return EIO;
 
@@ -139,21 +139,25 @@ int obj_section_dump(obj_section_t *section, FILE *outf)
  *
  * #param object Object
  * @param inf Input file
- * @param modname Module name
+ * @param mname Module name
  * @param rsection Place to store pointer to loaded section
  * @return EOK on success or an error code
  */
-int obj_section_load_obj(obj_object_t *object, FILE *inf, const char *modname,
+int obj_section_load_obj(obj_object_t *object, FILE *inf, const char *mname,
     obj_section_t **rsection)
 {
 	obj_section_t *section = NULL;
 	obj_file_section_t sect;
 	uint32_t nsize;
+	uint32_t mnsize;
 	uint32_t data_len;
 	char *name = NULL;
+	char *modname = NULL;
+	char *combname = NULL;
 	void *data;
 	size_t nr;
 	int rc;
+	int rv;
 
 	/* Read section header */
 
@@ -165,6 +169,7 @@ int obj_section_load_obj(obj_object_t *object, FILE *inf, const char *modname,
 	}
 
 	/* Read section name */
+
 	nsize = uint32_t_le2host(sect.name_len);
 	name = calloc((size_t)nsize + 1, 1);
 	if (name == NULL) {
@@ -180,12 +185,42 @@ int obj_section_load_obj(obj_object_t *object, FILE *inf, const char *modname,
 		goto error;
 	}
 
-	rc = obj_section_create(object, name, modname, &section);
+	/* Read module name */
+
+	mnsize = uint32_t_le2host(sect.modname_len);
+	modname = calloc((size_t)mnsize + 1, 1);
+	if (modname == NULL) {
+		(void)fprintf(stderr, "Out of memory.\n");
+		rc = ENOMEM;
+		goto error;
+	}
+
+	nr = fread(modname, 1, (size_t)mnsize, inf);
+	if (nr != mnsize) {
+		(void)fprintf(stderr, "Error reading module name.\n");
+		rc = EIO;
+		goto error;
+	}
+
+	rv = asprintf(&combname, "%s@%s", modname, mname);
+	if (rv < 0) {
+		combname = NULL;
+		rc = ENOMEM;
+		goto error;
+	}
+
+	rc = obj_section_create(object, name, combname, &section);
 	if (rc != EOK)
 		goto error;
 
 	free(name);
 	name = NULL;
+	free(modname);
+	modname = NULL;
+	free(combname);
+	combname = NULL;
+
+	/* Read section data including padding */
 
 	data_len = uint32_t_le2host(sect.data_len);
 	data = malloc((size_t)obj_align_up(data_len));
@@ -201,7 +236,6 @@ int obj_section_load_obj(obj_object_t *object, FILE *inf, const char *modname,
 
 	section->base_addr = uint32_t_le2host(sect.base_addr);
 
-	/* Read section data including padding */
 	nr = fread(section->data, 1, (size_t)section->alloc_len, inf);
 	if (nr != section->alloc_len) {
 		(void)fprintf(stderr, "Error reading section data.\n");
@@ -214,6 +248,10 @@ error:
 	obj_section_destroy(section);
 	if (name != NULL)
 		free(name);
+	if (modname != NULL)
+		free(modname);
+	if (combname != NULL)
+		free(combname);
 	return rc;
 }
 
@@ -247,12 +285,14 @@ int obj_section_save_obj(obj_section_t *section, FILE *outf)
 	uint32_t dsize;
 	uint32_t size;
 	uint32_t nsize;
+	uint32_t mnsize;
 	uint8_t pad[obj_file_align];
 	size_t nw;
 
 	/* Entry header */
 	nsize = obj_align_up(strlen(section->name));
-	dsize = sizeof(obj_file_section_t) + nsize + section->len;
+	mnsize = obj_align_up(strlen(section->modname));
+	dsize = sizeof(obj_file_section_t) + nsize + mnsize + section->len;
 	size = obj_align_up(dsize);
 
 	hdr.etype = host2uint32_t_le(obj_file_esection);
@@ -267,9 +307,9 @@ int obj_section_save_obj(obj_section_t *section, FILE *outf)
 	/* Section header */
 
 	sect.name_len = host2uint32_t_le(nsize);
+	sect.modname_len = host2uint32_t_le(mnsize);
 	sect.data_len = host2uint32_t_le(section->len);
 	sect.base_addr = host2uint32_t_le(section->base_addr);
-	sect.pad = 0;
 
 	nw = fwrite(&sect, 1, sizeof(sect), outf);
 	if (nw != sizeof(sect)) {
@@ -288,6 +328,21 @@ int obj_section_save_obj(obj_section_t *section, FILE *outf)
 	memset(pad, 0, sizeof(pad));
 	nw = fwrite(pad, 1, (size_t)nsize - strlen(section->name), outf);
 	if (nw != nsize - strlen(section->name)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Module name */
+	nw = fwrite(section->modname, 1, strlen(section->modname), outf);
+	if (nw != strlen(section->modname)) {
+		(void)fprintf(stderr, "Write error.\n");
+		return EIO;
+	}
+
+	/* Padding */
+	memset(pad, 0, sizeof(pad));
+	nw = fwrite(pad, 1, (size_t)mnsize - strlen(section->modname), outf);
+	if (nw != mnsize - strlen(section->modname)) {
 		(void)fprintf(stderr, "Write error.\n");
 		return EIO;
 	}

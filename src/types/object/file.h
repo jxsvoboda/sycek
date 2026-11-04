@@ -67,12 +67,12 @@ typedef struct {
 typedef struct {
 	/** Section name length */
 	uint32_t name_len;
+	/** Module name length */
+	uint32_t modname_len;
 	/** Section data length */
 	uint32_t data_len;
 	/** Base address */
 	uint32_t base_addr;
-	/** Padding */
-	uint32_t pad;
 } obj_file_section_t;
 
 /** Object file symbol header */
