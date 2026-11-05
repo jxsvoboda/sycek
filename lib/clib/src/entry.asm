@@ -21,10 +21,11 @@
  */
 
 /*
- * C library entry point
+ * C library assembly entry point
  */
 
 proc @___entry
 begin
-	call @_main;
+	/* tail call optimized */
+	jp @___clib_main;
 end;

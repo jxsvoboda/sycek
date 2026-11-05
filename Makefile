@@ -139,7 +139,10 @@ sources_clib_asm = \
     lib/clib/src/entry.asm
 
 sources_clib_c = \
-    lib/clib/src/stubs.c
+    lib/clib/src/clib.c \
+    lib/clib/src/stdio.c \
+    lib/clib/src/stdlib.c \
+    lib/clib/src/string.c
 
 sources_clib = \
     $(sources_clib_asm) \

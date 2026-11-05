@@ -20,11 +20,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <errno.h>
+/*
+ * Standard I/O
+ */
+
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 FILE *stdin;
 FILE *stdout;
@@ -125,12 +126,6 @@ int getc(FILE *f)
 	return EOF;
 }
 
-char *getenv(const char *name)
-{
-	(void)name;
-	return NULL;
-}
-
 int putchar(int c)
 {
 	(void)c;
@@ -158,131 +153,9 @@ int snprintf(char *buf, size_t size, const char *fmt, ...)
 	return -1;
 }
 
-void abort(void)
-{
-}
-
-void *calloc(size_t n, size_t size)
-{
-	(void)n;
-	(void)size;
-}
-
-void exit(int status)
-{
-	(void)status;
-}
-
-void free(void *ptr)
-{
-	(void)ptr;
-}
-
-void *malloc(size_t size)
-{
-	(void)size;
-	return NULL;
-}
-
-void qsort(void *base, size_t n, size_t size, int (*compar)(const void *,
-    const void *))
-{
-	(void)base;
-	(void)n;
-	(void)size;
-	(void)compar;
-}
-
-void *realloc(void *ptr, size_t newsize)
-{
-	(void)ptr;
-	(void)newsize;
-	return NULL;
-}
-
-unsigned long strtoul(const char *str, char **eptr, int base)
-{
-	(void)str;
-	(void)eptr;
-	(void)base;
-	return 0;
-}
-
 int asprintf(char **strp, const char *fmt, ...)
 {
 	(void)strp;
 	(void)fmt;
 	return -1;
-}
-
-void *memcpy(void *dest, const void *src, size_t n)
-{
-	(void)dest;
-	(void)src;
-	(void)n;
-	return NULL;
-}
-
-void *memmove(void *dest, const void *src, size_t n)
-{
-	(void)dest;
-	(void)src;
-	(void)n;
-	return NULL;
-}
-
-void *memset(void *buf, int c, size_t n)
-{
-	(void)buf;
-	(void)c;
-	(void)n;
-	return NULL;
-}
-
-char *strchr(const char *s, int c)
-{
-	(void)s;
-	(void)c;
-	return NULL;
-}
-
-int strcmp(const char *a, const char *b)
-{
-	(void)a;
-	(void)b;
-	return 0;
-}
-
-int strncmp(const char *a, const char *b, size_t n)
-{
-	(void)a;
-	(void)b;
-	(void)n;
-	return 0;
-}
-
-char *strdup(const char *str)
-{
-	(void)str;
-	return NULL;
-}
-
-size_t strlen(const char *str)
-{
-	(void)str;
-	return 0;
-}
-
-char *strncpy(char *dest, const char *src, size_t n)
-{
-	(void)dest;
-	(void)src;
-	(void)n;
-}
-
-char *strrchr(const char *str, int c)
-{
-	(void)str;
-	(void)c;
-	return NULL;
 }
