@@ -4,6 +4,8 @@
 /ccheck-hos
 /ccheck-z80.bin
 /ccheck-z80.map
+/lib/clib/c.lib
+/lib/clib/c.map
 /syc
 /syc-hos
 /syc-z80.bin

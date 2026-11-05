@@ -35,11 +35,11 @@ INSTALL = install
 
 CC_z80 = sync
 CFLAGS_z80 = --incl=lib/clib/include --incl=src --incl=src/hcompat
-LIBS_z80 = lib/clib/src/stubs.obj
 
 bkqual = $$(date '+%Y-%m-%d')
 
-compiler_z80 = $(syc) $(LIBS_z80)
+libs_z80 = lib/clib/c.lib
+compiler_z80 = $(syc) $(libs_z80)
 
 sources_common = \
     src/ast.c \
@@ -134,6 +134,9 @@ sources_z80test_common = \
 sources_hcompat = \
     src/hcompat/adt/list.c \
     src/hcompat/byteorder.c
+
+sources_clib = \
+    lib/clib/src/stubs.c
 
 sources_ccheck = \
     $(sources_ccheck_common) \
@@ -238,6 +241,13 @@ objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
 objects_z80test_z80 = $(sources_z80test_z80:.c=.obj)
 
+objects_clib_z80 = $(sources_clib:.c=.obj)
+
+libs_z80 = \
+    lib/clib/c.lib
+
+libmapfiles_z80 = $(libs_z80:.lib=.map)
+
 headers = $(wildcard src/*.h src/*/*.h src/*/*/*.h src/*/*/*/*.h)
 lib_headers = $(wildcard lib/clib/include/*.h)
 
@@ -310,7 +320,7 @@ example_outs = example/lib.o $(example_objs) $(example_bins) \
     $(example_irirs) $(example_irobjs)
 
 all: $(binary_ccheck) $(binary_syc) $(binary_sydis) $(binary_sydump) \
-    $(binary_z80test)
+    $(binary_z80test) $(libs_z80)
 
 $(binary_ccheck): $(objects_ccheck)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
@@ -388,6 +398,9 @@ objects_z80 = \
 
 z80objs: $(objects_z80)
 
+lib/clib/c.lib: $(syc) $(objects_clib_z80)
+	$(syc) --outtype=lib --out=$@ $(objects_clib_z80)
+
 %.obj: %.c $(syc)
 	$(syc) $(sycflags) $(CFLAGS_z80) --no-link --fatal-warn $<
 
@@ -419,15 +432,14 @@ clean:
 	$(objects_sydump) $(objects_sydump_hos) $(objects_sydump_z80) \
 	$(objects_z80test) $(objects_z80test_hos) $(objects_z80test_z80) \
 	$(binary_ccheck) $(binary_ccheck_hos) $(binary_ccheck_z80) \
-	$(binary_syc) $(binary_syc_hos) $(binary_syc_z80) \
-	$(binary_sydis) $(binary_sydis_hos) $(binary_sydis_z80) \
-	$(binary_sydump) $(binary_sydump_hos) $(binary_sydump_z80) \
-	$(binary_z80test) $(binary_z80test_hos) $(binary_z80test_z80) \
-	$(mapfile_syc_z80) $(mapfile_sydis_z80) $(mapfile_sydump_z80) \
-	$(mapfile_ccheck_z80) $(mapfile_z80test_z80) \
-	$(test_outs) $(test_syc_outs) $(test_syc_z80_outs) \
-	$(test_asm_outs) $(test_linker_good_outs) \
-\
+	$(binary_syc) $(binary_syc_hos) $(libs_z80) $(libmapfiles_z80) \
+	$(objects_clib_z80) $(binary_syc_z80) $(binary_sydis) \
+	$(binary_sydis_hos) $(binary_sydis_z80) $(binary_sydump) \
+	$(binary_sydump_hos) $(binary_sydump_z80) $(binary_z80test) \
+	$(binary_z80test_hos) $(binary_z80test_z80) $(mapfile_syc_z80) \
+	$(mapfile_sydis_z80) $(mapfile_sydump_z80) $(mapfile_ccheck_z80) \
+	$(mapfile_z80test_z80) $(test_outs) $(test_syc_outs) \
+	$(test_syc_z80_outs) $(test_asm_outs) $(test_linker_good_outs) \
 	$(example_outs)
 
 clean_z80:

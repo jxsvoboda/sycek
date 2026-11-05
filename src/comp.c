@@ -940,7 +940,7 @@ static int comp_add_stdlib(comp_t *comp, comp_flags_t flags)
 	}
 
 	libname = pathname_compose(comp->base_dir,
-	    "lib/clib/src/stubs.obj");
+	    "lib/clib/c.lib");
 	if (libname == NULL) {
 		rc = ENOMEM;
 		goto error;
