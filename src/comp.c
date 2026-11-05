@@ -952,6 +952,10 @@ static int comp_add_stdlib(comp_t *comp, comp_flags_t flags)
 		goto error;
 	}
 
+	/* Move to the beginning of the list. */
+	list_remove(&lmodule->lmods);
+	list_prepend(&lmodule->lmods, &comp->mods);
+
 	free(libname);
 	return EOK;
 error:

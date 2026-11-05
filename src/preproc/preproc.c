@@ -997,7 +997,7 @@ static int preproc_process_invalid_directive(preproc_t *preproc)
 		return EIO;
 
 	preproc->state = pps_line_begin;
-	return EOK;
+	return EINVAL;
 }
 
 static int preproc_end_of_file_checks(preproc_t *preproc)

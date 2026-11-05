@@ -1,0 +1,2 @@
+<test/syc/bad/staticfdeclafterns.c:6:13:id:f>: Warning: Multiple declarations of 'f'.
+<test/syc/bad/staticfdeclafterns.c:6:13:id:f>: Static 'f' was previously declared as non-static.

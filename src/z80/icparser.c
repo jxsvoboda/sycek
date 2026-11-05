@@ -1970,13 +1970,7 @@ static int z80ic_parser_process_ld_hl_inn(z80ic_parser_t *parser,
 	z80ic_oper_imm16_t *imm16 = NULL;
 	int rc;
 
-	/* Skip 'HL'. */
-	z80ic_parser_skip(parser);
-
-	rc = z80ic_parser_match(parser, ztt_comma);
-	if (rc != EOK)
-		return rc;
-
+	/* Skip '('. */
 	rc = z80ic_parser_match(parser, ztt_lparen);
 	if (rc != EOK)
 		return rc;
@@ -2159,6 +2153,10 @@ static int z80ic_parser_process_ld_dd_xx(z80ic_parser_t *parser,
 			return rc;
 	} else if (dd == z80ic_dd_sp && ztt == ztt_IY) {
 		rc = z80ic_parser_process_ld_sp_iy(parser, rinstr);
+		if (rc != EOK)
+			return rc;
+	} else if (dd == z80ic_dd_hl && ztt == ztt_lparen) {
+		rc = z80ic_parser_process_ld_hl_inn(parser, rinstr);
 		if (rc != EOK)
 			return rc;
 	} else if (ztt == ztt_lparen) {
@@ -2417,10 +2415,6 @@ static int z80ic_parser_process_ld(z80ic_parser_t *parser,
 			return rc;
 	} else if (ztt == ztt_IY) {
 		rc = z80ic_parser_process_ld_iy_xx(parser, rinstr);
-		if (rc != EOK)
-			return rc;
-	} else if (ztt == ztt_HL) {
-		rc = z80ic_parser_process_ld_hl_inn(parser, rinstr);
 		if (rc != EOK)
 			return rc;
 	} else if (z80ic_parser_ttype_dd(ztt)) {

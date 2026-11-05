@@ -135,8 +135,15 @@ sources_hcompat = \
     src/hcompat/adt/list.c \
     src/hcompat/byteorder.c
 
-sources_clib = \
+sources_clib_asm = \
+    lib/clib/src/entry.asm
+
+sources_clib_c = \
     lib/clib/src/stubs.c
+
+sources_clib = \
+    $(sources_clib_asm) \
+    $(sources_clib_c)
 
 sources_ccheck = \
     $(sources_ccheck_common) \
@@ -241,7 +248,9 @@ objects_z80test = $(sources_z80test:.c=.o)
 objects_z80test_hos = $(sources_z80test_hos:.c=.hos.o)
 objects_z80test_z80 = $(sources_z80test_z80:.c=.obj)
 
-objects_clib_z80 = $(sources_clib:.c=.obj)
+objects_clib_z80 = \
+    $(sources_clib_asm:.asm=.obj) \
+    $(sources_clib_c:.c=.obj)
 
 libs_z80 = \
     lib/clib/c.lib
@@ -403,6 +412,9 @@ lib/clib/c.lib: $(syc) $(objects_clib_z80)
 
 %.obj: %.c $(syc)
 	$(syc) $(sycflags) $(CFLAGS_z80) --no-link --fatal-warn $<
+
+%.obj: %.asm $(syc)
+	$(syc) --no-link $<
 
 $(binary_ccheck_z80): $(compiler_z80) $(objects_ccheck_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_ccheck_z80)
