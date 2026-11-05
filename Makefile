@@ -140,6 +140,7 @@ sources_clib_asm = \
 
 sources_clib_c = \
     lib/clib/src/clib.c \
+    lib/clib/src/scr.c \
     lib/clib/src/stdio.c \
     lib/clib/src/stdlib.c \
     lib/clib/src/string.c

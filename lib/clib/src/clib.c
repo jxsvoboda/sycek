@@ -24,11 +24,12 @@
  * C library C entry point
  */
 
+#include <stdint.h>
 #include <stddef.h>
 
 int main(int argc, char *argv[]);
 
-int __clib_main(void) __attribute__((usr))
+int16_t __clib_main(void) __attribute__((usr))
 {
-	return main(0, NULL);
+	return (int16_t)main(0, NULL);
 }

@@ -27,6 +27,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "scr.h"
+
 FILE *stdin;
 FILE *stdout;
 FILE *stderr;
@@ -71,8 +73,15 @@ int fprintf(FILE *f, const char *fmt, ...)
 
 int printf(char *fmt, ...)
 {
-	(void)fmt;
-	return EOF;
+	int cnt;
+
+	cnt = 0;
+	while (*fmt != '\0') {
+		__scr_putchar(*fmt++);
+		++cnt;
+	}
+
+	return cnt;
 }
 
 int fputc(int c, FILE *f)
