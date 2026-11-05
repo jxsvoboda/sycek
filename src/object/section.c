@@ -458,13 +458,15 @@ int obj_section_copy(obj_section_t *section, unsigned modidx,
 int obj_section_merge(obj_section_t *dest, obj_section_t *src)
 {
 	size_t new_len;
+	size_t alloc_len;
 	obj_symbol_t *symbol;
 	void *data;
 
 	new_len = (size_t)(dest->len + src->len);
+	alloc_len = new_len > 0 ? new_len : 1;
 
 	/* Enlarge destination section buffer. */
-	data = realloc(dest->data, new_len);
+	data = realloc(dest->data, alloc_len);
 	if (data == NULL)
 		return ENOMEM;
 
@@ -483,7 +485,7 @@ int obj_section_merge(obj_section_t *dest, obj_section_t *src)
 	}
 
 	dest->len = new_len;
-	dest->alloc_len = new_len;
+	dest->alloc_len = alloc_len;
 
 	obj_section_destroy(src);
 	return EOK;
