@@ -512,6 +512,9 @@ int obj_section_basename_cmp(obj_section_t *sa, obj_section_t *sb)
 		++b;
 	}
 
+	if ((*a == '\0' || *a == '@') && (*b == '\0' || *b == '@'))
+		return 0;
+
 	return (int)(*a - *b);
 }
 
