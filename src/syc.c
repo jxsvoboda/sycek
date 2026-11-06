@@ -58,6 +58,7 @@ static void print_syntax(void)
 	    "\t--dump-vric Dump instruction code with virtual registers\n"
 	    "\t--dump-obj Dump binary object\n"
 	    "\t--no-comp Do not compile, stop after preprocessing stage\n"
+	    "\t--no-isel Do not select instructions, stop after code gen stage\n"
 	    "\t--no-emit Do not emit binary object, stop after compile stage\n"
 	    "\t--no-link Do not link, stop after binary object emission\n"
 	    "\t--no-tape Do not make a tape image, stop after link stage\n"
@@ -171,7 +172,11 @@ static int construct_outfname(const char *infname, comp_flags_t flags,
 {
 	int rc;
 
-	if ((flags & compf_no_emit) != compf_none) {
+	if ((flags & compf_no_isel) != compf_none) {
+		rc = ext_replace(infname, "ir", routfname);
+		if (rc != EOK)
+			goto error;
+	} else if ((flags & compf_no_emit) != compf_none) {
 		rc = ext_replace(infname, "asm", routfname);
 		if (rc != EOK)
 			goto error;
@@ -265,7 +270,8 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 	if (rc != EOK)
 		goto error;
 
-	if ((flags & compf_no_link) != compf_none ||
+	if ((flags & compf_no_isel) != compf_none ||
+	    (flags & compf_no_link) != compf_none ||
 	    (flags & compf_no_emit) != compf_none) {
 		if (strcmp(fname, outfname) == 0) {
 			(void)fprintf(stderr, "Error: Input and output file "
@@ -345,7 +351,11 @@ static int compile_file(comp_t *comp, const char *fname, comp_flags_t flags,
 			goto error;
 	}
 
-	if ((flags & compf_no_emit) != compf_none) {
+	if ((flags & compf_no_isel) != compf_none) {
+		rc = comp_module_dump_ir(module, outf);
+		if (rc != EOK)
+			goto error;
+	} else if ((flags & compf_no_emit) != compf_none) {
 		rc = comp_module_compile(module, outf);
 		if (rc != EOK)
 			goto error;
@@ -422,6 +432,8 @@ static int link_binary(comp_t *comp, const char *outfn, comp_flags_t flags)
 	char *progname = NULL;
 	comp_module_t *module;
 
+	if ((flags & compf_no_isel) != compf_none)
+		return EOK;
 	if ((flags & compf_no_comp) != compf_none)
 		return EOK;
 	if ((flags & compf_no_emit) != compf_none)
@@ -652,6 +664,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-comp") == 0) {
 			++i;
 			flags |= compf_no_comp;
+		} else if (strcmp(argv[i], "--no-isel") == 0) {
+			++i;
+			flags |= compf_no_isel;
 		} else if (strcmp(argv[i], "--no-emit") == 0) {
 			++i;
 			flags |= compf_no_emit;

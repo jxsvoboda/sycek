@@ -396,6 +396,8 @@ program in various compilation stages to the standard output:
  * `--dump-vric` Dump instruction code before register allocation
  * `--dump-obj` Dump compiled object contents before linking
  * `--no-comp` Stop before compiling, dump preprocessed source code.
+ * `--no-isel` Stop before instruction selection, output an IR file instead
+   (`.ir`).
  * `--no-emit` Stop before emitting binary instructions, output an assembly
    file instead (`.asm`).
  * `--no-link` Stop before assembly and linking, output an object file

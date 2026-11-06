@@ -175,14 +175,16 @@ typedef enum {
 	compf_dump_obj = 0x10,
 	/** Do not compile, preprocess only */
 	compf_no_comp = 0x20,
+	/** Do not select IC-specific instructions stop after IR codegen */
+	compf_no_isel = 0x40,
 	/** Do not emit binary instructions */
-	compf_no_emit = 0x40,
+	compf_no_emit = 0x80,
 	/** Do not link into an executable */
-	compf_no_link = 0x80,
+	compf_no_link = 0x100,
 	/** Do not make a tape image */
-	compf_no_tape = 0x100,
+	compf_no_tape = 0x200,
 	/** Do not implicitly link with standard libraries */
-	compf_no_stdlib = 0x200
+	compf_no_stdlib = 0x400
 } comp_flags_t;
 
 #endif
