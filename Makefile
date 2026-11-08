@@ -584,18 +584,18 @@ test/selfcheck.out: $(ccheck)
 #
 # Compiler example
 #
-example/%.ir: example/%.c $(syc)
+example/%.ir: example/%.c $(compiler_z80)
 	$(syc) --no-link --dump-ir $< >$@
 example/%.ir.ir: example/%.ir
 	cp $< $@
 example/%.ir.obj: example/%.ir.ir $(syc)
 	$(syc) --no-link $<
-example/%.vric: example/%.c $(syc)
+example/%.vric: example/%.c $(compiler_z80)
 	$(syc) --no-link --dump-vric $< >$@
-example/%.bin: example/%.c example/lib.asm
-	syc --out=$@ --no-tape $^
-example/%.tzx: example/%.c example/lib.asm
-	syc --out=$@ $^
+example/%.bin: example/%.c example/lib.asm $(compiler_z80)
+	syc --out=$@ --no-tape $< example/lib.asm
+example/%.tzx: example/%.c example/lib.asm $(compiler_z80)
+	syc --out=$@ $< example/lib.asm
 
 examples: $(syc) $(example_tzxs) $(example_irs) $(example_vrics) \
     $(example_irobjs)
