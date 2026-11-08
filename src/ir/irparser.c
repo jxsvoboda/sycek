@@ -805,6 +805,77 @@ error:
 	return rc;
 }
 
+/** Parse IR array type expression.
+ *
+ * @param parser IR parser
+ * @param rtexpr Place to store pointer to new type expression
+ *
+ * @return EOK on success or non-zero error code
+ */
+static int ir_parser_process_array_texpr(ir_parser_t *parser,
+    ir_texpr_t **rtexpr)
+{
+	ir_lexer_tok_t itok;
+	ir_texpr_t *texpr = NULL;
+	ir_texpr_t *elem_texpr = NULL;
+	int32_t asize;
+	int rc;
+
+	/* '['  */
+
+	rc = ir_parser_match(parser, itt_lbracket);
+	if (rc != EOK)
+		goto error;
+
+	/* Size */
+
+	ir_parser_read_next_tok(parser, &itok);
+	if (itok.ttype != itt_number) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " unexpected, expected number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	rc = ir_lexer_number_val(&itok, &asize);
+	if (rc != EOK) {
+		(void)fprintf(stderr, "Error: ");
+		(void)ir_parser_dprint_next_tok(parser, stderr);
+		(void)fprintf(stderr, " is not a valid number.\n");
+		rc = EINVAL;
+		goto error;
+	}
+
+	ir_parser_skip(parser);
+
+	/* ']'  */
+
+	rc = ir_parser_match(parser, itt_rbracket);
+	if (rc != EOK)
+		goto error;
+
+	/* Element type */
+	rc = ir_parser_process_texpr(parser, &elem_texpr);
+	if (rc != EOK)
+		goto error;
+
+	elem_texpr = NULL;
+
+	rc = ir_texpr_array_create(asize, elem_texpr, &texpr);
+	if (rc != EOK)
+		goto error;
+
+	*rtexpr = texpr;
+	return EOK;
+error:
+	if (texpr != NULL)
+		ir_texpr_destroy(texpr);
+	if (elem_texpr != NULL)
+		ir_texpr_destroy(elem_texpr);
+	return rc;
+}
+
 /** Parse IR ident type expression.
  *
  * @param parser IR parser
@@ -851,6 +922,8 @@ static int ir_parser_process_texpr(ir_parser_t *parser, ir_texpr_t **rtexpr)
 		return ir_parser_process_int_texpr(parser, rtexpr);
 	case itt_ptr:
 		return ir_parser_process_ptr_texpr(parser, rtexpr);
+	case itt_lbracket:
+		return ir_parser_process_array_texpr(parser, rtexpr);
 	case itt_ident:
 		return ir_parser_process_ident_texpr(parser, rtexpr);
 	default:

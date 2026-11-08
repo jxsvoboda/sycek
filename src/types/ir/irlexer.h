@@ -43,6 +43,8 @@ typedef enum {
 	itt_rparen,
 	itt_lbrace,
 	itt_rbrace,
+	itt_lbracket,
+	itt_rbracket,
 	itt_comma,
 	itt_colon,
 	itt_scolon,

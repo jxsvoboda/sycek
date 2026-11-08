@@ -725,18 +725,17 @@ After making any changes run `make test` command which runs a number of tests
  * Runs `syc` on the regression tests in `test/syc` and checks output
  * Runs `syc` under Valgrind on all tests in `test/syc/` (except bad)
    and verifies that all memory blocks have been freed
-
-Everything should finish successfully (exit code from `make` should be zero).
-
-Running `make test_z80` runs the following tests:
-
  * Compiles all sources under `test/syc/good` with Syc into `.obj` files
+   via `.ir` files as an intermediate tesp.
  * For sources with corresponding `.scr` files compiles and links them
    into `.bin` files.
  * Runs `z80test` for all `.scr` files under `test/syc/good` which verifies
    correct function of the generated code
- * Compiles all Sycek components using syc (making sure there are no errors
-   or warnings reported)
+
+Running `make z80`:
+
+ * Compiles and  links all Sycek components using syc (making sure there
+   are no errors or warnings reported)
 
 Everything should finish successfully (exit code from `make` should be zero).
 

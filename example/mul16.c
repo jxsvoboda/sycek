@@ -51,3 +51,8 @@ int gmulintr(void)  __attribute__((usr))
 {
 	return mulintr(ga, gb);
 }
+
+int main(void)
+{
+	return 0;
+}

@@ -283,7 +283,7 @@ typedef enum {
 	irt_int,
 	/** Pointer type */
 	irt_ptr,
-	/** Array tyoe */
+	/** Array type */
 	irt_array,
 	/** Identified type */
 	irt_ident,

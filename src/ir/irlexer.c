@@ -853,6 +853,10 @@ int ir_lexer_get_tok(ir_lexer_t *lexer, ir_lexer_tok_t *tok)
 		return ir_lexer_onechar(lexer, itt_lbrace, tok);
 	case '}':
 		return ir_lexer_onechar(lexer, itt_rbrace, tok);
+	case '[':
+		return ir_lexer_onechar(lexer, itt_lbracket, tok);
+	case ']':
+		return ir_lexer_onechar(lexer, itt_rbracket, tok);
 	default:
 		if (is_num(p[0]))
 			return ir_lexer_number(lexer, tok);
@@ -928,6 +932,10 @@ const char *ir_lexer_str_ttype(ir_lexer_toktype_t ttype)
 		return "'{'";
 	case itt_rbrace:
 		return "'}'";
+	case itt_lbracket:
+		return "'['";
+	case itt_rbracket:
+		return "']'";
 	case itt_comma:
 		return "','";
 	case itt_colon:

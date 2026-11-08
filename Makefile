@@ -286,6 +286,7 @@ test_outs = $(test_good_fixed_diffs) $(test_good_out_diffs) \
     test/ccheck/all.diff test/test-int.out test/test-syc-int.out test/selfcheck.out
 test_syc_good_srcs = $(wildcard test/syc/good/*.c)
 test_syc_good_scripts = $(wildcard test/syc/good/*.scr)
+test_syc_good_irs = $(test_syc_good_srcs:.c=.ir)
 test_syc_good_objs = $(test_syc_good_srcs:.c=.obj)
 test_syc_good_z80ts = $(test_syc_good_scripts:.scr=-z80t.txt)
 test_syc_good_bins = $(test_syc_good_srcs:.c=.bin)
@@ -299,9 +300,9 @@ test_syc_ugly_diffs = $(test_syc_ugly_srcs:.c=.txt.diff)
 test_syc_vg_outs = \
     $(test_syc_good_srcs:.c=-vg.txt) \
     $(test_syc_ugly_srcs:.c=-vg.txt)
-test_syc_outs = $(test_syc_good_objs) $(test_syc_bad_diffs) \
-    $(test_syc_ugly_objs) $(test_syc_ugly_diffs) $(test_syc_vg_outs) \
-    test/syc/all.diff
+test_syc_outs = $(test_syc_good_irs) $(test_syc_good_objs) \
+    $(test_syc_bad_diffs) $(test_syc_ugly_objs) $(test_syc_ugly_diffs) \
+    $(test_syc_vg_outs) test/syc/all.diff
 test_syc_z80_outs = $(test_syc_good_z80ts) $(test_syc_good_objs) \
     $(test_syc_good_maps) $(test_syc_good_taps)
 test_asm_good_srcs = $(wildcard test/asm/good/*.asm)
@@ -403,7 +404,7 @@ z80: $(binary_ccheck_z80) $(binary_syc_z80) $(binary_sydis_z80) \
     $(binary_sydump_z80) $(binary_z80test_z80)
 
 objects_z80 = \
-    $(objecs_ccheck_z80) \
+    $(objects_ccheck_z80) \
     $(objects_syc_z80) \
     $(objects_sydis_z80) \
     $(objects_sydump_z80) \
@@ -414,13 +415,14 @@ z80objs: $(objects_z80)
 lib/clib/c.lib: $(syc) $(objects_clib_z80)
 	$(syc) --outtype=lib --out=$@ $(objects_clib_z80)
 
-%.obj: %.c $(syc)
+lib/clib/src/%.obj: lib/clib/src/%.c $(syc)
 	$(syc) $(sycflags) $(CFLAGS_z80) --no-link --fatal-warn $<
 
-%.obj: %.asm $(syc)
+lib/clib/src/%.obj: lib/clib/src/%.asm $(syc)
 	$(syc) --no-link $<
 
 $(binary_ccheck_z80): $(compiler_z80) $(objects_ccheck_z80)
+	echo $(objects_ccheck_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_ccheck_z80)
 
 $(binary_syc_z80): $(compiler_z80) $(objects_syc_z80)
@@ -536,10 +538,13 @@ test/syc/ugly/%-vg.txt: test/syc/ugly/%.c $(syc)
 	valgrind $(syc) $(sycflags) --no-link $< 2>$@ || (rm $@ ; false)
 	grep -q 'no leaks are possible' $@ || (rm $@ ; false)
 
-test/syc/good/%.obj: test/syc/good/%.c $(syc)
+test/syc/good/%.ir: test/syc/good/%.c $(syc)
+	$(syc) $(sycflags) --no-isel $<
+
+test/syc/good/%.obj: test/syc/good/%.ir $(syc)
 	$(syc) $(sycflags) --no-link $<
 
-test/syc/good/%.bin: test/syc/good/%.c $(syc)
+test/syc/good/%.bin: test/syc/good/%.obj $(syc)
 	$(syc) $(sycflags) --no-stdlib $<
 
 test/syc/good/%-z80t.txt: test/syc/good/%.scr test/syc/good/%.bin $(z80test)
@@ -549,10 +554,10 @@ test/syc/all.diff: $(test_syc_bad_diffs) $(test_syc_ugly_diffs)
 	cat $^ > $@
 
 test/asm/good/%.map: test/asm/good/%.asm $(syc)
-	$(syc) $<
+	$(syc) --no-stdlib $<
 
 test/asm/good/%.tzx: test/asm/good/%.asm $(syc)
-	$(syc) $<
+	$(syc) --no-stdlib $<
 
 test/linker/good/local/%.obj: test/linker/good/local/%.c
 	$(syc) $(sycflags) --no-link $<
@@ -601,9 +606,8 @@ examples: $(syc) $(example_tzxs) $(example_irs) $(example_vrics) \
 #
 test: test/test-int.out test/test-syc-int.out test/ccheck/all.diff \
     test/syc/all.diff $(test_vg_outs) $(test_syc_vg_outs) $(test_asm_outs) \
-    test/selfcheck.out
-test_z80: $(test_syc_good_objs) $(test_syc_good_z80ts) \
-    $(test_linker_good_z80ts) z80objs
+    test/selfcheck.out $(test_syc_good_objs) $(test_syc_good_z80ts) \
+    $(test_linker_good_z80ts)
 test_asm: $(test_asm_outs)
 
 test_l: $(test_linker_good_z80ts)
