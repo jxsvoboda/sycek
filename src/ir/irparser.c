@@ -1690,19 +1690,21 @@ static int ir_parser_process_var(ir_parser_t *parser, ir_var_t **rvar)
 
 	ir_parser_process_linkage(parser, &linkage);
 
-	/* Begin, end */
+	if (linkage != irl_extern) {
+		/* Begin, end */
 
-	rc = ir_parser_match(parser, itt_begin);
-	if (rc != EOK)
-		goto error;
+		rc = ir_parser_match(parser, itt_begin);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_parser_process_dblock(parser, &dblock);
-	if (rc != EOK)
-		goto error;
+		rc = ir_parser_process_dblock(parser, &dblock);
+		if (rc != EOK)
+			goto error;
 
-	rc = ir_parser_match(parser, itt_end);
-	if (rc != EOK)
-		goto error;
+		rc = ir_parser_match(parser, itt_end);
+		if (rc != EOK)
+			goto error;
+	}
 
 	rc = ir_var_create(ident, texpr, linkage, dblock, &var);
 	if (rc != EOK)
