@@ -62,8 +62,8 @@ hexadecimal dump of binary sections, symbols and relocations.
 
 Example:
 
-    $ ./syc --no-link example/test.c
-    $ ./sydump example/test.obj
+    $ ./syc --no-link example/hello.c
+    $ ./sydump example/hello.obj
 
 sydis
 -----
@@ -362,30 +362,16 @@ a C or IR file:
 This will assemble, link and produce a tape file (`a.tzx`). You can even
 combine C and assember files in the same command line:
 
-    $ ./syc --out=example/test.tzx example/test.c example/lib.asm
+    $ ./syc --out=example/asm/putpixel.tzx example/asm/putpixel.c \
+      example/asm/lib.asm
 
 You can just type `make examples` to build all the examples automatically.
+For example, open the tape file `hello.tzx` in an emulateor (e.g. GZX)
+In BASIC type:
 
-The `example/test.c` file's main function does nothing interesting, instead
-it contains a number of functions that can be individually executed as
-User Service Routines. Let's take the add_const() function as an example.
+    LOAD ""
 
-Select the tape file `example/test.tap` and load it using the basic command
-
-    LOAD ""CODE
-
-this skips the BASIC loader and loads just the machine code block.
-Consult the file `example/test.map` to determine the address where
-the function `add_const` starts at and convert it from hex to decimal.
-Let's say it starts at address 0x802a = 32810. This function computes
-the value of the expression 1 + 2 + 3 and returns it. Because the function
-is declared with the attribute `usr`, it will return the value in the BC
-register, where BASIC expects value from the USR. We can test it with
-the basic command
-
-    PRINT USR 32810
-
-this should print `6`.
+The program is loaded and executed and prints `Hello, world!` to the screen.
 
 There are options available to print out the
 program in various compilation stages to the standard output:

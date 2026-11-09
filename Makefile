@@ -321,8 +321,8 @@ example_srcs = \
 	example/asm/putpixel.c \
 	example/div16.c \
 	example/fillscr.c \
-	example/mul16.c \
-	example/test.c
+	example/hello.c \
+	example/mul16.c
 
 example_objs = $(example_srcs:.c=.obj)
 example_maps = $(example_srcs:.c=.map)
