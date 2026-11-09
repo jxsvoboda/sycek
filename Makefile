@@ -318,23 +318,20 @@ test_linker_good_outs = \
     test/linker/good/local/test.map
 
 example_srcs = \
+	example/asm/putpixel.c \
+	example/div16.c \
 	example/fillscr.c \
 	example/mul16.c \
 	example/test.c
-example_bins = $(example_srcs:.c=.bin)
+
 example_objs = $(example_srcs:.c=.obj)
 example_maps = $(example_srcs:.c=.map)
 example_tzxs = $(example_srcs:.c=.tzx)
-example_irs = $(example_srcs:.c=.ir)
-example_vrics = $(example_srcs:.c=.vric)
-example_irirs = $(example_srcs:.c=.ir.ir)
-example_irobjs = $(example_irirs:.ir.ir=.ir.obj)
-example_outs = example/lib.o $(example_objs) $(example_bins) \
-    $(example_maps) $(example_tzxs) $(example_irs) $(example_vrics) \
-    $(example_irirs) $(example_irobjs)
+example_outs = example/asm/lib.obj $(example_objs) $(example_maps) \
+    $(example_tzxs)
 
 all: $(binary_ccheck) $(binary_syc) $(binary_sydis) $(binary_sydump) \
-    $(binary_z80test) $(libs_z80)
+    $(binary_z80test) $(libs_z80) $(example_tzxs)
 
 $(binary_ccheck): $(objects_ccheck)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
@@ -582,23 +579,20 @@ test/selfcheck.out: $(ccheck)
 	PATH=$$PATH:$$PWD ./ccheck-run.sh src lib > $@ || (cat $@ ; rm $@ ; false)
 
 #
-# Compiler example
+# Example programs
 #
-example/%.ir: example/%.c $(compiler_z80)
-	$(syc) --no-link --dump-ir $< >$@
-example/%.ir.ir: example/%.ir
-	cp $< $@
-example/%.ir.obj: example/%.ir.ir $(syc)
+example/asm/%.obj: example/asm/%.c $(compiler_z80)
 	$(syc) --no-link $<
-example/%.vric: example/%.c $(compiler_z80)
-	$(syc) --no-link --dump-vric $< >$@
-example/%.bin: example/%.c example/lib.asm $(compiler_z80)
-	syc --out=$@ --no-tape $< example/lib.asm
-example/%.tzx: example/%.c example/lib.asm $(compiler_z80)
-	syc --out=$@ $< example/lib.asm
+example/asm/%.obj: example/asm/%.asm $(compiler_z80)
+	$(syc) --no-link $<
+example/asm/%.tzx: example/asm/%.obj example/asm/lib.obj $(compiler_z80)
+	syc --out=$@ $< example/asm/lib.obj
+example/%.obj: example/%.c $(compiler_z80)
+	$(syc) --no-link $<
+example/%.tzx: example/%.obj $(compiler_z80)
+	syc --out=$@ $<
 
-examples: $(syc) $(example_tzxs) $(example_irs) $(example_vrics) \
-    $(example_irobjs)
+examples: $(example_tzxs)
 
 #
 # Note that if any of the diffs is not empty, that diff command will

@@ -63,16 +63,13 @@ int assign_var(void)
 	return a;
 }
 
-/* Declare external function */
-int putpixel(int x, int y);
-
 /* Call external function */
 int callext(void)
 {
-	putpixel(1, 1);
-	putpixel(2, 2);
-	putpixel(3, 3);
-	putpixel(4, 4);
+	//putpixel(1, 1);
+	//putpixel(2, 2);
+	//putpixel(3, 3);
+	//putpixel(4, 4);
 	return 0;
 }
 
@@ -81,7 +78,7 @@ int while_loop(void)
 {
 	a = 190;
 	while (a) {
-		putpixel(a, a);
+		//putpixel(a, a);
 		a = a - 1;
 	}
 
@@ -93,7 +90,7 @@ int do_loop(void)
 {
 	a = 190;
 	do {
-		putpixel(a, a);
+		//putpixel(a, a);
 		a = a - 1;
 	} while (a);
 
@@ -104,7 +101,7 @@ int do_loop(void)
 int for_loop(void)
 {
 	for (a = 190; a; a = a - 1) {
-		putpixel(a, a);
+		//putpixel(a, a);
 	}
 
 	return 0;

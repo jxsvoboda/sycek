@@ -62,3 +62,8 @@ void cdivintr16(void)
 {
 	divintr16(ga, gb, &gq, &gr);
 }
+
+int main(void)
+{
+	return 0;
+}
