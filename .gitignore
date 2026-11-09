@@ -4,6 +4,10 @@
 /ccheck-hos
 /ccheck-z80.bin
 /ccheck-z80.map
+/example/asm/*.map
+/example/asm/*.tzx
+/example/*.map
+/example/*.tzx
 /lib/clib/c.lib
 /lib/clib/c.map
 /syc

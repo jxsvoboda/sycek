@@ -32,7 +32,7 @@ int main(void)
 	int i;
 
 	for (i = 0; i < 192; i++) {
-		putpixel(a, a);
+		putpixel(i, i);
 	}
 
 	return 0;
