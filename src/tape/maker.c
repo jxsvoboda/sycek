@@ -25,9 +25,11 @@
  */
 
 #include <byteorder.h>
+#include <inttypes.h>
 #include <merrno.h>
 #include <object/object.h>
 #include <object/section.h>
+#include <stdio.h>
 #include <string.h>
 #include <tape/basic_linebuf.h>
 #include <tape/maker.h>
@@ -184,20 +186,37 @@ int tape_make_from_object(obj_object_t *object, const char *name,
 	if (rc != EOK)
 		goto error;
 
-	rc = tape_make_loader(name, 0x8000u /* org */, tape);
+	section = obj_section_first(object);
+
+	/*
+	 * XXX Assuming that the entry point is at the beginning of the
+	 * section which comes first in the file (as opposed to which
+	 * has the lowest address).
+	 */
+	rc = tape_make_loader(name, (uint16_t)section->base_addr, tape);
 	if (rc != EOK)
 		goto error;
 
-	section = obj_section_first(object);
 	while (section != NULL) {
-		if (section->len >= 0x7ffe) {
+		if (section->len >= 0xfffeu) {
+			fprintf(stderr, "Error: Section '%s' size is too large "
+			    "(%" PRIu32 " bytes).\n", section->name,
+			    section->len);
+			rc = EINVAL;
+			goto error;
+		}
+
+		if (section->base_addr + section->len >= 0x10000) {
+			fprintf(stderr, "Error: The end of section '%s' is "
+			    "out of bounds (0x%" PRIx32 ").\n", section->name,
+			    section->base_addr + section->len);
 			rc = EINVAL;
 			goto error;
 		}
 
 		/* header block */
 		rc = tape_make_header(ftype_bytes, section->name,
-		    (uint16_t)section->len, 0x8000u /* org */,
+		    (uint16_t)section->len, (uint16_t)section->base_addr,
 		    32768u, tape);
 		if (rc != EOK)
 			goto error;

@@ -187,4 +187,8 @@ typedef enum {
 	compf_no_stdlib = 0x400
 } comp_flags_t;
 
+enum {
+	org_default = 0x8000u,
+};
+
 #endif

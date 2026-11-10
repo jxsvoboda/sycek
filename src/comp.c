@@ -86,7 +86,6 @@ static z80ic_parser_input_ops_t comp_z80ic_parser_input = {
 };
 
 enum {
-	org_default = 0x8000u,
 	comp_buf_size = 32
 };
 
