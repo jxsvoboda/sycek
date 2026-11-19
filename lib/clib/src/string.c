@@ -25,6 +25,7 @@
  */
 
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 unsigned long strtoul(const char *str, char **eptr, int base)
@@ -51,12 +52,23 @@ void *memmove(void *dest, const void *src, size_t n)
 	return NULL;
 }
 
+/** Fill buffer with a constant character.
+ *
+ * @param buf Destination buffer
+ * @param c Character
+ * @param n Buffer size
+ * @return The value of @a buf
+ */
 void *memset(void *buf, int c, size_t n)
 {
-	(void)buf;
-	(void)c;
-	(void)n;
-	return NULL;
+	int8_t *p = (int8_t *)buf;
+
+	while (n > 0) {
+		*p++ = (int8_t)c;
+		--n;
+	}
+
+	return buf;
 }
 
 char *strchr(const char *s, int c)
