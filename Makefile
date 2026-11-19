@@ -54,7 +54,7 @@ sources_common = \
 sources_ccheck_common = \
     $(sources_common) \
     src/checker.c \
-    src/ccheck.c \
+    src/cli/ccheck.c \
     src/test/ast.c \
     src/test/checker.c \
     src/test/lexer.c \
@@ -66,6 +66,7 @@ sources_syc_common = \
     src/cgenum.c \
     src/cgrec.c \
     src/cgtype.c \
+    src/cli/syc.c \
     src/comp.c \
     src/ir/ir.c \
     src/ir/irlexer.c \
@@ -83,7 +84,6 @@ sources_syc_common = \
     src/preproc/expander.c \
     src/preproc/invoker.c \
     src/scope.c \
-    src/syc.c \
     src/symbols.c \
     src/tape/basic_linebuf.c \
     src/tape/maker.c \
@@ -108,20 +108,20 @@ sources_syc_common = \
     src/z80/z80ic.c
 
 sources_sydis_common = \
+    src/cli/sydis.c \
     src/object/object.c \
     src/object/reloc.c \
     src/object/section.c \
     src/object/symbol.c \
-    src/sydis.c \
     src/z80/decode.c \
     src/z80/z80ic.c
 
 sources_sydump_common = \
+    src/cli/sydump.c \
     src/object/object.c \
     src/object/reloc.c \
     src/object/section.c \
-    src/object/symbol.c \
-    src/sydump.c
+    src/object/symbol.c
 
 sources_z80test_common = \
     ext/z80.c \
