@@ -76,6 +76,8 @@ sources_syc_common = \
     src/object/reloc.c \
     src/object/section.c \
     src/object/symbol.c \
+    src/opt/cfgraph.c \
+    src/opt/reachdef.c \
     src/pathname.c \
     src/preproc/preproc.c \
     src/preproc/expander.c \
