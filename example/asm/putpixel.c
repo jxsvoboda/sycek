@@ -25,7 +25,7 @@
  */
 
 /* Declare external function */
-int putpixel(int x, int y);
+void putpixel(int x, int y);
 
 int main(void)
 {

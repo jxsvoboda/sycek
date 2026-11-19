@@ -34,6 +34,6 @@ int main(void)
 	sp = (unsigned *)0x4000;
 
 	for (i = 0; i < 0xc00u; ++i)
-		sp[i] = 0xffff;
+		sp[i] = 0xffffu;
 	return 0;
 }

@@ -41,12 +41,12 @@ int mul(int a, int b)
 	unsigned char cnt;
 
 	/* Need to copy arguments since they are not lvalues yet */
-	i = a;
-	j = b;
+	i = (unsigned)a;
+	j = (unsigned)b;
 	s = 0;
 
 	for (cnt = 0; cnt < 16; cnt++) {
-		if (i & 1)
+		if ((i & 1) != 0)
 			s += j;
 		i >>= 1;
 		j <<= 1;
