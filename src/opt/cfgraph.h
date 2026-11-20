@@ -31,5 +31,17 @@
 
 extern int cfgraph_create(cfgraph_t **);
 extern void cfgraph_destroy(cfgraph_t *);
+extern cfgraph_bblock_t *cfgraph_bblock_first(cfgraph_t *);
+extern cfgraph_bblock_t *cfgraph_bblock_next(cfgraph_bblock_t *);
+extern cfgraph_arc_t *cfgraph_pred_first(cfgraph_bblock_t *);
+extern cfgraph_arc_t *cfgraph_pred_next(cfgraph_arc_t *);
+extern cfgraph_arc_t *cfgraph_succ_first(cfgraph_bblock_t *);
+extern cfgraph_arc_t *cfgraph_succ_next(cfgraph_arc_t *);
+extern int cfgraph_worklist_create(cfgraph_worklist_t **);
+extern void cfgraph_worklist_destroy(cfgraph_worklist_t *);
+extern int cfgraph_worklist_insert(cfgraph_worklist_t *, cfgraph_bblock_t *);
+extern cfgraph_bblock_t *cfgraph_worklist_get_first(cfgraph_worklist_t *);
+extern void cfgraph_worklist_remove_first(cfgraph_worklist_t *);
+extern int cfgraph_worklist_insert_all(cfgraph_worklist_t *, cfgraph_t *);
 
 #endif

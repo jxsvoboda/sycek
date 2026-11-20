@@ -24,13 +24,79 @@
  * Compute reaching definitions on a control flow graph.
  */
 
-#include <errno.h>
+#include <merrno.h>
 #include <opt/cfgraph.h>
 #include <opt/reachdef.h>
+#include <stdlib.h>
 
+/** Compute reaching definitions on a control flow graph.
+ *
+ * @param cfg Control flow graph
+ * @param rreachdef Place to store pointer to new reaching definitions
+ * @return EOK on success or an error code
+ */
 int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 {
-	(void)cfg;
-	(void)rreachdef;
-	return ENOTSUP;
+	reachdef_t *reachdef = NULL;
+	cfgraph_worklist_t *changed = NULL;
+	cfgraph_bblock_t *block;
+	cfgraph_arc_t *pred;
+	cfgraph_arc_t *succ;
+	int rc;
+
+	reachdef = calloc(1, sizeof(reachdef_t));
+	if (reachdef == NULL) {
+		rc = ENOMEM;
+		goto error;
+	}
+
+	rc = cfgraph_worklist_create(&changed);
+	if (rc != EOK)
+		goto error;
+
+	/* Insert all nodes. */
+	rc = cfgraph_worklist_insert_all(changed, cfg);
+	if (rc != EOK)
+		goto error;
+
+	block = cfgraph_worklist_get_first(changed);
+	while (block != NULL) {
+		cfgraph_worklist_remove_first(changed);
+
+		// !! IN[block] = emptyset
+
+		/*
+		 * Calculate IN[block] from predecessors' OUT[pred].
+		 */
+		pred = cfgraph_pred_first(block);
+		while (pred != NULL) {
+			// IN[block] = IN[block] U OUT[pred]
+			pred = cfgraph_pred_next(pred);
+		}
+
+		// !! oldout = OUT[block]
+		// !! OUT[block] = GEN[block] U (IN[block] - KILL[block])
+		if (true /* !! OUT[block] != oldout */) {
+			succ = cfgraph_succ_first(block);
+			while (succ != NULL) {
+				rc = cfgraph_worklist_insert(changed,
+				    succ->dest);
+				if (rc != EOK)
+					goto error;
+
+				succ = cfgraph_succ_next(succ);
+			}
+		}
+		block = cfgraph_worklist_get_first(changed);
+	}
+
+	cfgraph_worklist_destroy(changed);
+	*rreachdef = reachdef;
+	return EOK;
+error:
+	if (reachdef != NULL)
+		free(reachdef);
+	if (changed != NULL)
+		cfgraph_worklist_destroy(changed);
+	return rc;
 }

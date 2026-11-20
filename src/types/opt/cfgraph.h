@@ -27,9 +27,62 @@
 #ifndef TYPES_OPT_CFGRAPH_H
 #define TYPES_OPT_CFGRAPH_H
 
+#include <adt/list.h>
+
 /** Control flow graph. */
-typedef struct {
-	int dummy;
+typedef struct cfgraph {
+	/** Basic blocks (cfgraph_bblock_t) */
+	list_t bblocks;
 } cfgraph_t;
+
+/** Basic block. */
+typedef struct cfgraph_bblock {
+	/** Containing control flow graph. */
+	struct cfgraph *cfg;
+	/** Link to @c cfgraph->bblocks. */
+	link_t lbblocks;
+	/** List of predecessors/incoming arcs (cfgraph_arc_t) */
+	list_t preds;
+	/** List of successors/outgoing args (cfgraph_arc_t) */
+	list_t succs;
+	/** Instructions (cfgraph_instr_t). */
+	list_t instrs;
+} cfgraph_bblock_t;
+
+/** Control flow graph arc. */
+typedef struct cfgraph_arc {
+	/** Source basic block */
+	struct cfgraph_bblock *src;
+	/** Link to src->succs */
+	link_t lsrc;
+	/** Destination basic block */
+	struct cfgraph_bblock *dest;
+	/** Link to dest->preds */
+	link_t ldest;
+} cfgraph_arc_t;
+
+/** Instruction. */
+typedef struct cfgraph_instr {
+	/** Containing basic block. */
+	struct cfgraph_bblock *bblock;
+	/** Link to @c bblcok->instrs. */
+	link_t linstrs;
+} cfgraph_instr_t;
+
+/** Worklist entry */
+typedef struct cfgraph_wlentry {
+	/** Containing worklist. */
+	struct cfgraph_worklist *worklist;
+	/** Link to @c worklist->entries */
+	link_t lentries;
+	/** Basic block. */
+	cfgraph_bblock_t *bblock;
+} cfgraph_wlentry_t;
+
+/** Worklist of basic blocks. */
+typedef struct cfgraph_worklist {
+	/** Worklist entries (cfgraph_wlentry_t) */
+	list_t entries;
+} cfgraph_worklist_t;
 
 #endif
