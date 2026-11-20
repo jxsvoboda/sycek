@@ -411,7 +411,7 @@ objects_z80 = \
 
 z80objs: $(objects_z80)
 
-lib/clib/c.lib: $(syc) $(objects_clib_z80)
+lib/clib/c.lib: $(objects_clib_z80) $(syc)
 	$(syc) --outtype=lib --out=$@ $(objects_clib_z80)
 
 lib/clib/src/%.obj: lib/clib/src/%.c $(syc)
@@ -420,20 +420,20 @@ lib/clib/src/%.obj: lib/clib/src/%.c $(syc)
 lib/clib/src/%.obj: lib/clib/src/%.asm $(syc)
 	$(syc) --no-link $<
 
-$(binary_ccheck_z80): $(compiler_z80) $(objects_ccheck_z80)
+$(binary_ccheck_z80): $(objects_ccheck_z80) $(compiler_z80)
 	echo $(objects_ccheck_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_ccheck_z80)
 
-$(binary_syc_z80): $(compiler_z80) $(objects_syc_z80)
+$(binary_syc_z80): $(objects_syc_z80) $(compiler_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_syc_z80)
 
-$(binary_sydis_z80): $(compiler_z80) $(objects_sydis_z80)
+$(binary_sydis_z80): $(objects_sydis_z80) $(compiler_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_sydis_z80)
 
-$(binary_sydump_z80): $(compiler_z80) $(objects_sydump_z80)
+$(binary_sydump_z80): $(objects_sydump_z80) $(compiler_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_sydump_z80)
 
-$(binary_z80test_z80): $(compiler_z80) $(objects_z80test_z80)
+$(binary_z80test_z80): $(objects_z80test_z80) $(compiler_z80)
 	$(syc) --no-tape --no-link-range-error --out=$@ $(objects_z80test_z80)
 
 $(objects_ccheck_z80): $(headers) $(lib_headers)
@@ -558,10 +558,10 @@ test/asm/good/%.map: test/asm/good/%.asm $(syc)
 test/asm/good/%.tzx: test/asm/good/%.asm $(syc)
 	$(syc) --no-stdlib $<
 
-test/linker/good/local/%.obj: test/linker/good/local/%.c
+test/linker/good/local/%.obj: test/linker/good/local/%.c $(syc)
 	$(syc) $(sycflags) --no-link $<
 
-test/linker/good/local/test.bin: test/linker/good/local/a.obj test/linker/good/local/b.obj
+test/linker/good/local/test.bin: test/linker/good/local/a.obj test/linker/good/local/b.obj $(syc)
 	$(syc) $(sycflags) --no-stdlib --out=$@ $^
 
 test/linker/good/local/test-z80t.txt: test/linker/good/local/test.scr test/linker/good/local/test.bin $(z80test)
