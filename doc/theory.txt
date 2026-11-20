@@ -6,3 +6,6 @@ https://www.csd.uwo.ca/~mmorenom/CS447/Lectures/CodeOptimization.html/node7.html
 
 Copy propagation:
 https://www.csd.uwo.ca/~mmorenom/CS447/Lectures/CodeOptimization.html/node8.html
+
+SSA & Dead code elimination:
+https://sites.cs.ucsb.edu/~yufeiding/cs293s/slides/293S_07_SSA_dead.pdf
