@@ -30,7 +30,7 @@
 #include <adt/list.h>
 #include <stdbool.h>
 #include <types/ast.h>
-#include <types/cgen.h>
+#include <types/cgen/cgen.h>
 #include <types/ir/ir.h>
 #include <types/ir/irlexer.h>
 #include <types/lexer.h>

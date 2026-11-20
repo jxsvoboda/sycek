@@ -29,12 +29,12 @@
 #include <adt/list.h>
 #include <assert.h>
 #include <ast.h>
-#include <cgenum.h>
-#include <cgrec.h>
+#include <cgen/cgenum.h>
+#include <cgen/cgrec.h>
 #include <charcls.h>
 #include <comp.h>
-#include <cgen.h>
-#include <cgtype.h>
+#include <cgen/cgen.h>
+#include <cgen/cgtype.h>
 #include <inttypes.h>
 #include <ir/ir.h>
 #include <labels.h>

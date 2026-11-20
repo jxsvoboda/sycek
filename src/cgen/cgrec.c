@@ -24,8 +24,8 @@
  * Code generator record definitions
  */
 
-#include <cgrec.h>
-#include <cgtype.h>
+#include <cgen/cgrec.h>
+#include <cgen/cgtype.h>
 #include <ir/ir.h>
 #include <merrno.h>
 #include <stdbool.h>

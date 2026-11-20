@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,7 +24,7 @@
  * Test code generator C types
  */
 
-#include <cgtype.h>
+#include <cgen/cgtype.h>
 #include <merrno.h>
 #include <test/cgtype.h>
 

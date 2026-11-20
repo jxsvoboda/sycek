@@ -28,8 +28,8 @@
  */
 
 #include <assert.h>
-#include <cgrec.h>
-#include <cgtype.h>
+#include <cgen/cgrec.h>
+#include <cgen/cgtype.h>
 #include <charcls.h>
 #include <inttypes.h>
 #include <merrno.h>

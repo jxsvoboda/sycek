@@ -24,7 +24,7 @@
  * Identifier scope
  */
 
-#include <cgtype.h>
+#include <cgen/cgtype.h>
 #include <merrno.h>
 #include <scope.h>
 #include <stdlib.h>

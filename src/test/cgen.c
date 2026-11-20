@@ -25,7 +25,7 @@
  */
 
 #include <ast.h>
-#include <cgen.h>
+#include <cgen/cgen.h>
 #include <ir/ir.h>
 #include <merrno.h>
 #include <symbols.h>

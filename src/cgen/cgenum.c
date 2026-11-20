@@ -24,8 +24,8 @@
  * Code generator enum definitions
  */
 
-#include <cgenum.h>
-#include <cgtype.h>
+#include <cgen/cgenum.h>
+#include <cgen/cgtype.h>
 #include <merrno.h>
 #include <stdint.h>
 #include <stdlib.h>

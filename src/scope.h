@@ -28,9 +28,9 @@
 #define SCOPE_H
 
 #include <stdbool.h>
-#include <types/cgenum.h>
-#include <types/cgrec.h>
-#include <types/cgtype.h>
+#include <types/cgen/cgenum.h>
+#include <types/cgen/cgrec.h>
+#include <types/cgen/cgtype.h>
 #include <types/scope.h>
 #include <types/symbols.h>
 

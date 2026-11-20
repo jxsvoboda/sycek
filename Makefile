@@ -62,10 +62,10 @@ sources_ccheck_common = \
 
 sources_syc_common = \
     $(sources_common) \
-    src/cgen.c \
-    src/cgenum.c \
-    src/cgrec.c \
-    src/cgtype.c \
+    src/cgen/cgen.c \
+    src/cgen/cgenum.c \
+    src/cgen/cgrec.c \
+    src/cgen/cgtype.c \
     src/cli/syc.c \
     src/comp.c \
     src/ir/ir.c \

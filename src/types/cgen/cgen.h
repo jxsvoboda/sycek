@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <types/ast.h>
-#include <types/cgtype.h>
+#include <types/cgen/cgtype.h>
 
 /** Type used internally by code generator to represent sizes of C types. */
 typedef unsigned cgsize_t;

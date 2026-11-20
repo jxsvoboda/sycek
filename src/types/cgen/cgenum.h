@@ -21,21 +21,52 @@
  */
 
 /*
- * Code generator
+ * Code generator enum definitions
  */
 
-#ifndef CGEN_H
-#define CGEN_H
+#ifndef TYPES_CGENUM_H
+#define TYPES_CGENUM_H
 
-#include <types/ast.h>
-#include <types/cgen.h>
-#include <types/ir/ir.h>
-#include <types/parser.h>
-#include <types/symbols.h>
+#include <adt/list.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-extern int cgen_create(cgen_t **);
-extern int cgen_module(cgen_t *, parser_input_ops_t *, void *, void *,
-    symbols_t *, ir_module_t **);
-extern void cgen_destroy(cgen_t *);
+/** Enum element */
+typedef struct cgen_enum_elem {
+	/** Containing enum definition */
+	struct cgen_enum *cgenum;
+	/** Link to @c cgenum->elems */
+	link_t lelems;
+	/** Member identifier */
+	char *ident;
+	/** Member value */
+	int64_t value;
+} cgen_enum_elem_t;
+
+/** Enum definition */
+typedef struct cgen_enum {
+	/** Containing enums structure */
+	struct cgen_enums *enums;
+	/** Link to @c enums->enums */
+	link_t lenums;
+	/** C identifier */
+	char *cident;
+	/** @c true iff enum is in process of being defined */
+	bool defining;
+	/** Next value to be assigned */
+	int64_t next_value;
+	/** Enum elements (of cgen_enum_elem_t) */
+	list_t elems;
+	/** @c true iff enum is defined */
+	bool defined;
+	/** @c true iff enum has a tag, typedef or instance */
+	bool named;
+} cgen_enum_t;
+
+/** Enum definitions */
+typedef struct cgen_enums {
+	/** Enum definitions (of cgen_enum_t) */
+	list_t enums;
+} cgen_enums_t;
 
 #endif

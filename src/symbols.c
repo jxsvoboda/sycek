@@ -27,7 +27,7 @@
  * Symbols correspond to identifiers in the global scope.
  */
 
-#include <cgtype.h>
+#include <cgen/cgtype.h>
 #include <merrno.h>
 #include <stdlib.h>
 #include <string.h>

@@ -27,7 +27,7 @@
 #include <adt/list.h>
 #include <assert.h>
 #include <ast.h>
-#include <cgen.h>
+#include <cgen/cgen.h>
 #include <comp.h>
 #include <ir/ir.h>
 #include <ir/irlexer.h>

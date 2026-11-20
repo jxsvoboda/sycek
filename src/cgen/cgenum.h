@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Jiri Svoboda
+ * Copyright 2026 Jiri Svoboda
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * copy of this software and associated documentation files (the "Software"),
@@ -24,49 +24,28 @@
  * Code generator enum definitions
  */
 
-#ifndef TYPES_CGENUM_H
-#define TYPES_CGENUM_H
+#ifndef CGENUM_H
+#define CGENUM_H
 
-#include <adt/list.h>
-#include <stdbool.h>
 #include <stdint.h>
+#include <types/cgen/cgenum.h>
 
-/** Enum element */
-typedef struct cgen_enum_elem {
-	/** Containing enum definition */
-	struct cgen_enum *cgenum;
-	/** Link to @c cgenum->elems */
-	link_t lelems;
-	/** Member identifier */
-	char *ident;
-	/** Member value */
-	int64_t value;
-} cgen_enum_elem_t;
-
-/** Enum definition */
-typedef struct cgen_enum {
-	/** Containing enums structure */
-	struct cgen_enums *enums;
-	/** Link to @c enums->enums */
-	link_t lenums;
-	/** C identifier */
-	char *cident;
-	/** @c true iff enum is in process of being defined */
-	bool defining;
-	/** Next value to be assigned */
-	int64_t next_value;
-	/** Enum elements (of cgen_enum_elem_t) */
-	list_t elems;
-	/** @c true iff enum is defined */
-	bool defined;
-	/** @c true iff enum has a tag, typedef or instance */
-	bool named;
-} cgen_enum_t;
-
-/** Enum definitions */
-typedef struct cgen_enums {
-	/** Enum definitions (of cgen_enum_t) */
-	list_t enums;
-} cgen_enums_t;
+extern int cgen_enums_create(cgen_enums_t **);
+extern void cgen_enums_destroy(cgen_enums_t *);
+extern int cgen_enum_create(cgen_enums_t *, const char *,
+    cgen_enum_t **);
+extern cgen_enum_t *cgen_enums_find(cgen_enums_t *, const char *);
+extern cgen_enum_t *cgen_enums_first(cgen_enums_t *);
+extern cgen_enum_t *cgen_enums_next(cgen_enum_t *);
+extern void cgen_enum_destroy(cgen_enum_t *);
+extern int cgen_enum_append(cgen_enum_t *, const char *, int64_t,
+    cgen_enum_elem_t **);
+extern cgen_enum_elem_t *cgen_enum_first(cgen_enum_t *);
+extern cgen_enum_elem_t *cgen_enum_next(cgen_enum_elem_t *);
+extern cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *,
+    const char *);
+extern cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *,
+    int64_t);
+extern int64_t cgen_enum_max_val(cgen_enum_t *);
 
 #endif

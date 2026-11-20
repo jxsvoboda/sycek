@@ -21,31 +21,21 @@
  */
 
 /*
- * Code generator enum definitions
+ * Code generator
  */
 
-#ifndef CGENUM_H
-#define CGENUM_H
+#ifndef CGEN_H
+#define CGEN_H
 
-#include <stdint.h>
-#include <types/cgenum.h>
+#include <types/ast.h>
+#include <types/cgen/cgen.h>
+#include <types/ir/ir.h>
+#include <types/parser.h>
+#include <types/symbols.h>
 
-extern int cgen_enums_create(cgen_enums_t **);
-extern void cgen_enums_destroy(cgen_enums_t *);
-extern int cgen_enum_create(cgen_enums_t *, const char *,
-    cgen_enum_t **);
-extern cgen_enum_t *cgen_enums_find(cgen_enums_t *, const char *);
-extern cgen_enum_t *cgen_enums_first(cgen_enums_t *);
-extern cgen_enum_t *cgen_enums_next(cgen_enum_t *);
-extern void cgen_enum_destroy(cgen_enum_t *);
-extern int cgen_enum_append(cgen_enum_t *, const char *, int64_t,
-    cgen_enum_elem_t **);
-extern cgen_enum_elem_t *cgen_enum_first(cgen_enum_t *);
-extern cgen_enum_elem_t *cgen_enum_next(cgen_enum_elem_t *);
-extern cgen_enum_elem_t *cgen_enum_elem_find(cgen_enum_t *,
-    const char *);
-extern cgen_enum_elem_t *cgen_enum_val_find(cgen_enum_t *,
-    int64_t);
-extern int64_t cgen_enum_max_val(cgen_enum_t *);
+extern int cgen_create(cgen_t **);
+extern int cgen_module(cgen_t *, parser_input_ops_t *, void *, void *,
+    symbols_t *, ir_module_t **);
+extern void cgen_destroy(cgen_t *);
 
 #endif

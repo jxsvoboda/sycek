@@ -29,8 +29,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <types/cgrec.h>
-#include <types/cgtype.h>
+#include <types/cgen/cgrec.h>
+#include <types/cgen/cgtype.h>
 #include <types/ir/ir.h>
 
 extern int cgen_records_create(cgen_records_t **);

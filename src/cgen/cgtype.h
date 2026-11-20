@@ -30,9 +30,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <types/cgenum.h>
-#include <types/cgrec.h>
-#include <types/cgtype.h>
+#include <types/cgen/cgenum.h>
+#include <types/cgen/cgrec.h>
+#include <types/cgen/cgtype.h>
 
 extern int cgtype_basic_create(cgtype_elmtype_t, cgtype_basic_t **);
 extern int cgtype_func_create(cgtype_t *, cgtype_func_t **);
