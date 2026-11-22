@@ -62,6 +62,7 @@ sources_ccheck_common = \
 
 sources_syc_common = \
     $(sources_common) \
+    src/adt/bitset.c \
     src/cgen/cgen.c \
     src/cgen/cgenum.c \
     src/cgen/cgrec.c \
@@ -78,6 +79,7 @@ sources_syc_common = \
     src/object/section.c \
     src/object/symbol.c \
     src/opt/cfgraph.c \
+    src/opt/mapvarset.c \
     src/opt/reachdef.c \
     src/pathname.c \
     src/preproc/preproc.c \

@@ -28,11 +28,14 @@
 #define TYPES_OPT_CFGRAPH_H
 
 #include <adt/list.h>
+#include <stdint.h>
 
 /** Control flow graph. */
 typedef struct cfgraph {
 	/** Basic blocks (cfgraph_bblock_t) */
 	list_t bblocks;
+	/** Next basic block index to assign. */
+	uint32_t next_bb_idx;
 } cfgraph_t;
 
 /** Basic block. */
@@ -41,6 +44,8 @@ typedef struct cfgraph_bblock {
 	struct cfgraph *cfg;
 	/** Link to @c cfgraph->bblocks. */
 	link_t lbblocks;
+	/** Unique index. */
+	uint32_t idx;
 	/** List of predecessors/incoming arcs (cfgraph_arc_t) */
 	list_t preds;
 	/** List of successors/outgoing args (cfgraph_arc_t) */

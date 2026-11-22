@@ -47,6 +47,7 @@ int cfgraph_create(cfgraph_t **rcfg)
 		return ENOMEM;
 
 	list_initialize(&cfg->bblocks);
+	cfg->next_bb_idx = 0;
 
 	*rcfg = cfg;
 	return EOK;
