@@ -28,9 +28,12 @@
  * The procedure consists of a set of basic blocks connected with arcs.
  */
 
+#include <adt/bitset.h>
+#include <adt/list.h>
 #include <assert.h>
 #include <merrno.h>
 #include <opt/cfgraph.h>
+#include <opt/mapvarset.h>
 #include <stdlib.h>
 
 /** Create control flow graph.
@@ -48,6 +51,7 @@ int cfgraph_create(cfgraph_t **rcfg)
 
 	list_initialize(&cfg->bblocks);
 	cfg->next_bb_idx = 0;
+	cfg->nvars = 10; /* XXX */
 
 	*rcfg = cfg;
 	return EOK;
@@ -156,6 +160,155 @@ cfgraph_arc_t *cfgraph_succ_next(cfgraph_arc_t *cur)
 		return NULL;
 
 	return list_get_instance(link, cfgraph_arc_t, lsrc);
+}
+
+/** Return first instruction in basic block.
+ *
+ * @param bblock Basic block
+ * @return First instruction or @c NULL if there are none
+ */
+cfgraph_instr_t *cfgraph_instr_first(cfgraph_bblock_t *bblock)
+{
+	link_t *link;
+
+	link = list_first(&bblock->instrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cfgraph_instr_t, linstrs);
+}
+
+/** Return next instruction in basic block.
+ *
+ * @param cur Current instruction
+ * @return Next instruction or @c NULL @a cur is the instruction
+ */
+cfgraph_instr_t *cfgraph_instr_next(cfgraph_instr_t *cur)
+{
+	link_t *link;
+
+	link = list_next(&cur->linstrs, &cur->bblock->instrs);
+	if (link == NULL)
+		return NULL;
+
+	return list_get_instance(link, cfgraph_instr_t, linstrs);
+}
+
+/*** XXX Compute instruction operands (GEN/KILL sets).
+ *
+ * @param instr Instruction
+ * @param opbuf Operands structure where to store the information
+ */
+void cfgraph_instr_get_operands(cfgraph_instr_t *instr,
+    cfgraph_instr_operands_t *opbuf)
+{
+	(void)instr;
+
+	bitset_empty(opbuf->gen);
+	bitset_empty(opbuf->kill);
+
+	/* XXX */
+	bitset_set(opbuf->gen, 0, 1);
+	bitset_set(opbuf->kill, 1, 1);
+}
+
+/** Create basic block operand information structure.
+ *
+ * @param cfg Control flow graph
+ * @param roperands Place to store pointer to new operands structure
+ * @return EOK on success or an error code
+ */
+static int cfgraph_bblock_operands_create(cfgraph_t *cfg,
+    cfgraph_bblock_operands_t **roperands)
+{
+	cfgraph_bblock_operands_t *operands;
+	int rc;
+
+	operands = calloc(1, sizeof(cfgraph_bblock_operands_t));
+	if (operands == NULL)
+		return ENOMEM;
+
+	rc = map_varset_create(cfg, cfg->next_bb_idx, &operands->gen);
+	if (rc != EOK)
+		goto error;
+
+	rc = map_varset_create(cfg, cfg->next_bb_idx, &operands->kill);
+	if (rc != EOK)
+		goto error;
+
+	*roperands = operands;
+	return EOK;
+error:
+	if (operands->gen != NULL)
+		map_varset_destroy(operands->gen);
+	free(operands);
+	return rc;
+}
+
+int cfgraph_get_bblock_operands(cfgraph_t *cfg,
+    cfgraph_bblock_operands_t **roperands)
+{
+	cfgraph_bblock_operands_t *operands = NULL;
+	cfgraph_instr_operands_t *iop = NULL;
+	cfgraph_bblock_t *bblock;
+	cfgraph_instr_t *instr;
+	int rc;
+
+	rc = cfgraph_bblock_operands_create(cfg, &operands);
+	if (rc != EOK)
+		goto error;
+
+	rc = cfgraph_instr_operands_create(cfg, &iop);
+	if (rc != EOK)
+		goto error;
+
+	/* For each basic block. */
+	bblock = cfgraph_bblock_first(cfg);
+	while (bblock != NULL) {
+		/* GEN[b] := {} */
+		bitset_empty(operands->gen->varset[(size_t)bblock->idx]);
+		/* KILL[b] := {} */
+		bitset_empty(operands->kill->varset[(size_t)bblock->idx]);
+
+		/* For each instruction in basic block. */
+		instr = cfgraph_instr_first(bblock);
+		while (instr != NULL) {
+			/* Get instruction GEN/KILL sets. */
+			cfgraph_instr_get_operands(instr, iop);
+
+			/* GEN[b] := (GEN[b] - KILL[i]) U GEN[i] */
+			bitset_diff_2(iop->kill,
+			    operands->gen->varset[(size_t)bblock->idx]);
+			bitset_union_2(iop->gen,
+			    operands->gen->varset[(size_t)bblock->idx]);
+
+			/* KILL[b] := KILL[b] U KILL[i] */
+			bitset_union_2(iop->kill,
+			    operands->kill->varset[(size_t)bblock->idx]);
+			instr = cfgraph_instr_next(instr);
+		}
+
+		bblock = cfgraph_bblock_next(bblock);
+	}
+
+	cfgraph_instr_operands_destroy(iop);
+	*roperands = operands;
+	return EOK;
+error:
+	if (operands != NULL)
+		cfgraph_bblock_operands_destroy(operands);
+	return rc;
+}
+
+/** Destroy basci block operand information.
+ *
+ * @param operands Basic block operand information
+ */
+void cfgraph_bblock_operands_destroy(cfgraph_bblock_operands_t *operands)
+{
+	map_varset_destroy(operands->gen);
+	map_varset_destroy(operands->kill);
+	free(operands);
 }
 
 /** Create empty worklist.
@@ -270,4 +423,48 @@ int cfgraph_worklist_insert_all(cfgraph_worklist_t *worklist, cfgraph_t *cfg)
 	}
 
 	return EOK;
+}
+
+/** Create instruction operand information structure.
+ *
+ * @param cfg Control flow graph
+ * @param roperands Place to store pointer to new operands structure
+ * @return EOK on success or an error code
+ */
+int cfgraph_instr_operands_create(cfgraph_t *cfg,
+    cfgraph_instr_operands_t **roperands)
+{
+	cfgraph_instr_operands_t *operands;
+	int rc;
+
+	operands = calloc(1, sizeof(cfgraph_instr_operands_t));
+	if (operands == NULL)
+		return ENOMEM;
+
+	rc = bitset_create(cfg->nvars, &operands->gen);
+	if (rc != EOK)
+		goto error;
+
+	rc = bitset_create(cfg->nvars, &operands->kill);
+	if (rc != EOK)
+		goto error;
+
+	*roperands = operands;
+	return EOK;
+error:
+	if (operands->gen != NULL)
+		bitset_destroy(operands->gen);
+	free(operands);
+	return rc;
+}
+
+/** Destroy instruction operand information.
+ *
+ * @param operands Instruction operand information
+ */
+void cfgraph_instr_operands_destroy(cfgraph_instr_operands_t *operands)
+{
+	bitset_destroy(operands->gen);
+	bitset_destroy(operands->kill);
+	free(operands);
 }

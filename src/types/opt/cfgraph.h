@@ -27,7 +27,9 @@
 #ifndef TYPES_OPT_CFGRAPH_H
 #define TYPES_OPT_CFGRAPH_H
 
-#include <adt/list.h>
+#include <types/adt/bitset.h>
+#include <types/adt/list.h>
+#include <types/opt/mapvarset.h>
 #include <stdint.h>
 
 /** Control flow graph. */
@@ -36,6 +38,8 @@ typedef struct cfgraph {
 	list_t bblocks;
 	/** Next basic block index to assign. */
 	uint32_t next_bb_idx;
+	/** Number of variables. */
+	uint32_t nvars;
 } cfgraph_t;
 
 /** Basic block. */
@@ -89,5 +93,21 @@ typedef struct cfgraph_worklist {
 	/** Worklist entries (cfgraph_wlentry_t) */
 	list_t entries;
 } cfgraph_worklist_t;
+
+/** GEN/KILL sets for all basic blocks */
+typedef struct {
+	/** Variables set by each basic block. */
+	map_varset_t *gen;
+	/** Variables clobbered by each basic block. */
+	map_varset_t *kill;
+} cfgraph_bblock_operands_t;
+
+/** GEN/KILL sets for an instruction */
+typedef struct {
+	/** Variables set by instruction. */
+	bitset_t *gen;
+	/** Variables clobbered by instruction. */
+	bitset_t *kill;
+} cfgraph_instr_operands_t;
 
 #endif

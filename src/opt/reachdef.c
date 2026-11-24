@@ -40,13 +40,17 @@
 int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 {
 	reachdef_t *reachdef = NULL;
+	cfgraph_bblock_operands_t *bbop = NULL;
 	cfgraph_worklist_t *changed = NULL;
 	cfgraph_bblock_t *block;
+	cfgraph_bblock_t *pblock;
 	cfgraph_arc_t *pred;
 	cfgraph_arc_t *succ;
 	bitset_t *oldout = NULL;
+	bitset_t *tmp = NULL;
 	map_varset_t *rdin = NULL;
 	map_varset_t *rdout = NULL;
+	int cmp;
 	int rc;
 
 	reachdef = calloc(1, sizeof(reachdef_t));
@@ -55,7 +59,15 @@ int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 		goto error;
 	}
 
-	rc = bitset_create(1234/* !! number of vars */, &oldout);
+	rc = cfgraph_get_bblock_operands(cfg, &bbop);
+	if (rc != EOK)
+		goto error;
+
+	rc = bitset_create(cfg->nvars, &oldout);
+	if (rc != EOK)
+		goto error;
+
+	rc = bitset_create(cfg->nvars, &tmp);
 	if (rc != EOK)
 		goto error;
 
@@ -88,8 +100,10 @@ int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 		 */
 		pred = cfgraph_pred_first(block);
 		while (pred != NULL) {
+			pblock = pred->src;
+
 			// IN[block] = IN[block] U OUT[pred]
-			bitset_union_2(rdout->varset[(size_t)block->idx],
+			bitset_union_2(rdout->varset[(size_t)pblock->idx],
 			    rdin->varset[(size_t)block->idx]);
 
 			pred = cfgraph_pred_next(pred);
@@ -98,9 +112,16 @@ int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 		/* oldout := OUT[block] */
 		bitset_copy(rdout->varset[(size_t)block->idx], oldout);
 
-		/* !! OUT[block] := GEN[block] U (IN[block] - KILL[block]) */
+		/* OUT[block] := GEN[block] U (IN[block] - KILL[block]) */
+		bitset_diff_3(rdin->varset[(size_t)block->idx],
+		    bbop->kill->varset[(size_t)block->idx], tmp);
+		bitset_union_3(bbop->gen->varset[(size_t)block->idx],
+		    tmp, rdout->varset[(size_t)block->idx]);
 
-		if (true /* !! OUT[block] != oldout */) {
+		/* if (OUT[block] != oldout) */
+		cmp = bitset_cmp(rdout->varset[(size_t)block->idx],
+		    oldout);
+		if (cmp != 0) {
 			succ = cfgraph_succ_first(block);
 			while (succ != NULL) {
 				rc = cfgraph_worklist_insert(changed,
@@ -114,6 +135,7 @@ int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 		block = cfgraph_worklist_get_first(changed);
 	}
 
+	cfgraph_bblock_operands_destroy(bbop);
 	bitset_destroy(oldout);
 	map_varset_destroy(rdin);
 	map_varset_destroy(rdout);
@@ -121,6 +143,8 @@ int reachdef_compute(cfgraph_t *cfg, reachdef_t **rreachdef)
 	*rreachdef = reachdef;
 	return EOK;
 error:
+	if (bbop != NULL)
+		cfgraph_bblock_operands_destroy(bbop);
 	if (oldout != NULL)
 		bitset_destroy(oldout);
 	if (rdin != NULL)

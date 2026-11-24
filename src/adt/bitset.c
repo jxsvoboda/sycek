@@ -116,6 +116,26 @@ void bitset_empty(bitset_t *bitset)
 		bitset->buf[i] = 0;
 }
 
+/** Compare two bitsets.
+ *
+ * The two bitsets must have the same number of bits.
+ *
+ * @param a First bitset
+ * @param b Second bitset
+ * @return Zero if the bitsets are equal, non-zero otherwise.
+ */
+int bitset_cmp(bitset_t *a, bitset_t *b)
+{
+	size_t i;
+
+	assert(a->bufsz == b->bufsz);
+	for (i = 0; i < a->bufsz; i++)
+		if (a->buf[i] != b->buf[i])
+			return 1;
+
+	return 0;
+}
+
 /** Copy bitset to another bitset.
  *
  * @param src Source bitset
@@ -129,6 +149,24 @@ void bitset_copy(bitset_t *src, bitset_t *dest)
 
 	for (i = 0; i < dest->bufsz; i++)
 		dest->buf[i] = src->buf[i];
+}
+
+/** Compute difference of two bitsets.
+ *
+ * All bitsets must have the same number of bits.
+ *
+ * @param a First bitset
+ * @param b Second bitset
+ * @param dest Result bitset
+ */
+void bitset_union_3(bitset_t *a, bitset_t *b, bitset_t *dest)
+{
+	size_t i;
+
+	assert(a->bufsz == b->bufsz);
+	assert(dest->bufsz == a->bufsz);
+	for (i = 0; i < dest->bufsz; i++)
+		dest->buf[i] = a->buf[i] | b->buf[i];
 }
 
 /** Intersect bitset with another bitset.
@@ -161,4 +199,38 @@ void bitset_union_2(bitset_t *src, bitset_t *dest)
 	assert(dest->bufsz == src->bufsz);
 	for (i = 0; i < dest->bufsz; i++)
 		dest->buf[i] |= src->buf[i];
+}
+
+/** Subtract bitset from another bitset.
+ *
+ * Both bitsets must have the same number of bits.
+ *
+ * @param src Source bitset
+ * @param dest Destination bitset
+ */
+void bitset_diff_2(bitset_t *src, bitset_t *dest)
+{
+	size_t i;
+
+	assert(src->bufsz == dest->bufsz);
+	for (i = 0; i < dest->bufsz; i++)
+		dest->buf[i] &= ~src->buf[i];
+}
+
+/** Compute difference of two bitsets.
+ *
+ * All bitsets must have the same number of bits.
+ *
+ * @param a First bitset
+ * @param b Second bitset
+ * @param dest Result bitset
+ */
+void bitset_diff_3(bitset_t *a, bitset_t *b, bitset_t *dest)
+{
+	size_t i;
+
+	assert(a->bufsz == b->bufsz);
+	assert(dest->bufsz == a->bufsz);
+	for (i = 0; i < dest->bufsz; i++)
+		dest->buf[i] = a->buf[i] & ~b->buf[i];
 }

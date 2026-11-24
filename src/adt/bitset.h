@@ -35,8 +35,12 @@ extern void bitset_destroy(bitset_t *);
 extern void bitset_set(bitset_t *, uint32_t, uint8_t);
 extern uint8_t bitset_get(bitset_t *, uint32_t);
 extern void bitset_empty(bitset_t *);
+extern int bitset_cmp(bitset_t *, bitset_t *);
 extern void bitset_copy(bitset_t *, bitset_t *);
+extern void bitset_diff_2(bitset_t *, bitset_t *);
+extern void bitset_diff_3(bitset_t *, bitset_t *, bitset_t *);
 extern void bitset_isect_2(bitset_t *, bitset_t *);
 extern void bitset_union_2(bitset_t *, bitset_t *);
+extern void bitset_union_3(bitset_t *, bitset_t *, bitset_t *);
 
 #endif

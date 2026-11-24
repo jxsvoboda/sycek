@@ -37,10 +37,20 @@ extern cfgraph_arc_t *cfgraph_pred_first(cfgraph_bblock_t *);
 extern cfgraph_arc_t *cfgraph_pred_next(cfgraph_arc_t *);
 extern cfgraph_arc_t *cfgraph_succ_first(cfgraph_bblock_t *);
 extern cfgraph_arc_t *cfgraph_succ_next(cfgraph_arc_t *);
+extern cfgraph_instr_t *cfgraph_instr_first(cfgraph_bblock_t *);
+extern cfgraph_instr_t *cfgraph_instr_next(cfgraph_instr_t *);
+extern void cfgraph_instr_get_operands(cfgraph_instr_t *,
+    cfgraph_instr_operands_t *);
+extern int cfgraph_get_bblock_operands(cfgraph_t *,
+    cfgraph_bblock_operands_t **);
+extern void cfgraph_bblock_operands_destroy(cfgraph_bblock_operands_t *);
 extern int cfgraph_worklist_create(cfgraph_worklist_t **);
 extern void cfgraph_worklist_destroy(cfgraph_worklist_t *);
 extern int cfgraph_worklist_insert(cfgraph_worklist_t *, cfgraph_bblock_t *);
 extern cfgraph_bblock_t *cfgraph_worklist_get_first(cfgraph_worklist_t *);
+extern int cfgraph_instr_operands_create(cfgraph_t *,
+    cfgraph_instr_operands_t **);
+extern void cfgraph_instr_operands_destroy(cfgraph_instr_operands_t *);
 extern void cfgraph_worklist_remove_first(cfgraph_worklist_t *);
 extern int cfgraph_worklist_insert_all(cfgraph_worklist_t *, cfgraph_t *);
 
