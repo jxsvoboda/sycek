@@ -413,6 +413,11 @@ objects_z80 = \
 
 z80objs: $(objects_z80)
 
+ext/%.obj: ext/%.c $(syc)
+	$(syc) $(sycflags) $(CFLAGS_z80) --no-link --fatal-warn $<
+src/%.obj: src/%.c $(syc)
+	$(syc) $(sycflags) $(CFLAGS_z80) --no-link --fatal-warn $<
+
 lib/clib/c.lib: $(objects_clib_z80) $(syc)
 	$(syc) --outtype=lib --out=$@ $(objects_clib_z80)
 

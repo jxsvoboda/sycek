@@ -199,17 +199,17 @@ int tape_make_from_object(obj_object_t *object, const char *name,
 
 	while (section != NULL) {
 		if (section->len >= 0xfffeu) {
-			fprintf(stderr, "Error: Section '%s' size is too large "
-			    "(%" PRIu32 " bytes).\n", section->name,
+			(void)fprintf(stderr, "Error: Section '%s' size is "
+			    "too large (%" PRIu32 " bytes).\n", section->name,
 			    section->len);
 			rc = EINVAL;
 			goto error;
 		}
 
-		if (section->base_addr + section->len >= 0x10000) {
-			fprintf(stderr, "Error: The end of section '%s' is "
-			    "out of bounds (0x%" PRIx32 ").\n", section->name,
-			    section->base_addr + section->len);
+		if (section->base_addr + section->len >= 0x10000l) {
+			(void)fprintf(stderr, "Error: The end of section "
+			    "'%s' is out of bounds (0x%" PRIx32 ").\n",
+			    section->name, section->base_addr + section->len);
 			rc = EINVAL;
 			goto error;
 		}
